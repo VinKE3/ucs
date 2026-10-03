@@ -1,0 +1,195 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/db';
+import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias } from '@/db/schema';
+import { desc, eq, and, gte, lte, or, like } from 'drizzle-orm';
+import { getSession } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const sedeId = searchParams.get('sedeId');
+    const tipoPersonal = searchParams.get('tipoPersonal');
+    const estado = searchParams.get('estado');
+    const fechaDesde = searchParams.get('fechaDesde');
+    const fechaHasta = searchParams.get('fechaHasta');
+    const q = searchParams.get('q')?.trim();
+
+    let query = db
+      .select({
+        id: asistencias.id,
+        fecha: asistencias.fecha,
+        horaIngreso: asistencias.horaIngreso,
+        horaSalida: asistencias.horaSalida,
+        minutosTotales: asistencias.minutosTotales,
+        estado: asistencias.estado,
+        tipoRegistro: asistencias.tipoRegistro,
+        observaciones: asistencias.observaciones,
+        motivoModificacion: asistencias.motivoModificacion,
+        createdAt: asistencias.createdAt,
+        // Usuario
+        usuarioId: usuarios.id,
+        dni: usuarios.dni,
+        nombres: usuarios.nombres,
+        apellidos: usuarios.apellidos,
+        tipoPersonal: usuarios.tipoPersonal,
+        correo: usuarios.correo,
+        // Sede
+        sedeId: sedes.id,
+        sedeNombre: sedes.nombre,
+        sedeCodigo: sedes.codigo,
+        // Ambiente
+        ambienteId: ambientes.id,
+        ambienteNombre: ambientes.nombre,
+        ambienteCodigo: ambientes.codigo,
+        ambienteTipo: ambientes.tipo,
+      })
+      .from(asistencias)
+      .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+      .innerJoin(sedes, eq(asistencias.sedeId, sedes.id))
+      .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+      .$dynamic();
+
+    const conditions = [];
+
+    if (sedeId && sedeId !== 'todas') {
+      conditions.push(eq(asistencias.sedeId, Number(sedeId)));
+    }
+
+    if (tipoPersonal && tipoPersonal !== 'todos') {
+      conditions.push(eq(usuarios.tipoPersonal, tipoPersonal as any));
+    }
+
+    if (estado && estado !== 'todos') {
+      conditions.push(eq(asistencias.estado, estado as any));
+    }
+
+    if (fechaDesde) {
+      conditions.push(gte(asistencias.fecha, fechaDesde));
+    }
+
+    if (fechaHasta) {
+      conditions.push(lte(asistencias.fecha, fechaHasta));
+    }
+
+    if (q) {
+      const pattern = `%${q}%`;
+      conditions.push(
+        or(
+          like(usuarios.dni, pattern),
+          like(usuarios.nombres, pattern),
+          like(usuarios.apellidos, pattern)
+        )
+      );
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const list = await query.orderBy(desc(asistencias.horaIngreso)).limit(200);
+
+    return NextResponse.json({ asistencias: list });
+  } catch (error) {
+    console.error('Error listando asistencias:', error);
+    return NextResponse.json({ error: 'Error al consultar asistencias' }, { status: 500 });
+  }
+}
+
+// Actualizar asistencia (Cierre manual o Anulación justificada)
+export async function PATCH(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, accion, horaSalida, motivo } = body;
+
+    if (!id || !accion || !motivo || !motivo.trim()) {
+      return NextResponse.json(
+        { error: 'El ID, la acción y el motivo de justificación son obligatorios' },
+        { status: 400 }
+      );
+    }
+
+    const [asistenciaActual] = await db
+      .select()
+      .from(asistencias)
+      .where(eq(asistencias.id, Number(id)))
+      .limit(1);
+
+    if (!asistenciaActual) {
+      return NextResponse.json({ error: 'Asistencia no encontrada' }, { status: 404 });
+    }
+
+    const datosAnteriores = {
+      estado: asistenciaActual.estado,
+      horaSalida: asistenciaActual.horaSalida,
+      minutosTotales: asistenciaActual.minutosTotales,
+      motivoModificacion: asistenciaActual.motivoModificacion,
+    };
+
+    let nuevoEstado: 'ajustado_manual' | 'anulado' = 'ajustado_manual';
+    let nuevaHoraSalida: Date | null = asistenciaActual.horaSalida;
+    let nuevosMinutos: number | null = asistenciaActual.minutosTotales;
+
+    if (accion === 'cerrar_turno') {
+      nuevoEstado = 'ajustado_manual';
+      nuevaHoraSalida = horaSalida ? new Date(horaSalida) : new Date();
+
+      const diffMs = nuevaHoraSalida.getTime() - new Date(asistenciaActual.horaIngreso).getTime();
+      nuevosMinutos = Math.max(1, Math.round(diffMs / (1000 * 60)));
+    } else if (accion === 'anular') {
+      nuevoEstado = 'anulado';
+      nuevosMinutos = 0; // Al anular no suma horas
+    } else {
+      return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+    }
+
+    // Actualizar registro en Neon
+    const [asistenciaActualizada] = await db
+      .update(asistencias)
+      .set({
+        estado: nuevoEstado,
+        horaSalida: nuevaHoraSalida,
+        minutosTotales: nuevosMinutos,
+        modificadoPorId: session.userId,
+        motivoModificacion: motivo.trim(),
+        updatedAt: new Date(),
+      })
+      .where(eq(asistencias.id, Number(id)))
+      .returning();
+
+    // Registrar en auditoría inmutable
+    await db.insert(auditoriaAsistencias).values({
+      asistenciaId: asistenciaActual.id,
+      usuarioAdminId: session.userId,
+      accion: accion.toUpperCase(),
+      motivo: motivo.trim(),
+      datosAnteriores: datosAnteriores,
+      datosNuevos: {
+        estado: nuevoEstado,
+        horaSalida: nuevaHoraSalida,
+        minutosTotales: nuevosMinutos,
+        motivoModificacion: motivo.trim(),
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      mensaje: accion === 'anular' ? 'Marcación anulada exitosamente con auditoría' : 'Turno cerrado manualmente con auditoría',
+      asistencia: asistenciaActualizada,
+    });
+  } catch (error) {
+    console.error('Error modificando asistencia:', error);
+    return NextResponse.json({ error: 'Error interno al actualizar asistencia' }, { status: 500 });
+  }
+}

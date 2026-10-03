@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { sedes, ambientes } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { sedes, ambientes, asistencias, usuarios, cursos } from '@/db/schema';
+import { eq, and, isNotNull } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,10 +29,45 @@ export async function GET() {
       .from(ambientes)
       .where(eq(ambientes.activo, true));
 
-    // Agrupar ambientes dentro de cada sede
+    // Obtener asistencias activas en curso para conocer la ocupación de salas en vivo
+    const activeAsistencias = await db
+      .select({
+        asistenciaId: asistencias.id,
+        ambienteId: asistencias.ambienteId,
+        cursoNombre: cursos.nombre,
+        horaIngreso: asistencias.horaIngreso,
+        nombres: usuarios.nombres,
+        apellidos: usuarios.apellidos,
+        tipoPersonal: usuarios.tipoPersonal,
+      })
+      .from(asistencias)
+      .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+      .leftJoin(cursos, eq(asistencias.cursoId, cursos.id))
+      .where(
+        and(
+          eq(asistencias.estado, 'en_curso'),
+          isNotNull(asistencias.ambienteId)
+        )
+      );
+
+    // Agrupar ambientes dentro de cada sede con datos de ocupación
     const sedesConAmbientes = sedesList.map((sede) => ({
       ...sede,
-      ambientes: ambientesList.filter((a) => a.sedeId === sede.id),
+      ambientes: ambientesList
+        .filter((a) => a.sedeId === sede.id)
+        .map((amb) => {
+          const ocupantes = activeAsistencias.filter((oa) => oa.ambienteId === amb.id);
+          const docentes = ocupantes.filter((o) => o.tipoPersonal === 'docente');
+          const primerDocente = docentes[0];
+          return {
+            ...amb,
+            ocupada: ocupantes.length > 0,
+            docenteActivo: primerDocente ? `${primerDocente.nombres} ${primerDocente.apellidos}` : null,
+            horaIngresoDocente: primerDocente ? primerDocente.horaIngreso : null,
+            cursoActivo: ocupantes.find((o) => o.cursoNombre)?.cursoNombre || null,
+            totalOcupantes: ocupantes.length,
+          };
+        }),
     }));
 
     return NextResponse.json({ sedes: sedesConAmbientes });
@@ -41,3 +76,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Error al consultar sedes' }, { status: 500 });
   }
 }
+

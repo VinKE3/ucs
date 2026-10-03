@@ -50,6 +50,37 @@ export async function POST(request: Request) {
       // Fecha en zona horaria estricta de Lima Perú (UTC-5)
       const fechaStr = getPeruDateString(now);
 
+      // Si la sala ya tiene un docente activo, registramos la nota de relevo / solapamiento
+      let notaObservacion = observaciones ? String(observaciones).trim() : null;
+      if (user.tipoPersonal !== 'tecnico' && ambienteId) {
+        const docentesPrevios = await db
+          .select({
+            nombres: usuarios.nombres,
+            apellidos: usuarios.apellidos,
+            horaIngreso: asistencias.horaIngreso,
+          })
+          .from(asistencias)
+          .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+          .where(
+            and(
+              eq(asistencias.ambienteId, Number(ambienteId)),
+              eq(asistencias.estado, 'en_curso')
+            )
+          )
+          .limit(1);
+
+        if (docentesPrevios.length > 0) {
+          const docPrevio = docentesPrevios[0];
+          const horaPrev = new Date(docPrevio.horaIngreso).toLocaleTimeString('es-PE', {
+            timeZone: PERU_TIMEZONE,
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          const notaRelevo = `Relevo / co-docencia: Sala en uso previo por ${docPrevio.nombres} ${docPrevio.apellidos} (desde ${horaPrev})`;
+          notaObservacion = notaObservacion ? `${notaObservacion} | ${notaRelevo}` : notaRelevo;
+        }
+      }
+
       const [nuevaAsistencia] = await db
         .insert(asistencias)
         .values({
@@ -61,7 +92,7 @@ export async function POST(request: Request) {
           horaIngreso: now,
           estado: 'en_curso',
           tipoRegistro: 'kiosco_autoservicio',
-          observaciones: observaciones || null,
+          observaciones: notaObservacion,
         })
         .returning();
 

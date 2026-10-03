@@ -902,6 +902,82 @@
   font-family: var(--font-mono);
 }
 
+.roomCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.roomOccupiedBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 0.15rem 0.4rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.roomOccupantInfo {
+  font-size: 0.72rem;
+  color: #fbbf24;
+  margin-top: 0.4rem;
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+.roomCardOccupied {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.relevoNoticeBox {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  text-align: left;
+  animation: fadeIn 0.2s ease;
+}
+
+.relevoNoticeHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.relevoNoticeIcon {
+  font-size: 1.15rem;
+}
+
+.relevoNoticeTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.relevoNoticeText {
+  font-size: 0.875rem;
+  color: #f1f5f9;
+  line-height: 1.45;
+  margin: 0 0 0.5rem 0;
+}
+
+.relevoNoticeText strong {
+  color: #ffffff;
+}
+
+.relevoNoticeHint {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
 .checkInBtn {
   width: 100%;
   padding: 1.15rem;
@@ -1071,6 +1147,42 @@
 :global([data-theme="light"]) .roomCode {
   color: #0284c7;
   font-weight: 600;
+}
+
+:global([data-theme="light"]) .roomOccupiedBadge {
+  color: #b45309;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+:global([data-theme="light"]) .roomOccupantInfo {
+  color: #b45309;
+}
+
+:global([data-theme="light"]) .roomCardOccupied {
+  border-color: #fcd34d;
+  background: #fffdfa;
+}
+
+:global([data-theme="light"]) .relevoNoticeBox {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+:global([data-theme="light"]) .relevoNoticeTitle {
+  color: #92400e;
+}
+
+:global([data-theme="light"]) .relevoNoticeText {
+  color: #78350f;
+}
+
+:global([data-theme="light"]) .relevoNoticeText strong {
+  color: #451a03;
+}
+
+:global([data-theme="light"]) .relevoNoticeHint {
+  color: #92400e;
 }
 
 :global([data-theme="light"]) .checkInBtn:disabled {

@@ -11,6 +11,11 @@ interface AmbienteItem {
   codigo: string | null;
   tipo: string;
   capacidad: number | null;
+  ocupada?: boolean;
+  docenteActivo?: string | null;
+  horaIngresoDocente?: string | null;
+  cursoActivo?: string | null;
+  totalOcupantes?: number;
 }
 
 interface SedeItem {
@@ -128,11 +133,22 @@ export default function KioscoTerminal() {
     setLoadingSearch(true);
 
     try {
-      const res = await fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniInput.trim())}`);
-      const data = await res.json();
+      const [resLookup, resSedes] = await Promise.all([
+        fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniInput.trim())}`),
+        fetch('/api/kiosco/sedes'),
+      ]);
 
-      if (!res.ok) {
+      const data = await resLookup.json();
+
+      if (!resLookup.ok) {
         throw new Error(data.error || 'No se encontró ningún usuario con este DNI');
+      }
+
+      if (resSedes.ok) {
+        const dataSedes = await resSedes.json();
+        if (dataSedes.sedes) {
+          setSedesList(dataSedes.sedes);
+        }
       }
 
       setUsuarioActual(data.usuario);
@@ -216,6 +232,7 @@ export default function KioscoTerminal() {
 
   const sedeSeleccionada = sedesList.find((s) => s.id === selectedSedeId);
   const ambientesDisponibles = sedeSeleccionada?.ambientes || [];
+  const selectedAmbienteObj = ambientesDisponibles.find((a) => a.id === selectedAmbienteId);
 
   // Filtrado de ambientes
   const ambientesFiltrados = ambientesDisponibles.filter((amb) => {
@@ -618,18 +635,53 @@ export default function KioscoTerminal() {
                                     type="button"
                                     className={`${styles.roomCard} ${
                                       selectedAmbienteId === amb.id ? styles.roomCardSelected : ''
-                                    }`}
+                                    } ${amb.ocupada ? styles.roomCardOccupied : ''}`}
                                     onClick={() => setSelectedAmbienteId(amb.id)}
                                   >
-                                    <div className={styles.roomName}>{amb.nombre}</div>
+                                    <div className={styles.roomCardTop}>
+                                      <div className={styles.roomName}>{amb.nombre}</div>
+                                      {amb.ocupada && (
+                                        <span className={styles.roomOccupiedBadge} title="Sala con docente en escenario">
+                                          🟡 En uso
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className={styles.roomCode}>
                                       {amb.codigo ? `Código: ${amb.codigo}` : 'Sala de simulación'}
                                     </div>
+                                    {amb.ocupada && amb.docenteActivo && (
+                                      <div className={styles.roomOccupantInfo}>
+                                        <span>👤 {amb.docenteActivo}</span>
+                                        {amb.cursoActivo && <span> • 📚 {amb.cursoActivo}</span>}
+                                      </div>
+                                    )}
                                   </button>
                                 ))}
                               </div>
                             )}
                           </div>
+
+                          {/* AVISO DE RELEVO / CO-DOCENCIA SI LA SALA SELECCIONADA ESTÁ OCUPADA */}
+                          {selectedAmbienteObj?.ocupada && (
+                            <div className={styles.relevoNoticeBox}>
+                              <div className={styles.relevoNoticeHeader}>
+                                <span className={styles.relevoNoticeIcon}>⚠️</span>
+                                <span className={styles.relevoNoticeTitle}>Aviso de Ocupación en Sala</span>
+                              </div>
+                              <p className={styles.relevoNoticeText}>
+                                Esta sala figura actualmente en uso por <strong>{selectedAmbienteObj.docenteActivo}</strong>
+                                {selectedAmbienteObj.cursoActivo && (
+                                  <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                )}
+                                {selectedAmbienteObj.horaIngresoDocente && (
+                                  <span> desde las <strong>{new Date(selectedAmbienteObj.horaIngresoDocente).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                                )}.
+                              </p>
+                              <div className={styles.relevoNoticeHint}>
+                                💡 Si estás relevando al docente o participando en co-docencia, puedes continuar con normalidad. Se registrará la hora exacta de tu ingreso como referencia para el turno.
+                              </div>
+                            </div>
+                          )}
 
                           <button
                             onClick={() => handleMarcar('ingreso')}
@@ -642,6 +694,8 @@ export default function KioscoTerminal() {
                               ? 'Selecciona un curso para continuar'
                               : !selectedAmbienteId
                               ? 'Selecciona una sala para continuar'
+                              : selectedAmbienteObj?.ocupada
+                              ? '🟢 CONFIRMAR INGRESO (RELEVO / CO-DOCENCIA)'
                               : '🟢 REGISTRAR INGRESO A SALA'}
                           </button>
                         </div>

@@ -447,12 +447,60 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setMotivoCierre('');
         await loadAsistencias();
         await loadData();
+        if (selectedSedeId) {
+          loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
+        }
       }
     } catch (err) {
       console.error('Error cerrando turno:', err);
     } finally {
       setActionAsistLoading(false);
     }
+  };
+
+  // Cierre específico por solapamiento / relevo de sala
+  const handleCerrarTurnoPorRelevo = (
+    docenteAnterior: OcupanteItem,
+    docenteActual: OcupanteItem,
+    ambienteNombre: string
+  ) => {
+    const asistEncontrada = asistenciasList.find((a) => a.id === docenteAnterior.asistenciaId);
+    if (asistEncontrada) {
+      setSelectedAsistencia(asistEncontrada);
+    } else {
+      setSelectedAsistencia({
+        id: docenteAnterior.asistenciaId,
+        fecha: new Date(docenteAnterior.horaIngreso).toISOString().split('T')[0],
+        horaIngreso: docenteAnterior.horaIngreso,
+        horaSalida: null,
+        minutosTotales: null,
+        estado: 'en_curso',
+        tipoRegistro: 'kiosco_autoservicio',
+        observaciones: null,
+        motivoModificacion: null,
+        createdAt: docenteAnterior.horaIngreso,
+        usuarioId: docenteAnterior.usuarioId,
+        dni: docenteAnterior.dni,
+        nombres: docenteAnterior.nombres,
+        apellidos: docenteAnterior.apellidos,
+        tipoPersonal: docenteAnterior.tipoPersonal,
+        correo: null,
+        sedeId: selectedSedeId || 0,
+        sedeNombre: selectedSedeObj?.nombre || 'Sede',
+        sedeCodigo: selectedSedeObj?.codigo || null,
+        ambienteId: null,
+        ambienteNombre: ambienteNombre,
+        ambienteCodigo: null,
+      });
+    }
+
+    // Tomar la hora de ingreso del nuevo docente como hora de salida del anterior
+    const dateRelevo = new Date(docenteActual.horaIngreso);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const localIso = `${dateRelevo.getFullYear()}-${pad(dateRelevo.getMonth() + 1)}-${pad(dateRelevo.getDate())}T${pad(dateRelevo.getHours())}:${pad(dateRelevo.getMinutes())}`;
+    setHoraSalidaInput(localIso);
+    setMotivoCierre(`Relevo de sala en ${ambienteNombre} con ${docenteActual.nombres} ${docenteActual.apellidos}`);
+    setShowCerrarTurnoModal(true);
   };
 
   // Anulación con auditoría
@@ -1016,7 +1064,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                           </span>
                         </div>
 
-                        {amb.ocupada ? (
+                        {amb.docentes && amb.docentes.length > 1 ? (
+                          <span className={styles.occupancyBadgeSolapado}>
+                            ⚠️ Solapamiento ({amb.docentes.length} Docentes)
+                          </span>
+                        ) : amb.ocupada ? (
                           <span className={styles.occupancyBadgeInUse}>
                             <span className={styles.liveDot} />
                             <span>En Escenario</span>
@@ -1039,11 +1091,50 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                               </div>
                             )}
 
+                            {/* ALERTA DE SOLAPAMIENTO CON BOTÓN DE REGULARIZACIÓN / RELEVO */}
+                            {amb.docentes && amb.docentes.length > 1 && (() => {
+                              const sortedDocs = [...amb.docentes].sort(
+                                (a, b) => new Date(a.horaIngreso).getTime() - new Date(b.horaIngreso).getTime()
+                              );
+                              const docAnterior = sortedDocs[0];
+                              const docActual = sortedDocs[sortedDocs.length - 1];
+                              const horaDocAntStr = new Date(docAnterior.horaIngreso).toLocaleTimeString('es-PE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              });
+                              const horaDocActStr = new Date(docActual.horaIngreso).toLocaleTimeString('es-PE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              });
+
+                              return (
+                                <div className={styles.solapamientoBox}>
+                                  <div className={styles.solapamientoTitle}>
+                                    <span>⚠️</span> <strong>Posible relevo pendiente de cierre:</strong>
+                                  </div>
+                                  <div className={styles.solapamientoText}>
+                                    El Dr(a). <strong>{docAnterior.nombres} {docAnterior.apellidos}</strong> (ingresó {horaDocAntStr}) y Dr(a). <strong>{docActual.nombres} {docActual.apellidos}</strong> (ingresó {horaDocActStr}) figuran activos al mismo tiempo.
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCerrarTurnoPorRelevo(docAnterior, docActual, amb.nombre)}
+                                    className={styles.btnCerrarRelevo}
+                                    title="Cerrar el turno del docente anterior fijando su salida a la hora de ingreso del nuevo docente"
+                                  >
+                                    ⏱️ Regularizar salida de {docAnterior.nombres} (a las {horaDocActStr})
+                                  </button>
+                                </div>
+                              );
+                            })()}
+
                             {amb.docentes && amb.docentes.length > 0 && (
                               amb.docentes.map((doc) => (
                                 <div key={doc.asistenciaId} className={styles.occupantRow}>
                                   <span className={styles.occupantDocLabel}>👨‍⚕️ Docente:</span>
                                   <span className={styles.occupantDocName}>{doc.nombres} {doc.apellidos}</span>
+                                  <span className={styles.occupantTimeBadge}>
+                                    ({new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})
+                                  </span>
                                 </div>
                               ))
                             )}

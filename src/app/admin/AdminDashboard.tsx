@@ -104,6 +104,7 @@ interface StatsData {
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'personal' | 'ambientes' | 'asistencias'>('ambientes');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0 });
   const [usuariosList, setUsuariosList] = useState<UsuarioItem[]>([]);
   const [searchPersonal, setSearchPersonal] = useState<string>('');
@@ -540,25 +541,31 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       {/* NAVBAR */}
       <header className={styles.navbar}>
         <div className={styles.navBrand}>
-          <div className={styles.brandLogo}>🏥</div>
+          <div className={styles.brandLogo}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 6v12M6 12h12" />
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+            </svg>
+          </div>
           <div className={styles.brandText}>
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontSize: '0.62rem', letterSpacing: '0.14em', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
                 UNIVERSIDAD
               </span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-                <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
                   CIENTÍFICA
                 </span>
-                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ff5a00', letterSpacing: '0.08em' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#ff5a00', letterSpacing: '0.08em' }}>
                   DEL SUR
                 </span>
               </div>
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '0.15rem' }}>Clínica de Simulación</span>
+            <span style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '0.1rem' }}>Clínica de Simulación</span>
           </div>
         </div>
 
+        {/* ACCIONES DE ESCRITORIO */}
         <div className={styles.navActions}>
           <div className={styles.userInfo}>
             <div className={styles.userAvatar}>
@@ -582,6 +589,25 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             Cerrar Sesión
           </button>
         </div>
+
+        {/* CONTROLES MÓVILES (AVATAR + HAMBURGUESA) */}
+        <div className={styles.navMobileControls}>
+          <div className={styles.userAvatarMobile} onClick={() => setMobileMenuOpen(true)}>
+            {session.nombres.charAt(0)}
+          </div>
+          <button
+            type="button"
+            className={styles.hamburgerBtn}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Abrir menú"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* CONTENIDO PRINCIPAL */}
@@ -594,7 +620,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statNumber}>{stats.sedes}</span>
-              <span className={styles.statLabel}>Sedes Registradas</span>
+              <span className={styles.statLabel}>Sedes</span>
             </div>
           </div>
 
@@ -604,7 +630,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statNumber}>{stats.ambientes}</span>
-              <span className={styles.statLabel}>Salas de Simulación</span>
+              <span className={styles.statLabel}>Salas</span>
             </div>
           </div>
 
@@ -614,7 +640,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statNumber}>{stats.usuarios}</span>
-              <span className={styles.statLabel}>Personal Registrado</span>
+              <span className={styles.statLabel}>Personal</span>
             </div>
           </div>
 
@@ -624,7 +650,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statNumber}>{stats.enCurso}</span>
-              <span className={styles.statLabel}>Turnos en Curso</span>
+              <span className={styles.statLabel}>En Turno</span>
             </div>
           </div>
         </section>
@@ -652,22 +678,24 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             </button>
           </div>
 
-          {activeTab === 'personal' && (
-            <button onClick={() => setShowCreateModal(true)} className={styles.actionBtn}>
-              <span>+</span> Nuevo Personal
-            </button>
-          )}
+          <div className={styles.tabActionButtons}>
+            {activeTab === 'personal' && (
+              <button onClick={() => setShowCreateModal(true)} className={styles.actionBtn}>
+                <span>+</span> Nuevo Personal
+              </button>
+            )}
 
-          {activeTab === 'ambientes' && (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => setShowSedeModal(true)} className={styles.secondaryActionBtn}>
-                <span>+</span> Nueva Sede
-              </button>
-              <button onClick={() => setShowAmbienteModal(true)} className={styles.actionBtn}>
-                <span>+</span> Agregar Sala a {selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}
-              </button>
-            </div>
-          )}
+            {activeTab === 'ambientes' && (
+              <div className={styles.ambientesActionGroup}>
+                <button onClick={() => setShowSedeModal(true)} className={styles.secondaryActionBtn}>
+                  <span>+</span> Nueva Sede
+                </button>
+                <button onClick={() => setShowAmbienteModal(true)} className={styles.actionBtn}>
+                  <span>+</span> Agregar Sala a {selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}
+                </button>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* PANEL: MASTER-DETAIL DE SEDES Y AMBIENTES */}
@@ -711,7 +739,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                 </div>
 
                 <button onClick={() => setShowAmbienteModal(true)} className={styles.actionBtn}>
-                  <span>+</span> Agregar Sala a esta Sede
+                  <span>+</span>
+                  <span className={styles.hideOnMobile}> Agregar Sala a esta Sede</span>
+                  <span className={styles.showOnMobile}> Agregar Sala</span>
                 </button>
               </div>
 
@@ -745,6 +775,29 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                   />
                 </div>
 
+                {/* SELECTOR DESPLEGABLE PARA MÓVILES */}
+                <div className={styles.categorySelectWrapper}>
+                  <div className={styles.selectInnerWrap}>
+                    <span className={styles.selectIcon}>🏷️</span>
+                    <select
+                      id="categoryFilterSelect"
+                      className={styles.categorySelect}
+                      value={filterTipo}
+                      onChange={(e) => setFilterTipo(e.target.value)}
+                      aria-label="Filtrar por categoría de sala"
+                    >
+                      <option value="todos">Todas las Categorías</option>
+                      <option value="alta_fidelidad">Alta Fidelidad</option>
+                      <option value="habilidades">Habilidades</option>
+                      <option value="consultorio">Consultorios / OSCE</option>
+                      <option value="hospitalizacion">Hospitalización</option>
+                      <option value="debriefing">Debriefing</option>
+                    </select>
+                    <span className={styles.selectChevron}>▼</span>
+                  </div>
+                </div>
+
+                {/* BOTONES TIPO PILL PARA ESCRITORIO */}
                 <div className={styles.categoryPills}>
                   {[
                     { id: 'todos', label: 'Todas las Categorías' },
@@ -901,6 +954,27 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                   />
                 </div>
 
+                {/* SELECTOR DESPLEGABLE DE PERSONAL PARA MÓVILES */}
+                <div className={styles.categorySelectWrapper}>
+                  <div className={styles.selectInnerWrap}>
+                    <span className={styles.selectIcon}>👥</span>
+                    <select
+                      className={styles.categorySelect}
+                      value={filterPersonalTipo}
+                      onChange={(e) => setFilterPersonalTipo(e.target.value)}
+                      aria-label="Filtrar por tipo de personal"
+                    >
+                      <option value="todos">Todos ({usuariosList.length})</option>
+                      <option value="en_clinica">🟢 En Clínica Ahora ({totalEnClinica})</option>
+                      <option value="docente">Docentes ({totalDocentes})</option>
+                      <option value="tecnico">Técnicos ({totalTecnicos})</option>
+                      <option value="paciente_simulado">Pacientes Simulados ({totalPacientes})</option>
+                    </select>
+                    <span className={styles.selectChevron}>▼</span>
+                  </div>
+                </div>
+
+                {/* BOTONES TIPO PILL PARA ESCRITORIO */}
                 <div className={styles.categoryPills}>
                   <button
                     type="button"
@@ -1800,6 +1874,158 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           </div>
         </div>
       )}
+
+      {/* DRAWER MÓVIL SLIDEOUT */}
+      <div
+        className={`${styles.drawerOverlay} ${mobileMenuOpen ? styles.drawerOverlayVisible : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+      <aside className={`${styles.mobileDrawer} ${mobileMenuOpen ? styles.mobileDrawerOpen : ''}`}>
+        <div className={styles.drawerHeader}>
+          <div className={styles.drawerBrand}>
+            <div className={styles.drawerLogoBadge}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 6v12M6 12h12" />
+                <rect x="3" y="3" width="18" height="18" rx="5" />
+              </svg>
+            </div>
+            <div>
+              <div className={styles.drawerBrandTitle}>UCS Simulación</div>
+              <div className={styles.drawerBrandSub}>Panel Administrativo</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.drawerCloseBtn}
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Cerrar menú"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* PERFIL DEL ADMINISTRADOR */}
+        <div className={styles.drawerUserCard}>
+          <div className={styles.drawerAvatar}>{session.nombres.charAt(0)}</div>
+          <div className={styles.drawerUserInfo}>
+            <div className={styles.drawerUserName}>{session.nombres} {session.apellidos}</div>
+            <div className={styles.drawerUserEmail}>{session.correo || 'admin@cientifica.edu.pe'}</div>
+            <span className={`${styles.roleBadge} ${session.rolSistema === 'super_admin' ? styles.roleSuperAdmin : styles.roleAdmin}`}>
+              {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
+            </span>
+          </div>
+        </div>
+
+        {/* ACCESO RÁPIDO A KIOSCO */}
+        <div className={styles.drawerNavList}>
+          <Link
+            href="/"
+            className={styles.drawerKioscoBtn}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className={styles.drawerKioscoIcon}>⚡</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Modo Kiosco</div>
+              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Terminal de marcación por DNI</div>
+            </div>
+          </Link>
+        </div>
+
+        {/* RESUMEN DE MÉTRICAS RÁPIDAS EN EL DRAWER */}
+        <div className={styles.drawerStatsMini}>
+          <div className={styles.drawerStatMiniItem}>
+            <span className={styles.drawerStatMiniNum}>{stats.sedes}</span>
+            <span className={styles.drawerStatMiniLabel}>Sedes</span>
+          </div>
+          <div className={styles.drawerStatMiniItem}>
+            <span className={styles.drawerStatMiniNum}>{stats.ambientes}</span>
+            <span className={styles.drawerStatMiniLabel}>Salas</span>
+          </div>
+          <div className={styles.drawerStatMiniItem}>
+            <span className={styles.drawerStatMiniNum}>{stats.usuarios}</span>
+            <span className={styles.drawerStatMiniLabel}>Personal</span>
+          </div>
+          <div className={styles.drawerStatMiniItem}>
+            <span className={styles.drawerStatMiniNum} style={{ color: '#00e699' }}>{stats.enCurso}</span>
+            <span className={styles.drawerStatMiniLabel}>En Turno</span>
+          </div>
+        </div>
+
+        {/* BOTÓN CERRAR SESIÓN */}
+        <div className={styles.drawerFooter}>
+          <button onClick={handleLogout} className={styles.drawerLogoutBtn}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* BOTTOM NAVIGATION BAR PARA MÓVILES */}
+      <nav className={styles.bottomNav}>
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${activeTab === 'ambientes' ? styles.bottomNavItemActive : ''}`}
+          onClick={() => {
+            setActiveTab('ambientes');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <span className={styles.bottomNavBadge}>{stats.sedes}</span>
+          </div>
+          <span className={styles.bottomNavLabel}>Sedes / Salas</span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${activeTab === 'personal' ? styles.bottomNavItemActive : ''}`}
+          onClick={() => {
+            setActiveTab('personal');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span className={styles.bottomNavBadge}>{usuariosList.length}</span>
+          </div>
+          <span className={styles.bottomNavLabel}>Personal</span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${activeTab === 'asistencias' ? styles.bottomNavItemActive : ''}`}
+          onClick={() => {
+            setActiveTab('asistencias');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            {stats.enCurso > 0 && (
+              <span className={`${styles.bottomNavBadge} ${styles.bottomNavBadgeActive}`}>
+                {stats.enCurso}
+              </span>
+            )}
+          </div>
+          <span className={styles.bottomNavLabel}>Asistencias</span>
+        </button>
+      </nav>
     </div>
   );
 }

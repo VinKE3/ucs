@@ -43,6 +43,7 @@ export default function KioscoTerminal() {
   const [dniInput, setDniInput] = useState('');
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [showKeypad, setShowKeypad] = useState(false);
 
   // Filtros de ambiente en el kiosco
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('todos');
@@ -92,8 +93,8 @@ export default function KioscoTerminal() {
     }
   };
 
-  const handleBuscarDni = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBuscarDni = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!dniInput.trim()) return;
 
     setSearchError(null);
@@ -119,6 +120,23 @@ export default function KioscoTerminal() {
       setSearchError(err instanceof Error ? err.message : 'Error al consultar DNI');
     } finally {
       setLoadingSearch(false);
+    }
+  };
+
+  const handleKeypadPress = (val: string) => {
+    if (val === 'clear') {
+      setDniInput('');
+      inputRef.current?.focus();
+    } else if (val === 'backspace') {
+      setDniInput((prev) => prev.slice(0, -1));
+      inputRef.current?.focus();
+    } else if (val === 'enter') {
+      handleBuscarDni();
+    } else {
+      if (dniInput.length < 12) {
+        setDniInput((prev) => prev + val);
+      }
+      inputRef.current?.focus();
     }
   };
 
@@ -189,101 +207,224 @@ export default function KioscoTerminal() {
 
   return (
     <div className={styles.wrapper}>
-      {/* BARRA SUPERIOR */}
+      {/* BARRA SUPERIOR INSTITUCIONAL */}
       <header className={styles.topBar}>
         <div className={styles.brand}>
-          <div className={styles.logo}>🏥</div>
+          <div className={styles.logoBadge}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 6v12M6 12h12" />
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+            </svg>
+          </div>
           <div>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontSize: '0.62rem', letterSpacing: '0.14em', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                UNIVERSIDAD
-              </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-                <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                  CIENTÍFICA
-                </span>
-                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ff5a00', letterSpacing: '0.08em' }}>
-                  DEL SUR
-                </span>
+            <div className={styles.brandTitleWrap}>
+              <span className={styles.brandUni}>UNIVERSIDAD</span>
+              <div className={styles.brandMainLine}>
+                <span className={styles.brandCientifica}>CIENTÍFICA</span>
+                <span className={styles.brandDelSur}>DEL SUR</span>
               </div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '0.15rem' }}>Clínica de Simulación</div>
+            <div className={styles.brandSubtitle}>Clínica de Simulación</div>
           </div>
         </div>
 
-        <Link href="/login" className={styles.adminBtn}>
-          <span>🔒</span> Acceso Administrativo
+        <Link href="/login" className={styles.adminBtn} title="Ir a Panel Administrativo">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span className={styles.adminBtnText}>Acceso Admin</span>
         </Link>
       </header>
 
       {/* SECCIÓN PRINCIPAL DEL KIOSCO */}
       <main className={styles.mainSection}>
         <section className={styles.kioscoBox}>
+          {/* BADGE DE ESTADO DEL SISTEMA */}
+          <div className={styles.statusBar}>
+            <span className={styles.statusDot}></span>
+            <span>Terminal de Asistencia • En tiempo real</span>
+          </div>
+
           <div className={styles.boxHeader}>
             <h1 className={styles.boxTitle}>Registro de Asistencia</h1>
             <p className={styles.boxSubtitle}>
-              Ingresa tu DNI para marcar tu ingreso o salida de turno y salas
+              Ingresa tu DNI para registrar tu turno o ingreso a salas de simulación
             </p>
           </div>
 
           {/* SELECTOR DE SEDE (Con memoria persistente en el dispositivo) */}
-          <div className={styles.sedeSelectorRow}>
-            {sedesList.map((sede) => (
-              <button
-                key={sede.id}
-                type="button"
-                className={`${styles.sedeBtn} ${selectedSedeId === sede.id ? styles.sedeBtnActive : ''}`}
-                onClick={() => handleSelectSede(sede.id)}
-              >
-                📍 {sede.nombre}
-              </button>
-            ))}
+          <div className={styles.sedeSelectorWrap}>
+            <span className={styles.sedeSelectorLabel}>Campus seleccionado:</span>
+            <div className={styles.sedeSelectorRow}>
+              {sedesList.map((sede) => {
+                const isActive = selectedSedeId === sede.id;
+                return (
+                  <button
+                    key={sede.id}
+                    type="button"
+                    className={`${styles.sedeBtn} ${isActive ? styles.sedeBtnActive : ''}`}
+                    onClick={() => handleSelectSede(sede.id)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span>{sede.nombre}</span>
+                    {isActive && <span className={styles.sedeCheck}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* MENSAJE DE ÉXITO TRAS MARCAR */}
           {feedback ? (
             <div className={`${styles.feedbackAlert} ${styles.feedbackSuccess}`}>
-              <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>
-                {feedback.tipo === 'ingreso' ? '✅' : '👋'}
+              <div className={styles.feedbackIconWrap}>
+                {feedback.tipo === 'ingreso' ? (
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00e699" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                ) : (
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                )}
               </div>
               <div className={styles.feedbackSuccessTitle}>
-                {feedback.tipo === 'ingreso' ? '¡Ingreso Registrado!' : '¡Salida Registrada!'}
+                {feedback.tipo === 'ingreso' ? '¡Ingreso Registrado con Éxito!' : '¡Salida Registrada con Éxito!'}
               </div>
-              <p style={{ fontSize: '1.05rem', color: '#e2e8f0' }}>{feedback.mensaje}</p>
-              <button onClick={resetearTerminal} className={styles.resetBtn}>
-                Listo / Siguiente persona →
+              <p className={styles.feedbackSuccessDesc}>{feedback.mensaje}</p>
+              <button onClick={resetearTerminal} className={styles.nextPersonBtn}>
+                Siguiente persona →
               </button>
             </div>
           ) : (
             <>
               {/* BUSCADOR DE DNI */}
-              <form onSubmit={handleBuscarDni} className={styles.searchForm}>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  required
-                  autoFocus
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={12}
-                  placeholder="Digita tu DNI aquí..."
-                  value={dniInput}
-                  onChange={(e) => setDniInput(e.target.value)}
-                  className={styles.dniInput}
-                  disabled={loadingSearch || marcando}
-                />
-                <button
-                  type="submit"
-                  className={styles.searchBtn}
-                  disabled={loadingSearch || !dniInput.trim()}
-                >
-                  {loadingSearch ? 'Buscando...' : 'Continuar →'}
-                </button>
-              </form>
+              {!usuarioActual && (
+                <div className={styles.searchSection}>
+                  <form onSubmit={handleBuscarDni} className={styles.searchForm}>
+                    <div className={styles.inputOuterWrapper}>
+                      <div className={styles.inputInnerWrapper}>
+                        <span className={styles.inputIcon}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="5" width="20" height="14" rx="2" />
+                            <circle cx="8" cy="12" r="2" />
+                            <path d="M14 10h4M14 14h4" />
+                          </svg>
+                        </span>
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          required
+                          autoFocus
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={12}
+                          placeholder="Digita tu DNI o Carné..."
+                          value={dniInput}
+                          onChange={(e) => setDniInput(e.target.value.replace(/\D/g, ''))}
+                          className={styles.dniInput}
+                          disabled={loadingSearch || marcando}
+                        />
+                        {dniInput && (
+                          <button
+                            type="button"
+                            className={styles.clearInputBtn}
+                            onClick={() => {
+                              setDniInput('');
+                              inputRef.current?.focus();
+                            }}
+                            title="Borrar"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div className={styles.inputHintRow}>
+                        <span className={styles.inputHint}>8 dígitos para DNI nacional</span>
+                        <span className={styles.inputCounter}>{dniInput.length} / 8</span>
+                      </div>
+                    </div>
 
-              {searchError && (
-                <div className={`${styles.feedbackAlert} ${styles.feedbackError}`}>
-                  ⚠️ {searchError}
+                    <button
+                      type="submit"
+                      className={styles.searchBtn}
+                      disabled={loadingSearch || !dniInput.trim()}
+                    >
+                      {loadingSearch ? (
+                        <>
+                          <span className={styles.btnSpinner}></span>
+                          <span>Consultando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Continuar</span>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* BOTÓN TOGGLE TECLADO EN PANTALLA PARA TABLETS / KIOSCO */}
+                  <div className={styles.keypadToggleRow}>
+                    <button
+                      type="button"
+                      onClick={() => setShowKeypad(!showKeypad)}
+                      className={styles.keypadToggleBtn}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="4" width="20" height="16" rx="2" />
+                        <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10" />
+                      </svg>
+                      <span>{showKeypad ? 'Ocultar teclado táctil' : 'Usar teclado táctil en pantalla'}</span>
+                    </button>
+                  </div>
+
+                  {/* TECLADO VIRTUAL TÁCTIL */}
+                  {showKeypad && (
+                    <div className={styles.virtualKeypad}>
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'].map((key) => {
+                        let label = key;
+                        let isSpecial = false;
+                        if (key === 'clear') {
+                          label = 'C';
+                          isSpecial = true;
+                        } else if (key === 'backspace') {
+                          label = '⌫';
+                          isSpecial = true;
+                        }
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={`${styles.keypadBtn} ${isSpecial ? styles.keypadBtnSpecial : ''}`}
+                            onClick={() => handleKeypadPress(key)}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {searchError && (
+                    <div className={`${styles.feedbackAlert} ${styles.feedbackError}`}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span>{searchError}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -296,17 +437,24 @@ export default function KioscoTerminal() {
                       <span className={styles.userNameBig}>
                         {usuarioActual.nombres} {usuarioActual.apellidos}
                       </span>
+                      <span className={styles.userDniBadge}>DNI: {usuarioActual.dni}</span>
                     </div>
 
                     <div>
                       {usuarioActual.tipoPersonal === 'docente' && (
-                        <span className={`${styles.roleBadgeLarge} ${styles.roleDocente}`}>👨‍⚕️ Docente</span>
+                        <span className={`${styles.roleBadgeLarge} ${styles.roleDocente}`}>
+                          👨‍⚕️ Docente
+                        </span>
                       )}
                       {usuarioActual.tipoPersonal === 'tecnico' && (
-                        <span className={`${styles.roleBadgeLarge} ${styles.roleTecnico}`}>🛠️ Técnico de Simulación</span>
+                        <span className={`${styles.roleBadgeLarge} ${styles.roleTecnico}`}>
+                          🛠️ Técnico de Simulación
+                        </span>
                       )}
                       {usuarioActual.tipoPersonal === 'paciente_simulado' && (
-                        <span className={`${styles.roleBadgeLarge} ${styles.rolePaciente}`}>🎭 Paciente Simulado</span>
+                        <span className={`${styles.roleBadgeLarge} ${styles.rolePaciente}`}>
+                          🎭 Paciente Simulado
+                        </span>
                       )}
                     </div>
                   </div>
@@ -325,7 +473,7 @@ export default function KioscoTerminal() {
                               <span> • <strong>Clínica General</strong></span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                          <div className={styles.activeSessionTime}>
                             Hora de ingreso:{' '}
                             {new Date(asistenciaActiva.horaIngreso).toLocaleTimeString('es-PE', {
                               hour: '2-digit',
@@ -361,7 +509,7 @@ export default function KioscoTerminal() {
                             disabled={marcando}
                             className={styles.checkInBtn}
                           >
-                            {marcando ? 'Registrando ingreso...' : '🟢 REGISTRAR INGRESO A CLINICA'}
+                            {marcando ? 'Registrando ingreso...' : '🟢 REGISTRAR INGRESO A CLÍNICA'}
                           </button>
                         </div>
                       ) : (
@@ -372,7 +520,7 @@ export default function KioscoTerminal() {
                               Selecciona la sala de tu simulación / práctica ({ambientesFiltrados.length} disponibles):
                             </div>
 
-                            {/* FILTROS INTELIGENTES PARA 40+ AMBIENTES */}
+                            {/* FILTROS INTELIGENTES PARA AMBIENTES */}
                             <div className={styles.roomFilterControls}>
                               <input
                                 type="text"
@@ -407,7 +555,7 @@ export default function KioscoTerminal() {
 
                             {/* GRID DE SALAS FILTRADAS */}
                             {ambientesFiltrados.length === 0 ? (
-                              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
+                              <div className={styles.emptyRoomsNotice}>
                                 No se encontraron salas con el filtro seleccionado.
                               </div>
                             ) : (
@@ -447,9 +595,9 @@ export default function KioscoTerminal() {
                     </div>
                   )}
 
-                  <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+                  <div className={styles.cancelWrap}>
                     <button onClick={resetearTerminal} className={styles.resetBtn}>
-                      Cancelar / No soy yo
+                      ← Cancelar / No soy yo
                     </button>
                   </div>
                 </div>
@@ -461,3 +609,4 @@ export default function KioscoTerminal() {
     </div>
   );
 }
+

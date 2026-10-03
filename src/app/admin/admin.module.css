@@ -4,6 +4,9 @@
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
 }
 
 .navbar {
@@ -16,7 +19,8 @@
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 40;
+  max-width: 100vw;
 }
 
 .navBrand {
@@ -557,6 +561,72 @@
   border-color: #ff5a00;
   color: #ff853f;
   font-weight: 700;
+}
+
+/* Helpers de texto responsivo */
+.hideOnMobile {
+  display: inline;
+}
+
+.showOnMobile {
+  display: none;
+}
+
+/* Selector desplegable de categorías en móvil */
+.categorySelectWrapper {
+  display: none;
+  width: 100%;
+}
+
+.selectInnerWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.selectIcon {
+  position: absolute;
+  left: 0.95rem;
+  font-size: 0.95rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.categorySelect {
+  width: 100%;
+  padding: 0.8rem 2.5rem 0.8rem 2.65rem;
+  background: rgba(10, 14, 23, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.categorySelect:focus {
+  border-color: #ff5a00;
+  box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.2);
+}
+
+.categorySelect option {
+  background: #06152d;
+  color: #ffffff;
+  padding: 0.5rem;
+}
+
+.selectChevron {
+  position: absolute;
+  right: 1rem;
+  font-size: 0.65rem;
+  color: #ff5a00;
+  pointer-events: none;
 }
 
 .ambientesGrid {
@@ -1152,6 +1222,497 @@
   background: rgba(239, 68, 68, 0.2);
   color: #ffffff;
 }
+
+/* ==========================================================================
+   CONTROLES MÓVILES DEL HEADER
+   ========================================================================== */
+.navMobileControls {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.userAvatarMobile {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d346c, #ff5a00);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255, 90, 0, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.hamburgerBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #cbd5e1;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hamburgerBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: #ff5a00;
+}
+
+/* ==========================================================================
+   DRAWER MÓVIL SLIDEOUT
+   ========================================================================== */
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.drawerOverlayVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobileDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 82%;
+  max-width: 340px;
+  background: rgba(6, 21, 45, 0.96);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1.25rem;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.mobileDrawerOpen {
+  transform: translateX(0);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 1.25rem;
+}
+
+.drawerBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.drawerLogoBadge {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0d346c, #061836);
+  border: 1px solid #ff5a00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff5a00;
+}
+
+.drawerBrandTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.drawerBrandSub {
+  font-size: 0.725rem;
+  color: #94a3b8;
+}
+
+.drawerCloseBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.drawerCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.drawerUserCard {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  margin-bottom: 1.25rem;
+}
+
+.drawerAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d346c, #ff5a00);
+  color: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.drawerUserInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.drawerUserName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawerUserEmail {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawerNavList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.drawerKioscoBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 90, 0, 0.12);
+  border: 1px solid rgba(255, 90, 0, 0.35);
+  border-radius: 12px;
+  color: #ff853f;
+  transition: all 0.2s ease;
+}
+
+.drawerKioscoBtn:hover {
+  background: rgba(255, 90, 0, 0.2);
+  border-color: #ff5a00;
+  color: #ffffff;
+}
+
+.drawerKioscoIcon {
+  font-size: 1.35rem;
+}
+
+.drawerStatsMini {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: auto;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.drawerStatMiniItem {
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0.5rem;
+}
+
+.drawerStatMiniNum {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.drawerStatMiniLabel {
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.drawerFooter {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.drawerLogoutBtn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+  color: #fca5a5;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.drawerLogoutBtn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   BOTTOM NAVIGATION BAR PARA MÓVILES
+   ========================================================================== */
+.bottomNav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(6, 21, 45, 0.94);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.bottomNavItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.bottomNavItemActive {
+  color: #ff5a00;
+}
+
+.bottomNavIconWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottomNavBadge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.1rem 0.35rem;
+  border-radius: 9999px;
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.bottomNavBadgeActive {
+  background: #00e699;
+  color: #06152d;
+}
+
+.bottomNavItemActive .bottomNavBadge {
+  background: #ff5a00;
+  color: #ffffff;
+}
+
+.bottomNavLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.tabActionButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ambientesActionGroup {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ==========================================================================
+   ADAPTATIVIDAD RESPONSIVE MÓVIL (<= 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0.75rem 1rem;
+  }
+
+  .navActions {
+    display: none;
+  }
+
+  .navMobileControls {
+    display: flex;
+  }
+
+  .bottomNav {
+    display: flex;
+  }
+
+  .mainContent {
+    padding: 1rem 0.85rem calc(5.5rem + env(safe-area-inset-bottom, 0px)) 0.85rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .statCard {
+    padding: 0.85rem;
+    gap: 0.65rem;
+    border-radius: 12px;
+  }
+
+  .statIconWrapper {
+    width: 38px;
+    height: 38px;
+    font-size: 1.15rem;
+  }
+
+  .statNumber {
+    font-size: 1.35rem;
+  }
+
+  .statLabel {
+    font-size: 0.72rem;
+  }
+
+  .tabsBar {
+    border-bottom: none;
+    margin-bottom: 1rem;
+  }
+
+  .tabList {
+    display: none;
+  }
+
+  .tabActionButtons {
+    width: 100%;
+  }
+
+  .ambientesActionGroup {
+    width: 100%;
+  }
+
+  .actionBtn,
+  .secondaryActionBtn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .masterDetailLayout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .sedesSidebar {
+    padding: 1rem;
+  }
+
+  .ambientesContent {
+    padding: 1rem;
+  }
+
+  .ambientesHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .hideOnMobile {
+    display: none;
+  }
+
+  .showOnMobile {
+    display: inline;
+  }
+
+  .categoryPills {
+    display: none;
+  }
+
+  .categorySelectWrapper {
+    display: flex;
+  }
+
+  .cardPanel {
+    padding: 1rem;
+    border-radius: 14px;
+  }
+
+  .tableWrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 
 
 

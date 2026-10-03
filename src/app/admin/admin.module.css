@@ -1727,6 +1727,19 @@
     display: flex;
   }
 
+  .asistFiltersRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .asistFiltersRow > div,
+  .asistFiltersRow .searchBoxWrapper,
+  .asistFiltersRow .filterSelect {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
   .cardPanel {
     padding: 1rem;
     border-radius: 14px;

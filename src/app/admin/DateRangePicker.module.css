@@ -75,11 +75,19 @@
   color: #ffffff;
 }
 
+.popoverBackdrop {
+  display: none;
+}
+
+.mobileHeaderBar {
+  display: none;
+}
+
 /* POPOVER FLOTANTE */
 .popover {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
   z-index: 1000;
   background: var(--bg-card);
   border: 1.5px solid var(--border-color);
@@ -88,7 +96,7 @@
   display: flex;
   overflow: hidden;
   animation: fadeInDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  min-width: 580px;
+  min-width: 540px;
 }
 
 @keyframes fadeInDown {
@@ -356,4 +364,214 @@
 .applyBtn:hover {
   background: linear-gradient(135deg, #ff701e 0%, #ff5a00 100%);
   transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   ADAPTATIVIDAD RESPONSIVE MÓVIL (<= 680px) - BOTTOM SHEET ESTILO NATIVO
+   ========================================================================== */
+@media (max-width: 680px) {
+  .container {
+    width: 100%;
+  }
+
+  .triggerBtn {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .popoverBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    z-index: 9998;
+    animation: fadeInBackdrop 0.2s ease;
+  }
+
+  @keyframes fadeInBackdrop {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .popover {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    border-radius: 20px 20px 0 0;
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    flex-direction: column;
+    max-height: 85vh;
+    overflow-y: auto;
+    z-index: 9999;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4);
+    animation: slideUpSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slideUpSheet {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .mobileHeaderBar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 1rem 0.6rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-card);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .mobileHandle {
+    width: 40px;
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--border-color);
+    margin-bottom: 0.5rem;
+  }
+
+  .mobileTitleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .mobileModalTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mobileCloseBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--pill-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: all 0.15s ease;
+  }
+
+  .mobileCloseBtn:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  .presetsSidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.65rem 0.85rem;
+    gap: 0.45rem;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background: var(--bg-card);
+  }
+
+  .presetsSidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .presetTitle {
+    display: none;
+  }
+
+  .presetBtn {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.78rem;
+    border-radius: 9999px;
+    background: var(--pill-bg);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .calendarMain {
+    padding: 1rem 0.85rem;
+    width: 100%;
+  }
+
+  .monthNavHeader {
+    margin-bottom: 0.85rem;
+  }
+
+  .monthTitle {
+    font-size: 1.05rem;
+  }
+
+  .navArrowBtn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .weekdayHeader {
+    font-size: 0.75rem;
+    padding: 0.35rem 0;
+  }
+
+  .dayCell {
+    height: 42px;
+    font-size: 0.875rem;
+  }
+
+  .popoverFooter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding-top: 0.85rem;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .summaryText {
+    justify-content: center;
+    text-align: center;
+    font-size: 0.78rem;
+  }
+
+  .footerActions {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .clearBtn {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    text-align: center;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+  }
+
+  .applyBtn {
+    flex: 2;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    text-align: center;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+  }
 }

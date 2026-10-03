@@ -310,11 +310,33 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         </span>
       </button>
 
-      {/* POPOVER FLOTANTE ESTILO AIRBNB / BOOKING */}
+      {/* BACKDROP Y POPOVER FLOTANTE (ESTILO AIRBNB EN DESKTOP / BOTTOM SHEET EN MÓVIL) */}
       {isOpen && (
-        <div className={styles.popover}>
-          {/* SIDEBAR DE PRESETS RÁPIDOS */}
-          <div className={styles.presetsSidebar}>
+        <>
+          <div
+            className={styles.popoverBackdrop}
+            onClick={() => setIsOpen(false)}
+          />
+          <div className={styles.popover}>
+            {/* CABECERA PARA MÓVIL (BOTTOM SHEET) */}
+            <div className={styles.mobileHeaderBar}>
+              <div className={styles.mobileHandle} />
+              <div className={styles.mobileTitleRow}>
+                <span className={styles.mobileModalTitle}>📅 Filtrar por Rango de Fechas</span>
+                <button
+                  type="button"
+                  className={styles.mobileCloseBtn}
+                  onClick={() => setIsOpen(false)}
+                  title="Cerrar selector"
+                  aria-label="Cerrar selector"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* SIDEBAR DE PRESETS RÁPIDOS */}
+            <div className={styles.presetsSidebar}>
             <div className={styles.presetTitle}>Períodos</div>
             <button
               type="button"
@@ -454,7 +476,8 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </>
+    )}
+  </div>
   );
 };

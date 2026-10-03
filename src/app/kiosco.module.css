@@ -678,6 +678,10 @@
   color: #ffffff;
 }
 
+.activeSessionCurso {
+  color: #ff853f;
+}
+
 .activeSessionTime {
   font-size: 0.8rem;
   color: #cbd5e1;
@@ -944,6 +948,187 @@
 
 .resetBtn:hover {
   color: #ffffff;
+}
+
+/* ==========================================================================
+   OPTIMIZACIÓN TEMA CLARO (LIGHT THEME) PARA KIOSCO Y USER CARD
+   ========================================================================== */
+:global([data-theme="light"]) .userCard {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(6, 21, 45, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+:global([data-theme="light"]) .userInfoRow {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .greeting {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .userNameBig {
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .userDniBadge {
+  color: #475569;
+  background: #f1f5f9;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  display: inline-block;
+  width: fit-content;
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+:global([data-theme="light"]) .roleDocente {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+:global([data-theme="light"]) .roleTecnico {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+:global([data-theme="light"]) .rolePaciente {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+:global([data-theme="light"]) .roomSectionTitle {
+  color: #06152d;
+  font-weight: 700;
+}
+
+:global([data-theme="light"]) .roomSearchInput {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #0f172a;
+}
+
+:global([data-theme="light"]) .roomSearchInput::placeholder {
+  color: #94a3b8;
+}
+
+:global([data-theme="light"]) .roomSearchInput:focus {
+  border-color: #ff5a00;
+  box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.18);
+}
+
+:global([data-theme="light"]) .roomPill {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+:global([data-theme="light"]) .roomPill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+:global([data-theme="light"]) .roomPillActive {
+  background: #fff7ed;
+  border-color: #ff5a00;
+  color: #ea580c;
+  font-weight: 700;
+}
+
+:global([data-theme="light"]) .emptyRoomsNotice {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .roomCard {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+:global([data-theme="light"]) .roomCard:hover {
+  border-color: #38bdf8;
+  background: #f0f9ff;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+}
+
+:global([data-theme="light"]) .roomCardSelected {
+  background: #fff7ed !important;
+  border-color: #ff5a00 !important;
+  box-shadow: 0 0 0 2px #ff5a00, 0 4px 14px rgba(255, 90, 0, 0.18) !important;
+}
+
+:global([data-theme="light"]) .roomName {
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .roomCardSelected .roomName {
+  color: #c2410c;
+}
+
+:global([data-theme="light"]) .roomCode {
+  color: #0284c7;
+  font-weight: 600;
+}
+
+:global([data-theme="light"]) .checkInBtn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+:global([data-theme="light"]) .resetBtn {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .resetBtn:hover {
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .activeSessionBanner {
+  background: #fff1f2;
+  border: 1.5px solid #fecdd3;
+}
+
+:global([data-theme="light"]) .activeSessionText {
+  color: #9f1239;
+}
+
+:global([data-theme="light"]) .activeSessionText strong {
+  color: #881337;
+}
+
+:global([data-theme="light"]) .activeSessionCurso {
+  color: #ea580c;
+  font-weight: 700;
+}
+
+:global([data-theme="light"]) .activeSessionTime {
+  color: #475569;
+}
+
+:global([data-theme="light"]) .checkOutBtn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+}
+
+:global([data-theme="light"]) .checkOutBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
+}
+
+:global([data-theme="light"]) .tecnicoNotice {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+:global([data-theme="light"]) .tecnicoNotice strong {
+  color: #047857;
 }
 
 /* ==========================================================================

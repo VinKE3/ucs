@@ -499,7 +499,7 @@ export default function KioscoTerminal() {
                               <span> • <strong>Clínica General</strong></span>
                             )}
                             {asistenciaActiva.cursoNombre && (
-                              <span> • Curso: <strong style={{ color: '#ff853f' }}>{asistenciaActiva.cursoNombre}</strong></span>
+                              <span> • Curso: <strong className={styles.activeSessionCurso}>{asistenciaActiva.cursoNombre}</strong></span>
                             )}
                           </div>
                           <div className={styles.activeSessionTime}>

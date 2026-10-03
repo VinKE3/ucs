@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { sedes, ambientes, usuarios, asistencias } from '@/db/schema';
+import { sedes, ambientes, usuarios, asistencias, cursos } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
@@ -28,6 +28,11 @@ export async function GET() {
       .from(usuarios)
       .where(eq(usuarios.activo, true));
 
+    const [cursosCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(cursos)
+      .where(eq(cursos.activo, true));
+
     const [asistenciasActivas] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(asistencias)
@@ -37,6 +42,7 @@ export async function GET() {
       sedes: sedesCount?.count || 0,
       ambientes: ambientesCount?.count || 0,
       usuarios: usuariosCount?.count || 0,
+      cursos: cursosCount?.count || 0,
       enCurso: asistenciasActivas?.count || 0,
     });
   } catch (error) {

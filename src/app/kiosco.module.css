@@ -722,6 +722,65 @@
   gap: 0.6rem;
 }
 
+.cursoSelectorSection {
+  margin-bottom: 1.25rem;
+}
+
+.cursoSelectBox {
+  position: relative;
+  width: 100%;
+}
+
+.cursoSelect {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(6, 18, 38, 0.85);
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 90, 0, 0.4);
+  border-radius: 12px;
+  padding: 0.85rem 2.5rem 0.85rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+:global([data-theme="light"]) .cursoSelect {
+  background: #ffffff;
+  color: #0d346c;
+  border-color: rgba(255, 90, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.cursoSelect:focus {
+  border-color: #ff5a00;
+  box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.25);
+}
+
+.cursoSelect option {
+  background: #061226;
+  color: #ffffff;
+  padding: 0.5rem;
+}
+
+:global([data-theme="light"]) .cursoSelect option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.cursoSelectIcon {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #ff5a00;
+  font-size: 0.8rem;
+}
+
 .roomSelectorSection {
   margin-bottom: 1.5rem;
 }

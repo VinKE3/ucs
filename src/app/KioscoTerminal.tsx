@@ -32,15 +32,25 @@ interface AsistenciaActiva {
   id: number;
   sedeId: number;
   ambienteId: number | null;
+  cursoId?: number | null;
+  cursoNombre?: string | null;
   horaIngreso: string;
   sedeNombre: string | null;
   ambienteNombre: string | null;
   ambienteCodigo: string | null;
 }
 
+interface CursoItem {
+  id: number;
+  nombre: string;
+  codigo: string | null;
+}
+
 export default function KioscoTerminal() {
   const [sedesList, setSedesList] = useState<SedeItem[]>([]);
   const [selectedSedeId, setSelectedSedeId] = useState<number | null>(null);
+  const [cursosList, setCursosList] = useState<CursoItem[]>([]);
+  const [selectedCursoId, setSelectedCursoId] = useState<number | null>(null);
   const [dniInput, setDniInput] = useState('');
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -61,13 +71,17 @@ export default function KioscoTerminal() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Cargar sedes y recordar la sede guardada en la tablet
+  // Cargar sedes y cursos, recordando la sede guardada en la tablet
   useEffect(() => {
-    async function fetchSedes() {
+    async function fetchSedesYCursos() {
       try {
-        const res = await fetch('/api/kiosco/sedes');
-        if (res.ok) {
-          const data = await res.json();
+        const [resSedes, resCursos] = await Promise.all([
+          fetch('/api/kiosco/sedes'),
+          fetch('/api/kiosco/cursos'),
+        ]);
+
+        if (resSedes.ok) {
+          const data = await resSedes.json();
           setSedesList(data.sedes || []);
           if (data.sedes && data.sedes.length > 0) {
             const savedSede = typeof window !== 'undefined' ? localStorage.getItem('kiosco_selected_sede_id') : null;
@@ -79,11 +93,16 @@ export default function KioscoTerminal() {
             }
           }
         }
+
+        if (resCursos.ok) {
+          const dataCursos = await resCursos.json();
+          setCursosList(dataCursos.cursos || []);
+        }
       } catch (err) {
-        console.error('Error cargando sedes:', err);
+        console.error('Error cargando sedes o cursos:', err);
       }
     }
-    fetchSedes();
+    fetchSedesYCursos();
   }, []);
 
   const handleSelectSede = (sedeId: number) => {
@@ -103,6 +122,7 @@ export default function KioscoTerminal() {
     setUsuarioActual(null);
     setAsistenciaActiva(null);
     setSelectedAmbienteId(null);
+    setSelectedCursoId(null);
     setRoomSearch('');
     setRoomCategoryFilter('todos');
     setLoadingSearch(true);
@@ -154,6 +174,7 @@ export default function KioscoTerminal() {
           usuarioId: usuarioActual.id,
           sedeId: selectedSedeId,
           ambienteId: selectedAmbienteId,
+          cursoId: selectedCursoId,
           accion,
           asistenciaId: asistenciaActiva?.id,
         }),
@@ -185,6 +206,7 @@ export default function KioscoTerminal() {
     setUsuarioActual(null);
     setAsistenciaActiva(null);
     setSelectedAmbienteId(null);
+    setSelectedCursoId(null);
     setRoomSearch('');
     setRoomCategoryFilter('todos');
     setFeedback(null);
@@ -476,6 +498,9 @@ export default function KioscoTerminal() {
                             ) : (
                               <span> • <strong>Clínica General</strong></span>
                             )}
+                            {asistenciaActiva.cursoNombre && (
+                              <span> • Curso: <strong style={{ color: '#ff853f' }}>{asistenciaActiva.cursoNombre}</strong></span>
+                            )}
                           </div>
                           <div className={styles.activeSessionTime}>
                             Hora de ingreso:{' '}
@@ -517,11 +542,34 @@ export default function KioscoTerminal() {
                           </button>
                         </div>
                       ) : (
-                        /* Si es DOCENTE o PACIENTE SIMULADO: debe elegir ambiente */
+                        /* Si es DOCENTE o PACIENTE SIMULADO: debe elegir curso y ambiente */
                         <div>
+                          {/* SELECCIÓN DE CURSO (LIGADO AL AMBIENTE) */}
+                          <div className={styles.cursoSelectorSection}>
+                            <div className={styles.roomSectionTitle}>
+                              1. Selecciona el Curso / Asignatura:
+                            </div>
+                            <div className={styles.cursoSelectBox}>
+                              <select
+                                id="cursoSelectorKiosco"
+                                className={styles.cursoSelect}
+                                value={selectedCursoId ?? ''}
+                                onChange={(e) => setSelectedCursoId(e.target.value ? Number(e.target.value) : null)}
+                              >
+                                <option value="">— Seleccione un curso —</option>
+                                {cursosList.map((curso) => (
+                                  <option key={curso.id} value={curso.id}>
+                                    {curso.nombre} {curso.codigo ? `(${curso.codigo})` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className={styles.cursoSelectIcon}>▼</span>
+                            </div>
+                          </div>
+
                           <div className={styles.roomSelectorSection}>
                             <div className={styles.roomSectionTitle}>
-                              Selecciona la sala de tu simulación / práctica ({ambientesFiltrados.length} disponibles):
+                              2. Selecciona la sala de tu simulación ({ambientesFiltrados.length} disponibles):
                             </div>
 
                             {/* FILTROS INTELIGENTES PARA AMBIENTES */}
@@ -585,14 +633,16 @@ export default function KioscoTerminal() {
 
                           <button
                             onClick={() => handleMarcar('ingreso')}
-                            disabled={marcando || !selectedAmbienteId}
+                            disabled={marcando || !selectedAmbienteId || !selectedCursoId}
                             className={styles.checkInBtn}
                           >
                             {marcando
                               ? 'Registrando ingreso...'
-                              : selectedAmbienteId
-                              ? '🟢 REGISTRAR INGRESO A SALA'
-                              : 'Selecciona una sala para continuar'}
+                              : !selectedCursoId
+                              ? 'Selecciona un curso para continuar'
+                              : !selectedAmbienteId
+                              ? 'Selecciona una sala para continuar'
+                              : '🟢 REGISTRAR INGRESO A SALA'}
                           </button>
                         </div>
                       )}

@@ -6,7 +6,7 @@ import { getPeruDateString, PERU_TIMEZONE } from '@/lib/peruTime';
 
 export async function POST(request: Request) {
   try {
-    const { usuarioId, sedeId, ambienteId, accion, asistenciaId, observaciones } = await request.json();
+    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones } = await request.json();
 
     if (!usuarioId || !accion) {
       return NextResponse.json({ error: 'Datos incompletos para registrar marcación' }, { status: 400 });
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
           usuarioId: user.id,
           sedeId: Number(sedeId),
           ambienteId: user.tipoPersonal === 'tecnico' ? null : Number(ambienteId),
+          cursoId: user.tipoPersonal === 'tecnico' ? null : (cursoId ? Number(cursoId) : null),
           fecha: fechaStr,
           horaIngreso: now,
           estado: 'en_curso',

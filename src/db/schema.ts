@@ -89,6 +89,10 @@ export const asistencias = pgTable('asistencias', {
   ambienteId: integer('ambiente_id')
     .references(() => ambientes.id, { onDelete: 'set null' }),
   
+  // cursoId opcional (para Docentes y Pacientes Simulados)
+  cursoId: integer('curso_id')
+    .references(() => cursos.id, { onDelete: 'set null' }),
+
   fecha: varchar('fecha', { length: 10 }).notNull(), // Formato "YYYY-MM-DD" para agrupación fácil
   horaIngreso: timestamp('hora_ingreso', { withTimezone: true }).defaultNow().notNull(),
   horaSalida: timestamp('hora_salida', { withTimezone: true }), // NULL mientras la sesión esté activa/en curso
@@ -126,6 +130,17 @@ export const auditoriaAsistencias = pgTable('auditoria_asistencias', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// --- 6. TABLA: CURSOS ---
+export const cursos = pgTable('cursos', {
+  id: serial('id').primaryKey(),
+  nombre: varchar('nombre', { length: 200 }).notNull(), // Ej: "Simulación Quirúrgica", "Simulación Clínica Integrada (SCI)"
+  codigo: varchar('codigo', { length: 50 }),            // Ej: "SCI-101", "SBS"
+  descripcion: text('descripcion'),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // --- RELACIONES (Drizzle ORM) ---
 export const sedesRelations = relations(sedes, ({ many }) => ({
   ambientes: many(ambientes),
@@ -137,6 +152,10 @@ export const ambientesRelations = relations(ambientes, ({ one, many }) => ({
     fields: [ambientes.sedeId],
     references: [sedes.id],
   }),
+  asistencias: many(asistencias),
+}));
+
+export const cursosRelations = relations(cursos, ({ many }) => ({
   asistencias: many(asistencias),
 }));
 
@@ -157,6 +176,10 @@ export const asistenciasRelations = relations(asistencias, ({ one, many }) => ({
   ambiente: one(ambientes, {
     fields: [asistencias.ambienteId],
     references: [ambientes.id],
+  }),
+  curso: one(cursos, {
+    fields: [asistencias.cursoId],
+    references: [cursos.id],
   }),
   modificadoPor: one(usuarios, {
     fields: [asistencias.modificadoPorId],
@@ -185,6 +208,9 @@ export type NewAmbiente = typeof ambientes.$inferInsert;
 
 export type Usuario = typeof usuarios.$inferSelect;
 export type NewUsuario = typeof usuarios.$inferInsert;
+
+export type Curso = typeof cursos.$inferSelect;
+export type NewCurso = typeof cursos.$inferInsert;
 
 export type Asistencia = typeof asistencias.$inferSelect;
 export type NewAsistencia = typeof asistencias.$inferInsert;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { usuarios, asistencias, ambientes, sedes } from '@/db/schema';
+import { usuarios, asistencias, ambientes, sedes, cursos } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -43,15 +43,18 @@ export async function GET(request: Request) {
         id: asistencias.id,
         sedeId: asistencias.sedeId,
         ambienteId: asistencias.ambienteId,
+        cursoId: asistencias.cursoId,
         horaIngreso: asistencias.horaIngreso,
         estado: asistencias.estado,
         sedeNombre: sedes.nombre,
         ambienteNombre: ambientes.nombre,
         ambienteCodigo: ambientes.codigo,
+        cursoNombre: cursos.nombre,
       })
       .from(asistencias)
       .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
       .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+      .leftJoin(cursos, eq(asistencias.cursoId, cursos.id))
       .where(
         and(
           eq(asistencias.usuarioId, usuario.id),

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { ambientes, sedes, asistencias, usuarios } from '@/db/schema';
+import { ambientes, sedes, asistencias, usuarios, cursos } from '@/db/schema';
 import { eq, and, like, or } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
@@ -64,6 +64,8 @@ export async function GET(request: Request) {
     let activeAsistencias: {
       asistenciaId: number;
       ambienteId: number | null;
+      cursoId: number | null;
+      cursoNombre: string | null;
       horaIngreso: Date;
       usuarioId: number;
       nombres: string;
@@ -77,6 +79,8 @@ export async function GET(request: Request) {
         .select({
           asistenciaId: asistencias.id,
           ambienteId: asistencias.ambienteId,
+          cursoId: asistencias.cursoId,
+          cursoNombre: cursos.nombre,
           horaIngreso: asistencias.horaIngreso,
           usuarioId: usuarios.id,
           nombres: usuarios.nombres,
@@ -86,6 +90,7 @@ export async function GET(request: Request) {
         })
         .from(asistencias)
         .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+        .leftJoin(cursos, eq(asistencias.cursoId, cursos.id))
         .where(
           and(
             eq(asistencias.sedeId, Number(sedeId)),
@@ -97,12 +102,15 @@ export async function GET(request: Request) {
     const ocupantesActivos = activeAsistencias.filter((a) => a.ambienteId !== null);
     const tecnicosEnTurno = activeAsistencias.filter((a) => a.ambienteId === null && a.tipoPersonal === 'tecnico');
 
-    // Asociar a cada ambiente sus doctores y pacientes simulados
+    // Asociar a cada ambiente sus doctores, pacientes simulados y el curso en desarrollo
     const ambientesConOcupantes = list.map((amb) => {
       const ocupantesDeSala = ocupantesActivos.filter((o) => o.ambienteId === amb.id);
+      const cursoActivo = ocupantesDeSala.find((o) => o.cursoNombre)?.cursoNombre || null;
+
       return {
         ...amb,
         ocupada: ocupantesDeSala.length > 0,
+        cursoActivo,
         docentes: ocupantesDeSala.filter((o) => o.tipoPersonal === 'docente'),
         pacientesSimulados: ocupantesDeSala.filter((o) => o.tipoPersonal === 'paciente_simulado'),
         otrosOcupantes: ocupantesDeSala.filter(

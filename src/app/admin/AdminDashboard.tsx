@@ -65,6 +65,7 @@ interface AmbienteAdminItem {
   activo: boolean;
   sedeNombre?: string;
   ocupada?: boolean;
+  cursoActivo?: string | null;
   docentes?: OcupanteItem[];
   pacientesSimulados?: OcupanteItem[];
   otrosOcupantes?: OcupanteItem[];
@@ -93,6 +94,18 @@ interface AsistenciaAdminItem {
   ambienteId: number | null;
   ambienteNombre: string | null;
   ambienteCodigo: string | null;
+  cursoId?: number | null;
+  cursoNombre?: string | null;
+  cursoCodigo?: string | null;
+}
+
+interface CursoAdminItem {
+  id: number;
+  nombre: string;
+  codigo: string | null;
+  descripcion: string | null;
+  activo: boolean;
+  createdAt?: string;
 }
 
 interface StatsData {
@@ -100,13 +113,14 @@ interface StatsData {
   ambientes: number;
   usuarios: number;
   enCurso: number;
+  cursos?: number;
 }
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'personal' | 'ambientes' | 'asistencias'>('ambientes');
+  const [activeTab, setActiveTab] = useState<'personal' | 'ambientes' | 'asistencias' | 'cursos'>('ambientes');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0 });
+  const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0, cursos: 0 });
   const [usuariosList, setUsuariosList] = useState<UsuarioItem[]>([]);
   const [searchPersonal, setSearchPersonal] = useState<string>('');
   const [filterPersonalTipo, setFilterPersonalTipo] = useState<string>('todos');
@@ -120,12 +134,30 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [searchAmbiente, setSearchAmbiente] = useState<string>('');
   const [loadingAmbientes, setLoadingAmbientes] = useState(false);
 
+  // Cursos
+  const [cursosList, setCursosList] = useState<CursoAdminItem[]>([]);
+  const [loadingCursos, setLoadingCursos] = useState(false);
+  const [searchCurso, setSearchCurso] = useState('');
+  const [filterCursoActivo, setFilterCursoActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
+  const [showCursoModal, setShowCursoModal] = useState(false);
+  const [cursoForm, setCursoForm] = useState({
+    id: 0,
+    nombre: '',
+    codigo: '',
+    descripcion: '',
+    activo: true,
+    isEdit: false,
+  });
+  const [cursoLoading, setCursoLoading] = useState(false);
+  const [cursoError, setCursoError] = useState<string | null>(null);
+
   // Asistencias y Auditoría
   const [asistenciasList, setAsistenciasList] = useState<AsistenciaAdminItem[]>([]);
   const [loadingAsistencias, setLoadingAsistencias] = useState(false);
   const [asistFiltroSede, setAsistFiltroSede] = useState('todas');
   const [asistFiltroTipo, setAsistFiltroTipo] = useState('todos');
   const [asistFiltroEstado, setAsistFiltroEstado] = useState('todos');
+  const [asistFiltroCurso, setAsistFiltroCurso] = useState('todos');
   const [asistFiltroFechaDesde, setAsistFiltroFechaDesde] = useState('');
   const [asistFiltroFechaHasta, setAsistFiltroFechaHasta] = useState('');
   const [asistSearch, setAsistSearch] = useState('');
@@ -178,10 +210,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   // Cargar estadísticas y listas iniciales
   const loadData = async () => {
     try {
-      const [resStats, resUsers, resSedes] = await Promise.all([
+      const [resStats, resUsers, resSedes, resCursos] = await Promise.all([
         fetch('/api/dashboard/stats'),
         fetch('/api/usuarios'),
         fetch('/api/sedes'),
+        fetch('/api/cursos'),
       ]);
 
       if (resStats.ok) {
@@ -201,6 +234,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           setSelectedSedeId(dataSedes.sedes[0].id);
         }
       }
+
+      if (resCursos.ok) {
+        const dataCursos = await resCursos.json();
+        setCursosList(dataCursos.cursos || []);
+      }
     } catch (err) {
       console.error('Error cargando dashboard:', err);
     }
@@ -209,6 +247,28 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   useEffect(() => {
     loadData();
   }, []);
+
+  // Cargar cursos
+  const loadCursos = useCallback(async () => {
+    try {
+      setLoadingCursos(true);
+      const res = await fetch('/api/cursos');
+      if (res.ok) {
+        const data = await res.json();
+        setCursosList(data.cursos || []);
+      }
+    } catch (err) {
+      console.error('Error cargando cursos:', err);
+    } finally {
+      setLoadingCursos(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'cursos') {
+      loadCursos();
+    }
+  }, [activeTab, loadCursos]);
 
   // Cargar ambientes de la sede seleccionada con filtros y búsqueda
   const loadAmbientes = useCallback(async (sedeId: number, tipo: string, q: string) => {
@@ -246,6 +306,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       if (asistFiltroSede !== 'todas') url.searchParams.set('sedeId', asistFiltroSede);
       if (asistFiltroTipo !== 'todos') url.searchParams.set('tipoPersonal', asistFiltroTipo);
       if (asistFiltroEstado !== 'todos') url.searchParams.set('estado', asistFiltroEstado);
+      if (asistFiltroCurso !== 'todos') url.searchParams.set('cursoId', asistFiltroCurso);
       if (asistFiltroFechaDesde) url.searchParams.set('fechaDesde', asistFiltroFechaDesde);
       if (asistFiltroFechaHasta) url.searchParams.set('fechaHasta', asistFiltroFechaHasta);
       if (asistSearch.trim()) url.searchParams.set('q', asistSearch.trim());
@@ -260,7 +321,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     } finally {
       setLoadingAsistencias(false);
     }
-  }, [asistFiltroSede, asistFiltroTipo, asistFiltroEstado, asistFiltroFechaDesde, asistFiltroFechaHasta, asistSearch]);
+  }, [asistFiltroSede, asistFiltroTipo, asistFiltroEstado, asistFiltroCurso, asistFiltroFechaDesde, asistFiltroFechaHasta, asistSearch]);
 
   useEffect(() => {
     if (activeTab === 'asistencias') {
@@ -274,9 +335,83 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     if (asistFiltroSede !== 'todas') url.searchParams.set('sedeId', asistFiltroSede);
     if (asistFiltroTipo !== 'todos') url.searchParams.set('tipoPersonal', asistFiltroTipo);
     if (asistFiltroEstado !== 'todos') url.searchParams.set('estado', asistFiltroEstado);
+    if (asistFiltroCurso !== 'todos') url.searchParams.set('cursoId', asistFiltroCurso);
     if (asistFiltroFechaDesde) url.searchParams.set('fechaDesde', asistFiltroFechaDesde);
     if (asistFiltroFechaHasta) url.searchParams.set('fechaHasta', asistFiltroFechaHasta);
     window.open(url.toString(), '_blank');
+  };
+
+  // Handlers para Cursos
+  const handleSaveCurso = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cursoForm.nombre.trim()) return;
+    setCursoLoading(true);
+    setCursoError(null);
+    try {
+      const url = '/api/cursos';
+      const method = cursoForm.isEdit ? 'PATCH' : 'POST';
+      const body = cursoForm.isEdit
+        ? {
+            id: cursoForm.id,
+            nombre: cursoForm.nombre.trim(),
+            codigo: cursoForm.codigo.trim() || null,
+            descripcion: cursoForm.descripcion.trim() || null,
+            activo: cursoForm.activo,
+          }
+        : {
+            nombre: cursoForm.nombre.trim(),
+            codigo: cursoForm.codigo.trim() || null,
+            descripcion: cursoForm.descripcion.trim() || null,
+          };
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al guardar el curso');
+
+      await loadCursos();
+      await loadData();
+      setShowCursoModal(false);
+    } catch (err) {
+      setCursoError(err instanceof Error ? err.message : 'Error al procesar curso');
+    } finally {
+      setCursoLoading(false);
+    }
+  };
+
+  const handleToggleCursoActivo = async (curso: CursoAdminItem) => {
+    try {
+      const res = await fetch('/api/cursos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: curso.id,
+          activo: !curso.activo,
+        }),
+      });
+      if (res.ok) {
+        await loadCursos();
+      }
+    } catch (err) {
+      console.error('Error al alternar estado de curso:', err);
+    }
+  };
+
+  const openEditCursoModal = (curso: CursoAdminItem) => {
+    setCursoForm({
+      id: curso.id,
+      nombre: curso.nombre,
+      codigo: curso.codigo || '',
+      descripcion: curso.descripcion || '',
+      activo: curso.activo,
+      isEdit: true,
+    });
+    setCursoError(null);
+    setShowCursoModal(true);
   };
 
   // Cierre manual con auditoría
@@ -656,6 +791,16 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               <span className={styles.statLabel}>En Turno</span>
             </div>
           </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statIconWrapper} style={{ background: 'rgba(255, 90, 0, 0.15)', color: '#ff5a00' }}>
+              📚
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statNumber}>{stats.cursos || cursosList.length}</span>
+              <span className={styles.statLabel}>Cursos</span>
+            </div>
+          </div>
         </section>
 
         {/* TABS DE GESTIÓN */}
@@ -674,6 +819,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               👥 Personal de Clínica ({usuariosList.length})
             </button>
             <button
+              className={`${styles.tabBtn} ${activeTab === 'cursos' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('cursos')}
+            >
+              📚 Cursos ({cursosList.length})
+            </button>
+            <button
               className={`${styles.tabBtn} ${activeTab === 'asistencias' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('asistencias')}
             >
@@ -685,6 +836,19 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             {activeTab === 'personal' && (
               <button onClick={() => setShowCreateModal(true)} className={styles.actionBtn}>
                 <span>+</span> Nuevo Personal
+              </button>
+            )}
+
+            {activeTab === 'cursos' && (
+              <button
+                onClick={() => {
+                  setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', activo: true, isEdit: false });
+                  setCursoError(null);
+                  setShowCursoModal(true);
+                }}
+                className={styles.actionBtn}
+              >
+                <span>+</span> Nuevo Curso
               </button>
             )}
 
@@ -868,6 +1032,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                       <div className={styles.occupantsBox}>
                         {amb.ocupada ? (
                           <>
+                            {amb.cursoActivo && (
+                              <div className={styles.occupantRow} style={{ paddingBottom: '0.4rem', marginBottom: '0.4rem', borderBottom: '1px dashed var(--border-color)' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--ucs-orange, #ff5a00)' }}>📚 Curso:</span>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>{amb.cursoActivo}</span>
+                              </div>
+                            )}
+
                             {amb.docentes && amb.docentes.length > 0 && (
                               amb.docentes.map((doc) => (
                                 <div key={doc.asistenciaId} className={styles.occupantRow}>
@@ -1111,6 +1282,175 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           );
         })()}
 
+        {/* PANEL: GESTIÓN DE CURSOS DE SIMULACIÓN */}
+        {activeTab === 'cursos' && (() => {
+          const cursosFiltrados = cursosList.filter((c) => {
+            const matchesSearch =
+              !searchCurso.trim() ||
+              c.nombre.toLowerCase().includes(searchCurso.toLowerCase()) ||
+              (c.codigo && c.codigo.toLowerCase().includes(searchCurso.toLowerCase()));
+            const matchesActivo =
+              filterCursoActivo === 'todos' ||
+              (filterCursoActivo === 'activos' ? c.activo : !c.activo);
+            return matchesSearch && matchesActivo;
+          });
+
+          return (
+            <section className={styles.cardPanel}>
+              {/* BARRA DE FILTROS PARA CURSOS */}
+              <div className={styles.asistenciasFilterContainer}>
+                <div className={styles.asistFiltersRow}>
+                  <div className={styles.searchBoxWrapper} style={{ flex: 1, minWidth: '240px' }}>
+                    <span className={styles.searchIcon}>🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Buscar curso por nombre o código (ej: SBS, Quirúrgica, Externado)..."
+                      value={searchCurso}
+                      onChange={(e) => setSearchCurso(e.target.value)}
+                      className={styles.searchInput}
+                    />
+                  </div>
+
+                  <select
+                    value={filterCursoActivo}
+                    onChange={(e) => setFilterCursoActivo(e.target.value as any)}
+                    className={styles.filterSelect}
+                  >
+                    <option value="todos">Todos los Estados ({cursosList.length})</option>
+                    <option value="activos">Solo Activos ({cursosList.filter((c) => c.activo).length})</option>
+                    <option value="inactivos">Solo Inactivos ({cursosList.filter((c) => !c.activo).length})</option>
+                  </select>
+
+                  <button
+                    onClick={() => {
+                      setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', activo: true, isEdit: false });
+                      setCursoError(null);
+                      setShowCursoModal(true);
+                    }}
+                    className={styles.actionBtn}
+                  >
+                    <span>+</span> Nuevo Curso
+                  </button>
+                </div>
+              </div>
+
+              {/* LISTA / TABLA DE CURSOS */}
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '80px' }}>ID</th>
+                      <th>Curso / Asignatura</th>
+                      <th>Código</th>
+                      <th>Descripción</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingCursos ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                          Cargando lista de cursos...
+                        </td>
+                      </tr>
+                    ) : cursosFiltrados.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                          No se encontraron cursos con los filtros aplicados.
+                        </td>
+                      </tr>
+                    ) : (
+                      cursosFiltrados.map((curso) => (
+                        <tr key={curso.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            #{curso.id}
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                              {curso.nombre}
+                            </div>
+                          </td>
+                          <td>
+                            {curso.codigo ? (
+                              <span style={{
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '0.8rem',
+                                color: '#38bdf8',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '6px'
+                              }}>
+                                {curso.codigo}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', maxWidth: '300px' }}>
+                            {curso.descripcion || <span style={{ color: 'var(--text-muted)' }}>Sin descripción</span>}
+                          </td>
+                          <td>
+                            {curso.activo ? (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                color: '#34d399',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '9999px'
+                              }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399' }} />
+                                Activo
+                              </span>
+                            ) : (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                color: '#94a3b8',
+                                background: 'rgba(148, 163, 184, 0.12)',
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '9999px'
+                              }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8' }} />
+                                Inactivo
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div className={styles.actionRow}>
+                              <button
+                                onClick={() => openEditCursoModal(curso)}
+                                className={styles.iconBtn}
+                                title="Editar nombre o código del curso"
+                              >
+                                ✏️ Editar
+                              </button>
+                              <button
+                                onClick={() => handleToggleCursoActivo(curso)}
+                                className={`${styles.actionBtnSmall} ${curso.activo ? styles.actionBtnWarning : styles.actionBtnSuccess}`}
+                                title={curso.activo ? 'Desactivar curso del kiosco' : 'Activar curso para el kiosco'}
+                              >
+                                {curso.activo ? 'Desactivar' : 'Activar'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })()}
+
         {/* PANEL: ASISTENCIAS Y AUDITORÍA */}
         {activeTab === 'asistencias' && (() => {
           const totalMinutosValidos = asistenciasList
@@ -1181,6 +1521,19 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                   </select>
 
                   <select
+                    value={asistFiltroCurso}
+                    onChange={(e) => setAsistFiltroCurso(e.target.value)}
+                    className={styles.filterSelect}
+                  >
+                    <option value="todos">Todos los Cursos</option>
+                    {cursosList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
                     value={asistFiltroEstado}
                     onChange={(e) => setAsistFiltroEstado(e.target.value)}
                     className={styles.filterSelect}
@@ -1239,6 +1592,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                       <th>Fecha</th>
                       <th>Personal</th>
                       <th>Ubicación</th>
+                      <th>Curso / Asignatura</th>
                       <th>Horario (Ingreso - Salida)</th>
                       <th>Tiempo Total</th>
                       <th>Estado</th>
@@ -1249,13 +1603,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                   <tbody>
                     {loadingAsistencias ? (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                           Cargando registros de asistencias...
                         </td>
                       </tr>
                     ) : asistenciasList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                           No se encontraron asistencias con los filtros seleccionados.
                         </td>
                       </tr>
@@ -1298,6 +1652,33 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                                   <span style={{ color: 'var(--text-muted)' }}>Clínica General (Soporte)</span>
                                 )}
                               </div>
+                            </td>
+
+                            <td>
+                              {asist.cursoNombre ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    color: 'var(--ucs-orange, #ff5a00)',
+                                    background: 'rgba(255, 90, 0, 0.12)',
+                                    padding: '0.25rem 0.55rem',
+                                    borderRadius: '6px'
+                                  }}>
+                                    📚 {asist.cursoNombre}
+                                  </span>
+                                  {asist.cursoCodigo && (
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                      Código: {asist.cursoCodigo}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
+                              )}
                             </td>
 
                             <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
@@ -1878,6 +2259,98 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         </div>
       )}
 
+      {/* MODAL: CREAR / EDITAR CURSO */}
+      {showCursoModal && (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modal} style={{ maxWidth: '520px' }}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>
+                {cursoForm.isEdit ? '✏️ Editar Curso' : '📚 Nuevo Curso de Simulación'}
+              </h2>
+              <button onClick={() => setShowCursoModal(false)} className={styles.closeBtn}>
+                ✕
+              </button>
+            </div>
+
+            {cursoError && (
+              <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                {cursoError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveCurso}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Nombre del Curso / Asignatura *</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="ej: Simulación Quirúrgica, SBS, etc."
+                  value={cursoForm.nombre}
+                  onChange={(e) => setCursoForm({ ...cursoForm, nombre: e.target.value })}
+                  className={styles.inputField}
+                />
+              </div>
+
+              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
+                <label className={styles.label}>Código del Curso (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="ej: MED-402 o SCI"
+                  value={cursoForm.codigo}
+                  onChange={(e) => setCursoForm({ ...cursoForm, codigo: e.target.value })}
+                  className={styles.inputField}
+                />
+              </div>
+
+              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
+                <label className={styles.label}>Descripción / Especialidad (Opcional)</label>
+                <textarea
+                  rows={3}
+                  placeholder="ej: Prácticas de cirugía y sutura en sala de alta fidelidad..."
+                  value={cursoForm.descripcion}
+                  onChange={(e) => setCursoForm({ ...cursoForm, descripcion: e.target.value })}
+                  className={styles.inputField}
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+
+              {cursoForm.isEdit && (
+                <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <input
+                    type="checkbox"
+                    id="cursoActivoCheckbox"
+                    checked={cursoForm.activo}
+                    onChange={(e) => setCursoForm({ ...cursoForm, activo: e.target.checked })}
+                    style={{ width: '18px', height: '18px', accentColor: '#ff5a00', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="cursoActivoCheckbox" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}>
+                    Curso Activo (visible en el terminal de marcación Kiosco)
+                  </label>
+                </div>
+              )}
+
+              <div className={styles.modalFooter} style={{ marginTop: '1.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCursoModal(false)}
+                  className={styles.cancelBtn}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className={styles.actionBtn}
+                  disabled={cursoLoading || !cursoForm.nombre.trim()}
+                >
+                  {cursoLoading ? 'Guardando...' : cursoForm.isEdit ? 'Guardar Cambios' : 'Crear Curso'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* DRAWER MÓVIL SLIDEOUT */}
       <div
         className={`${styles.drawerOverlay} ${mobileMenuOpen ? styles.drawerOverlayVisible : ''}`}
@@ -1955,6 +2428,10 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             <span className={styles.drawerStatMiniLabel}>Personal</span>
           </div>
           <div className={styles.drawerStatMiniItem}>
+            <span className={styles.drawerStatMiniNum}>{stats.cursos || cursosList.length}</span>
+            <span className={styles.drawerStatMiniLabel}>Cursos</span>
+          </div>
+          <div className={styles.drawerStatMiniItem}>
             <span className={styles.drawerStatMiniNum} style={{ color: '#00e699' }}>{stats.enCurso}</span>
             <span className={styles.drawerStatMiniLabel}>En Turno</span>
           </div>
@@ -2011,6 +2488,24 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             <span className={styles.bottomNavBadge}>{usuariosList.length}</span>
           </div>
           <span className={styles.bottomNavLabel}>Personal</span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${activeTab === 'cursos' ? styles.bottomNavItemActive : ''}`}
+          onClick={() => {
+            setActiveTab('cursos');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span className={styles.bottomNavBadge}>{cursosList.length}</span>
+          </div>
+          <span className={styles.bottomNavLabel}>Cursos</span>
         </button>
 
         <button

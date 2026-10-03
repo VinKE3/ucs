@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias } from '@/db/schema';
+import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos } from '@/db/schema';
 import { desc, eq, and, gte, lte, or, like } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const estado = searchParams.get('estado');
     const fechaDesde = searchParams.get('fechaDesde');
     const fechaHasta = searchParams.get('fechaHasta');
+    const cursoId = searchParams.get('cursoId');
     const q = searchParams.get('q')?.trim();
 
     let query = db
@@ -49,11 +50,16 @@ export async function GET(request: Request) {
         ambienteNombre: ambientes.nombre,
         ambienteCodigo: ambientes.codigo,
         ambienteTipo: ambientes.tipo,
+        // Curso
+        cursoId: cursos.id,
+        cursoNombre: cursos.nombre,
+        cursoCodigo: cursos.codigo,
       })
       .from(asistencias)
       .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
       .innerJoin(sedes, eq(asistencias.sedeId, sedes.id))
       .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+      .leftJoin(cursos, eq(asistencias.cursoId, cursos.id))
       .$dynamic();
 
     const conditions = [];
@@ -70,6 +76,10 @@ export async function GET(request: Request) {
       conditions.push(eq(asistencias.estado, estado as any));
     }
 
+    if (cursoId && cursoId !== 'todos') {
+      conditions.push(eq(asistencias.cursoId, Number(cursoId)));
+    }
+
     if (fechaDesde) {
       conditions.push(gte(asistencias.fecha, fechaDesde));
     }
@@ -84,7 +94,8 @@ export async function GET(request: Request) {
         or(
           like(usuarios.dni, pattern),
           like(usuarios.nombres, pattern),
-          like(usuarios.apellidos, pattern)
+          like(usuarios.apellidos, pattern),
+          like(cursos.nombre, pattern)
         )
       );
     }

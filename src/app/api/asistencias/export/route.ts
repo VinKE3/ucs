@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { asistencias, usuarios, sedes, ambientes } from '@/db/schema';
+import { asistencias, usuarios, sedes, ambientes, cursos } from '@/db/schema';
 import { desc, eq, and, gte, lte } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const sedeId = searchParams.get('sedeId');
     const tipoPersonal = searchParams.get('tipoPersonal');
     const estado = searchParams.get('estado');
+    const cursoId = searchParams.get('cursoId');
     const fechaDesde = searchParams.get('fechaDesde');
     const fechaHasta = searchParams.get('fechaHasta');
 
@@ -38,11 +39,14 @@ export async function GET(request: Request) {
         sedeNombre: sedes.nombre,
         ambienteNombre: ambientes.nombre,
         ambienteCodigo: ambientes.codigo,
+        cursoNombre: cursos.nombre,
+        cursoCodigo: cursos.codigo,
       })
       .from(asistencias)
       .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
       .innerJoin(sedes, eq(asistencias.sedeId, sedes.id))
       .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+      .leftJoin(cursos, eq(asistencias.cursoId, cursos.id))
       .$dynamic();
 
     const conditions = [];
@@ -57,6 +61,10 @@ export async function GET(request: Request) {
 
     if (estado && estado !== 'todos') {
       conditions.push(eq(asistencias.estado, estado as any));
+    }
+
+    if (cursoId && cursoId !== 'todos') {
+      conditions.push(eq(asistencias.cursoId, Number(cursoId)));
     }
 
     if (fechaDesde) {
@@ -84,6 +92,7 @@ export async function GET(request: Request) {
       'Sede',
       'Sala / Ambiente',
       'Código de Sala',
+      'Curso / Asignatura',
       'Hora Ingreso',
       'Hora Salida',
       'Minutos Totales',
@@ -130,6 +139,7 @@ export async function GET(request: Request) {
         escapeCsv(item.sedeNombre),
         escapeCsv(item.ambienteNombre || 'Clínica General'),
         escapeCsv(item.ambienteCodigo || '—'),
+        escapeCsv(item.cursoNombre ? `${item.cursoNombre}${item.cursoCodigo ? ` (${item.cursoCodigo})` : ''}` : '—'),
         escapeCsv(ingresoStr),
         escapeCsv(salidaStr),
         escapeCsv(minutos),

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import styles from './kiosco.module.css';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AmbienteItem {
   id: number;
@@ -228,13 +229,16 @@ export default function KioscoTerminal() {
           </div>
         </div>
 
-        <Link href="/login" className={styles.adminBtn} title="Ir a Panel Administrativo">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <span className={styles.adminBtnText}>Acceso Admin</span>
-        </Link>
+        <div className={styles.topBarActions}>
+          <ThemeToggle />
+          <Link href="/login" className={styles.adminBtn} title="Ir a Panel Administrativo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span className={styles.adminBtnText}>Acceso Admin</span>
+          </Link>
+        </div>
       </header>
 
       {/* SECCIÓN PRINCIPAL DEL KIOSCO */}

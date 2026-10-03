@@ -1,0 +1,66 @@
+.toggleGroup {
+  display: inline-flex;
+  align-items: center;
+  background: var(--pill-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+  user-select: none;
+}
+
+.toggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.toggleBtn:hover {
+  color: var(--text-primary);
+  background: var(--border-color);
+}
+
+.toggleBtnActive {
+  background: var(--ucs-orange, #ff5a00);
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(255, 90, 0, 0.35);
+  font-weight: 700;
+}
+
+.toggleIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggleLabel {
+  font-size: 0.72rem;
+}
+
+/* Modo compacto: solo iconos */
+.compact .toggleBtn {
+  padding: 0.35rem 0.5rem;
+}
+
+/* Modo expanded para cajón o menú móvil */
+.expanded {
+  width: 100%;
+  display: flex;
+}
+
+.expanded .toggleBtn {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.8rem;
+}

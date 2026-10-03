@@ -5,30 +5,33 @@
   justify-content: center;
   padding: 1.5rem 1rem;
   background-color: var(--bg-primary);
-  background-image: 
-    radial-gradient(circle at 10% 10%, rgba(13, 52, 108, 0.45) 0%, transparent 45%),
-    radial-gradient(circle at 90% 15%, rgba(255, 90, 0, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 50% 90%, rgba(6, 21, 45, 0.8) 0%, transparent 50%);
   background-attachment: fixed;
-  color: #ffffff;
+  color: var(--text-primary);
+  position: relative;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.themeToggleFloating {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  z-index: 20;
 }
 
 .loginCard {
   width: 100%;
   max-width: 440px;
-  background: rgba(11, 34, 71, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 2.25rem 2rem;
   backdrop-filter: blur(20px);
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 40px rgba(13, 52, 108, 0.25);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .loginCard::before {
@@ -79,14 +82,14 @@
 .title {
   font-size: 1.65rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-primary);
   letter-spacing: -0.025em;
   margin-bottom: 0.4rem;
 }
 
 .subtitle {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   line-height: 1.45;
 }
 
@@ -105,7 +108,7 @@
 .label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 
 .inputWrapper {
@@ -117,7 +120,7 @@
 .inputIcon {
   position: absolute;
   left: 1rem;
-  color: #64748b;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -126,24 +129,23 @@
 .input {
   width: 100%;
   padding: 0.85rem 2.85rem 0.85rem 2.75rem;
-  background: rgba(6, 18, 38, 0.85);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1.5px solid var(--border-color);
   border-radius: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 0.95rem;
   outline: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .input:focus {
   border-color: #ff5a00;
-  background: rgba(6, 18, 38, 0.98);
-  box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.2);
 }
 
 .input::placeholder {
-  color: #475569;
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -152,7 +154,7 @@
   right: 0.85rem;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0.35rem;
   display: flex;
@@ -162,7 +164,7 @@
 }
 
 .togglePassBtn:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .submitBtn {
@@ -213,7 +215,7 @@
   align-items: center;
   text-align: center;
   margin: 1.5rem 0 1.25rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -223,7 +225,7 @@
 .divider::after {
   content: "";
   flex: 1;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .divider span {
@@ -235,8 +237,8 @@
   flex-direction: column;
   align-items: center;
   gap: 0.45rem;
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px dashed rgba(16, 185, 129, 0.3);
+  background: var(--pill-bg);
+  border: 1px dashed var(--border-color);
   border-radius: 14px;
   padding: 1.15rem;
   text-align: center;
@@ -251,12 +253,12 @@
 .kioscoCtaTitle {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #a7f3d0;
+  color: var(--ucs-clinical-green, #10b981);
 }
 
 .kioscoCtaSub {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   line-height: 1.35;
 }
 
@@ -268,7 +270,7 @@
   padding: 0.55rem 1.15rem;
   background: rgba(16, 185, 129, 0.15);
   border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #34d399;
+  color: var(--ucs-clinical-green, #10b981);
   font-size: 0.825rem;
   font-weight: 700;
   border-radius: 9999px;
@@ -277,7 +279,7 @@
 
 .kioscoBtn:hover {
   background: #10b981;
-  color: #06152d;
+  color: #ffffff;
   box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
 }
 
@@ -285,10 +287,14 @@
   margin-top: 1.5rem;
   text-align: center;
   font-size: 0.725rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 @media (max-width: 480px) {
+  .themeToggleFloating {
+    top: 0.75rem;
+    right: 0.75rem;
+  }
   .loginCard {
     padding: 1.75rem 1.25rem;
     border-radius: 18px;

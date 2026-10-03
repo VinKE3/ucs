@@ -6,6 +6,7 @@ import Link from 'next/link';
 import styles from './admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
 import { DateRangePicker } from './DateRangePicker';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface UsuarioItem {
   id: number;
@@ -549,19 +550,19 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           </div>
           <div className={styles.brandText}>
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
                 UNIVERSIDAD
               </span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                   CIENTÍFICA
                 </span>
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#ff5a00', letterSpacing: '0.08em' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--ucs-orange, #ff5a00)', letterSpacing: '0.08em' }}>
                   DEL SUR
                 </span>
               </div>
             </div>
-            <span style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '0.1rem' }}>Clínica de Simulación</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>Clínica de Simulación</span>
           </div>
         </div>
 
@@ -580,6 +581,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
             </span>
           </div>
+
+          <ThemeToggle />
 
           <Link href="/" className={styles.kioscoLink} title="Ir a la pantalla de marcación">
             <span>⚡</span> Modo Kiosco
@@ -825,9 +828,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                   Cargando ambientes...
                 </div>
               ) : ambientesList.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--pill-bg)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
                   <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏥</div>
-                  <h4 style={{ color: '#ffffff', marginBottom: '0.25rem' }}>No se encontraron salas</h4>
+                  <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.25rem', fontWeight: 700 }}>No se encontraron salas</h4>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     {searchAmbiente || filterTipo !== 'todos'
                       ? 'No hay salas que coincidan con los filtros aplicados.'
@@ -886,8 +889,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                             {amb.otrosOcupantes && amb.otrosOcupantes.length > 0 && (
                               amb.otrosOcupantes.map((otr) => (
                                 <div key={otr.asistenciaId} className={styles.occupantRow}>
-                                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>👤 Personal:</span>
-                                  <span style={{ color: '#ffffff', fontWeight: 600 }}>{otr.nombres} {otr.apellidos}</span>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>👤 Personal:</span>
+                                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{otr.nombres} {otr.apellidos}</span>
                                 </div>
                               ))
                             )}
@@ -1318,7 +1321,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                               </div>
                             </td>
 
-                            <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : '#ffffff' }}>
+                            <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                               {asist.estado === 'anulado' ? '0 min' : tiempoFormat}
                             </td>
 
@@ -1528,7 +1531,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
               Vas a cambiar manualmente la contraseña de acceso para:{' '}
-              <strong style={{ color: '#ffffff' }}>{targetUser.nombres} {targetUser.apellidos}</strong> ({targetUser.dni})
+              <strong style={{ color: 'var(--text-primary)' }}>{targetUser.nombres} {targetUser.apellidos}</strong> ({targetUser.dni})
             </p>
 
             {resetMsg && (
@@ -1914,6 +1917,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
             </span>
           </div>
+        </div>
+
+        {/* SELECTOR DE TEMA EN EL DRAWER */}
+        <div className={styles.drawerThemeSection}>
+          <span className={styles.drawerThemeTitle}>Apariencia del Sistema</span>
+          <ThemeToggle showLabels />
         </div>
 
         {/* ACCESO RÁPIDO A KIOSCO */}

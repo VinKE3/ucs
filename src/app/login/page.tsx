@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from './login.module.css';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,6 +44,9 @@ export default function LoginPage() {
 
   return (
     <main className={styles.container}>
+      <div className={styles.themeToggleFloating}>
+        <ThemeToggle />
+      </div>
       <section className={styles.loginCard}>
         <header className={styles.header}>
           <div className={styles.logoBadge}>
@@ -52,14 +56,14 @@ export default function LoginPage() {
             </svg>
           </div>
           <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1, marginBottom: '0.85rem' }}>
-            <span style={{ fontSize: '0.65rem', letterSpacing: '0.16em', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+            <span style={{ fontSize: '0.65rem', letterSpacing: '0.16em', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
               UNIVERSIDAD
             </span>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+              <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 CIENTÍFICA
               </span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ff5a00', letterSpacing: '0.08em' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--ucs-orange, #ff5a00)', letterSpacing: '0.08em' }}>
                 DEL SUR
               </span>
             </div>

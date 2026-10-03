@@ -3,12 +3,9 @@
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary);
-  background-image: 
-    radial-gradient(circle at 10% 10%, rgba(13, 52, 108, 0.45) 0%, transparent 45%),
-    radial-gradient(circle at 90% 15%, rgba(255, 90, 0, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 50% 90%, rgba(6, 21, 45, 0.8) 0%, transparent 50%);
   background-attachment: fixed;
-  color: #ffffff;
+  color: var(--text-primary);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* ==========================================================================
@@ -19,12 +16,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1.5rem;
-  background: rgba(6, 21, 45, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 40;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .brand {
@@ -56,7 +60,7 @@
 .brandUni {
   font-size: 0.6rem;
   letter-spacing: 0.16em;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
 }
@@ -70,7 +74,7 @@
 .brandCientifica {
   font-size: 1.2rem;
   font-weight: 900;
-  color: #ffffff;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -83,7 +87,7 @@
 
 .brandSubtitle {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -92,10 +96,10 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.5rem 0.9rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--pill-bg);
+  border: 1px solid var(--border-color);
   border-radius: 9999px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   font-weight: 600;
   transition: all 0.2s ease;
@@ -103,8 +107,8 @@
 }
 
 .adminBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: var(--border-color);
+  color: var(--text-primary);
   border-color: #ff5a00;
   box-shadow: 0 0 12px rgba(255, 90, 0, 0.25);
 }
@@ -130,17 +134,15 @@
 
 .kioscoBox {
   width: 100%;
-  background: rgba(11, 34, 71, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 2.25rem 2rem;
   backdrop-filter: blur(20px);
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 40px rgba(13, 52, 108, 0.25);
+  box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .kioscoBox::before {
@@ -162,7 +164,7 @@
   border-radius: 9999px;
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #34d399;
+  color: #10b981;
   font-size: 0.725rem;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -192,14 +194,14 @@
 .boxTitle {
   font-size: 1.85rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-primary);
   letter-spacing: -0.025em;
   margin-bottom: 0.4rem;
 }
 
 .boxSubtitle {
   font-size: 0.9rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   max-width: 480px;
   margin: 0 auto;
   line-height: 1.45;
@@ -221,7 +223,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .sedeSelectorRow {
@@ -239,9 +241,9 @@
   gap: 0.4rem;
   padding: 0.55rem 1rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #cbd5e1;
+  border: 1px solid var(--border-color);
+  background: var(--pill-bg);
+  color: var(--text-secondary);
   font-size: 0.825rem;
   font-weight: 600;
   cursor: pointer;
@@ -249,9 +251,8 @@
 }
 
 .sedeBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: var(--border-color);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 
@@ -314,23 +315,23 @@
 .dniInput {
   width: 100%;
   padding: 1.1rem 3rem 1.1rem 3.25rem;
-  background: rgba(6, 18, 38, 0.85);
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 2px solid var(--border-color);
   border-radius: 16px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   outline: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .dniInput:focus {
   border-color: #ff5a00;
-  background: rgba(6, 18, 38, 0.98);
-  box-shadow: 0 0 0 4px rgba(255, 90, 0, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 4px rgba(255, 90, 0, 0.2);
 }
 
 .dniInput:focus ~ .inputIcon {
@@ -340,7 +341,7 @@
 .dniInput::placeholder {
   font-size: 1rem;
   letter-spacing: normal;
-  color: #475569;
+  color: var(--text-muted);
   font-weight: 500;
   font-family: inherit;
 }
@@ -416,7 +417,10 @@
 }
 
 .searchBtn:disabled {
-  opacity: 0.45;
+  background: var(--pill-bg);
+  border: 1.5px solid var(--border-color);
+  color: var(--text-muted);
+  opacity: 1;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -471,18 +475,19 @@
   margin: 0.5rem auto 0;
   width: 100%;
   padding: 0.75rem;
-  background: rgba(6, 18, 38, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
   border-radius: 16px;
+  box-shadow: var(--shadow-card);
   animation: fadeIn 0.2s ease;
 }
 
 .keypadBtn {
   padding: 0.85rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--pill-bg);
+  border: 1.5px solid var(--border-color);
   border-radius: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 1.35rem;
   font-weight: 700;
   font-family: var(--font-mono);
@@ -492,8 +497,9 @@
 }
 
 .keypadBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--border-color);
+  border-color: var(--ucs-orange, #ff5a00);
+  color: var(--ucs-orange, #ff5a00);
   transform: scale(1.02);
 }
 
@@ -521,9 +527,9 @@
 }
 
 .feedbackSuccess {
-  background: rgba(0, 230, 153, 0.12);
-  border: 2px solid #00e699;
-  color: #ffffff;
+  background: rgba(16, 185, 129, 0.12);
+  border: 2px solid #10b981;
+  color: var(--text-primary);
 }
 
 .feedbackIconWrap {
@@ -535,13 +541,13 @@
 .feedbackSuccessTitle {
   font-size: 1.45rem;
   font-weight: 800;
-  color: #00e699;
+  color: #10b981;
   margin-bottom: 0.4rem;
 }
 
 .feedbackSuccessDesc {
   font-size: 1.05rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 1.25rem;
 }
 

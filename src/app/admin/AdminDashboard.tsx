@@ -1033,9 +1033,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                         {amb.ocupada ? (
                           <>
                             {amb.cursoActivo && (
-                              <div className={styles.occupantRow} style={{ paddingBottom: '0.4rem', marginBottom: '0.4rem', borderBottom: '1px dashed var(--border-color)' }}>
-                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--ucs-orange, #ff5a00)' }}>📚 Curso:</span>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>{amb.cursoActivo}</span>
+                              <div className={styles.occupantCursoRow}>
+                                <span className={styles.occupantCursoLabel}>📚 Curso:</span>
+                                <span className={styles.occupantCursoName}>{amb.cursoActivo}</span>
                               </div>
                             )}
 

@@ -272,7 +272,7 @@
   padding: 0.55rem 1rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-color);
-  color: #cbd5e1;
+  color: #6f747a;
   border-radius: 8px;
   font-size: 0.825rem;
   font-weight: 600;
@@ -285,7 +285,7 @@
 
 .secondaryActionBtn:hover {
   background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  color: #494848;
   border-color: #00b4d8;
 }
 
@@ -889,9 +889,20 @@
 }
 
 @keyframes pulseDot {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 153, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 230, 153, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 230, 153, 0); }
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 230, 153, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(0, 230, 153, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 230, 153, 0);
+  }
 }
 
 .presenceLocationDetail {
@@ -957,6 +968,34 @@
   font-size: 0.775rem;
 }
 
+.occupantCursoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.45rem;
+  border-bottom: 1px dashed var(--border-color);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.occupantCursoLabel {
+  font-size: 0.725rem;
+  font-weight: 800;
+  color: var(--ucs-orange, #ff5a00);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.occupantCursoName {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 .ambienteItemCardOccupied {
   border-color: rgba(0, 230, 153, 0.5) !important;
   background: rgba(17, 34, 30, 0.7) !important;
@@ -992,7 +1031,7 @@
 .occupantsBox {
   background: var(--pill-bg);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
@@ -1037,6 +1076,144 @@
   color: var(--text-muted);
   font-style: italic;
   padding: 0.4rem 0;
+}
+
+/* ==========================================================================
+   OPTIMIZACIÓN TEMA CLARO (LIGHT THEME) PARA SALAS Y OCUPANTES
+   ========================================================================== */
+:global([data-theme="light"]) .ambienteItemCardOccupied {
+  background: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.14), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+:global([data-theme="light"]) .ambienteItemCardOccupied::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+:global([data-theme="light"]) .ambienteItemCardOccupied:hover {
+  border-color: #059669 !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.22), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+  background: #ffffff !important;
+}
+
+:global([data-theme="light"]) .ambienteItemCardOccupied .ambienteCardTitle {
+  color: #06152d !important;
+  font-weight: 800;
+}
+
+:global([data-theme="light"]) .ambienteCodeBadge {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+
+:global([data-theme="light"]) .catAltaFidelidad {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+:global([data-theme="light"]) .catHabilidades {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+:global([data-theme="light"]) .catConsultorio {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+:global([data-theme="light"]) .catDebriefing {
+  background: #f3e8ff;
+  color: #9333ea;
+  border: 1px solid #e9d5ff;
+}
+
+:global([data-theme="light"]) .catHospitalizacion {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+:global([data-theme="light"]) .catGeneral {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .occupancyBadgeInUse {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+  font-weight: 700 !important;
+}
+
+:global([data-theme="light"]) .occupancyBadgeInUse .liveDot {
+  background: #10b981 !important;
+  box-shadow: 0 0 6px #10b981 !important;
+}
+
+:global([data-theme="light"]) .occupantsBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .ambienteItemCardOccupied .occupantsBox {
+  background: #f8fafc !important;
+  border: 1px solid #d1fae5 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+:global([data-theme="light"]) .occupantCursoRow {
+  border-bottom: 1px dashed #cbd5e1 !important;
+}
+
+:global([data-theme="light"]) .occupantCursoLabel {
+  color: #ea580c !important;
+}
+
+:global([data-theme="light"]) .occupantCursoName {
+  color: #0f172a !important;
+  font-weight: 700;
+}
+
+:global([data-theme="light"]) .occupantDocLabel {
+  color: #1d4ed8 !important;
+  font-weight: 800;
+}
+
+:global([data-theme="light"]) .occupantDocName {
+  color: #0f172a !important;
+  font-weight: 700;
+}
+
+:global([data-theme="light"]) .occupantPacLabel {
+  color: #d97706 !important;
+  font-weight: 800;
+}
+
+:global([data-theme="light"]) .occupantPacName {
+  color: #0f172a !important;
+  font-weight: 700;
+}
+
+:global([data-theme="light"]) .ambienteItemCardOccupied .ambienteDetails {
+  color: #64748b !important;
+}
+
+:global([data-theme="light"]) .emptyRoomNotice {
+  color: #64748b !important;
 }
 
 /* --- ESTILOS DE HISTORIAL DE ASISTENCIAS Y EXPORTACIÓN --- */
@@ -1743,7 +1920,7 @@
     gap: 0.65rem;
   }
 
-  .asistFiltersRow > div,
+  .asistFiltersRow>div,
   .asistFiltersRow .searchBoxWrapper,
   .asistFiltersRow .filterSelect {
     width: 100% !important;
@@ -1760,7 +1937,3 @@
     -webkit-overflow-scrolling: touch;
   }
 }
-
-
-
-

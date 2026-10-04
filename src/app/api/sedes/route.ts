@@ -13,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Listar sedes con el conteo de ambientes activos
+    // Listar sedes ordenadas
     const sedesList = await db
       .select({
         id: sedes.id,
@@ -22,15 +22,31 @@ export async function GET() {
         direccion: sedes.direccion,
         activo: sedes.activo,
         createdAt: sedes.createdAt,
-        totalAmbientes: sql<number>`(
-          SELECT count(*)::int FROM ${ambientes} 
-          WHERE ${ambientes.sedeId} = ${sedes.id} AND ${ambientes.activo} = true
-        )`,
       })
       .from(sedes)
       .orderBy(desc(sedes.activo), sedes.nombre);
 
-    return NextResponse.json({ sedes: sedesList });
+    // Conteo real de ambientes activos por sede
+    const ambientesCounts = await db
+      .select({
+        sedeId: ambientes.sedeId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(ambientes)
+      .where(eq(ambientes.activo, true))
+      .groupBy(ambientes.sedeId);
+
+    const countsMap = new Map<number, number>();
+    ambientesCounts.forEach((ac) => {
+      countsMap.set(ac.sedeId, Number(ac.count));
+    });
+
+    const sedesConConteo = sedesList.map((s) => ({
+      ...s,
+      totalAmbientes: countsMap.get(s.id) || 0,
+    }));
+
+    return NextResponse.json({ sedes: sedesConConteo });
   } catch (error) {
     console.error('Error listando sedes:', error);
     return NextResponse.json({ error: 'Error al consultar sedes' }, { status: 500 });

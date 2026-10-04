@@ -9,6 +9,7 @@ export interface UsuarioItem {
   rolSistema: 'super_admin' | 'admin' | 'ninguno';
   activo: boolean;
   tienePassword: boolean;
+  horasSemanalesMax?: number | null;
   turnoActivoId?: number | null;
   horaIngreso?: string | null;
   sedeActualId?: number | null;
@@ -16,6 +17,25 @@ export interface UsuarioItem {
   ambienteActualId?: number | null;
   ambienteActualNombre?: string | null;
   ambienteActualCodigo?: string | null;
+}
+
+export interface ResumenColaboradorItem {
+  usuarioId: number;
+  dni: string;
+  nombres: string;
+  apellidos: string;
+  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  horasSemanalesMax?: number | null;
+  diasTrabajados: number;
+  minutosTotales: number;
+  horasTotalesFormato: string;
+  totalSesiones: number;
+  sesionesEnCurso: number;
+  turnosSinCerrar: number;
+  cursosParticipados: string[];
+  enTurnoAhora: boolean;
+  sedeActualNombre?: string | null;
+  ambienteActualNombre?: string | null;
 }
 
 export interface SedeAdminItem {

@@ -32,6 +32,7 @@ import { ModalCrearPersonal } from '@/components/admin/modals/ModalCrearPersonal
 import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
 import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
 import { ModalCurso } from '@/components/admin/modals/ModalCurso';
+import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
@@ -107,6 +108,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
     rolSistema: 'ninguno' | 'admin' | 'super_admin';
     password?: string;
+    horasSemanalesMax?: string;
   }>({
     dni: '',
     nombres: '',
@@ -116,9 +118,14 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     tipoPersonal: 'docente',
     rolSistema: 'ninguno',
     password: '',
+    horasSemanalesMax: '',
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Ficha / Kardex 360° individual
+  const [kardexUser, setKardexUser] = useState<UsuarioItem | null>(null);
+  const [showKardexDrawer, setShowKardexDrawer] = useState(false);
 
   const [showSedeModal, setShowSedeModal] = useState(false);
   const [sedeForm, setSedeForm] = useState({ nombre: '', codigo: '', direccion: '' });
@@ -532,6 +539,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         tipoPersonal: 'docente',
         rolSistema: 'ninguno',
         password: '',
+        horasSemanalesMax: '',
       });
       loadData();
     } catch (err) {
@@ -704,6 +712,10 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             session={session}
             onOpenResetPassword={openResetPassword}
             onOpenCrearUsuario={() => setShowCreateModal(true)}
+            onOpenKardex={(u) => {
+              setKardexUser(u);
+              setShowKardexDrawer(true);
+            }}
           />
         )}
 
@@ -731,6 +743,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             loadingAsistencias={loadingAsistencias}
             sedesList={sedesList}
             cursosList={cursosList}
+            usuariosList={usuariosList}
             asistSearch={asistSearch}
             setAsistSearch={setAsistSearch}
             asistFiltroSede={asistFiltroSede}
@@ -748,6 +761,10 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onExportCsv={handleExportCsv}
             onOpenCerrarTurnoModal={openCerrarTurnoModal}
             onOpenAnularModal={openAnularModal}
+            onOpenKardex={(u) => {
+              setKardexUser(u);
+              setShowKardexDrawer(true);
+            }}
           />
         )}
       </main>
@@ -830,6 +847,21 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         cursoError={cursoError}
         onClose={() => setShowCursoModal(false)}
         onSubmit={handleSaveCurso}
+      />
+
+      {/* DRAWER LATERAL FICHA 360° / KARDEX DE HORAS */}
+      <KardexDrawer
+        usuario={kardexUser}
+        isOpen={showKardexDrawer}
+        onClose={() => setShowKardexDrawer(false)}
+        onUsuarioUpdated={(updated) => {
+          setUsuariosList((prev) =>
+            prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
+          );
+          if (kardexUser && kardexUser.id === updated.id) {
+            setKardexUser((prev) => (prev ? { ...prev, ...updated } : null));
+          }
+        }}
       />
     </div>
   );

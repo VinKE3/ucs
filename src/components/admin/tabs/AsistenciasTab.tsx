@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
-import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem } from '@/types/admin';
+import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
 
 interface AsistenciasTabProps {
@@ -10,6 +10,7 @@ interface AsistenciasTabProps {
   loadingAsistencias: boolean;
   sedesList: SedeAdminItem[];
   cursosList: CursoAdminItem[];
+  usuariosList?: UsuarioItem[];
   asistSearch: string;
   setAsistSearch: (val: string) => void;
   asistFiltroSede: string;
@@ -27,6 +28,7 @@ interface AsistenciasTabProps {
   onExportCsv: () => void;
   onOpenCerrarTurnoModal: (asist: AsistenciaAdminItem) => void;
   onOpenAnularModal: (asist: AsistenciaAdminItem) => void;
+  onOpenKardex?: (user: UsuarioItem) => void;
 }
 
 export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
@@ -34,6 +36,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   loadingAsistencias,
   sedesList,
   cursosList,
+  usuariosList = [],
   asistSearch,
   setAsistSearch,
   asistFiltroSede,
@@ -51,7 +54,9 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   onExportCsv,
   onOpenCerrarTurnoModal,
   onOpenAnularModal,
+  onOpenKardex,
 }) => {
+  const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const totalMinutosValidos = asistenciasList
     .filter((a) => a.estado !== 'anulado' && a.minutosTotales)
     .reduce((acc, a) => acc + (a.minutosTotales || 0), 0);
@@ -89,6 +94,139 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       default:
         return <span>{estado}</span>;
     }
+  };
+
+  // Agrupación consolidada por colaborador
+  const resumenColaboradores = useMemo<ResumenColaboradorItem[]>(() => {
+    const map = new Map<number, {
+      usuarioId: number;
+      dni: string;
+      nombres: string;
+      apellidos: string;
+      tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+      horasSemanalesMax?: number | null;
+      fechasSet: Set<string>;
+      minutosTotales: number;
+      totalSesiones: number;
+      sesionesEnCurso: number;
+      turnosSinCerrar: number;
+      cursosSet: Set<string>;
+      enTurnoAhora: boolean;
+      sedeActualNombre?: string | null;
+      ambienteActualNombre?: string | null;
+    }>();
+
+    for (const a of asistenciasList) {
+      if (a.estado === 'anulado') continue;
+
+      let item = map.get(a.usuarioId);
+      if (!item) {
+        const uInfo = usuariosList.find((u) => u.id === a.usuarioId);
+        item = {
+          usuarioId: a.usuarioId,
+          dni: a.dni,
+          nombres: a.nombres,
+          apellidos: a.apellidos,
+          tipoPersonal: a.tipoPersonal,
+          horasSemanalesMax: uInfo?.horasSemanalesMax || null,
+          fechasSet: new Set<string>(),
+          minutosTotales: 0,
+          totalSesiones: 0,
+          sesionesEnCurso: 0,
+          turnosSinCerrar: 0,
+          cursosSet: new Set<string>(),
+          enTurnoAhora: Boolean(uInfo?.turnoActivoId),
+          sedeActualNombre: uInfo?.sedeActualNombre,
+          ambienteActualNombre: uInfo?.ambienteActualNombre,
+        };
+        map.set(a.usuarioId, item);
+      }
+
+      item.totalSesiones++;
+      if (a.fecha) item.fechasSet.add(a.fecha);
+      if (a.cursoNombre) item.cursosSet.add(a.cursoNombre);
+
+      if (a.estado === 'en_curso') {
+        item.sesionesEnCurso++;
+        if (a.horaIngreso) {
+          const diff = Math.round((Date.now() - new Date(a.horaIngreso).getTime()) / 60000);
+          if (diff > 0) item.minutosTotales += diff;
+        }
+      } else if (a.minutosTotales && a.minutosTotales > 0) {
+        item.minutosTotales += a.minutosTotales;
+      }
+    }
+
+    return Array.from(map.values())
+      .map((val) => ({
+        usuarioId: val.usuarioId,
+        dni: val.dni,
+        nombres: val.nombres,
+        apellidos: val.apellidos,
+        tipoPersonal: val.tipoPersonal,
+        horasSemanalesMax: val.horasSemanalesMax,
+        diasTrabajados: val.fechasSet.size,
+        minutosTotales: val.minutosTotales,
+        horasTotalesFormato: `${Math.floor(val.minutosTotales / 60)}h ${val.minutosTotales % 60}m`,
+        totalSesiones: val.totalSesiones,
+        sesionesEnCurso: val.sesionesEnCurso,
+        turnosSinCerrar: val.turnosSinCerrar,
+        cursosParticipados: Array.from(val.cursosSet),
+        enTurnoAhora: val.enTurnoAhora,
+        sedeActualNombre: val.sedeActualNombre,
+        ambienteActualNombre: val.ambienteActualNombre,
+      }))
+      .sort((a, b) => b.minutosTotales - a.minutosTotales);
+  }, [asistenciasList, usuariosList]);
+
+  const handleExportResumenCsv = () => {
+    if (resumenColaboradores.length === 0) {
+      alert('No hay colaboradores con horas registradas en el período actual.');
+      return;
+    }
+
+    const headers = [
+      'DNI',
+      'Apellidos',
+      'Nombres',
+      'Tipo de Personal',
+      'Dias Asistidos',
+      'Minutos Totales',
+      'Horas Netas (Decimal)',
+      'Horas (Formato)',
+      'Tope Semanal (Docentes)',
+      'Sesiones Totales',
+      'Sesiones En Curso',
+      'Cursos Participados',
+    ];
+
+    const rows = resumenColaboradores.map((r) => [
+      r.dni,
+      `"${r.apellidos}"`,
+      `"${r.nombres}"`,
+      r.tipoPersonal,
+      r.diasTrabajados,
+      r.minutosTotales,
+      (r.minutosTotales / 60).toFixed(2),
+      r.horasTotalesFormato,
+      r.horasSemanalesMax ? `${r.horasSemanalesMax} hrs` : 'Sin tope',
+      r.totalSesiones,
+      r.sesionesEnCurso,
+      `"${r.cursosParticipados.join(', ') || 'N/A'}"`,
+    ].join(';'));
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `Resumen_Horas_UCS_${asistFiltroFechaDesde || 'inicio'}_${asistFiltroFechaHasta || 'fin'}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -190,19 +328,206 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             </div>
           </div>
 
-          <button onClick={onExportCsv} className={styles.exportBtn}>
-            <span>📥</span> Descargar Excel (CSV)
+          <button
+            onClick={modoVista === 'resumen' ? handleExportResumenCsv : onExportCsv}
+            className={styles.exportBtn}
+          >
+            <span>📥</span> {modoVista === 'resumen' ? 'Exportar Resumen (CSV)' : 'Descargar Excel (CSV)'}
           </button>
         </div>
       </div>
 
-      {/* TABLA DE ASISTENCIAS */}
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Personal</th>
+      {/* SELECTOR DE VISTA: DETALLADO VS RESUMEN POR COLABORADOR */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => setModoVista('detallado')}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            border: '1px solid var(--border-color)',
+            background: modoVista === 'detallado' ? 'var(--ucs-navy-light)' : 'var(--bg-card)',
+            color: modoVista === 'detallado' ? '#ffffff' : 'var(--text-secondary)',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <span>📋</span> Turnos Detallados ({asistenciasList.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setModoVista('resumen')}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            border: '1px solid var(--border-color)',
+            background: modoVista === 'resumen' ? 'var(--ucs-navy-light)' : 'var(--bg-card)',
+            color: modoVista === 'resumen' ? '#ffffff' : 'var(--text-secondary)',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <span>📊</span> Resumen por Colaborador ({resumenColaboradores.length})
+        </button>
+      </div>
+
+      {modoVista === 'resumen' ? (
+        /* TABLA CONSOLIDADA POR COLABORADOR */
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Colaborador</th>
+                <th>Rol</th>
+                <th>Presencia</th>
+                <th>Jornadas</th>
+                <th>Horas Computadas</th>
+                <th>Carga Semanal</th>
+                <th>Cursos / Escenarios</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumenColaboradores.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    No hay colaboradores con horas registradas en este período.
+                  </td>
+                </tr>
+              ) : (
+                resumenColaboradores.map((colab) => {
+                  const horasDecimal = (colab.minutosTotales / 60).toFixed(1);
+                  const userObj = usuariosList.find((u) => u.id === colab.usuarioId) || {
+                    id: colab.usuarioId,
+                    dni: colab.dni,
+                    nombres: colab.nombres,
+                    apellidos: colab.apellidos,
+                    tipoPersonal: colab.tipoPersonal,
+                    rolSistema: 'ninguno',
+                    activo: true,
+                    tienePassword: false,
+                    horasSemanalesMax: colab.horasSemanalesMax,
+                    turnoActivoId: colab.enTurnoAhora ? 1 : null,
+                    ambienteActualNombre: colab.ambienteActualNombre,
+                  } as UsuarioItem;
+
+                  return (
+                    <tr key={colab.usuarioId}>
+                      <td>
+                        <div>
+                          <strong>{colab.apellidos}, {colab.nombres}</strong>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          DNI: {colab.dni}
+                        </div>
+                      </td>
+                      <td>{getTipoBadge(colab.tipoPersonal)}</td>
+                      <td>
+                        {colab.enTurnoAhora ? (
+                          <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                            En Turno
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>⚪ Fuera</span>
+                        )}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{colab.diasTrabajados} días</td>
+                      <td>
+                        <div style={{ fontWeight: 700, color: 'var(--ucs-blue-sky)', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>
+                          {colab.horasTotalesFormato}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {horasDecimal} hrs netas
+                        </div>
+                      </td>
+                      <td>
+                        {colab.tipoPersonal === 'docente' ? (
+                          colab.horasSemanalesMax ? (
+                            <div>
+                              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Tope: {colab.horasSemanalesMax}h/sem
+                              </span>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--ucs-blue-sky)' }}>
+                                Monitoreo activo
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tope fijado</span>
+                          )
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ilimitado</span>
+                        )}
+                      </td>
+                      <td style={{ maxWidth: '240px' }}>
+                        {colab.cursosParticipados.length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                            {colab.cursosParticipados.slice(0, 2).map((c, i) => (
+                              <span
+                                key={i}
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '0.15rem 0.4rem',
+                                  borderRadius: '4px',
+                                  background: 'rgba(255, 90, 0, 0.1)',
+                                  color: 'var(--ucs-orange)',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {c}
+                              </span>
+                            ))}
+                            {colab.cursosParticipados.length > 2 && (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                +{colab.cursosParticipados.length - 2} más
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => onOpenKardex && onOpenKardex(userObj)}
+                          className={styles.iconBtn}
+                          style={{
+                            borderColor: 'rgba(56, 189, 248, 0.4)',
+                            color: 'var(--ucs-blue-sky)',
+                            background: 'rgba(56, 189, 248, 0.08)',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title="Abrir Ficha 360°"
+                        >
+                          <span>📊</span> Ver Ficha
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* TABLA DE ASISTENCIAS DETALLADA */
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Personal</th>
               <th>Ubicación</th>
               <th>Curso / Asignatura</th>
               <th>Horario (Ingreso - Salida)</th>
@@ -362,6 +687,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
           </tbody>
         </table>
       </div>
+      )}
     </section>
   );
 };

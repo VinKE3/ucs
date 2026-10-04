@@ -13,6 +13,7 @@ interface CreatePersonalForm {
   tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
   rolSistema: 'ninguno' | 'admin' | 'super_admin';
   password?: string;
+  horasSemanalesMax?: string;
 }
 
 interface ModalCrearPersonalProps {
@@ -123,6 +124,24 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
               className={styles.inputField}
             />
           </div>
+
+          {createForm.tipoPersonal === 'docente' && (
+            <div className={styles.fullWidth}>
+              <label className={styles.label}>Tope de Horas Semanales Asignadas (Opcional)</label>
+              <input
+                type="number"
+                min="1"
+                max="80"
+                placeholder="ej: 20 (para monitorear coberturas)"
+                value={createForm.horasSemanalesMax || ''}
+                onChange={(e) => setCreateForm({ ...createForm, horasSemanalesMax: e.target.value })}
+                className={styles.inputField}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                Establece un límite semanal para alertar en caso de que este docente cubra demasiadas horas.
+              </span>
+            </div>
+          )}
 
           {session.rolSistema === 'super_admin' && (
             <>

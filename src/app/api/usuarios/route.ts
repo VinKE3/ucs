@@ -24,6 +24,7 @@ export async function GET() {
         telefono: usuarios.telefono,
         tipoPersonal: usuarios.tipoPersonal,
         rolSistema: usuarios.rolSistema,
+        horasSemanalesMax: usuarios.horasSemanalesMax,
         activo: usuarios.activo,
         tienePassword: sql<boolean>`${usuarios.passwordHash} IS NOT NULL`,
         createdAt: usuarios.createdAt,
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { dni, nombres, apellidos, correo, telefono, tipoPersonal, rolSistema, password } = body;
+    const { dni, nombres, apellidos, correo, telefono, tipoPersonal, rolSistema, password, horasSemanalesMax } = body;
 
     if (!dni || !nombres || !apellidos || !tipoPersonal) {
       return NextResponse.json(
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
         tipoPersonal: tipoPersonal,
         rolSistema: rolSistema || 'ninguno',
         passwordHash: passwordHash,
+        horasSemanalesMax: horasSemanalesMax ? Number(horasSemanalesMax) : null,
         activo: true,
       })
       .returning({
@@ -122,11 +124,53 @@ export async function POST(request: Request) {
         apellidos: usuarios.apellidos,
         tipoPersonal: usuarios.tipoPersonal,
         rolSistema: usuarios.rolSistema,
+        horasSemanalesMax: usuarios.horasSemanalesMax,
       });
 
     return NextResponse.json({ ok: true, usuario: newUser });
   } catch (error) {
     console.error('Error creando usuario:', error);
     return NextResponse.json({ error: 'Error interno al registrar usuario' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, horasSemanalesMax, activo } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID de usuario requerido' }, { status: 400 });
+    }
+
+    const updateData: Record<string, any> = {
+      updatedAt: new Date(),
+    };
+
+    if (horasSemanalesMax !== undefined) {
+      updateData.horasSemanalesMax = horasSemanalesMax === null || horasSemanalesMax === '' 
+        ? null 
+        : Number(horasSemanalesMax);
+    }
+
+    if (activo !== undefined) {
+      updateData.activo = Boolean(activo);
+    }
+
+    const [updated] = await db
+      .update(usuarios)
+      .set(updateData)
+      .where(eq(usuarios.id, Number(id)))
+      .returning();
+
+    return NextResponse.json({ ok: true, usuario: updated });
+  } catch (error) {
+    console.error('Error actualizando usuario:', error);
+    return NextResponse.json({ error: 'Error interno al actualizar usuario' }, { status: 500 });
   }
 }

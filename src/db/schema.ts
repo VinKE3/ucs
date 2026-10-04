@@ -67,6 +67,9 @@ export const usuarios = pgTable('usuarios', {
   // Nivel de acceso al sistema web
   rolSistema: rolSistemaEnum('rol_sistema').default('ninguno').notNull(), // "super_admin", "admin", "ninguno"
   passwordHash: text('password_hash'), // Solo para quienes tienen rol 'super_admin' o 'admin'
+
+  // Tope de horas semanales (para docentes, coberturas)
+  horasSemanalesMax: integer('horas_semanales_max'),
   
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

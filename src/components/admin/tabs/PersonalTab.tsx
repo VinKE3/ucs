@@ -14,6 +14,7 @@ interface PersonalTabProps {
   session: SessionPayload;
   onOpenResetPassword: (user: UsuarioItem) => void;
   onOpenCrearUsuario: () => void;
+  onOpenKardex: (user: UsuarioItem) => void;
 }
 
 export const PersonalTab: React.FC<PersonalTabProps> = ({
@@ -25,6 +26,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   session,
   onOpenResetPassword,
   onOpenCrearUsuario,
+  onOpenKardex,
 }) => {
   const totalEnClinica = usuariosList.filter((u) => Boolean(u.turnoActivoId)).length;
   const totalDocentes = usuariosList.filter((u) => u.tipoPersonal === 'docente').length;
@@ -166,7 +168,22 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                   <td>
                     <strong>{u.nombres} {u.apellidos}</strong>
                   </td>
-                  <td>{getTipoBadge(u.tipoPersonal)}</td>
+                  <td>
+                    {getTipoBadge(u.tipoPersonal)}
+                    {u.tipoPersonal === 'docente' && u.horasSemanalesMax && (
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: 'var(--ucs-blue-sky)',
+                          marginTop: '0.25rem',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ⏱️ Tope: {u.horasSemanalesMax}h/sem
+                      </div>
+                    )}
+                  </td>
                   <td>
                     {u.turnoActivoId ? (
                       <div className={styles.presenceBadgeActive}>
@@ -211,6 +228,19 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                   </td>
                   <td>
                     <div className={styles.actionRow}>
+                      <button
+                        onClick={() => onOpenKardex(u)}
+                        className={styles.iconBtn}
+                        style={{
+                          borderColor: 'rgba(56, 189, 248, 0.4)',
+                          color: 'var(--ucs-blue-sky)',
+                          background: 'rgba(56, 189, 248, 0.08)',
+                        }}
+                        title="Ver Ficha 360° y Cómputo de Horas"
+                      >
+                        <span>📊</span> Horas
+                      </button>
+
                       {session.rolSistema === 'super_admin' && (
                         <button
                           onClick={() => onOpenResetPassword(u)}

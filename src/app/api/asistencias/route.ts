@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     const fechaDesde = searchParams.get('fechaDesde');
     const fechaHasta = searchParams.get('fechaHasta');
     const cursoId = searchParams.get('cursoId');
+    const usuarioId = searchParams.get('usuarioId');
     const q = searchParams.get('q')?.trim();
 
     let query = db
@@ -100,11 +101,16 @@ export async function GET(request: Request) {
       );
     }
 
+    if (usuarioId) {
+      conditions.push(eq(asistencias.usuarioId, Number(usuarioId)));
+    }
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
 
-    const list = await query.orderBy(desc(asistencias.horaIngreso)).limit(200);
+    const limitRecords = usuarioId ? 500 : 250;
+    const list = await query.orderBy(desc(asistencias.horaIngreso)).limit(limitRecords);
 
     return NextResponse.json({ asistencias: list });
   } catch (error) {

@@ -528,165 +528,165 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
               <tr>
                 <th>Fecha</th>
                 <th>Personal</th>
-              <th>Ubicación</th>
-              <th>Curso / Asignatura</th>
-              <th>Horario (Ingreso - Salida)</th>
-              <th>Tiempo Total</th>
-              <th>Estado</th>
-              <th>Auditoría / Motivo</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loadingAsistencias ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  Cargando registros de asistencias...
-                </td>
+                <th>Ubicación</th>
+                <th>Curso / Asignatura</th>
+                <th>Horario (Ingreso - Salida)</th>
+                <th>Tiempo Total</th>
+                <th>Estado</th>
+                <th>Auditoría / Motivo</th>
+                <th>Acciones</th>
               </tr>
-            ) : asistenciasList.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  No se encontraron asistencias con los filtros seleccionados.
-                </td>
-              </tr>
-            ) : (
-              asistenciasList.map((asist) => {
-                const horas = asist.minutosTotales ? Math.floor(asist.minutosTotales / 60) : 0;
-                const mins = asist.minutosTotales ? asist.minutosTotales % 60 : 0;
-                const tiempoFormat =
-                  asist.minutosTotales && asist.minutosTotales > 0
-                    ? horas > 0
-                      ? `${horas}h ${mins}m`
-                      : `${mins} min`
-                    : '—';
+            </thead>
+            <tbody>
+              {loadingAsistencias ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    Cargando registros de asistencias...
+                  </td>
+                </tr>
+              ) : asistenciasList.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    No se encontraron asistencias con los filtros seleccionados.
+                  </td>
+                </tr>
+              ) : (
+                asistenciasList.map((asist) => {
+                  const horas = asist.minutosTotales ? Math.floor(asist.minutosTotales / 60) : 0;
+                  const mins = asist.minutosTotales ? asist.minutosTotales % 60 : 0;
+                  const tiempoFormat =
+                    asist.minutosTotales && asist.minutosTotales > 0
+                      ? horas > 0
+                        ? `${horas}h ${mins}m`
+                        : `${mins} min`
+                      : '—';
 
-                return (
-                  <tr key={asist.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                      {asist.fecha}
-                    </td>
+                  return (
+                    <tr key={asist.id}>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        {asist.fecha}
+                      </td>
 
-                    <td>
-                      <div>
-                        <strong>
-                          {asist.nombres} {asist.apellidos}
-                        </strong>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        DNI: {asist.dni} • {getTipoBadge(asist.tipoPersonal)}
-                      </div>
-                    </td>
+                      <td>
+                        <div>
+                          <strong>
+                            {asist.nombres} {asist.apellidos}
+                          </strong>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          DNI: {asist.dni} • {getTipoBadge(asist.tipoPersonal)}
+                        </div>
+                      </td>
 
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{asist.sedeNombre}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
-                        {asist.ambienteNombre ? (
-                          <span>
-                            {asist.ambienteNombre} {asist.ambienteCodigo && `(${asist.ambienteCodigo})`}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>Clínica General (Soporte)</span>
-                        )}
-                      </div>
-                    </td>
-
-                    <td>
-                      {asist.cursoNombre ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              color: 'var(--ucs-orange, #ff5a00)',
-                              background: 'rgba(255, 90, 0, 0.12)',
-                              padding: '0.25rem 0.55rem',
-                              borderRadius: '6px',
-                            }}
-                          >
-                            📚 {asist.cursoNombre}
-                          </span>
-                          {asist.cursoCodigo && (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                              Código: {asist.cursoCodigo}
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{asist.sedeNombre}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
+                          {asist.ambienteNombre ? (
+                            <span>
+                              {asist.ambienteNombre} {asist.ambienteCodigo && `(${asist.ambienteCodigo})`}
                             </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>Clínica General (Soporte)</span>
                           )}
                         </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                      <div>
-                        🟢 Entrada:{' '}
-                        {new Date(asist.horaIngreso).toLocaleTimeString('es-PE', {
-                          timeZone: 'America/Lima',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
-                      <div>
-                        🔴 Salida:{' '}
-                        {asist.horaSalida
-                          ? new Date(asist.horaSalida).toLocaleTimeString('es-PE', {
+                      <td>
+                        {asist.cursoNombre ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                color: 'var(--ucs-orange, #ff5a00)',
+                                background: 'rgba(255, 90, 0, 0.12)',
+                                padding: '0.25rem 0.55rem',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              📚 {asist.cursoNombre}
+                            </span>
+                            {asist.cursoCodigo && (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                Código: {asist.cursoCodigo}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
+                        )}
+                      </td>
+
+                      <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        <div>
+                          🟢 Entrada:{' '}
+                          {new Date(asist.horaIngreso).toLocaleTimeString('es-PE', {
+                            timeZone: 'America/Lima',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                        <div>
+                          🔴 Salida:{' '}
+                          {asist.horaSalida
+                            ? new Date(asist.horaSalida).toLocaleTimeString('es-PE', {
                               timeZone: 'America/Lima',
                               hour: '2-digit',
                               minute: '2-digit',
                             })
-                          : 'Pendiente'}
-                      </div>
-                    </td>
-
-                    <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                      {asist.estado === 'anulado' ? '0 min' : tiempoFormat}
-                    </td>
-
-                    <td>{getEstadoBadge(asist.estado)}</td>
-
-                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '220px' }}>
-                      {asist.motivoModificacion ? (
-                        <div style={{ background: 'rgba(255,255,255,0.04)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
-                          ⚠️ {asist.motivoModificacion}
+                            : 'Pendiente'}
                         </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>Registro estándar</span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td>
-                      <div className={styles.actionRow}>
-                        {asist.estado === 'en_curso' && (
-                          <button
-                            onClick={() => onOpenCerrarTurnoModal(asist)}
-                            className={`${styles.actionBtnSmall} ${styles.actionBtnWarning}`}
-                            title="Cerrar turno manualmente si olvidó marcar salida"
-                          >
-                            ⏱️ Cerrar
-                          </button>
-                        )}
+                      <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                        {asist.estado === 'anulado' ? '0 min' : tiempoFormat}
+                      </td>
 
-                        {asist.estado !== 'anulado' && (
-                          <button
-                            onClick={() => onOpenAnularModal(asist)}
-                            className={`${styles.actionBtnSmall} ${styles.actionBtnDanger}`}
-                            title="Anular marcación errónea con justificación obligatoria"
-                          >
-                            🚫 Anular
-                          </button>
+                      <td>{getEstadoBadge(asist.estado)}</td>
+
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '220px' }}>
+                        {asist.motivoModificacion ? (
+                          <div style={{ background: 'rgba(255,255,255,0.04)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
+                            ⚠️ {asist.motivoModificacion}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>Registro estándar</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                      </td>
+
+                      <td>
+                        <div className={styles.actionRow}>
+                          {asist.estado === 'en_curso' && (
+                            <button
+                              onClick={() => onOpenCerrarTurnoModal(asist)}
+                              className={`${styles.actionBtnSmall} ${styles.actionBtnWarning}`}
+                              title="Cerrar turno manualmente si olvidó marcar salida"
+                            >
+                              ⏱️ Cerrar
+                            </button>
+                          )}
+
+                          {asist.estado !== 'anulado' && (
+                            <button
+                              onClick={() => onOpenAnularModal(asist)}
+                              className={`${styles.actionBtnSmall} ${styles.actionBtnDanger}`}
+                              title="Anular marcación errónea con justificación obligatoria"
+                            >
+                              🚫 Anular
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

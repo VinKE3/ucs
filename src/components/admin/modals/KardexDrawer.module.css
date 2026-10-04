@@ -107,6 +107,10 @@
   gap: 1.25rem;
 }
 
+.body > * {
+  flex-shrink: 0;
+}
+
 /* Period Pills */
 .periodSection {
   display: flex;
@@ -164,6 +168,7 @@
   padding: 1rem 1.25rem;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .gaugeHeader {

@@ -1,130 +1,49 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import styles from './admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
-import { DateRangePicker } from './DateRangePicker';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import type {
+  UsuarioItem,
+  SedeAdminItem,
+  AmbienteAdminItem,
+  TecnicoTurnoItem,
+  OcupanteItem,
+  AsistenciaAdminItem,
+  CursoAdminItem,
+  StatsData,
+  AdminTab,
+} from '@/types/admin';
 
-interface UsuarioItem {
-  id: number;
-  dni: string;
-  nombres: string;
-  apellidos: string;
-  correo: string | null;
-  telefono: string | null;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
-  rolSistema: 'super_admin' | 'admin' | 'ninguno';
-  activo: boolean;
-  tienePassword: boolean;
-  turnoActivoId?: number | null;
-  horaIngreso?: string | null;
-  sedeActualId?: number | null;
-  sedeActualNombre?: string | null;
-  ambienteActualId?: number | null;
-  ambienteActualNombre?: string | null;
-  ambienteActualCodigo?: string | null;
-}
+// Componentes modulares
+import { AdminNavbar } from '@/components/admin/AdminNavbar';
+import { AdminStatsCards } from '@/components/admin/AdminStatsCards';
+import { AmbientesTab } from '@/components/admin/tabs/AmbientesTab';
+import { PersonalTab } from '@/components/admin/tabs/PersonalTab';
+import { CursosTab } from '@/components/admin/tabs/CursosTab';
+import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
 
-interface SedeAdminItem {
-  id: number;
-  nombre: string;
-  codigo: string | null;
-  direccion: string | null;
-  totalAmbientes: number;
-}
-
-interface OcupanteItem {
-  asistenciaId: number;
-  usuarioId: number;
-  nombres: string;
-  apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
-  dni: string;
-  horaIngreso: string;
-}
-
-interface TecnicoTurnoItem {
-  asistenciaId: number;
-  usuarioId: number;
-  nombres: string;
-  apellidos: string;
-  dni: string;
-  horaIngreso: string;
-}
-
-interface AmbienteAdminItem {
-  id: number;
-  sedeId: number;
-  nombre: string;
-  codigo: string | null;
-  tipo: string;
-  capacidad: number | null;
-  activo: boolean;
-  sedeNombre?: string;
-  ocupada?: boolean;
-  cursoActivo?: string | null;
-  docentes?: OcupanteItem[];
-  pacientesSimulados?: OcupanteItem[];
-  otrosOcupantes?: OcupanteItem[];
-}
-
-interface AsistenciaAdminItem {
-  id: number;
-  fecha: string;
-  horaIngreso: string;
-  horaSalida: string | null;
-  minutosTotales: number | null;
-  estado: 'en_curso' | 'finalizado' | 'anulado' | 'ajustado_manual';
-  tipoRegistro: string;
-  observaciones: string | null;
-  motivoModificacion: string | null;
-  createdAt: string;
-  usuarioId: number;
-  dni: string;
-  nombres: string;
-  apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
-  correo: string | null;
-  sedeId: number;
-  sedeNombre: string;
-  sedeCodigo: string | null;
-  ambienteId: number | null;
-  ambienteNombre: string | null;
-  ambienteCodigo: string | null;
-  cursoId?: number | null;
-  cursoNombre?: string | null;
-  cursoCodigo?: string | null;
-}
-
-interface CursoAdminItem {
-  id: number;
-  nombre: string;
-  codigo: string | null;
-  descripcion: string | null;
-  activo: boolean;
-  createdAt?: string;
-}
-
-interface StatsData {
-  sedes: number;
-  ambientes: number;
-  usuarios: number;
-  enCurso: number;
-  cursos?: number;
-}
+// Modales modulares
+import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
+import { ModalCrearAmbiente } from '@/components/admin/modals/ModalCrearAmbiente';
+import { ModalResetPassword } from '@/components/admin/modals/ModalResetPassword';
+import { ModalCrearPersonal } from '@/components/admin/modals/ModalCrearPersonal';
+import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
+import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
+import { ModalCurso } from '@/components/admin/modals/ModalCurso';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'personal' | 'ambientes' | 'asistencias' | 'cursos'>('ambientes');
+  const [activeTab, setActiveTab] = useState<AdminTab>('ambientes');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0, cursos: 0 });
+  
+  // Personal
   const [usuariosList, setUsuariosList] = useState<UsuarioItem[]>([]);
   const [searchPersonal, setSearchPersonal] = useState<string>('');
   const [filterPersonalTipo, setFilterPersonalTipo] = useState<string>('todos');
-  
+
   // Sedes y Ambientes
   const [sedesList, setSedesList] = useState<SedeAdminItem[]>([]);
   const [selectedSedeId, setSelectedSedeId] = useState<number | null>(null);
@@ -171,7 +90,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [actionAsistLoading, setActionAsistLoading] = useState(false);
 
-  // Modales
+  // Modales de Usuarios y Sedes
   const [showResetModal, setShowResetModal] = useState(false);
   const [targetUser, setTargetUser] = useState<UsuarioItem | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -179,25 +98,32 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [resetMsg, setResetMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<{
+    dni: string;
+    nombres: string;
+    apellidos: string;
+    correo: string;
+    telefono: string;
+    tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+    rolSistema: 'ninguno' | 'admin' | 'super_admin';
+    password?: string;
+  }>({
     dni: '',
     nombres: '',
     apellidos: '',
     correo: '',
     telefono: '',
-    tipoPersonal: 'docente' as 'docente' | 'tecnico' | 'paciente_simulado',
-    rolSistema: 'ninguno' as 'super_admin' | 'admin' | 'ninguno',
+    tipoPersonal: 'docente',
+    rolSistema: 'ninguno',
     password: '',
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Modal Nueva Sede
   const [showSedeModal, setShowSedeModal] = useState(false);
   const [sedeForm, setSedeForm] = useState({ nombre: '', codigo: '', direccion: '' });
   const [sedeLoading, setSedeLoading] = useState(false);
 
-  // Modal Nuevo Ambiente
   const [showAmbienteModal, setShowAmbienteModal] = useState(false);
   const [ambienteForm, setAmbienteForm] = useState({
     nombre: '',
@@ -207,7 +133,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   });
   const [ambienteLoading, setAmbienteLoading] = useState(false);
 
-  // Cargar estadísticas y listas iniciales
+  // ==========================================
+  // CARGA DE DATOS DESDE LA API
+  // ==========================================
   const loadData = async () => {
     try {
       const [resStats, resUsers, resSedes, resCursos] = await Promise.all([
@@ -248,7 +176,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     loadData();
   }, []);
 
-  // Cargar cursos
   const loadCursos = useCallback(async () => {
     try {
       setLoadingCursos(true);
@@ -270,7 +197,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   }, [activeTab, loadCursos]);
 
-  // Cargar ambientes de la sede seleccionada con filtros y búsqueda
   const loadAmbientes = useCallback(async (sedeId: number, tipo: string, q: string) => {
     try {
       setLoadingAmbientes(true);
@@ -298,7 +224,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   }, [selectedSedeId, filterTipo, searchAmbiente, loadAmbientes]);
 
-  // Cargar asistencias con filtros y auditoría
   const loadAsistencias = useCallback(async () => {
     try {
       setLoadingAsistencias(true);
@@ -329,7 +254,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   }, [activeTab, loadAsistencias]);
 
-  // Exportar a Excel (CSV)
+  // ==========================================
+  // HANDLERS DE ACCIÓN
+  // ==========================================
   const handleExportCsv = () => {
     const url = new URL('/api/asistencias/export', window.location.origin);
     if (asistFiltroSede !== 'todas') url.searchParams.set('sedeId', asistFiltroSede);
@@ -341,7 +268,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     window.open(url.toString(), '_blank');
   };
 
-  // Handlers para Cursos
   const handleSaveCurso = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cursoForm.nombre.trim()) return;
@@ -414,11 +340,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     setShowCursoModal(true);
   };
 
-  // Cierre manual con auditoría
   const openCerrarTurnoModal = (asist: AsistenciaAdminItem) => {
     setSelectedAsistencia(asist);
     const now = new Date();
-    // Formato datetime-local
     const pad = (n: number) => n.toString().padStart(2, '0');
     const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     setHoraSalidaInput(localIso);
@@ -458,7 +382,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   };
 
-  // Cierre específico por solapamiento / relevo de sala
   const handleCerrarTurnoPorRelevo = (
     docenteAnterior: OcupanteItem,
     docenteActual: OcupanteItem,
@@ -494,7 +417,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       });
     }
 
-    // Tomar la hora de ingreso del nuevo docente como hora de salida del anterior
     const dateRelevo = new Date(docenteActual.horaIngreso);
     const pad = (n: number) => n.toString().padStart(2, '0');
     const localIso = `${dateRelevo.getFullYear()}-${pad(dateRelevo.getMonth() + 1)}-${pad(dateRelevo.getDate())}T${pad(dateRelevo.getHours())}:${pad(dateRelevo.getMinutes())}`;
@@ -503,7 +425,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     setShowCerrarTurnoModal(true);
   };
 
-  // Anulación con auditoría
   const openAnularModal = (asist: AsistenciaAdminItem) => {
     setSelectedAsistencia(asist);
     setMotivoAnulacion('');
@@ -669,189 +590,29 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   };
 
-  const getTipoBadge = (tipo: string) => {
-    switch (tipo) {
-      case 'docente':
-        return <span className={`${styles.personalBadge} ${styles.badgeDocente}`}>Docente</span>;
-      case 'tecnico':
-        return <span className={`${styles.personalBadge} ${styles.badgeTecnico}`}>Técnico</span>;
-      case 'paciente_simulado':
-        return <span className={`${styles.personalBadge} ${styles.badgePaciente}`}>Paciente Simulado</span>;
-      default:
-        return <span>{tipo}</span>;
-    }
-  };
-
-  const getAmbienteTagClass = (tipo: string) => {
-    switch (tipo) {
-      case 'alta_fidelidad':
-        return styles.catAltaFidelidad;
-      case 'habilidades':
-        return styles.catHabilidades;
-      case 'consultorio':
-        return styles.catConsultorio;
-      case 'debriefing':
-        return styles.catDebriefing;
-      case 'hospitalizacion':
-        return styles.catHospitalizacion;
-      default:
-        return styles.catGeneral;
-    }
-  };
-
-  const getAmbienteTipoNombre = (tipo: string) => {
-    switch (tipo) {
-      case 'alta_fidelidad':
-        return 'Alta Fidelidad';
-      case 'habilidades':
-        return 'Habilidades';
-      case 'consultorio':
-        return 'Consultorio / OSCE';
-      case 'debriefing':
-        return 'Debriefing';
-      case 'hospitalizacion':
-        return 'Hospitalización';
-      case 'quirofano':
-        return 'Quirófano';
-      default:
-        return 'General';
-    }
-  };
-
   const selectedSedeObj = sedesList.find((s) => s.id === selectedSedeId);
 
   return (
     <div className={styles.container}>
-      {/* NAVBAR */}
-      <header className={styles.navbar}>
-        <div className={styles.navBrand}>
-          <div className={styles.brandLogo}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 6v12M6 12h12" />
-              <rect x="3" y="3" width="18" height="18" rx="5" />
-            </svg>
-          </div>
-          <div className={styles.brandText}>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                UNIVERSIDAD
-              </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                  CIENTÍFICA
-                </span>
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--ucs-orange, #ff5a00)', letterSpacing: '0.08em' }}>
-                  DEL SUR
-                </span>
-              </div>
-            </div>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>Clínica de Simulación</span>
-          </div>
-        </div>
-
-        {/* ACCIONES DE ESCRITORIO */}
-        <div className={styles.navActions}>
-          <div className={styles.userInfo}>
-            <div className={styles.userAvatar}>
-              {session.nombres.charAt(0)}
-            </div>
-            <span className={styles.userName}>{session.nombres} {session.apellidos}</span>
-            <span
-              className={`${styles.roleBadge} ${
-                session.rolSistema === 'super_admin' ? styles.roleSuperAdmin : styles.roleAdmin
-              }`}
-            >
-              {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
-            </span>
-          </div>
-
-          <ThemeToggle />
-
-          <Link href="/" className={styles.kioscoLink} title="Ir a la pantalla de marcación">
-            <span>⚡</span> Modo Kiosco
-          </Link>
-
-          <button onClick={handleLogout} className={styles.logoutBtn}>
-            Cerrar Sesión
-          </button>
-        </div>
-
-        {/* CONTROLES MÓVILES (AVATAR + HAMBURGUESA) */}
-        <div className={styles.navMobileControls}>
-          <div className={styles.userAvatarMobile} onClick={() => setMobileMenuOpen(true)}>
-            {session.nombres.charAt(0)}
-          </div>
-          <button
-            type="button"
-            className={styles.hamburgerBtn}
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Abrir menú"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="20" y2="18" />
-            </svg>
-          </button>
-        </div>
-      </header>
+      {/* NAVBAR SUPERIOR Y NAVEGACIÓN MÓVIL */}
+      <AdminNavbar
+        session={session}
+        onLogout={handleLogout}
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        stats={stats}
+        usuariosCount={usuariosList.length}
+        cursosCount={cursosList.length}
+      />
 
       {/* CONTENIDO PRINCIPAL */}
       <main className={styles.mainContent}>
         {/* TARJETAS DE ESTADÍSTICAS */}
-        <section className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <div className={styles.statIconWrapper} style={{ background: 'rgba(0, 180, 216, 0.15)', color: '#00b4d8' }}>
-              📍
-            </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statNumber}>{stats.sedes}</span>
-              <span className={styles.statLabel}>Sedes</span>
-            </div>
-          </div>
+        <AdminStatsCards stats={stats} cursosCount={cursosList.length} />
 
-          <div className={styles.statCard}>
-            <div className={styles.statIconWrapper} style={{ background: 'rgba(198, 224, 0, 0.15)', color: '#c6e000' }}>
-              📐
-            </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statNumber}>{stats.ambientes}</span>
-              <span className={styles.statLabel}>Salas</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIconWrapper} style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
-              👥
-            </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statNumber}>{stats.usuarios}</span>
-              <span className={styles.statLabel}>Personal</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIconWrapper} style={{ background: 'rgba(0, 230, 153, 0.15)', color: '#00e699' }}>
-              ⚡
-            </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statNumber}>{stats.enCurso}</span>
-              <span className={styles.statLabel}>En Turno</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIconWrapper} style={{ background: 'rgba(255, 90, 0, 0.15)', color: '#ff5a00' }}>
-              📚
-            </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statNumber}>{stats.cursos || cursosList.length}</span>
-              <span className={styles.statLabel}>Cursos</span>
-            </div>
-          </div>
-        </section>
-
-        {/* TABS DE GESTIÓN */}
+        {/* BARRA DE PESTAÑAS Y ACCIONES RÁPIDAS */}
         <section className={styles.tabsBar}>
           <div className={styles.tabList}>
             <button
@@ -913,1714 +674,163 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           </div>
         </section>
 
-        {/* PANEL: MASTER-DETAIL DE SEDES Y AMBIENTES */}
+        {/* VISTAS MODULARES DE PESTAÑAS */}
         {activeTab === 'ambientes' && (
-          <div className={styles.masterDetailLayout}>
-            {/* COLUMNA IZQUIERDA: LISTA DE SEDES */}
-            <aside className={styles.sedesSidebar}>
-              <div className={styles.sidebarHeader}>
-                <span className={styles.sidebarTitle}>Sedes de la UCS ({sedesList.length})</span>
-                <button
-                  onClick={() => setShowSedeModal(true)}
-                  style={{ background: 'none', border: 'none', color: '#00b4d8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  + Sede
-                </button>
-              </div>
-
-              {sedesList.map((sede) => (
-                <div
-                  key={sede.id}
-                  className={`${styles.sedeCardItem} ${selectedSedeId === sede.id ? styles.sedeCardActive : ''}`}
-                  onClick={() => setSelectedSedeId(sede.id)}
-                >
-                  <div className={styles.sedeInfoLeft}>
-                    <span className={styles.sedeName}>{sede.nombre}</span>
-                    <span className={styles.sedeCode}>{sede.codigo || 'SEDE'}</span>
-                  </div>
-                  <span className={styles.sedeBadgeCount}>
-                    {sede.totalAmbientes} {sede.totalAmbientes === 1 ? 'sala' : 'salas'}
-                  </span>
-                </div>
-              ))}
-            </aside>
-
-            {/* COLUMNA DERECHA: AMBIENTES DE LA SEDE SELECCIONADA */}
-            <section className={styles.ambientesContent}>
-              <div className={styles.ambientesHeader}>
-                <div className={styles.ambientesTitleArea}>
-                  <h2>{selectedSedeObj?.nombre || 'Selecciona una Sede'}</h2>
-                  <p>{selectedSedeObj?.direccion || 'Sede oficial de simulación médica'}</p>
-                </div>
-
-                <button onClick={() => setShowAmbienteModal(true)} className={styles.actionBtn}>
-                  <span>+</span>
-                  <span className={styles.hideOnMobile}> Agregar Sala a esta Sede</span>
-                  <span className={styles.showOnMobile}> Agregar Sala</span>
-                </button>
-              </div>
-
-              {/* BANNER DE TÉCNICOS EN TURNO EN ESTA SEDE */}
-              {tecnicosEnSede.length > 0 && (
-                <div className={styles.tecnicosBanner}>
-                  <span className={styles.tecnicosBannerTitle}>
-                    🛠️ Técnicos de Turno en esta Sede ({tecnicosEnSede.length}):
-                  </span>
-                  {tecnicosEnSede.map((t) => (
-                    <span key={t.asistenciaId} className={styles.tecnicoPillTag}>
-                      ● {t.nombres} {t.apellidos}
-                      <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                        (Ingreso: {new Date(t.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* FILTROS Y BUSCADOR INTELIGENTE */}
-              <div className={styles.filterControls}>
-                <div className={styles.searchBoxWrapper}>
-                  <span className={styles.searchIcon}>🔍</span>
-                  <input
-                    type="text"
-                    placeholder="Buscar sala por código o nombre (ej: L 103, alta fidelidad, consultorio)..."
-                    value={searchAmbiente}
-                    onChange={(e) => setSearchAmbiente(e.target.value)}
-                    className={styles.searchInput}
-                  />
-                </div>
-
-                {/* SELECTOR DESPLEGABLE PARA MÓVILES */}
-                <div className={styles.categorySelectWrapper}>
-                  <div className={styles.selectInnerWrap}>
-                    <span className={styles.selectIcon}>🏷️</span>
-                    <select
-                      id="categoryFilterSelect"
-                      className={styles.categorySelect}
-                      value={filterTipo}
-                      onChange={(e) => setFilterTipo(e.target.value)}
-                      aria-label="Filtrar por categoría de sala"
-                    >
-                      <option value="todos">Todas las Categorías</option>
-                      <option value="alta_fidelidad">Alta Fidelidad</option>
-                      <option value="habilidades">Habilidades</option>
-                      <option value="consultorio">Consultorios / OSCE</option>
-                      <option value="hospitalizacion">Hospitalización</option>
-                      <option value="debriefing">Debriefing</option>
-                    </select>
-                    <span className={styles.selectChevron}>▼</span>
-                  </div>
-                </div>
-
-                {/* BOTONES TIPO PILL PARA ESCRITORIO */}
-                <div className={styles.categoryPills}>
-                  {[
-                    { id: 'todos', label: 'Todas las Categorías' },
-                    { id: 'alta_fidelidad', label: 'Alta Fidelidad' },
-                    { id: 'habilidades', label: 'Habilidades' },
-                    { id: 'consultorio', label: 'Consultorios / OSCE' },
-                    { id: 'hospitalizacion', label: 'Hospitalización' },
-                    { id: 'debriefing', label: 'Debriefing' },
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      className={`${styles.pillBtn} ${filterTipo === cat.id ? styles.pillBtnActive : ''}`}
-                      onClick={() => setFilterTipo(cat.id)}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* GRID DE SALAS */}
-              {loadingAmbientes ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  Cargando ambientes...
-                </div>
-              ) : ambientesList.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--pill-bg)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏥</div>
-                  <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.25rem', fontWeight: 700 }}>No se encontraron salas</h4>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    {searchAmbiente || filterTipo !== 'todos'
-                      ? 'No hay salas que coincidan con los filtros aplicados.'
-                      : 'Esta sede aún no tiene salas registradas. Haz clic en "Agregar Sala" para crear la primera.'}
-                  </p>
-                </div>
-              ) : (
-                <div className={styles.ambientesGrid}>
-                  {ambientesList.map((amb) => (
-                    <div
-                      key={amb.id}
-                      className={`${styles.ambienteItemCard} ${amb.ocupada ? styles.ambienteItemCardOccupied : ''}`}
-                    >
-                      <div className={styles.ambienteTopRow}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span className={styles.ambienteCodeBadge}>{amb.codigo || 'SALA'}</span>
-                          <span className={`${styles.categoriaTag} ${getAmbienteTagClass(amb.tipo)}`}>
-                            {getAmbienteTipoNombre(amb.tipo)}
-                          </span>
-                        </div>
-
-                        {amb.docentes && amb.docentes.length > 1 ? (
-                          <span className={styles.occupancyBadgeSolapado}>
-                            ⚠️ Solapamiento ({amb.docentes.length} Docentes)
-                          </span>
-                        ) : amb.ocupada ? (
-                          <span className={styles.occupancyBadgeInUse}>
-                            <span className={styles.liveDot} />
-                            <span>En Escenario</span>
-                          </span>
-                        ) : (
-                          <span className={styles.occupancyBadgeFree}>⚪ Libre</span>
-                        )}
-                      </div>
-
-                      <div className={styles.ambienteCardTitle}>{amb.nombre}</div>
-
-                      {/* SECCIÓN DE OCUPANTES EN VIVO: DOCTOR Y PACIENTE SIMULADO */}
-                      <div className={styles.occupantsBox}>
-                        {amb.ocupada ? (
-                          <>
-                            {amb.cursoActivo && (
-                              <div className={styles.occupantCursoRow}>
-                                <span className={styles.occupantCursoLabel}>📚 Curso:</span>
-                                <span className={styles.occupantCursoName}>{amb.cursoActivo}</span>
-                              </div>
-                            )}
-
-                            {/* ALERTA DE SOLAPAMIENTO CON BOTÓN DE REGULARIZACIÓN / RELEVO */}
-                            {amb.docentes && amb.docentes.length > 1 && (() => {
-                              const sortedDocs = [...amb.docentes].sort(
-                                (a, b) => new Date(a.horaIngreso).getTime() - new Date(b.horaIngreso).getTime()
-                              );
-                              const docAnterior = sortedDocs[0];
-                              const docActual = sortedDocs[sortedDocs.length - 1];
-                              const horaDocAntStr = new Date(docAnterior.horaIngreso).toLocaleTimeString('es-PE', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              });
-                              const horaDocActStr = new Date(docActual.horaIngreso).toLocaleTimeString('es-PE', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              });
-
-                              return (
-                                <div className={styles.solapamientoBox}>
-                                  <div className={styles.solapamientoTitle}>
-                                    <span>⚠️</span> <strong>Posible relevo pendiente de cierre:</strong>
-                                  </div>
-                                  <div className={styles.solapamientoText}>
-                                    El Dr(a). <strong>{docAnterior.nombres} {docAnterior.apellidos}</strong> (ingresó {horaDocAntStr}) y Dr(a). <strong>{docActual.nombres} {docActual.apellidos}</strong> (ingresó {horaDocActStr}) figuran activos al mismo tiempo.
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCerrarTurnoPorRelevo(docAnterior, docActual, amb.nombre)}
-                                    className={styles.btnCerrarRelevo}
-                                    title="Cerrar el turno del docente anterior fijando su salida a la hora de ingreso del nuevo docente"
-                                  >
-                                    ⏱️ Regularizar salida de {docAnterior.nombres} (a las {horaDocActStr})
-                                  </button>
-                                </div>
-                              );
-                            })()}
-
-                            {amb.docentes && amb.docentes.length > 0 && (
-                              amb.docentes.map((doc) => (
-                                <div key={doc.asistenciaId} className={styles.occupantRow}>
-                                  <span className={styles.occupantDocLabel}>👨‍⚕️ Docente:</span>
-                                  <span className={styles.occupantDocName}>{doc.nombres} {doc.apellidos}</span>
-                                  <span className={styles.occupantTimeBadge}>
-                                    ({new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})
-                                  </span>
-                                </div>
-                              ))
-                            )}
-
-                            {amb.pacientesSimulados && amb.pacientesSimulados.length > 0 && (
-                              amb.pacientesSimulados.map((pac) => (
-                                <div key={pac.asistenciaId} className={styles.occupantRow}>
-                                  <span className={styles.occupantPacLabel}>🎭 Paciente:</span>
-                                  <span className={styles.occupantPacName}>{pac.nombres} {pac.apellidos}</span>
-                                </div>
-                              ))
-                            )}
-
-                            {amb.otrosOcupantes && amb.otrosOcupantes.length > 0 && (
-                              amb.otrosOcupantes.map((otr) => (
-                                <div key={otr.asistenciaId} className={styles.occupantRow}>
-                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>👤 Personal:</span>
-                                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{otr.nombres} {otr.apellidos}</span>
-                                </div>
-                              ))
-                            )}
-                          </>
-                        ) : (
-                          <div className={styles.emptyRoomNotice}>
-                            ⚪ Sala libre y disponible para prácticas
-                          </div>
-                        )}
-                      </div>
-
-                      <div className={styles.ambienteDetails}>
-                        <span>Capacidad: {amb.capacidad || 10} personas</span>
-                        <span style={{ color: amb.activo ? '#34d399' : '#f87171' }}>
-                          ● {amb.activo ? 'Operativa' : 'Mantenimiento'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
+          <AmbientesTab
+            sedesList={sedesList}
+            selectedSedeId={selectedSedeId}
+            setSelectedSedeId={setSelectedSedeId}
+            selectedSedeObj={selectedSedeObj}
+            ambientesList={ambientesList}
+            tecnicosEnSede={tecnicosEnSede}
+            loadingAmbientes={loadingAmbientes}
+            searchAmbiente={searchAmbiente}
+            setSearchAmbiente={setSearchAmbiente}
+            filterTipo={filterTipo}
+            setFilterTipo={setFilterTipo}
+            onOpenCrearSede={() => setShowSedeModal(true)}
+            onOpenCrearAmbiente={() => setShowAmbienteModal(true)}
+            onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
+          />
         )}
 
-        {/* PANEL: PERSONAL DE CLÍNICA */}
-        {activeTab === 'personal' && (() => {
-          const totalEnClinica = usuariosList.filter((u) => Boolean(u.turnoActivoId)).length;
-          const totalDocentes = usuariosList.filter((u) => u.tipoPersonal === 'docente').length;
-          const totalTecnicos = usuariosList.filter((u) => u.tipoPersonal === 'tecnico').length;
-          const totalPacientes = usuariosList.filter((u) => u.tipoPersonal === 'paciente_simulado').length;
+        {activeTab === 'personal' && (
+          <PersonalTab
+            usuariosList={usuariosList}
+            searchPersonal={searchPersonal}
+            setSearchPersonal={setSearchPersonal}
+            filterPersonalTipo={filterPersonalTipo}
+            setFilterPersonalTipo={setFilterPersonalTipo}
+            session={session}
+            onOpenResetPassword={openResetPassword}
+            onOpenCrearUsuario={() => setShowCreateModal(true)}
+          />
+        )}
 
-          const usuariosFiltrados = usuariosList.filter((u) => {
-            let matchesTipo = true;
-            if (filterPersonalTipo === 'en_clinica') {
-              matchesTipo = Boolean(u.turnoActivoId);
-            } else if (filterPersonalTipo !== 'todos') {
-              matchesTipo = u.tipoPersonal === filterPersonalTipo;
-            }
+        {activeTab === 'cursos' && (
+          <CursosTab
+            cursosList={cursosList}
+            loadingCursos={loadingCursos}
+            searchCurso={searchCurso}
+            setSearchCurso={setSearchCurso}
+            filterCursoActivo={filterCursoActivo}
+            setFilterCursoActivo={setFilterCursoActivo}
+            onOpenCrearCurso={() => {
+              setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', activo: true, isEdit: false });
+              setCursoError(null);
+              setShowCursoModal(true);
+            }}
+            onOpenEditCurso={openEditCursoModal}
+            onToggleCursoActivo={handleToggleCursoActivo}
+          />
+        )}
 
-            const q = searchPersonal.trim().toLowerCase();
-            const matchesSearch =
-              !q ||
-              u.nombres.toLowerCase().includes(q) ||
-              u.apellidos.toLowerCase().includes(q) ||
-              u.dni.includes(q) ||
-              (u.correo && u.correo.toLowerCase().includes(q));
-
-            return matchesTipo && matchesSearch;
-          });
-
-          return (
-            <section className={styles.cardPanel}>
-              {/* FILTROS Y BUSCADOR DE PERSONAL */}
-              <div className={styles.personalFilterBar}>
-                <div className={styles.searchBoxWrapper}>
-                  <span className={styles.searchIcon}>🔍</span>
-                  <input
-                    type="text"
-                    placeholder="Buscar personal por nombre, apellido, DNI o correo..."
-                    value={searchPersonal}
-                    onChange={(e) => setSearchPersonal(e.target.value)}
-                    className={styles.searchInput}
-                  />
-                </div>
-
-                {/* SELECTOR DESPLEGABLE DE PERSONAL PARA MÓVILES */}
-                <div className={styles.categorySelectWrapper}>
-                  <div className={styles.selectInnerWrap}>
-                    <span className={styles.selectIcon}>👥</span>
-                    <select
-                      className={styles.categorySelect}
-                      value={filterPersonalTipo}
-                      onChange={(e) => setFilterPersonalTipo(e.target.value)}
-                      aria-label="Filtrar por tipo de personal"
-                    >
-                      <option value="todos">Todos ({usuariosList.length})</option>
-                      <option value="en_clinica">🟢 En Clínica Ahora ({totalEnClinica})</option>
-                      <option value="docente">Docentes ({totalDocentes})</option>
-                      <option value="tecnico">Técnicos ({totalTecnicos})</option>
-                      <option value="paciente_simulado">Pacientes Simulados ({totalPacientes})</option>
-                    </select>
-                    <span className={styles.selectChevron}>▼</span>
-                  </div>
-                </div>
-
-                {/* BOTONES TIPO PILL PARA ESCRITORIO */}
-                <div className={styles.categoryPills}>
-                  <button
-                    type="button"
-                    className={`${styles.pillBtn} ${filterPersonalTipo === 'todos' ? styles.pillBtnActive : ''}`}
-                    onClick={() => setFilterPersonalTipo('todos')}
-                  >
-                    Todos ({usuariosList.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.pillBtn} ${filterPersonalTipo === 'en_clinica' ? styles.pillLiveActive : ''}`}
-                    onClick={() => setFilterPersonalTipo('en_clinica')}
-                  >
-                    🟢 En Clínica Ahora ({totalEnClinica})
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.pillBtn} ${filterPersonalTipo === 'docente' ? styles.pillBtnActive : ''}`}
-                    onClick={() => setFilterPersonalTipo('docente')}
-                  >
-                    Docentes ({totalDocentes})
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.pillBtn} ${filterPersonalTipo === 'tecnico' ? styles.pillBtnActive : ''}`}
-                    onClick={() => setFilterPersonalTipo('tecnico')}
-                  >
-                    Técnicos ({totalTecnicos})
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.pillBtn} ${filterPersonalTipo === 'paciente_simulado' ? styles.pillBtnActive : ''}`}
-                    onClick={() => setFilterPersonalTipo('paciente_simulado')}
-                  >
-                    Pacientes Simulados ({totalPacientes})
-                  </button>
-                </div>
-              </div>
-
-              {/* TABLA DE PERSONAL CON ESTADO EN VIVO */}
-              <div className={styles.tableWrapper}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>DNI</th>
-                      <th>Nombres y Apellidos</th>
-                      <th>Tipo Personal</th>
-                      <th>📍 Ubicación Actual / Estado</th>
-                      <th>Rol Sistema</th>
-                      <th>Contacto</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usuariosFiltrados.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                          No se encontró personal con los filtros aplicados.
-                        </td>
-                      </tr>
-                    ) : (
-                      usuariosFiltrados.map((u) => (
-                        <tr key={u.id}>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{u.dni}</td>
-                          <td>
-                            <strong>{u.nombres} {u.apellidos}</strong>
-                          </td>
-                          <td>{getTipoBadge(u.tipoPersonal)}</td>
-                          <td>
-                            {u.turnoActivoId ? (
-                              <div className={styles.presenceBadgeActive}>
-                                <span className={styles.presenceStatusActive}>
-                                  <span className={styles.liveDot} />
-                                  <span>{u.sedeActualNombre || 'En Sede'}</span>
-                                </span>
-                                <div className={styles.presenceLocationDetail}>
-                                  {u.ambienteActualNombre ? (
-                                    <span>
-                                      Sala: <span className={styles.presenceRoomHighlight}>{u.ambienteActualNombre}</span>
-                                      {u.ambienteActualCodigo && ` (${u.ambienteActualCodigo})`}
-                                    </span>
-                                  ) : (
-                                    <span>Clínica General (Soporte)</span>
-                                  )}
-                                </div>
-                                {u.horaIngreso && (
-                                  <span className={styles.presenceTimeMuted}>
-                                    Desde {new Date(u.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className={styles.presenceInactive}>
-                                <span>⚪</span> Fuera de clínica
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            {u.rolSistema === 'super_admin' ? (
-                              <span className={`${styles.roleBadge} ${styles.roleSuperAdmin}`}>Super Admin</span>
-                            ) : u.rolSistema === 'admin' ? (
-                              <span className={`${styles.roleBadge} ${styles.roleAdmin}`}>Admin</span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Sin acceso web</span>
-                            )}
-                          </td>
-                          <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                            <div>{u.correo || '—'}</div>
-                            <div>{u.telefono || '—'}</div>
-                          </td>
-                          <td>
-                            <div className={styles.actionRow}>
-                              {session.rolSistema === 'super_admin' && (
-                                <button
-                                  onClick={() => openResetPassword(u)}
-                                  className={styles.iconBtn}
-                                  title="Restablecer o Asignar Contraseña Manualmente"
-                                >
-                                  <span>🔑</span> Clave
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })()}
-
-        {/* PANEL: GESTIÓN DE CURSOS DE SIMULACIÓN */}
-        {activeTab === 'cursos' && (() => {
-          const cursosFiltrados = cursosList.filter((c) => {
-            const matchesSearch =
-              !searchCurso.trim() ||
-              c.nombre.toLowerCase().includes(searchCurso.toLowerCase()) ||
-              (c.codigo && c.codigo.toLowerCase().includes(searchCurso.toLowerCase()));
-            const matchesActivo =
-              filterCursoActivo === 'todos' ||
-              (filterCursoActivo === 'activos' ? c.activo : !c.activo);
-            return matchesSearch && matchesActivo;
-          });
-
-          return (
-            <section className={styles.cardPanel}>
-              {/* BARRA DE FILTROS PARA CURSOS */}
-              <div className={styles.asistenciasFilterContainer}>
-                <div className={styles.asistFiltersRow}>
-                  <div className={styles.searchBoxWrapper} style={{ flex: 1, minWidth: '240px' }}>
-                    <span className={styles.searchIcon}>🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Buscar curso por nombre o código (ej: SBS, Quirúrgica, Externado)..."
-                      value={searchCurso}
-                      onChange={(e) => setSearchCurso(e.target.value)}
-                      className={styles.searchInput}
-                    />
-                  </div>
-
-                  <select
-                    value={filterCursoActivo}
-                    onChange={(e) => setFilterCursoActivo(e.target.value as any)}
-                    className={styles.filterSelect}
-                  >
-                    <option value="todos">Todos los Estados ({cursosList.length})</option>
-                    <option value="activos">Solo Activos ({cursosList.filter((c) => c.activo).length})</option>
-                    <option value="inactivos">Solo Inactivos ({cursosList.filter((c) => !c.activo).length})</option>
-                  </select>
-
-                  <button
-                    onClick={() => {
-                      setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', activo: true, isEdit: false });
-                      setCursoError(null);
-                      setShowCursoModal(true);
-                    }}
-                    className={styles.actionBtn}
-                  >
-                    <span>+</span> Nuevo Curso
-                  </button>
-                </div>
-              </div>
-
-              {/* LISTA / TABLA DE CURSOS */}
-              <div className={styles.tableWrapper}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: '80px' }}>ID</th>
-                      <th>Curso / Asignatura</th>
-                      <th>Código</th>
-                      <th>Descripción</th>
-                      <th>Estado</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadingCursos ? (
-                      <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                          Cargando lista de cursos...
-                        </td>
-                      </tr>
-                    ) : cursosFiltrados.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                          No se encontraron cursos con los filtros aplicados.
-                        </td>
-                      </tr>
-                    ) : (
-                      cursosFiltrados.map((curso) => (
-                        <tr key={curso.id}>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            #{curso.id}
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                              {curso.nombre}
-                            </div>
-                          </td>
-                          <td>
-                            {curso.codigo ? (
-                              <span style={{
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: '0.8rem',
-                                color: '#38bdf8',
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                padding: '0.2rem 0.5rem',
-                                borderRadius: '6px'
-                              }}>
-                                {curso.codigo}
-                              </span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', maxWidth: '300px' }}>
-                            {curso.descripcion || <span style={{ color: 'var(--text-muted)' }}>Sin descripción</span>}
-                          </td>
-                          <td>
-                            {curso.activo ? (
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                color: '#34d399',
-                                background: 'rgba(16, 185, 129, 0.12)',
-                                padding: '0.25rem 0.6rem',
-                                borderRadius: '9999px'
-                              }}>
-                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399' }} />
-                                Activo
-                              </span>
-                            ) : (
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                color: '#94a3b8',
-                                background: 'rgba(148, 163, 184, 0.12)',
-                                padding: '0.25rem 0.6rem',
-                                borderRadius: '9999px'
-                              }}>
-                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8' }} />
-                                Inactivo
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <div className={styles.actionRow}>
-                              <button
-                                onClick={() => openEditCursoModal(curso)}
-                                className={styles.iconBtn}
-                                title="Editar nombre o código del curso"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                onClick={() => handleToggleCursoActivo(curso)}
-                                className={`${styles.actionBtnSmall} ${curso.activo ? styles.actionBtnWarning : styles.actionBtnSuccess}`}
-                                title={curso.activo ? 'Desactivar curso del kiosco' : 'Activar curso para el kiosco'}
-                              >
-                                {curso.activo ? 'Desactivar' : 'Activar'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })()}
-
-        {/* PANEL: ASISTENCIAS Y AUDITORÍA */}
-        {activeTab === 'asistencias' && (() => {
-          const totalMinutosValidos = asistenciasList
-            .filter((a) => a.estado !== 'anulado' && a.minutosTotales)
-            .reduce((acc, a) => acc + (a.minutosTotales || 0), 0);
-
-          const horasTotalesDecimal = (totalMinutosValidos / 60).toFixed(1);
-          const totalEnCurso = asistenciasList.filter((a) => a.estado === 'en_curso').length;
-
-          const getEstadoBadge = (estado: string) => {
-            switch (estado) {
-              case 'en_curso':
-                return (
-                  <span className={styles.statusTagEnCurso}>
-                    <span className={styles.liveDot} /> En Curso
-                  </span>
-                );
-              case 'finalizado':
-                return <span className={styles.statusTagFinalizado}>Finalizado</span>;
-              case 'ajustado_manual':
-                return <span className={styles.statusTagAjustado}>Ajustado Manual</span>;
-              case 'anulado':
-                return <span className={styles.statusTagAnulado}>Anulado</span>;
-              default:
-                return <span>{estado}</span>;
-            }
-          };
-
-          return (
-            <section className={styles.cardPanel}>
-              {/* BARRA DE FILTROS */}
-              <div className={styles.asistenciasFilterContainer}>
-                {/* FILTROS SUPERIORES */}
-                <div className={styles.asistFiltersRow}>
-                  <div className={styles.searchBoxWrapper} style={{ flex: 1, minWidth: '220px' }}>
-                    <span className={styles.searchIcon}>🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Buscar por DNI o nombre..."
-                      value={asistSearch}
-                      onChange={(e) => setAsistSearch(e.target.value)}
-                      className={styles.searchInput}
-                    />
-                  </div>
-
-                  <select
-                    value={asistFiltroSede}
-                    onChange={(e) => setAsistFiltroSede(e.target.value)}
-                    className={styles.filterSelect}
-                  >
-                    <option value="todas">Todas las Sedes</option>
-                    {sedesList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={asistFiltroTipo}
-                    onChange={(e) => setAsistFiltroTipo(e.target.value)}
-                    className={styles.filterSelect}
-                  >
-                    <option value="todos">Todos los Roles</option>
-                    <option value="docente">Docentes</option>
-                    <option value="tecnico">Técnicos</option>
-                    <option value="paciente_simulado">Pacientes Simulados</option>
-                  </select>
-
-                  <select
-                    value={asistFiltroCurso}
-                    onChange={(e) => setAsistFiltroCurso(e.target.value)}
-                    className={styles.filterSelect}
-                  >
-                    <option value="todos">Todos los Cursos</option>
-                    {cursosList.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={asistFiltroEstado}
-                    onChange={(e) => setAsistFiltroEstado(e.target.value)}
-                    className={styles.filterSelect}
-                  >
-                    <option value="todos">Todos los Estados</option>
-                    <option value="en_curso">En Curso</option>
-                    <option value="finalizado">Finalizados</option>
-                    <option value="ajustado_manual">Ajustados Manual</option>
-                    <option value="anulado">Anulados</option>
-                  </select>
-
-                  <DateRangePicker
-                    fechaDesde={asistFiltroFechaDesde}
-                    fechaHasta={asistFiltroFechaHasta}
-                    onChange={(desde, hasta) => {
-                      setAsistFiltroFechaDesde(desde);
-                      setAsistFiltroFechaHasta(hasta);
-                    }}
-                  />
-                </div>
-
-                {/* BARRA DE MÉTRICAS Y EXPORTACIÓN */}
-                <div className={styles.metricsBar}>
-                  <div className={styles.metricsLeft}>
-                    <div className={styles.metricItem}>
-                      <span className={styles.metricVal}>{asistenciasList.length}</span>
-                      <span className={styles.metricLbl}>Registros</span>
-                    </div>
-
-                    <div className={styles.metricItem}>
-                      <span className={styles.metricVal} style={{ color: '#00e699' }}>
-                        {horasTotalesDecimal} hrs
-                      </span>
-                      <span className={styles.metricLbl}>Total Horas Acumuladas</span>
-                    </div>
-
-                    <div className={styles.metricItem}>
-                      <span className={styles.metricVal} style={{ color: '#38bdf8' }}>
-                        {totalEnCurso}
-                      </span>
-                      <span className={styles.metricLbl}>En Curso Ahora</span>
-                    </div>
-                  </div>
-
-                  <button onClick={handleExportCsv} className={styles.exportBtn}>
-                    <span>📥</span> Descargar Excel (CSV)
-                  </button>
-                </div>
-              </div>
-
-              {/* TABLA DE ASISTENCIAS */}
-              <div className={styles.tableWrapper}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Personal</th>
-                      <th>Ubicación</th>
-                      <th>Curso / Asignatura</th>
-                      <th>Horario (Ingreso - Salida)</th>
-                      <th>Tiempo Total</th>
-                      <th>Estado</th>
-                      <th>Auditoría / Motivo</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadingAsistencias ? (
-                      <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                          Cargando registros de asistencias...
-                        </td>
-                      </tr>
-                    ) : asistenciasList.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                          No se encontraron asistencias con los filtros seleccionados.
-                        </td>
-                      </tr>
-                    ) : (
-                      asistenciasList.map((asist) => {
-                        const horas = asist.minutosTotales ? Math.floor(asist.minutosTotales / 60) : 0;
-                        const mins = asist.minutosTotales ? asist.minutosTotales % 60 : 0;
-                        const tiempoFormat =
-                          asist.minutosTotales && asist.minutosTotales > 0
-                            ? horas > 0
-                              ? `${horas}h ${mins}m`
-                              : `${mins} min`
-                            : '—';
-
-                        return (
-                          <tr key={asist.id}>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                              {asist.fecha}
-                            </td>
-
-                            <td>
-                              <div>
-                                <strong>
-                                  {asist.nombres} {asist.apellidos}
-                                </strong>
-                              </div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                DNI: {asist.dni} • {getTipoBadge(asist.tipoPersonal)}
-                              </div>
-                            </td>
-
-                            <td>
-                              <div style={{ fontWeight: 600 }}>{asist.sedeNombre}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
-                                {asist.ambienteNombre ? (
-                                  <span>
-                                    {asist.ambienteNombre} {asist.ambienteCodigo && `(${asist.ambienteCodigo})`}
-                                  </span>
-                                ) : (
-                                  <span style={{ color: 'var(--text-muted)' }}>Clínica General (Soporte)</span>
-                                )}
-                              </div>
-                            </td>
-
-                            <td>
-                              {asist.cursoNombre ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                                  <span style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                    color: 'var(--ucs-orange, #ff5a00)',
-                                    background: 'rgba(255, 90, 0, 0.12)',
-                                    padding: '0.25rem 0.55rem',
-                                    borderRadius: '6px'
-                                  }}>
-                                    📚 {asist.cursoNombre}
-                                  </span>
-                                  {asist.cursoCodigo && (
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                      Código: {asist.cursoCodigo}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
-                              )}
-                            </td>
-
-                            <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                              <div>
-                                🟢 Entrada:{' '}
-                                {new Date(asist.horaIngreso).toLocaleTimeString('es-PE', {
-                                  timeZone: 'America/Lima',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </div>
-                              <div>
-                                🔴 Salida:{' '}
-                                {asist.horaSalida
-                                  ? new Date(asist.horaSalida).toLocaleTimeString('es-PE', {
-                                      timeZone: 'America/Lima',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })
-                                  : 'Pendiente'}
-                              </div>
-                            </td>
-
-                            <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                              {asist.estado === 'anulado' ? '0 min' : tiempoFormat}
-                            </td>
-
-                            <td>{getEstadoBadge(asist.estado)}</td>
-
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '220px' }}>
-                              {asist.motivoModificacion ? (
-                                <div style={{ background: 'rgba(255,255,255,0.04)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
-                                  ⚠️ {asist.motivoModificacion}
-                                </div>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)' }}>Registro estándar</span>
-                              )}
-                            </td>
-
-                            <td>
-                              <div className={styles.actionRow}>
-                                {asist.estado === 'en_curso' && (
-                                  <button
-                                    onClick={() => openCerrarTurnoModal(asist)}
-                                    className={`${styles.actionBtnSmall} ${styles.actionBtnWarning}`}
-                                    title="Cerrar turno manualmente si olvidó marcar salida"
-                                  >
-                                    ⏱️ Cerrar
-                                  </button>
-                                )}
-
-                                {asist.estado !== 'anulado' && (
-                                  <button
-                                    onClick={() => openAnularModal(asist)}
-                                    className={`${styles.actionBtnSmall} ${styles.actionBtnDanger}`}
-                                    title="Anular marcación errónea con justificación obligatoria"
-                                  >
-                                    🚫 Anular
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })()}
+        {activeTab === 'asistencias' && (
+          <AsistenciasTab
+            asistenciasList={asistenciasList}
+            loadingAsistencias={loadingAsistencias}
+            sedesList={sedesList}
+            cursosList={cursosList}
+            asistSearch={asistSearch}
+            setAsistSearch={setAsistSearch}
+            asistFiltroSede={asistFiltroSede}
+            setAsistFiltroSede={setAsistFiltroSede}
+            asistFiltroTipo={asistFiltroTipo}
+            setAsistFiltroTipo={setAsistFiltroTipo}
+            asistFiltroCurso={asistFiltroCurso}
+            setAsistFiltroCurso={setAsistFiltroCurso}
+            asistFiltroEstado={asistFiltroEstado}
+            setAsistFiltroEstado={setAsistFiltroEstado}
+            asistFiltroFechaDesde={asistFiltroFechaDesde}
+            setAsistFiltroFechaDesde={setAsistFiltroFechaDesde}
+            asistFiltroFechaHasta={asistFiltroFechaHasta}
+            setAsistFiltroFechaHasta={setAsistFiltroFechaHasta}
+            onExportCsv={handleExportCsv}
+            onOpenCerrarTurnoModal={openCerrarTurnoModal}
+            onOpenAnularModal={openAnularModal}
+          />
+        )}
       </main>
 
-      {/* MODAL: NUEVA SEDE */}
-      {showSedeModal && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Crear Nueva Sede</h2>
-              <button onClick={() => setShowSedeModal(false)} className={styles.closeBtn}>✕</button>
-            </div>
-
-            <form onSubmit={handleCreateSede}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>Nombre de la Sede *</label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="ej: Campus Villa (Chorrillos) o Campus Norte"
-                  value={sedeForm.nombre}
-                  onChange={(e) => setSedeForm({ ...sedeForm, nombre: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
-                <label className={styles.label}>Código Corto</label>
-                <input
-                  type="text"
-                  placeholder="ej: VILLA, NORTE, ATE"
-                  value={sedeForm.codigo}
-                  onChange={(e) => setSedeForm({ ...sedeForm, codigo: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
-                <label className={styles.label}>Dirección</label>
-                <input
-                  type="text"
-                  placeholder="ej: Carretera Panamericana Sur Km 19"
-                  value={sedeForm.direccion}
-                  onChange={(e) => setSedeForm({ ...sedeForm, direccion: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => setShowSedeModal(false)}
-                  className={styles.cancelBtn}
-                  disabled={sedeLoading}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className={styles.actionBtn} disabled={sedeLoading}>
-                  {sedeLoading ? 'Guardando...' : 'Crear Sede'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: NUEVO AMBIENTE */}
-      {showAmbienteModal && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>
-                Agregar Sala a {selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}
-              </h2>
-              <button onClick={() => setShowAmbienteModal(false)} className={styles.closeBtn}>✕</button>
-            </div>
-
-            <form onSubmit={handleCreateAmbiente}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>Nombre del Ambiente / Sala *</label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="ej: SALA ALTA FIDELIDAD 6, Consultorio 4"
-                  value={ambienteForm.nombre}
-                  onChange={(e) => setAmbienteForm({ ...ambienteForm, nombre: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div className={styles.formGrid} style={{ marginTop: '0.85rem' }}>
-                <div>
-                  <label className={styles.label}>Código (Pabellón/Aula)</label>
-                  <input
-                    type="text"
-                    placeholder="ej: L 103, L 114, C-02"
-                    value={ambienteForm.codigo}
-                    onChange={(e) => setAmbienteForm({ ...ambienteForm, codigo: e.target.value })}
-                    className={styles.inputField}
-                  />
-                </div>
-
-                <div>
-                  <label className={styles.label}>Capacidad (Personas)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={ambienteForm.capacidad}
-                    onChange={(e) => setAmbienteForm({ ...ambienteForm, capacidad: e.target.value })}
-                    className={styles.inputField}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
-                <label className={styles.label}>Tipo / Categoría de Simulación</label>
-                <select
-                  value={ambienteForm.tipo}
-                  onChange={(e) => setAmbienteForm({ ...ambienteForm, tipo: e.target.value })}
-                  className={styles.select}
-                >
-                  <option value="alta_fidelidad">Alta Fidelidad</option>
-                  <option value="habilidades">Habilidades y Destrezas</option>
-                  <option value="consultorio">Consultorio Médico / OSCE</option>
-                  <option value="hospitalizacion">Hospitalización</option>
-                  <option value="debriefing">Sala de Debriefing</option>
-                  <option value="quirofano">Quirófano Simulado</option>
-                  <option value="general">General / Otro</option>
-                </select>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => setShowAmbienteModal(false)}
-                  className={styles.cancelBtn}
-                  disabled={ambienteLoading}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className={styles.actionBtn} disabled={ambienteLoading}>
-                  {ambienteLoading ? 'Guardando...' : 'Crear Sala'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: RESTABLECER CONTRASEÑA */}
-      {showResetModal && targetUser && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Restablecer Contraseña</h2>
-              <button onClick={() => setShowResetModal(false)} className={styles.closeBtn}>✕</button>
-            </div>
-
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              Vas a cambiar manualmente la contraseña de acceso para:{' '}
-              <strong style={{ color: 'var(--text-primary)' }}>{targetUser.nombres} {targetUser.apellidos}</strong> ({targetUser.dni})
-            </p>
-
-            {resetMsg && (
-              <div
-                style={{
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  background: resetMsg.isError ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
-                  color: resetMsg.isError ? '#fca5a5' : '#a7f3d0',
-                  border: `1px solid ${resetMsg.isError ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-                }}
-              >
-                {resetMsg.text}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveNewPassword}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>Nueva Contraseña</label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="Mínimo 6 caracteres (ej: ClaveSegura2026*)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className={styles.inputField}
-                  disabled={resetLoading}
-                />
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => setShowResetModal(false)}
-                  className={styles.cancelBtn}
-                  disabled={resetLoading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={styles.actionBtn}
-                  disabled={resetLoading || newPassword.length < 6}
-                >
-                  {resetLoading ? 'Guardando...' : 'Guardar Nueva Clave'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: NUEVO PERSONAL */}
-      {showCreateModal && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal} style={{ maxWidth: '540px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Registrar Nuevo Personal</h2>
-              <button onClick={() => setShowCreateModal(false)} className={styles.closeBtn}>✕</button>
-            </div>
-
-            {createError && (
-              <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem' }}>
-                {createError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateUser} className={styles.formGrid}>
-              <div>
-                <label className={styles.label}>DNI / Documento *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej: 12345678"
-                  value={createForm.dni}
-                  onChange={(e) => setCreateForm({ ...createForm, dni: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div>
-                <label className={styles.label}>Tipo de Personal *</label>
-                <select
-                  value={createForm.tipoPersonal}
-                  onChange={(e) => setCreateForm({ ...createForm, tipoPersonal: e.target.value as any })}
-                  className={styles.select}
-                >
-                  <option value="docente">Docente</option>
-                  <option value="tecnico">Técnico de Simulación</option>
-                  <option value="paciente_simulado">Paciente Simulado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className={styles.label}>Nombres *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej: Juan"
-                  value={createForm.nombres}
-                  onChange={(e) => setCreateForm({ ...createForm, nombres: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div>
-                <label className={styles.label}>Apellidos *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej: Pérez Ramos"
-                  value={createForm.apellidos}
-                  onChange={(e) => setCreateForm({ ...createForm, apellidos: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div>
-                <label className={styles.label}>Correo Electrónico</label>
-                <input
-                  type="email"
-                  placeholder="ej: jperez@cientifica.edu.pe"
-                  value={createForm.correo}
-                  onChange={(e) => setCreateForm({ ...createForm, correo: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div>
-                <label className={styles.label}>Teléfono</label>
-                <input
-                  type="text"
-                  placeholder="ej: 987654321"
-                  value={createForm.telefono}
-                  onChange={(e) => setCreateForm({ ...createForm, telefono: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              {session.rolSistema === 'super_admin' && (
-                <>
-                  <div className={styles.fullWidth}>
-                    <label className={styles.label}>Rol de Acceso al Sistema Web</label>
-                    <select
-                      value={createForm.rolSistema}
-                      onChange={(e) => setCreateForm({ ...createForm, rolSistema: e.target.value as any })}
-                      className={styles.select}
-                    >
-                      <option value="ninguno">Ninguno (Solo marcación de asistencia en Kiosco)</option>
-                      <option value="admin">Admin (Gestión y reportes sin borrado)</option>
-                      <option value="super_admin">Super Admin (Control total)</option>
-                    </select>
-                  </div>
-
-                  {(createForm.rolSistema === 'admin' || createForm.rolSistema === 'super_admin') && (
-                    <div className={styles.fullWidth}>
-                      <label className={styles.label}>Contraseña de Acceso Web *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Contraseña para entrar a este panel web"
-                        value={createForm.password}
-                        onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                        className={styles.inputField}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-
-              <div className={`${styles.fullWidth} ${styles.modalFooter}`}>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className={styles.cancelBtn}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={styles.actionBtn}
-                  disabled={createLoading}
-                >
-                  {createLoading ? 'Creando...' : 'Crear Personal'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CIERRE MANUAL DE TURNO CON AUDITORÍA */}
-      {showCerrarTurnoModal && selectedAsistencia && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal} style={{ maxWidth: '520px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>⏱️ Cierre Manual de Turno</h2>
-              <button
-                onClick={() => {
-                  setShowCerrarTurnoModal(false);
-                  setSelectedAsistencia(null);
-                }}
-                className={styles.closeBtn}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px', padding: '0.85rem', marginBottom: '1rem' }}>
-              <p style={{ fontSize: '0.85rem', color: '#fde68a', margin: 0, lineHeight: 1.4 }}>
-                <strong>Personal:</strong> {selectedAsistencia.nombres} {selectedAsistencia.apellidos} ({selectedAsistencia.dni})<br />
-                <strong>Sede:</strong> {selectedAsistencia.sedeNombre} {selectedAsistencia.ambienteNombre ? `— Sala: ${selectedAsistencia.ambienteNombre}` : ''}<br />
-                <strong>Hora de Ingreso:</strong> {new Date(selectedAsistencia.horaIngreso).toLocaleString('es-PE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-              </p>
-            </div>
-
-            <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              Utiliza este formulario si el personal se retiró sin marcar salida en el kiosco. Esta acción quedará registrada en el log de auditoría institucional con tu usuario y motivo.
-            </p>
-
-            <form onSubmit={handleConfirmCerrarTurno}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>Fecha y Hora de Salida *</label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={horaSalidaInput}
-                  onChange={(e) => setHoraSalidaInput(e.target.value)}
-                  className={styles.inputField}
-                  disabled={actionAsistLoading}
-                />
-              </div>
-
-              <div className={styles.fieldGroup} style={{ marginTop: '1rem' }}>
-                <label className={styles.label}>Motivo / Justificación de Auditoría *</label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder="Ej: Docente culminó su práctica a las 18:00 pero olvidó marcar salida en el kiosco al retirarse del campus."
-                  value={motivoCierre}
-                  onChange={(e) => setMotivoCierre(e.target.value)}
-                  className={styles.inputField}
-                  style={{ resize: 'vertical' }}
-                  disabled={actionAsistLoading}
-                />
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCerrarTurnoModal(false);
-                    setSelectedAsistencia(null);
-                  }}
-                  className={styles.cancelBtn}
-                  disabled={actionAsistLoading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={styles.actionBtn}
-                  disabled={actionAsistLoading || !motivoCierre.trim()}
-                >
-                  {actionAsistLoading ? 'Guardando...' : 'Confirmar Cierre de Turno'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: ANULACIÓN AUDITADA DE MARCACIÓN */}
-      {showAnularModal && selectedAsistencia && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal} style={{ maxWidth: '520px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle} style={{ color: '#f87171' }}>🚫 Anular Registro de Asistencia</h2>
-              <button
-                onClick={() => {
-                  setShowAnularModal(false);
-                  setSelectedAsistencia(null);
-                }}
-                className={styles.closeBtn}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.85rem', marginBottom: '1rem' }}>
-              <p style={{ fontSize: '0.85rem', color: '#fca5a5', margin: 0, lineHeight: 1.4 }}>
-                <strong>Personal:</strong> {selectedAsistencia.nombres} {selectedAsistencia.apellidos} ({selectedAsistencia.dni})<br />
-                <strong>Fecha y Sede:</strong> {selectedAsistencia.fecha} — {selectedAsistencia.sedeNombre}<br />
-                <strong>Estado actual:</strong> {selectedAsistencia.estado}
-              </p>
-            </div>
-
-            <div style={{ background: 'rgba(0,0,0,0.25)', borderLeft: '3px solid #f87171', padding: '0.75rem 0.9rem', borderRadius: '4px', marginBottom: '1.15rem' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-                ⚠️ <strong>Política de Auditoría UCS:</strong> Las marcaciones no se eliminan físicamente de la base de datos para preservar la trazabilidad institucional. El registro se marcará como <em>ANULADO</em> (0 horas) y tu justificación quedará firmada digitalmente con sello de tiempo.
-              </p>
-            </div>
-
-            <form onSubmit={handleConfirmAnular}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>Motivo Obligatorio de Anulación *</label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder="Ej: Marcación involuntaria generada durante prueba de terminal / Marcación duplicada por error de usuario."
-                  value={motivoAnulacion}
-                  onChange={(e) => setMotivoAnulacion(e.target.value)}
-                  className={styles.inputField}
-                  style={{ resize: 'vertical' }}
-                  disabled={actionAsistLoading}
-                />
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAnularModal(false);
-                    setSelectedAsistencia(null);
-                  }}
-                  className={styles.cancelBtn}
-                  disabled={actionAsistLoading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={styles.actionBtn}
-                  style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)' }}
-                  disabled={actionAsistLoading || !motivoAnulacion.trim()}
-                >
-                  {actionAsistLoading ? 'Anulando...' : 'Confirmar Anulación'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CREAR / EDITAR CURSO */}
-      {showCursoModal && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal} style={{ maxWidth: '520px' }}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>
-                {cursoForm.isEdit ? '✏️ Editar Curso' : '📚 Nuevo Curso de Simulación'}
-              </h2>
-              <button onClick={() => setShowCursoModal(false)} className={styles.closeBtn}>
-                ✕
-              </button>
-            </div>
-
-            {cursoError && (
-              <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                {cursoError}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveCurso}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>Nombre del Curso / Asignatura *</label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="ej: Simulación Quirúrgica, SBS, etc."
-                  value={cursoForm.nombre}
-                  onChange={(e) => setCursoForm({ ...cursoForm, nombre: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
-                <label className={styles.label}>Código del Curso (Opcional)</label>
-                <input
-                  type="text"
-                  placeholder="ej: MED-402 o SCI"
-                  value={cursoForm.codigo}
-                  onChange={(e) => setCursoForm({ ...cursoForm, codigo: e.target.value })}
-                  className={styles.inputField}
-                />
-              </div>
-
-              <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
-                <label className={styles.label}>Descripción / Especialidad (Opcional)</label>
-                <textarea
-                  rows={3}
-                  placeholder="ej: Prácticas de cirugía y sutura en sala de alta fidelidad..."
-                  value={cursoForm.descripcion}
-                  onChange={(e) => setCursoForm({ ...cursoForm, descripcion: e.target.value })}
-                  className={styles.inputField}
-                  style={{ resize: 'vertical' }}
-                />
-              </div>
-
-              {cursoForm.isEdit && (
-                <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <input
-                    type="checkbox"
-                    id="cursoActivoCheckbox"
-                    checked={cursoForm.activo}
-                    onChange={(e) => setCursoForm({ ...cursoForm, activo: e.target.checked })}
-                    style={{ width: '18px', height: '18px', accentColor: '#ff5a00', cursor: 'pointer' }}
-                  />
-                  <label htmlFor="cursoActivoCheckbox" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}>
-                    Curso Activo (visible en el terminal de marcación Kiosco)
-                  </label>
-                </div>
-              )}
-
-              <div className={styles.modalFooter} style={{ marginTop: '1.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCursoModal(false)}
-                  className={styles.cancelBtn}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className={styles.actionBtn}
-                  disabled={cursoLoading || !cursoForm.nombre.trim()}
-                >
-                  {cursoLoading ? 'Guardando...' : cursoForm.isEdit ? 'Guardar Cambios' : 'Crear Curso'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* DRAWER MÓVIL SLIDEOUT */}
-      <div
-        className={`${styles.drawerOverlay} ${mobileMenuOpen ? styles.drawerOverlayVisible : ''}`}
-        onClick={() => setMobileMenuOpen(false)}
+      {/* MODALES MODULARIZADOS */}
+      <ModalCrearSede
+        isOpen={showSedeModal}
+        sedeForm={sedeForm}
+        setSedeForm={setSedeForm}
+        loading={sedeLoading}
+        onClose={() => setShowSedeModal(false)}
+        onSubmit={handleCreateSede}
       />
-      <aside className={`${styles.mobileDrawer} ${mobileMenuOpen ? styles.mobileDrawerOpen : ''}`}>
-        <div className={styles.drawerHeader}>
-          <div className={styles.drawerBrand}>
-            <div className={styles.drawerLogoBadge}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 6v12M6 12h12" />
-                <rect x="3" y="3" width="18" height="18" rx="5" />
-              </svg>
-            </div>
-            <div>
-              <div className={styles.drawerBrandTitle}>UCS Simulación</div>
-              <div className={styles.drawerBrandSub}>Panel Administrativo</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className={styles.drawerCloseBtn}
-            onClick={() => setMobileMenuOpen(false)}
-            aria-label="Cerrar menú"
-          >
-            ✕
-          </button>
-        </div>
 
-        {/* PERFIL DEL ADMINISTRADOR */}
-        <div className={styles.drawerUserCard}>
-          <div className={styles.drawerAvatar}>{session.nombres.charAt(0)}</div>
-          <div className={styles.drawerUserInfo}>
-            <div className={styles.drawerUserName}>{session.nombres} {session.apellidos}</div>
-            <div className={styles.drawerUserEmail}>{session.correo || 'admin@cientifica.edu.pe'}</div>
-            <span className={`${styles.roleBadge} ${session.rolSistema === 'super_admin' ? styles.roleSuperAdmin : styles.roleAdmin}`}>
-              {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
-            </span>
-          </div>
-        </div>
+      <ModalCrearAmbiente
+        isOpen={showAmbienteModal}
+        selectedSedeObj={selectedSedeObj}
+        ambienteForm={ambienteForm}
+        setAmbienteForm={setAmbienteForm}
+        loading={ambienteLoading}
+        onClose={() => setShowAmbienteModal(false)}
+        onSubmit={handleCreateAmbiente}
+      />
 
-        {/* SELECTOR DE TEMA EN EL DRAWER */}
-        <div className={styles.drawerThemeSection}>
-          <span className={styles.drawerThemeTitle}>Apariencia del Sistema</span>
-          <ThemeToggle showLabels />
-        </div>
+      <ModalResetPassword
+        isOpen={showResetModal}
+        targetUser={targetUser}
+        newPassword={newPassword}
+        setNewPassword={setNewPassword}
+        resetLoading={resetLoading}
+        resetMsg={resetMsg}
+        onClose={() => setShowResetModal(false)}
+        onSubmit={handleSaveNewPassword}
+      />
 
-        {/* ACCESO RÁPIDO A KIOSCO */}
-        <div className={styles.drawerNavList}>
-          <Link
-            href="/"
-            className={styles.drawerKioscoBtn}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <span className={styles.drawerKioscoIcon}>⚡</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Modo Kiosco</div>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Terminal de marcación por DNI</div>
-            </div>
-          </Link>
-        </div>
+      <ModalCrearPersonal
+        isOpen={showCreateModal}
+        createForm={createForm}
+        setCreateForm={setCreateForm}
+        session={session}
+        createLoading={createLoading}
+        createError={createError}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateUser}
+      />
 
-        {/* RESUMEN DE MÉTRICAS RÁPIDAS EN EL DRAWER */}
-        <div className={styles.drawerStatsMini}>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{stats.sedes}</span>
-            <span className={styles.drawerStatMiniLabel}>Sedes</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{stats.ambientes}</span>
-            <span className={styles.drawerStatMiniLabel}>Salas</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{stats.usuarios}</span>
-            <span className={styles.drawerStatMiniLabel}>Personal</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{stats.cursos || cursosList.length}</span>
-            <span className={styles.drawerStatMiniLabel}>Cursos</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum} style={{ color: '#00e699' }}>{stats.enCurso}</span>
-            <span className={styles.drawerStatMiniLabel}>En Turno</span>
-          </div>
-        </div>
+      <ModalCerrarTurno
+        isOpen={showCerrarTurnoModal}
+        selectedAsistencia={selectedAsistencia}
+        horaSalidaInput={horaSalidaInput}
+        setHoraSalidaInput={setHoraSalidaInput}
+        motivoCierre={motivoCierre}
+        setMotivoCierre={setMotivoCierre}
+        actionAsistLoading={actionAsistLoading}
+        onClose={() => {
+          setShowCerrarTurnoModal(false);
+          setSelectedAsistencia(null);
+        }}
+        onSubmit={handleConfirmCerrarTurno}
+      />
 
-        {/* BOTÓN CERRAR SESIÓN */}
-        <div className={styles.drawerFooter}>
-          <button onClick={handleLogout} className={styles.drawerLogoutBtn}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
-      </aside>
+      <ModalAnularAsistencia
+        isOpen={showAnularModal}
+        selectedAsistencia={selectedAsistencia}
+        motivoAnulacion={motivoAnulacion}
+        setMotivoAnulacion={setMotivoAnulacion}
+        actionAsistLoading={actionAsistLoading}
+        onClose={() => {
+          setShowAnularModal(false);
+          setSelectedAsistencia(null);
+        }}
+        onSubmit={handleConfirmAnular}
+      />
 
-      {/* BOTTOM NAVIGATION BAR PARA MÓVILES */}
-      <nav className={styles.bottomNav}>
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'ambientes' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('ambientes');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-            <span className={styles.bottomNavBadge}>{stats.sedes}</span>
-          </div>
-          <span className={styles.bottomNavLabel}>Sedes / Salas</span>
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'personal' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('personal');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <span className={styles.bottomNavBadge}>{usuariosList.length}</span>
-          </div>
-          <span className={styles.bottomNavLabel}>Personal</span>
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'cursos' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('cursos');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-            <span className={styles.bottomNavBadge}>{cursosList.length}</span>
-          </div>
-          <span className={styles.bottomNavLabel}>Cursos</span>
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'asistencias' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('asistencias');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            {stats.enCurso > 0 && (
-              <span className={`${styles.bottomNavBadge} ${styles.bottomNavBadgeActive}`}>
-                {stats.enCurso}
-              </span>
-            )}
-          </div>
-          <span className={styles.bottomNavLabel}>Asistencias</span>
-        </button>
-      </nav>
+      <ModalCurso
+        isOpen={showCursoModal}
+        cursoForm={cursoForm}
+        setCursoForm={setCursoForm}
+        cursoLoading={cursoLoading}
+        cursoError={cursoError}
+        onClose={() => setShowCursoModal(false)}
+        onSubmit={handleSaveCurso}
+      />
     </div>
   );
 }

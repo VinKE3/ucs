@@ -128,7 +128,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [showKardexDrawer, setShowKardexDrawer] = useState(false);
 
   const [showSedeModal, setShowSedeModal] = useState(false);
-  const [sedeForm, setSedeForm] = useState({ nombre: '', codigo: '', direccion: '' });
+  const [sedeForm, setSedeForm] = useState<{
+    id?: number;
+    nombre: string;
+    codigo: string;
+    direccion: string;
+    isEdit?: boolean;
+  }>({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
   const [sedeLoading, setSedeLoading] = useState(false);
 
   const [showAmbienteModal, setShowAmbienteModal] = useState(false);
@@ -549,26 +555,118 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   };
 
-  const handleCreateSede = async (e: React.FormEvent) => {
+  const handleSaveSede = async (e: React.FormEvent) => {
     e.preventDefault();
     setSedeLoading(true);
     try {
-      const res = await fetch('/api/sedes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sedeForm),
-      });
-      if (res.ok) {
+      if (sedeForm.isEdit && sedeForm.id) {
+        // Editar sede existente
+        const res = await fetch('/api/sedes', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: sedeForm.id,
+            nombre: sedeForm.nombre,
+            codigo: sedeForm.codigo,
+            direccion: sedeForm.direccion,
+          }),
+        });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al actualizar sede');
+
         setShowSedeModal(false);
-        setSedeForm({ nombre: '', codigo: '', direccion: '' });
+        setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
+        await loadData();
+      } else {
+        // Crear nueva sede
+        const res = await fetch('/api/sedes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: sedeForm.nombre,
+            codigo: sedeForm.codigo,
+            direccion: sedeForm.direccion,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al registrar sede');
+
+        setShowSedeModal(false);
+        setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
         await loadData();
         if (data.sede) setSelectedSedeId(data.sede.id);
       }
-    } catch (err) {
-      console.error('Error creando sede:', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar sede';
+      alert(msg);
     } finally {
       setSedeLoading(false);
+    }
+  };
+
+  const openEditSedeModal = (sede: SedeAdminItem) => {
+    setSedeForm({
+      id: sede.id,
+      nombre: sede.nombre,
+      codigo: sede.codigo || '',
+      direccion: sede.direccion || '',
+      isEdit: true,
+    });
+    setShowSedeModal(true);
+  };
+
+  const handleToggleSedeActivo = async (sede: SedeAdminItem) => {
+    const accion = sede.activo ? 'inactivar' : 'activar';
+    const confirmMsg = sede.activo
+      ? `¿Estás seguro de inactivar la sede "${sede.nombre}"?\n\nAl inactivarla, dejará de aparecer en la pantalla de bienvenida del Kiosco, pero todo su historial de turnos se mantendrá intacto.`
+      : `¿Deseas reactivar la sede "${sede.nombre}"?\n\nVolverá a estar disponible de inmediato en el Kiosco para marcaciones.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch('/api/sedes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: sede.id,
+          activo: !sede.activo,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error al ${accion} sede`);
+
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : `Error al ${accion} sede`;
+      alert(msg);
+    }
+  };
+
+  const handleDeleteSede = async (sede: SedeAdminItem) => {
+    const confirmMsg = `¿Deseas eliminar permanentemente la sede "${sede.nombre}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/sedes?id=${sede.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo eliminar la sede');
+        return;
+      }
+
+      await loadData();
+      const remainingSedes = sedesList.filter((s) => s.id !== sede.id);
+      if (remainingSedes.length > 0) {
+        setSelectedSedeId(remainingSedes[0].id);
+      } else {
+        setSelectedSedeId(null);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de conexión al eliminar sede';
+      alert(msg);
     }
   };
 
@@ -671,7 +769,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
             {activeTab === 'ambientes' && (
               <div className={styles.ambientesActionGroup}>
-                <button onClick={() => setShowSedeModal(true)} className={styles.secondaryActionBtn}>
+                <button
+                  onClick={() => {
+                    setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
+                    setShowSedeModal(true);
+                  }}
+                  className={styles.secondaryActionBtn}
+                >
                   <span>+</span> Nueva Sede
                 </button>
                 <button onClick={() => setShowAmbienteModal(true)} className={styles.actionBtn}>
@@ -696,7 +800,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             setSearchAmbiente={setSearchAmbiente}
             filterTipo={filterTipo}
             setFilterTipo={setFilterTipo}
-            onOpenCrearSede={() => setShowSedeModal(true)}
+            onOpenCrearSede={() => {
+              setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
+              setShowSedeModal(true);
+            }}
+            onOpenEditSede={openEditSedeModal}
+            onToggleSedeActivo={handleToggleSedeActivo}
+            onDeleteSede={handleDeleteSede}
             onOpenCrearAmbiente={() => setShowAmbienteModal(true)}
             onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
           />
@@ -776,7 +886,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setSedeForm={setSedeForm}
         loading={sedeLoading}
         onClose={() => setShowSedeModal(false)}
-        onSubmit={handleCreateSede}
+        onSubmit={handleSaveSede}
       />
 
       <ModalCrearAmbiente

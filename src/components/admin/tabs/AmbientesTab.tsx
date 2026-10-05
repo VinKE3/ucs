@@ -17,6 +17,9 @@ interface AmbientesTabProps {
   filterTipo: string;
   setFilterTipo: (val: string) => void;
   onOpenCrearSede: () => void;
+  onOpenEditSede: (sede: SedeAdminItem) => void;
+  onToggleSedeActivo: (sede: SedeAdminItem) => void;
+  onDeleteSede: (sede: SedeAdminItem) => void;
   onOpenCrearAmbiente: () => void;
   onCerrarTurnoPorRelevo: (docAnterior: OcupanteItem, docActual: OcupanteItem, nombreAmbiente: string) => void;
 }
@@ -34,6 +37,9 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
   filterTipo,
   setFilterTipo,
   onOpenCrearSede,
+  onOpenEditSede,
+  onToggleSedeActivo,
+  onDeleteSede,
   onOpenCrearAmbiente,
   onCerrarTurnoPorRelevo,
 }) => {
@@ -92,9 +98,26 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
             key={sede.id}
             className={`${styles.sedeCardItem} ${selectedSedeId === sede.id ? styles.sedeCardActive : ''}`}
             onClick={() => setSelectedSedeId(sede.id)}
+            style={!sede.activo ? { opacity: 0.7 } : undefined}
           >
             <div className={styles.sedeInfoLeft}>
-              <span className={styles.sedeName}>{sede.nombre}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span className={styles.sedeName}>{sede.nombre}</span>
+                {!sede.activo && (
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      color: '#ef4444',
+                      padding: '0.1rem 0.35rem',
+                      borderRadius: '4px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    Inactiva
+                  </span>
+                )}
+              </div>
               <span className={styles.sedeCode}>{sede.codigo || 'SEDE'}</span>
             </div>
             <span className={styles.sedeBadgeCount}>
@@ -108,15 +131,71 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
       <section className={styles.ambientesContent}>
         <div className={styles.ambientesHeader}>
           <div className={styles.ambientesTitleArea}>
-            <h2>{selectedSedeObj?.nombre || 'Selecciona una Sede'}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <h2>{selectedSedeObj?.nombre || 'Selecciona una Sede'}</h2>
+              {selectedSedeObj && !selectedSedeObj.activo && (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '6px',
+                    fontWeight: 700,
+                  }}
+                >
+                  ⏸️ Inactiva (Oculta en Kiosco)
+                </span>
+              )}
+            </div>
             <p>{selectedSedeObj?.direccion || 'Sede oficial de simulación médica'}</p>
           </div>
 
-          <button onClick={onOpenCrearAmbiente} className={styles.actionBtn}>
-            <span>+</span>
-            <span className={styles.hideOnMobile}> Agregar Sala a esta Sede</span>
-            <span className={styles.showOnMobile}> Agregar Sala</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {selectedSedeObj && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onOpenEditSede(selectedSedeObj)}
+                  className={styles.secondaryActionBtn}
+                  title="Editar nombre, código o dirección de esta sede"
+                >
+                  <span>✏️</span> Editar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onToggleSedeActivo(selectedSedeObj)}
+                  className={styles.secondaryActionBtn}
+                  title={selectedSedeObj.activo ? 'Inactivar sede (no aparecerá en el kiosco)' : 'Reactivar sede'}
+                  style={!selectedSedeObj.activo ? { borderColor: '#10b981', color: '#10b981' } : undefined}
+                >
+                  {selectedSedeObj.activo ? (
+                    <><span>⏸️</span> Inactivar</>
+                  ) : (
+                    <><span>▶️</span> Activar</>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteSede(selectedSedeObj)}
+                  className={styles.secondaryActionBtn}
+                  style={{ color: '#ef4444' }}
+                  title="Eliminar permanentemente (solo si no tiene asistencias registradas)"
+                >
+                  <span>🗑️</span>
+                </button>
+              </>
+            )}
+
+            <button onClick={onOpenCrearAmbiente} className={styles.actionBtn}>
+              <span>+</span>
+              <span className={styles.hideOnMobile}> Agregar Sala a esta Sede</span>
+              <span className={styles.showOnMobile}> Agregar Sala</span>
+            </button>
+          </div>
         </div>
 
         {/* BANNER DE TÉCNICOS EN TURNO EN ESTA SEDE */}

@@ -43,6 +43,7 @@ export interface SedeAdminItem {
   nombre: string;
   codigo: string | null;
   direccion: string | null;
+  activo: boolean;
   totalAmbientes: number;
 }
 

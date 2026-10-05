@@ -3,10 +3,18 @@
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 
+export interface SedeFormData {
+  id?: number;
+  nombre: string;
+  codigo: string;
+  direccion: string;
+  isEdit?: boolean;
+}
+
 interface ModalCrearSedeProps {
   isOpen: boolean;
-  sedeForm: { nombre: string; codigo: string; direccion: string };
-  setSedeForm: React.Dispatch<React.SetStateAction<{ nombre: string; codigo: string; direccion: string }>>;
+  sedeForm: SedeFormData;
+  setSedeForm: React.Dispatch<React.SetStateAction<SedeFormData>>;
   loading: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -26,7 +34,9 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
     <div className={styles.modalBackdrop}>
       <div className={styles.modal}>
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Crear Nueva Sede</h2>
+          <h2 className={styles.modalTitle}>
+            {sedeForm.isEdit ? 'Editar Sede' : 'Crear Nueva Sede'}
+          </h2>
           <button onClick={onClose} className={styles.closeBtn}>✕</button>
         </div>
 
@@ -76,7 +86,7 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
               Cancelar
             </button>
             <button type="submit" className={styles.actionBtn} disabled={loading}>
-              {loading ? 'Guardando...' : 'Crear Sede'}
+              {loading ? 'Guardando...' : sedeForm.isEdit ? 'Guardar Cambios' : 'Crear Sede'}
             </button>
           </div>
         </form>
@@ -84,3 +94,4 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
     </div>
   );
 };
+

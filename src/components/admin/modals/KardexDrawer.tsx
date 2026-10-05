@@ -76,6 +76,22 @@ export function KardexDrawer({
   const [nuevoLimite, setNuevoLimite] = useState<string>('');
   const [guardandoLimite, setGuardandoLimite] = useState(false);
 
+  // Timestamp de corte para cálculo puro de asistencias activas
+  const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
+
+  // Límite local para actualización reactiva sin mutar props
+  const [limiteLocal, setLimiteLocal] = useState<number | null | undefined>(undefined);
+
+  useEffect(() => {
+    setLimiteLocal(undefined);
+  }, [usuario?.id]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setNowTimestamp(Date.now());
+    }
+  }, [isOpen, usuario?.id, periodo]);
+
   // Cerrar con Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -144,8 +160,11 @@ export function KardexDrawer({
             }
           }
         }
-      } catch (err: any) {
-        if (!cancel) setError(err.message || 'Error al consultar datos');
+      } catch (err: unknown) {
+        if (!cancel) {
+          const msg = err instanceof Error ? err.message : 'Error al consultar datos';
+          setError(msg);
+        }
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -158,12 +177,12 @@ export function KardexDrawer({
   }, [isOpen, usuario, periodo]);
 
   // Cálculo de minutos para una asistencia individual (maneja activas)
-  const getMinutosAsistencia = (a: AsistenciaAdminItem): number => {
+  const getMinutosAsistencia = (a: AsistenciaAdminItem, currentNow: number = nowTimestamp): number => {
     if (a.estado === 'anulado') return 0;
     if (a.minutosTotales && a.minutosTotales > 0) return a.minutosTotales;
     if (a.horaIngreso) {
       const ingreso = new Date(a.horaIngreso).getTime();
-      const fin = a.horaSalida ? new Date(a.horaSalida).getTime() : Date.now();
+      const fin = a.horaSalida ? new Date(a.horaSalida).getTime() : currentNow;
       const diffMin = Math.round((fin - ingreso) / (1000 * 60));
       return diffMin > 0 ? diffMin : 0;
     }
@@ -178,7 +197,7 @@ export function KardexDrawer({
 
     for (const a of asistencias) {
       if (a.estado === 'anulado') continue;
-      const min = getMinutosAsistencia(a);
+      const min = getMinutosAsistencia(a, nowTimestamp);
       totalMin += min;
       if (a.fecha) fechasSet.add(a.fecha);
       if (a.estado === 'en_curso') enCursoCount++;
@@ -195,18 +214,20 @@ export function KardexDrawer({
       sesionesTotal: asistencias.length,
       enCursoCount,
     };
-  }, [asistencias]);
+  }, [asistencias, nowTimestamp]);
 
   // Cálculo de horas para la semana en curso (para la barra de progreso semanal)
+  const maxHorasAsignadas = limiteLocal !== undefined ? limiteLocal : (usuario?.horasSemanalesMax || null);
+
   const statsSemanaActual = useMemo(() => {
     const list = periodo === 'semana' ? asistencias : asistenciasSemanaActual;
     let minSemana = 0;
     for (const a of list) {
       if (a.estado === 'anulado') continue;
-      minSemana += getMinutosAsistencia(a);
+      minSemana += getMinutosAsistencia(a, nowTimestamp);
     }
     const horasDecimal = Number((minSemana / 60).toFixed(1));
-    const maxHoras = usuario?.horasSemanalesMax || null;
+    const maxHoras = maxHorasAsignadas;
 
     let porcentaje = 0;
     let statusClass = styles.percentOk;
@@ -232,7 +253,7 @@ export function KardexDrawer({
       statusClass,
       barClass,
     };
-  }, [asistencias, asistenciasSemanaActual, periodo, usuario]);
+  }, [asistencias, asistenciasSemanaActual, periodo, maxHorasAsignadas, nowTimestamp]);
 
   // Guardar ajuste de horas semanales asignadas
   const handleGuardarLimite = async () => {
@@ -258,10 +279,11 @@ export function KardexDrawer({
           horasSemanalesMax: data.usuario.horasSemanalesMax,
         });
       }
-      usuario.horasSemanalesMax = valor;
+      setLimiteLocal(valor);
       setEditandoLimite(false);
-    } catch (err: any) {
-      alert(err.message || 'No se pudo actualizar');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo actualizar';
+      alert(msg);
     } finally {
       setGuardandoLimite(false);
     }
@@ -430,11 +452,11 @@ export function KardexDrawer({
                   <button
                     className={styles.editLimitBtn}
                     onClick={() => {
-                      setNuevoLimite(usuario.horasSemanalesMax ? String(usuario.horasSemanalesMax) : '');
+                      setNuevoLimite(statsSemanaActual.maxHoras ? String(statsSemanaActual.maxHoras) : '');
                       setEditandoLimite(true);
                     }}
                   >
-                    {usuario.horasSemanalesMax ? 'Modificar tope' : '+ Asignar tope'}
+                    {statsSemanaActual.maxHoras ? 'Modificar tope' : '+ Asignar tope'}
                   </button>
                 )}
               </div>

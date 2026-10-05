@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
@@ -57,6 +57,11 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   onOpenKardex,
 }) => {
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
+  const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    setNowTimestamp(Date.now());
+  }, [asistenciasList]);
   const totalMinutosValidos = asistenciasList
     .filter((a) => a.estado !== 'anulado' && a.minutosTotales)
     .reduce((acc, a) => acc + (a.minutosTotales || 0), 0);
@@ -149,7 +154,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       if (a.estado === 'en_curso') {
         item.sesionesEnCurso++;
         if (a.horaIngreso) {
-          const diff = Math.round((Date.now() - new Date(a.horaIngreso).getTime()) / 60000);
+          const diff = Math.round((nowTimestamp - new Date(a.horaIngreso).getTime()) / 60000);
           if (diff > 0) item.minutosTotales += diff;
         }
       } else if (a.minutosTotales && a.minutosTotales > 0) {
@@ -177,7 +182,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         ambienteActualNombre: val.ambienteActualNombre,
       }))
       .sort((a, b) => b.minutosTotales - a.minutosTotales);
-  }, [asistenciasList, usuariosList]);
+  }, [asistenciasList, usuariosList, nowTimestamp]);
 
   const handleExportResumenCsv = () => {
     if (resumenColaboradores.length === 0) {

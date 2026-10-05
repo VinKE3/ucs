@@ -58,12 +58,24 @@ export async function GET() {
         .map((amb) => {
           const ocupantes = activeAsistencias.filter((oa) => oa.ambienteId === amb.id);
           const docentes = ocupantes.filter((o) => o.tipoPersonal === 'docente');
-          const primerDocente = docentes[0];
+          const ocupantePrincipal = docentes[0] || ocupantes[0];
+
+          let ocupanteTexto: string | null = null;
+          if (ocupantePrincipal) {
+            const sufijoRol =
+              ocupantePrincipal.tipoPersonal === 'paciente_simulado'
+                ? ' (Paciente Simulado)'
+                : ocupantePrincipal.tipoPersonal === 'tecnico'
+                ? ' (Técnico)'
+                : '';
+            ocupanteTexto = `${ocupantePrincipal.nombres} ${ocupantePrincipal.apellidos}${sufijoRol}`;
+          }
+
           return {
             ...amb,
             ocupada: ocupantes.length > 0,
-            docenteActivo: primerDocente ? `${primerDocente.nombres} ${primerDocente.apellidos}` : null,
-            horaIngresoDocente: primerDocente ? primerDocente.horaIngreso : null,
+            docenteActivo: ocupanteTexto,
+            horaIngresoDocente: ocupantePrincipal ? ocupantePrincipal.horaIngreso : null,
             cursoActivo: ocupantes.find((o) => o.cursoNombre)?.cursoNombre || null,
             totalOcupantes: ocupantes.length,
           };

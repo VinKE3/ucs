@@ -138,6 +138,16 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             Pacientes Simulados ({totalPacientes})
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={onOpenCrearUsuario}
+          className={styles.actionBtn}
+          style={{ whiteSpace: 'nowrap', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+          title="Registrar nuevo docente, técnico o paciente simulado"
+        >
+          <span>+</span> Registrar Personal
+        </button>
       </div>
 
       {/* TABLA DE PERSONAL CON ESTADO EN VIVO */}

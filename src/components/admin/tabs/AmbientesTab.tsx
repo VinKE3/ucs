@@ -21,6 +21,9 @@ interface AmbientesTabProps {
   onToggleSedeActivo: (sede: SedeAdminItem) => void;
   onDeleteSede: (sede: SedeAdminItem) => void;
   onOpenCrearAmbiente: () => void;
+  onOpenEditAmbiente: (amb: AmbienteAdminItem) => void;
+  onToggleAmbienteActivo: (amb: AmbienteAdminItem) => void;
+  onDeleteAmbiente: (amb: AmbienteAdminItem) => void;
   onCerrarTurnoPorRelevo: (docAnterior: OcupanteItem, docActual: OcupanteItem, nombreAmbiente: string) => void;
 }
 
@@ -41,6 +44,9 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
   onToggleSedeActivo,
   onDeleteSede,
   onOpenCrearAmbiente,
+  onOpenEditAmbiente,
+  onToggleAmbienteActivo,
+  onDeleteAmbiente,
   onCerrarTurnoPorRelevo,
 }) => {
   const getAmbienteTagClass = (tipo: string) => {
@@ -402,11 +408,58 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                   )}
                 </div>
 
-                <div className={styles.ambienteDetails}>
-                  <span>Capacidad: {amb.capacidad || 10} personas</span>
-                  <span style={{ color: amb.activo ? '#34d399' : '#f87171' }}>
-                    ● {amb.activo ? 'Operativa' : 'Mantenimiento'}
-                  </span>
+                <div
+                  className={styles.ambienteDetails}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '0.85rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid var(--border-color)',
+                    gap: '0.5rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      Capacidad: <strong>{amb.capacidad || 10} personas</strong>
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: amb.activo ? '#10b981' : '#f59e0b' }}>
+                      ● {amb.activo ? 'Operativa' : 'En Mantenimiento'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenEditAmbiente(amb)}
+                      className={styles.iconBtn}
+                      title="Editar nombre, código, tipo o capacidad de la sala"
+                    >
+                      <span>✏️</span> Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onToggleAmbienteActivo(amb)}
+                      className={styles.iconBtn}
+                      style={!amb.activo ? { borderColor: '#10b981', color: '#10b981' } : undefined}
+                      title={amb.activo ? 'Poner en mantenimiento (no aparecerá en Kiosco)' : 'Habilitar como operativa'}
+                    >
+                      <span>{amb.activo ? '⏸️' : '▶️'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onDeleteAmbiente(amb)}
+                      className={styles.iconBtn}
+                      style={{ color: '#ef4444' }}
+                      title="Eliminar permanentemente (solo si no tiene asistencias asociadas)"
+                    >
+                      <span>🗑️</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -4,11 +4,20 @@ import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem } from '@/types/admin';
 
+export interface AmbienteFormData {
+  id?: number;
+  nombre: string;
+  codigo: string;
+  tipo: string;
+  capacidad: string;
+  isEdit?: boolean;
+}
+
 interface ModalCrearAmbienteProps {
   isOpen: boolean;
   selectedSedeObj?: SedeAdminItem;
-  ambienteForm: { nombre: string; codigo: string; tipo: string; capacidad: string };
-  setAmbienteForm: React.Dispatch<React.SetStateAction<{ nombre: string; codigo: string; tipo: string; capacidad: string }>>;
+  ambienteForm: AmbienteFormData;
+  setAmbienteForm: React.Dispatch<React.SetStateAction<AmbienteFormData>>;
   loading: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -30,7 +39,9 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
       <div className={styles.modal}>
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>
-            Agregar Sala a {selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}
+            {ambienteForm.isEdit
+              ? `Editar Sala (${ambienteForm.nombre || 'Simulación'})`
+              : `Agregar Sala a ${selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}`}
           </h2>
           <button onClick={onClose} className={styles.closeBtn}>✕</button>
         </div>
@@ -101,7 +112,7 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
               Cancelar
             </button>
             <button type="submit" className={styles.actionBtn} disabled={loading}>
-              {loading ? 'Guardando...' : 'Crear Sala'}
+              {loading ? 'Guardando...' : ambienteForm.isEdit ? 'Guardar Cambios' : 'Crear Sala'}
             </button>
           </div>
         </form>

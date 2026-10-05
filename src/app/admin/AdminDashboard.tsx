@@ -138,11 +138,20 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [sedeLoading, setSedeLoading] = useState(false);
 
   const [showAmbienteModal, setShowAmbienteModal] = useState(false);
-  const [ambienteForm, setAmbienteForm] = useState({
+  const [ambienteForm, setAmbienteForm] = useState<{
+    id?: number;
+    nombre: string;
+    codigo: string;
+    tipo: string;
+    capacidad: string;
+    isEdit?: boolean;
+  }>({
+    id: 0,
     nombre: '',
     codigo: '',
     tipo: 'alta_fidelidad',
     capacidad: '10',
+    isEdit: false,
   });
   const [ambienteLoading, setAmbienteLoading] = useState(false);
 
@@ -670,29 +679,121 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   };
 
-  const handleCreateAmbiente = async (e: React.FormEvent) => {
+  const handleSaveAmbiente = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSedeId) return;
     setAmbienteLoading(true);
     try {
-      const res = await fetch('/api/ambientes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...ambienteForm,
-          sedeId: selectedSedeId,
-        }),
-      });
-      if (res.ok) {
+      if (ambienteForm.isEdit && ambienteForm.id) {
+        // Editar ambiente existente
+        const res = await fetch('/api/ambientes', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: ambienteForm.id,
+            nombre: ambienteForm.nombre,
+            codigo: ambienteForm.codigo,
+            tipo: ambienteForm.tipo,
+            capacidad: ambienteForm.capacidad,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al actualizar sala');
+
         setShowAmbienteModal(false);
-        setAmbienteForm({ nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10' });
+        setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
+        loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
+        loadData();
+      } else {
+        // Crear nuevo ambiente
+        const res = await fetch('/api/ambientes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...ambienteForm,
+            sedeId: selectedSedeId,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al crear sala');
+
+        setShowAmbienteModal(false);
+        setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
         loadData();
       }
-    } catch (err) {
-      console.error('Error creando ambiente:', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar sala';
+      alert(msg);
     } finally {
       setAmbienteLoading(false);
+    }
+  };
+
+  const openEditAmbienteModal = (amb: AmbienteAdminItem) => {
+    setAmbienteForm({
+      id: amb.id,
+      nombre: amb.nombre,
+      codigo: amb.codigo || '',
+      tipo: amb.tipo || 'general',
+      capacidad: String(amb.capacidad || 10),
+      isEdit: true,
+    });
+    setShowAmbienteModal(true);
+  };
+
+  const handleToggleAmbienteActivo = async (amb: AmbienteAdminItem) => {
+    const accion = amb.activo ? 'poner en mantenimiento' : 'habilitar como operativa';
+    const confirmMsg = amb.activo
+      ? `¿Deseas poner en mantenimiento la sala "${amb.nombre}"?\n\nAl ponerla en mantenimiento, dejará de aparecer en la lista de salas disponibles del Kiosco, evitando que se registren asistencias en ella.`
+      : `¿Deseas habilitar la sala "${amb.nombre}" como operativa?\n\nVolverá a estar disponible de inmediato en el Kiosco para docentes y estudiantes.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch('/api/ambientes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: amb.id,
+          activo: !amb.activo,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error al ${accion} sala`);
+
+      if (selectedSedeId) {
+        loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
+      }
+      loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : `Error al ${accion} sala`;
+      alert(msg);
+    }
+  };
+
+  const handleDeleteAmbiente = async (amb: AmbienteAdminItem) => {
+    const confirmMsg = `¿Deseas eliminar permanentemente la sala "${amb.nombre}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/ambientes?id=${amb.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo eliminar la sala');
+        return;
+      }
+
+      if (selectedSedeId) {
+        loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
+      }
+      loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de conexión al eliminar sala';
+      alert(msg);
     }
   };
 
@@ -778,7 +879,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                 >
                   <span>+</span> Nueva Sede
                 </button>
-                <button onClick={() => setShowAmbienteModal(true)} className={styles.actionBtn}>
+                <button
+                  onClick={() => {
+                    setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
+                    setShowAmbienteModal(true);
+                  }}
+                  className={styles.actionBtn}
+                >
                   <span>+</span> Agregar Sala a {selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}
                 </button>
               </div>
@@ -807,7 +914,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onOpenEditSede={openEditSedeModal}
             onToggleSedeActivo={handleToggleSedeActivo}
             onDeleteSede={handleDeleteSede}
-            onOpenCrearAmbiente={() => setShowAmbienteModal(true)}
+            onOpenCrearAmbiente={() => {
+              setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
+              setShowAmbienteModal(true);
+            }}
+            onOpenEditAmbiente={openEditAmbienteModal}
+            onToggleAmbienteActivo={handleToggleAmbienteActivo}
+            onDeleteAmbiente={handleDeleteAmbiente}
             onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
           />
         )}
@@ -896,7 +1009,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setAmbienteForm={setAmbienteForm}
         loading={ambienteLoading}
         onClose={() => setShowAmbienteModal(false)}
-        onSubmit={handleCreateAmbiente}
+        onSubmit={handleSaveAmbiente}
       />
 
       <ModalResetPassword

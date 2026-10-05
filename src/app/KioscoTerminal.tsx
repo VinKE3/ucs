@@ -64,6 +64,14 @@ export default function KioscoTerminal() {
   // Filtros de ambiente en el kiosco
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('todos');
   const [roomSearch, setRoomSearch] = useState<string>('');
+  const [roomCategories, setRoomCategories] = useState<Array<{ id: string; label: string; icono?: string | null }>>([
+    { id: 'todos', label: 'Todas' },
+    { id: 'alta_fidelidad', label: 'Alta Fidelidad', icono: '🫀' },
+    { id: 'habilidades', label: 'Habilidades', icono: '🧤' },
+    { id: 'consultorio', label: 'Consultorios / OSCE', icono: '🩺' },
+    { id: 'hospitalizacion', label: 'Hospitalización', icono: '🛏️' },
+    { id: 'debriefing', label: 'Debriefing', icono: '💡' },
+  ]);
 
   // Estado del usuario consultado
   const [usuarioActual, setUsuarioActual] = useState<UsuarioData | null>(null);
@@ -80,9 +88,10 @@ export default function KioscoTerminal() {
   useEffect(() => {
     async function fetchSedesYCursos() {
       try {
-        const [resSedes, resCursos] = await Promise.all([
+        const [resSedes, resCursos, resCategorias] = await Promise.all([
           fetch('/api/kiosco/sedes'),
           fetch('/api/kiosco/cursos'),
+          fetch('/api/categorias-ambiente?soloActivas=true'),
         ]);
 
         if (resSedes.ok) {
@@ -103,8 +112,22 @@ export default function KioscoTerminal() {
           const dataCursos = await resCursos.json();
           setCursosList(dataCursos.cursos || []);
         }
+
+        if (resCategorias.ok) {
+          const dataCategorias = await resCategorias.json();
+          if (dataCategorias.categorias && dataCategorias.categorias.length > 0) {
+            setRoomCategories([
+              { id: 'todos', label: 'Todas' },
+              ...dataCategorias.categorias.map((c: { codigo: string; nombre: string; icono?: string | null }) => ({
+                id: c.codigo,
+                label: c.nombre,
+                icono: c.icono,
+              })),
+            ]);
+          }
+        }
       } catch (err) {
-        console.error('Error cargando sedes o cursos:', err);
+        console.error('Error cargando sedes, cursos o categorías:', err);
       }
     }
     fetchSedesYCursos();
@@ -600,14 +623,7 @@ export default function KioscoTerminal() {
                               />
 
                               <div className={styles.roomPillList}>
-                                {[
-                                  { id: 'todos', label: 'Todas' },
-                                  { id: 'alta_fidelidad', label: 'Alta Fidelidad' },
-                                  { id: 'habilidades', label: 'Habilidades' },
-                                  { id: 'consultorio', label: 'Consultorios / OSCE' },
-                                  { id: 'hospitalizacion', label: 'Hospitalización' },
-                                  { id: 'debriefing', label: 'Debriefing' },
-                                ].map((cat) => (
+                                {roomCategories.map((cat) => (
                                   <button
                                     key={cat.id}
                                     type="button"
@@ -616,6 +632,7 @@ export default function KioscoTerminal() {
                                     }`}
                                     onClick={() => setRoomCategoryFilter(cat.id)}
                                   >
+                                    {cat.icono && <span style={{ marginRight: '0.25rem' }}>{cat.icono}</span>}
                                     {cat.label}
                                   </button>
                                 ))}

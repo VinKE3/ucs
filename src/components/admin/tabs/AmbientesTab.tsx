@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
-import type { SedeAdminItem, AmbienteAdminItem, TecnicoTurnoItem, OcupanteItem } from '@/types/admin';
+import type { SedeAdminItem, AmbienteAdminItem, TecnicoTurnoItem, OcupanteItem, CategoriaAmbienteItem } from '@/types/admin';
 
 interface AmbientesTabProps {
   sedesList: SedeAdminItem[];
@@ -11,6 +11,7 @@ interface AmbientesTabProps {
   selectedSedeObj?: SedeAdminItem;
   ambientesList: AmbienteAdminItem[];
   tecnicosEnSede: TecnicoTurnoItem[];
+  categoriasList?: CategoriaAmbienteItem[];
   loadingAmbientes: boolean;
   searchAmbiente: string;
   setSearchAmbiente: (val: string) => void;
@@ -24,6 +25,7 @@ interface AmbientesTabProps {
   onOpenEditAmbiente: (amb: AmbienteAdminItem) => void;
   onToggleAmbienteActivo: (amb: AmbienteAdminItem) => void;
   onDeleteAmbiente: (amb: AmbienteAdminItem) => void;
+  onOpenGestionCategorias?: () => void;
   onCerrarTurnoPorRelevo: (docAnterior: OcupanteItem, docActual: OcupanteItem, nombreAmbiente: string) => void;
 }
 
@@ -34,6 +36,7 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
   selectedSedeObj,
   ambientesList,
   tecnicosEnSede,
+  categoriasList,
   loadingAmbientes,
   searchAmbiente,
   setSearchAmbiente,
@@ -47,8 +50,44 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
   onOpenEditAmbiente,
   onToggleAmbienteActivo,
   onDeleteAmbiente,
+  onOpenGestionCategorias,
   onCerrarTurnoPorRelevo,
 }) => {
+  const categoriasMap = useMemo(() => {
+    const map = new Map<string, CategoriaAmbienteItem>();
+    if (categoriasList) {
+      for (const c of categoriasList) {
+        map.set(c.codigo, c);
+      }
+    }
+    return map;
+  }, [categoriasList]);
+
+  const categoriasActivas = useMemo(() => {
+    if (categoriasList && categoriasList.length > 0) {
+      return [
+        { id: 'todos', label: 'Todas las Categorías', icono: '🏥' },
+        ...categoriasList
+          .filter((c) => c.activo)
+          .map((c) => ({
+            id: c.codigo,
+            label: c.nombre,
+            icono: c.icono,
+            color: c.color,
+          })),
+      ];
+    }
+    return [
+      { id: 'todos', label: 'Todas las Categorías', icono: '🏥' },
+      { id: 'alta_fidelidad', label: 'Alta Fidelidad', icono: '🫀' },
+      { id: 'habilidades', label: 'Habilidades', icono: '🧤' },
+      { id: 'consultorio', label: 'Consultorios / OSCE', icono: '🩺' },
+      { id: 'hospitalizacion', label: 'Hospitalización', icono: '🛏️' },
+      { id: 'debriefing', label: 'Debriefing', icono: '💡' },
+      { id: 'quirofano', label: 'Quirófano', icono: '🔬' },
+      { id: 'uci', label: 'UCI', icono: '🫁' },
+    ];
+  }, [categoriasList]);
   const getAmbienteTagClass = (tipo: string) => {
     switch (tipo) {
       case 'alta_fidelidad':
@@ -196,6 +235,19 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
               </>
             )}
 
+            {onOpenGestionCategorias && (
+              <button
+                type="button"
+                onClick={onOpenGestionCategorias}
+                className={styles.secondaryActionBtn}
+                title="Administrar categorías de simulación (crear, editar, activar/desactivar)"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <span>🏷️</span>
+                <span className={styles.hideOnMobile}> Categorías</span>
+              </button>
+            )}
+
             <button onClick={onOpenCrearAmbiente} className={styles.actionBtn}>
               <span>+</span>
               <span className={styles.hideOnMobile}> Agregar Sala a esta Sede</span>
@@ -245,12 +297,11 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                 onChange={(e) => setFilterTipo(e.target.value)}
                 aria-label="Filtrar por categoría de sala"
               >
-                <option value="todos">Todas las Categorías</option>
-                <option value="alta_fidelidad">Alta Fidelidad</option>
-                <option value="habilidades">Habilidades</option>
-                <option value="consultorio">Consultorios / OSCE</option>
-                <option value="hospitalizacion">Hospitalización</option>
-                <option value="debriefing">Debriefing</option>
+                {categoriasActivas.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icono ? `${cat.icono} ` : ''}{cat.label}
+                  </option>
+                ))}
               </select>
               <span className={styles.selectChevron}>▼</span>
             </div>
@@ -258,20 +309,14 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
 
           {/* BOTONES TIPO PILL PARA ESCRITORIO */}
           <div className={styles.categoryPills}>
-            {[
-              { id: 'todos', label: 'Todas las Categorías' },
-              { id: 'alta_fidelidad', label: 'Alta Fidelidad' },
-              { id: 'habilidades', label: 'Habilidades' },
-              { id: 'consultorio', label: 'Consultorios / OSCE' },
-              { id: 'hospitalizacion', label: 'Hospitalización' },
-              { id: 'debriefing', label: 'Debriefing' },
-            ].map((cat) => (
+            {categoriasActivas.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 className={`${styles.pillBtn} ${filterTipo === cat.id ? styles.pillBtnActive : ''}`}
                 onClick={() => setFilterTipo(cat.id)}
               >
+                {cat.icono && <span style={{ marginRight: '0.3rem' }}>{cat.icono}</span>}
                 {cat.label}
               </button>
             ))}
@@ -303,9 +348,29 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                 <div className={styles.ambienteTopRow}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <span className={styles.ambienteCodeBadge}>{amb.codigo || 'SALA'}</span>
-                    <span className={`${styles.categoriaTag} ${getAmbienteTagClass(amb.tipo)}`}>
-                      {getAmbienteTipoNombre(amb.tipo)}
-                    </span>
+                    {(() => {
+                      const catObj = categoriasMap.get(amb.tipo);
+                      if (catObj && catObj.color) {
+                        return (
+                          <span
+                            className={styles.categoriaTag}
+                            style={{
+                              backgroundColor: `${catObj.color}22`,
+                              color: catObj.color,
+                              borderColor: `${catObj.color}55`,
+                            }}
+                          >
+                            {catObj.icono ? `${catObj.icono} ` : ''}
+                            {catObj.nombre}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className={`${styles.categoriaTag} ${getAmbienteTagClass(amb.tipo)}`}>
+                          {getAmbienteTipoNombre(amb.tipo)}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {amb.docentes && amb.docentes.length > 1 ? (

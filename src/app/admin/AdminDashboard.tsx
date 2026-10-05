@@ -12,6 +12,7 @@ import type {
   OcupanteItem,
   AsistenciaAdminItem,
   CursoAdminItem,
+  CategoriaAmbienteItem,
   StatsData,
   AdminTab,
 } from '@/types/admin';
@@ -27,6 +28,7 @@ import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
 // Modales modulares
 import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
 import { ModalCrearAmbiente } from '@/components/admin/modals/ModalCrearAmbiente';
+import { ModalGestionCategorias } from '@/components/admin/modals/ModalGestionCategorias';
 import { ModalResetPassword } from '@/components/admin/modals/ModalResetPassword';
 import { ModalCrearPersonal } from '@/components/admin/modals/ModalCrearPersonal';
 import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
@@ -155,16 +157,21 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   });
   const [ambienteLoading, setAmbienteLoading] = useState(false);
 
+  // Categorías de Simulación
+  const [categoriasList, setCategoriasList] = useState<CategoriaAmbienteItem[]>([]);
+  const [showCategoriasModal, setShowCategoriasModal] = useState(false);
+
   // ==========================================
   // CARGA DE DATOS DESDE LA API
   // ==========================================
   const loadData = async () => {
     try {
-      const [resStats, resUsers, resSedes, resCursos] = await Promise.all([
+      const [resStats, resUsers, resSedes, resCursos, resCategorias] = await Promise.all([
         fetch('/api/dashboard/stats'),
         fetch('/api/usuarios'),
         fetch('/api/sedes'),
         fetch('/api/cursos'),
+        fetch('/api/categorias-ambiente'),
       ]);
 
       if (resStats.ok) {
@@ -189,10 +196,27 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         const dataCursos = await resCursos.json();
         setCursosList(dataCursos.cursos || []);
       }
+
+      if (resCategorias.ok) {
+        const dataCategorias = await resCategorias.json();
+        setCategoriasList(dataCategorias.categorias || []);
+      }
     } catch (err) {
       console.error('Error cargando dashboard:', err);
     }
   };
+
+  const loadCategorias = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categorias-ambiente');
+      if (res.ok) {
+        const data = await res.json();
+        setCategoriasList(data.categorias || []);
+      }
+    } catch (err) {
+      console.error('Error cargando categorías:', err);
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -902,6 +926,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             selectedSedeObj={selectedSedeObj}
             ambientesList={ambientesList}
             tecnicosEnSede={tecnicosEnSede}
+            categoriasList={categoriasList}
             loadingAmbientes={loadingAmbientes}
             searchAmbiente={searchAmbiente}
             setSearchAmbiente={setSearchAmbiente}
@@ -921,6 +946,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onOpenEditAmbiente={openEditAmbienteModal}
             onToggleAmbienteActivo={handleToggleAmbienteActivo}
             onDeleteAmbiente={handleDeleteAmbiente}
+            onOpenGestionCategorias={() => setShowCategoriasModal(true)}
             onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
           />
         )}
@@ -1005,11 +1031,25 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       <ModalCrearAmbiente
         isOpen={showAmbienteModal}
         selectedSedeObj={selectedSedeObj}
+        categoriasList={categoriasList}
         ambienteForm={ambienteForm}
         setAmbienteForm={setAmbienteForm}
         loading={ambienteLoading}
         onClose={() => setShowAmbienteModal(false)}
         onSubmit={handleSaveAmbiente}
+      />
+
+      <ModalGestionCategorias
+        isOpen={showCategoriasModal}
+        categoriasList={categoriasList}
+        loading={false}
+        onClose={() => setShowCategoriasModal(false)}
+        onRefresh={() => {
+          loadCategorias();
+          if (selectedSedeId) {
+            loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
+          }
+        }}
       />
 
       <ModalResetPassword

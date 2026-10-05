@@ -2,7 +2,7 @@
 
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
-import type { SedeAdminItem } from '@/types/admin';
+import type { SedeAdminItem, CategoriaAmbienteItem } from '@/types/admin';
 
 export interface AmbienteFormData {
   id?: number;
@@ -16,6 +16,7 @@ export interface AmbienteFormData {
 interface ModalCrearAmbienteProps {
   isOpen: boolean;
   selectedSedeObj?: SedeAdminItem;
+  categoriasList?: CategoriaAmbienteItem[];
   ambienteForm: AmbienteFormData;
   setAmbienteForm: React.Dispatch<React.SetStateAction<AmbienteFormData>>;
   loading: boolean;
@@ -26,6 +27,7 @@ interface ModalCrearAmbienteProps {
 export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
   isOpen,
   selectedSedeObj,
+  categoriasList,
   ambienteForm,
   setAmbienteForm,
   loading,
@@ -33,6 +35,20 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
   onSubmit,
 }) => {
   if (!isOpen) return null;
+
+  // Categorías a mostrar: las activas o la que tenga asignada actualmente si está en edición
+  const categoriasOpciones = categoriasList && categoriasList.length > 0
+    ? categoriasList.filter((c) => c.activo || c.codigo === ambienteForm.tipo)
+    : [
+        { codigo: 'alta_fidelidad', nombre: 'Alta Fidelidad', icono: '🫀' },
+        { codigo: 'habilidades', nombre: 'Habilidades y Destrezas', icono: '🧤' },
+        { codigo: 'consultorio', nombre: 'Consultorio Médico / OSCE', icono: '🩺' },
+        { codigo: 'hospitalizacion', nombre: 'Hospitalización', icono: '🛏️' },
+        { codigo: 'debriefing', nombre: 'Sala de Debriefing', icono: '💡' },
+        { codigo: 'quirofano', nombre: 'Quirófano Simulado', icono: '🔬' },
+        { codigo: 'uci', nombre: 'Cuidados Intensivos (UCI)', icono: '🫁' },
+        { codigo: 'general', nombre: 'General / Otro', icono: '🏢' },
+      ];
 
   return (
     <div className={styles.modalBackdrop}>
@@ -92,13 +108,11 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
               onChange={(e) => setAmbienteForm({ ...ambienteForm, tipo: e.target.value })}
               className={styles.select}
             >
-              <option value="alta_fidelidad">Alta Fidelidad</option>
-              <option value="habilidades">Habilidades y Destrezas</option>
-              <option value="consultorio">Consultorio Médico / OSCE</option>
-              <option value="hospitalizacion">Hospitalización</option>
-              <option value="debriefing">Sala de Debriefing</option>
-              <option value="quirofano">Quirófano Simulado</option>
-              <option value="general">General / Otro</option>
+              {categoriasOpciones.map((cat) => (
+                <option key={cat.codigo} value={cat.codigo}>
+                  {cat.icono ? `${cat.icono} ` : ''}{cat.nombre}
+                </option>
+              ))}
             </select>
           </div>
 

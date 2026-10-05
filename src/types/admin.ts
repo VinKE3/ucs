@@ -127,4 +127,17 @@ export interface StatsData {
   cursos?: number;
 }
 
+export interface CategoriaAmbienteItem {
+  id: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  color: string;
+  icono: string | null;
+  orden: number;
+  activo: boolean;
+  totalAmbientes?: number;
+  createdAt?: string;
+}
+
 export type AdminTab = 'personal' | 'ambientes' | 'asistencias' | 'cursos';

@@ -202,6 +202,20 @@ export const auditoriaAsistenciasRelations = relations(auditoriaAsistencias, ({ 
   }),
 }));
 
+// --- 7. TABLA: CATEGORÍAS DE AMBIENTE (Simulación) ---
+export const categoriasAmbiente = pgTable('categorias_ambiente', {
+  id: serial('id').primaryKey(),
+  codigo: varchar('codigo', { length: 50 }).notNull().unique(), // ej: "alta_fidelidad", "habilidades", "consultorio", "hospitalizacion", "debriefing", "quirofano", "general"
+  nombre: varchar('nombre', { length: 100 }).notNull(),         // ej: "Alta Fidelidad", "Habilidades y Destrezas"
+  descripcion: text('descripcion'),
+  color: varchar('color', { length: 30 }).default('#38bdf8').notNull(), // Color hexadecimal para badges y filtros
+  icono: varchar('icono', { length: 20 }).default('🏥'),
+  orden: integer('orden').default(0).notNull(),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // --- TIPOS INFERIDOS (TypeScript) ---
 export type Sede = typeof sedes.$inferSelect;
 export type NewSede = typeof sedes.$inferInsert;
@@ -220,3 +234,6 @@ export type NewAsistencia = typeof asistencias.$inferInsert;
 
 export type AuditoriaAsistencia = typeof auditoriaAsistencias.$inferSelect;
 export type NewAuditoriaAsistencia = typeof auditoriaAsistencias.$inferInsert;
+
+export type CategoriaAmbiente = typeof categoriasAmbiente.$inferSelect;
+export type NewCategoriaAmbiente = typeof categoriasAmbiente.$inferInsert;

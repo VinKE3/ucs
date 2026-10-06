@@ -4,7 +4,8 @@ import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
 
-interface CreatePersonalForm {
+export interface PersonalFormData {
+  id?: number;
   dni: string;
   nombres: string;
   apellidos: string;
@@ -14,12 +15,13 @@ interface CreatePersonalForm {
   rolSistema: 'ninguno' | 'admin' | 'super_admin';
   password?: string;
   horasSemanalesMax?: string;
+  isEdit?: boolean;
 }
 
 interface ModalCrearPersonalProps {
   isOpen: boolean;
-  createForm: CreatePersonalForm;
-  setCreateForm: React.Dispatch<React.SetStateAction<CreatePersonalForm>>;
+  createForm: PersonalFormData;
+  setCreateForm: React.Dispatch<React.SetStateAction<PersonalFormData>>;
   session: SessionPayload;
   createLoading: boolean;
   createError: string | null;
@@ -43,7 +45,11 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
     <div className={styles.modalBackdrop}>
       <div className={styles.modal} style={{ maxWidth: '540px' }}>
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Registrar Nuevo Personal</h2>
+          <h2 className={styles.modalTitle}>
+            {createForm.isEdit
+              ? `✏️ Editar Personal (${createForm.nombres} ${createForm.apellidos})`
+              : 'Registrar Nuevo Personal'}
+          </h2>
           <button onClick={onClose} className={styles.closeBtn}>✕</button>
         </div>
 
@@ -160,11 +166,17 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
 
               {(createForm.rolSistema === 'admin' || createForm.rolSistema === 'super_admin') && (
                 <div className={styles.fullWidth}>
-                  <label className={styles.label}>Contraseña de Acceso Web *</label>
+                  <label className={styles.label}>
+                    Contraseña de Acceso Web {createForm.isEdit ? '(Opcional al editar)' : '*'}
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="Contraseña para entrar a este panel web"
+                    required={!createForm.isEdit}
+                    placeholder={
+                      createForm.isEdit
+                        ? 'Dejar en blanco para conservar clave actual'
+                        : 'Contraseña para entrar a este panel web'
+                    }
                     value={createForm.password || ''}
                     onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                     className={styles.inputField}
@@ -187,7 +199,11 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
               className={styles.actionBtn}
               disabled={createLoading}
             >
-              {createLoading ? 'Creando...' : 'Crear Personal'}
+              {createLoading
+                ? 'Guardando...'
+                : createForm.isEdit
+                ? 'Guardar Cambios'
+                : 'Crear Personal'}
             </button>
           </div>
         </form>

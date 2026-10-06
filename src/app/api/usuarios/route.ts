@@ -142,20 +142,88 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, horasSemanalesMax, activo } = body;
+    const { id, dni, nombres, apellidos, correo, telefono, tipoPersonal, rolSistema, horasSemanalesMax, activo } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID de usuario requerido' }, { status: 400 });
+    }
+
+    const [usuarioActual] = await db
+      .select()
+      .from(usuarios)
+      .where(eq(usuarios.id, Number(id)))
+      .limit(1);
+
+    if (!usuarioActual) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
     const updateData: Record<string, any> = {
       updatedAt: new Date(),
     };
 
+    if (dni !== undefined) {
+      const dniTrim = dni.trim();
+      if (!dniTrim) {
+        return NextResponse.json({ error: 'El DNI no puede estar vacío' }, { status: 400 });
+      }
+      if (dniTrim !== usuarioActual.dni) {
+        const [existente] = await db
+          .select({ id: usuarios.id })
+          .from(usuarios)
+          .where(eq(usuarios.dni, dniTrim))
+          .limit(1);
+        if (existente) {
+          return NextResponse.json({ error: 'Ya existe otro usuario con este DNI' }, { status: 409 });
+        }
+        updateData.dni = dniTrim;
+      }
+    }
+
+    if (nombres !== undefined) {
+      if (!nombres.trim()) {
+        return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
+      }
+      updateData.nombres = nombres.trim();
+    }
+
+    if (apellidos !== undefined) {
+      if (!apellidos.trim()) {
+        return NextResponse.json({ error: 'Los apellidos son obligatorios' }, { status: 400 });
+      }
+      updateData.apellidos = apellidos.trim();
+    }
+
+    if (correo !== undefined) {
+      updateData.correo = correo ? correo.trim().toLowerCase() : null;
+    }
+
+    if (telefono !== undefined) {
+      updateData.telefono = telefono ? telefono.trim() : null;
+    }
+
+    if (tipoPersonal !== undefined) {
+      if (!['docente', 'tecnico', 'paciente_simulado'].includes(tipoPersonal)) {
+        return NextResponse.json({ error: 'Tipo de personal inválido' }, { status: 400 });
+      }
+      updateData.tipoPersonal = tipoPersonal;
+    }
+
+    if (rolSistema !== undefined && rolSistema !== usuarioActual.rolSistema) {
+      if (session.rolSistema !== 'super_admin') {
+        return NextResponse.json(
+          { error: 'Solo el Super Admin puede modificar los roles de acceso al sistema' },
+          { status: 403 }
+        );
+      }
+      updateData.rolSistema = rolSistema;
+    }
+
     if (horasSemanalesMax !== undefined) {
-      updateData.horasSemanalesMax = horasSemanalesMax === null || horasSemanalesMax === '' 
-        ? null 
-        : Number(horasSemanalesMax);
+      updateData.horasSemanalesMax =
+        horasSemanalesMax === null || horasSemanalesMax === ''
+          ? null
+          : Number(horasSemanalesMax);
     }
 
     if (activo !== undefined) {
@@ -172,5 +240,79 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error('Error actualizando usuario:', error);
     return NextResponse.json({ error: 'Error interno al actualizar usuario' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID de usuario requerido' }, { status: 400 });
+    }
+
+    const userIdNum = Number(id);
+
+    if (session.userId === userIdNum) {
+      return NextResponse.json({ error: 'No puedes eliminar tu propia cuenta de usuario' }, { status: 400 });
+    }
+
+    const [targetUser] = await db
+      .select()
+      .from(usuarios)
+      .where(eq(usuarios.id, userIdNum))
+      .limit(1);
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
+
+    if (targetUser.rolSistema === 'super_admin' && session.rolSistema !== 'super_admin') {
+      return NextResponse.json({ error: 'No tienes permisos para eliminar a un Super Administrador' }, { status: 403 });
+    }
+
+    // 1. Verificar si tiene turno activo en curso
+    const turnoEnCurso = await db
+      .select({ id: asistencias.id })
+      .from(asistencias)
+      .where(and(eq(asistencias.usuarioId, userIdNum), eq(asistencias.estado, 'en_curso')))
+      .limit(1);
+
+    if (turnoEnCurso.length > 0) {
+      return NextResponse.json(
+        { error: 'No se puede eliminar a un colaborador con turno activo en curso. Finaliza o cierra su turno primero.' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Verificar si tiene asistencias históricas registradas
+    const [asistenciasCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(asistencias)
+      .where(eq(asistencias.usuarioId, userIdNum));
+
+    const totalAsistencias = asistenciasCount ? Number(asistenciasCount.count) : 0;
+
+    if (totalAsistencias > 0) {
+      return NextResponse.json(
+        {
+          error: `No se puede eliminar a "${targetUser.nombres} ${targetUser.apellidos}" porque cuenta con ${totalAsistencias} registro(s) de asistencia histórica en la clínica. En su lugar, puedes inactivarlo (⏸️) para bloquear su acceso y evitar que marque en el kiosco sin perder la trazabilidad.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    await db.delete(usuarios).where(eq(usuarios.id, userIdNum));
+
+    return NextResponse.json({ ok: true, mensaje: 'Usuario eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    return NextResponse.json({ error: 'Error interno al eliminar usuario' }, { status: 500 });
   }
 }

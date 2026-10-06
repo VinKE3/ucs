@@ -30,7 +30,7 @@ import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
 import { ModalCrearAmbiente } from '@/components/admin/modals/ModalCrearAmbiente';
 import { ModalGestionCategorias } from '@/components/admin/modals/ModalGestionCategorias';
 import { ModalResetPassword } from '@/components/admin/modals/ModalResetPassword';
-import { ModalCrearPersonal } from '@/components/admin/modals/ModalCrearPersonal';
+import { ModalCrearPersonal, type PersonalFormData } from '@/components/admin/modals/ModalCrearPersonal';
 import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
 import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
 import { ModalCurso } from '@/components/admin/modals/ModalCurso';
@@ -101,17 +101,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [resetMsg, setResetMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState<{
-    dni: string;
-    nombres: string;
-    apellidos: string;
-    correo: string;
-    telefono: string;
-    tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
-    rolSistema: 'ninguno' | 'admin' | 'super_admin';
-    password?: string;
-    horasSemanalesMax?: string;
-  }>({
+  const [createForm, setCreateForm] = useState<PersonalFormData>({
+    id: 0,
     dni: '',
     nombres: '',
     apellidos: '',
@@ -121,6 +112,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     rolSistema: 'ninguno',
     password: '',
     horasSemanalesMax: '',
+    isEdit: false,
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -551,40 +543,149 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateLoading(true);
     setCreateError(null);
 
     try {
-      const res = await fetch('/api/usuarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createForm),
-      });
+      if (createForm.isEdit && createForm.id) {
+        // Editar usuario existente
+        const res = await fetch('/api/usuarios', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: createForm.id,
+            dni: createForm.dni,
+            nombres: createForm.nombres,
+            apellidos: createForm.apellidos,
+            correo: createForm.correo,
+            telefono: createForm.telefono,
+            tipoPersonal: createForm.tipoPersonal,
+            rolSistema: createForm.rolSistema,
+            horasSemanalesMax: createForm.horasSemanalesMax,
+          }),
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al registrar usuario');
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al actualizar usuario');
+        }
+
+        // Si se especificó contraseña al editar, actualizarla
+        if (createForm.password && createForm.password.trim().length >= 6) {
+          await fetch('/api/usuarios/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuarioId: createForm.id, newPassword: createForm.password.trim() }),
+          });
+        }
+
+        setShowCreateModal(false);
+        setCreateForm({
+          id: 0,
+          dni: '',
+          nombres: '',
+          apellidos: '',
+          correo: '',
+          telefono: '',
+          tipoPersonal: 'docente',
+          rolSistema: 'ninguno',
+          password: '',
+          horasSemanalesMax: '',
+          isEdit: false,
+        });
+        loadData();
+      } else {
+        // Crear nuevo usuario
+        const res = await fetch('/api/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(createForm),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al registrar usuario');
+        }
+
+        setShowCreateModal(false);
+        setCreateForm({
+          id: 0,
+          dni: '',
+          nombres: '',
+          apellidos: '',
+          correo: '',
+          telefono: '',
+          tipoPersonal: 'docente',
+          rolSistema: 'ninguno',
+          password: '',
+          horasSemanalesMax: '',
+          isEdit: false,
+        });
+        loadData();
       }
-
-      setShowCreateModal(false);
-      setCreateForm({
-        dni: '',
-        nombres: '',
-        apellidos: '',
-        correo: '',
-        telefono: '',
-        tipoPersonal: 'docente',
-        rolSistema: 'ninguno',
-        password: '',
-        horasSemanalesMax: '',
-      });
-      loadData();
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Error inesperado');
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const openEditUserModal = (u: UsuarioItem) => {
+    setCreateForm({
+      id: u.id,
+      dni: u.dni,
+      nombres: u.nombres,
+      apellidos: u.apellidos,
+      correo: u.correo || '',
+      telefono: u.telefono || '',
+      tipoPersonal: u.tipoPersonal,
+      rolSistema: u.rolSistema,
+      password: '',
+      horasSemanalesMax: u.horasSemanalesMax ? String(u.horasSemanalesMax) : '',
+      isEdit: true,
+    });
+    setCreateError(null);
+    setShowCreateModal(true);
+  };
+
+  const handleToggleUserActivo = async (u: UsuarioItem) => {
+    const accion = u.activo ? 'inactivar' : 'reactivar';
+    const confirmMsg = u.activo
+      ? `¿Deseas inactivar a "${u.nombres} ${u.apellidos}"?\n\nAl inactivarlo, no podrá marcar asistencia en el Kiosco ni acceder al sistema web.`
+      : `¿Deseas reactivar a "${u.nombres} ${u.apellidos}"?\n\nVolverá a estar habilitado para registrar asistencias y acceder al sistema.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch('/api/usuarios', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: u.id, activo: !u.activo }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error al ${accion} usuario`);
+      loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : `Error al ${accion} usuario`);
+    }
+  };
+
+  const handleDeleteUser = async (u: UsuarioItem) => {
+    const confirmMsg = `¿Deseas eliminar permanentemente a "${u.nombres} ${u.apellidos}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/usuarios?id=${u.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo eliminar el usuario');
+        return;
+      }
+      loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error de conexión al eliminar usuario');
     }
   };
 
@@ -960,7 +1061,26 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             setFilterPersonalTipo={setFilterPersonalTipo}
             session={session}
             onOpenResetPassword={openResetPassword}
-            onOpenCrearUsuario={() => setShowCreateModal(true)}
+            onOpenCrearUsuario={() => {
+              setCreateForm({
+                id: 0,
+                dni: '',
+                nombres: '',
+                apellidos: '',
+                correo: '',
+                telefono: '',
+                tipoPersonal: 'docente',
+                rolSistema: 'ninguno',
+                password: '',
+                horasSemanalesMax: '',
+                isEdit: false,
+              });
+              setCreateError(null);
+              setShowCreateModal(true);
+            }}
+            onOpenEditUsuario={openEditUserModal}
+            onToggleUsuarioActivo={handleToggleUserActivo}
+            onDeleteUsuario={handleDeleteUser}
             onOpenKardex={(u) => {
               setKardexUser(u);
               setShowKardexDrawer(true);
@@ -1071,7 +1191,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         createLoading={createLoading}
         createError={createError}
         onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateUser}
+        onSubmit={handleSaveUser}
       />
 
       <ModalCerrarTurno

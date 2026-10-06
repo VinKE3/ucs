@@ -14,6 +14,9 @@ interface PersonalTabProps {
   session: SessionPayload;
   onOpenResetPassword: (user: UsuarioItem) => void;
   onOpenCrearUsuario: () => void;
+  onOpenEditUsuario: (user: UsuarioItem) => void;
+  onToggleUsuarioActivo: (user: UsuarioItem) => void;
+  onDeleteUsuario: (user: UsuarioItem) => void;
   onOpenKardex: (user: UsuarioItem) => void;
 }
 
@@ -26,16 +29,22 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   session,
   onOpenResetPassword,
   onOpenCrearUsuario,
+  onOpenEditUsuario,
+  onToggleUsuarioActivo,
+  onDeleteUsuario,
   onOpenKardex,
 }) => {
   const totalEnClinica = usuariosList.filter((u) => Boolean(u.turnoActivoId)).length;
   const totalDocentes = usuariosList.filter((u) => u.tipoPersonal === 'docente').length;
   const totalTecnicos = usuariosList.filter((u) => u.tipoPersonal === 'tecnico').length;
   const totalPacientes = usuariosList.filter((u) => u.tipoPersonal === 'paciente_simulado').length;
+  const totalInactivos = usuariosList.filter((u) => !u.activo).length;
 
   const usuariosFiltrados = usuariosList.filter((u) => {
     let matchesTipo = true;
-    if (filterPersonalTipo === 'en_clinica') {
+    if (filterPersonalTipo === 'inactivos') {
+      matchesTipo = !u.activo;
+    } else if (filterPersonalTipo === 'en_clinica') {
       matchesTipo = Boolean(u.turnoActivoId);
     } else if (filterPersonalTipo !== 'todos') {
       matchesTipo = u.tipoPersonal === filterPersonalTipo;
@@ -95,6 +104,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
               <option value="docente">Docentes ({totalDocentes})</option>
               <option value="tecnico">Técnicos ({totalTecnicos})</option>
               <option value="paciente_simulado">Pacientes Simulados ({totalPacientes})</option>
+              <option value="inactivos">Inactivos ({totalInactivos})</option>
             </select>
             <span className={styles.selectChevron}>▼</span>
           </div>
@@ -137,6 +147,16 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
           >
             Pacientes Simulados ({totalPacientes})
           </button>
+          {totalInactivos > 0 && (
+            <button
+              type="button"
+              className={`${styles.pillBtn} ${filterPersonalTipo === 'inactivos' ? styles.pillBtnActive : ''}`}
+              style={{ color: filterPersonalTipo === 'inactivos' ? undefined : '#f87171' }}
+              onClick={() => setFilterPersonalTipo('inactivos')}
+            >
+              Inactivos ({totalInactivos})
+            </button>
+          )}
         </div>
 
         <button
@@ -173,10 +193,28 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
               </tr>
             ) : (
               usuariosFiltrados.map((u) => (
-                <tr key={u.id}>
+                <tr key={u.id} style={!u.activo ? { opacity: 0.65 } : undefined}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{u.dni}</td>
                   <td>
-                    <strong>{u.nombres} {u.apellidos}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>
+                        {u.nombres} {u.apellidos}
+                      </strong>
+                      {!u.activo && (
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            color: '#ef4444',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            padding: '0.12rem 0.4rem',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          Inactivo
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     {getTipoBadge(u.tipoPersonal)}
@@ -251,13 +289,46 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         <span>📊</span> Horas
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={() => onOpenEditUsuario(u)}
+                        className={styles.iconBtn}
+                        title="Editar datos, rol o tope de horas"
+                      >
+                        <span>✏️</span> Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onToggleUsuarioActivo(u)}
+                        className={styles.iconBtn}
+                        style={!u.activo ? { color: '#10b981', borderColor: '#10b981' } : undefined}
+                        title={
+                          u.activo
+                            ? 'Inactivar colaborador (bloquea marcación en kiosco y acceso web)'
+                            : 'Reactivar colaborador en el sistema'
+                        }
+                      >
+                        <span>{u.activo ? '⏸️' : '▶️'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onDeleteUsuario(u)}
+                        className={styles.iconBtn}
+                        style={{ color: '#ef4444' }}
+                        title="Eliminar permanentemente (solo si no tiene asistencias históricas)"
+                      >
+                        <span>🗑️</span>
+                      </button>
+
                       {session.rolSistema === 'super_admin' && (
                         <button
                           onClick={() => onOpenResetPassword(u)}
                           className={styles.iconBtn}
                           title="Restablecer o Asignar Contraseña Manualmente"
                         >
-                          <span>🔑</span> Clave
+                          <span>🔑</span>
                         </button>
                       )}
                     </div>

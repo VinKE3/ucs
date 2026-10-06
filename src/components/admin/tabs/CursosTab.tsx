@@ -14,6 +14,7 @@ interface CursosTabProps {
   onOpenCrearCurso: () => void;
   onOpenEditCurso: (curso: CursoAdminItem) => void;
   onToggleCursoActivo: (curso: CursoAdminItem) => void;
+  onDeleteCurso: (curso: CursoAdminItem) => void;
 }
 
 export const CursosTab: React.FC<CursosTabProps> = ({
@@ -26,6 +27,7 @@ export const CursosTab: React.FC<CursosTabProps> = ({
   onOpenCrearCurso,
   onOpenEditCurso,
   onToggleCursoActivo,
+  onDeleteCurso,
 }) => {
   const cursosFiltrados = cursosList.filter((c) => {
     const matchesSearch =
@@ -180,6 +182,15 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                         title={curso.activo ? 'Desactivar curso del kiosco' : 'Activar curso para el kiosco'}
                       >
                         {curso.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCurso(curso)}
+                        className={styles.iconBtn}
+                        style={{ color: '#ef4444' }}
+                        title="Eliminar curso permanentemente (solo si no tiene asistencias asociadas)"
+                      >
+                        <span>🗑️</span>
                       </button>
                     </div>
                   </td>

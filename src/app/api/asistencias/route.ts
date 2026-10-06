@@ -119,6 +119,100 @@ export async function GET(request: Request) {
   }
 }
 
+// POST /api/asistencias - Registro manual de asistencia con auditoría obligatoria
+export async function POST(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const {
+      usuarioId,
+      sedeId,
+      ambienteId,
+      cursoId,
+      fecha,
+      horaIngreso,
+      horaSalida,
+      observaciones,
+      motivoJustificacion,
+    } = body;
+
+    if (!usuarioId || !sedeId || !fecha || !horaIngreso || !motivoJustificacion || !motivoJustificacion.trim()) {
+      return NextResponse.json(
+        { error: 'Usuario, sede, fecha, hora de ingreso y motivo de justificación son obligatorios' },
+        { status: 400 }
+      );
+    }
+
+    const ingresoDate = new Date(horaIngreso);
+    const salidaDate = horaSalida ? new Date(horaSalida) : null;
+
+    if (salidaDate && salidaDate <= ingresoDate) {
+      return NextResponse.json(
+        { error: 'La hora de salida debe ser posterior a la hora de ingreso' },
+        { status: 400 }
+      );
+    }
+
+    let minutosTotales: number | null = null;
+    if (salidaDate) {
+      const diffMs = salidaDate.getTime() - ingresoDate.getTime();
+      minutosTotales = Math.max(1, Math.round(diffMs / (1000 * 60)));
+    }
+
+    const estadoFinal = salidaDate ? 'ajustado_manual' : 'en_curso';
+
+    const [nuevaAsistencia] = await db
+      .insert(asistencias)
+      .values({
+        usuarioId: Number(usuarioId),
+        sedeId: Number(sedeId),
+        ambienteId: ambienteId ? Number(ambienteId) : null,
+        cursoId: cursoId ? Number(cursoId) : null,
+        fecha: fecha.trim(),
+        horaIngreso: ingresoDate,
+        horaSalida: salidaDate,
+        minutosTotales: minutosTotales,
+        estado: estadoFinal,
+        tipoRegistro: 'admin_manual',
+        observaciones: observaciones?.trim() || null,
+        modificadoPorId: session.userId,
+        motivoModificacion: motivoJustificacion.trim(),
+      })
+      .returning();
+
+    // Registrar en auditoría inmutable
+    await db.insert(auditoriaAsistencias).values({
+      asistenciaId: nuevaAsistencia.id,
+      usuarioAdminId: session.userId,
+      accion: 'CREACION_MANUAL',
+      motivo: motivoJustificacion.trim(),
+      datosAnteriores: null,
+      datosNuevos: {
+        id: nuevaAsistencia.id,
+        usuarioId,
+        sedeId,
+        ambienteId,
+        cursoId,
+        fecha,
+        horaIngreso: ingresoDate.toISOString(),
+        horaSalida: salidaDate ? salidaDate.toISOString() : null,
+        minutosTotales,
+        estado: estadoFinal,
+        tipoRegistro: 'admin_manual',
+      },
+    });
+
+    return NextResponse.json({ ok: true, asistencia: nuevaAsistencia }, { status: 201 });
+  } catch (error) {
+    console.error('Error registrando asistencia manual:', error);
+    return NextResponse.json({ error: 'Error interno al registrar asistencia manual' }, { status: 500 });
+  }
+}
+
 // Actualizar asistencia (Cierre manual o Anulación justificada)
 export async function PATCH(request: Request) {
   try {

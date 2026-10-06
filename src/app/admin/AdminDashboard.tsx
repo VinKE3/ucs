@@ -34,6 +34,7 @@ import { ModalCrearPersonal, type PersonalFormData } from '@/components/admin/mo
 import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
 import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
 import { ModalCurso } from '@/components/admin/modals/ModalCurso';
+import { ModalCrearAsistenciaManual } from '@/components/admin/modals/ModalCrearAsistenciaManual';
 import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
@@ -92,6 +93,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [showAnularModal, setShowAnularModal] = useState(false);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [actionAsistLoading, setActionAsistLoading] = useState(false);
+  const [showCrearAsistenciaManualModal, setShowCrearAsistenciaManualModal] = useState(false);
 
   // Modales de Usuarios y Sedes
   const [showResetModal, setShowResetModal] = useState(false);
@@ -362,6 +364,24 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       }
     } catch (err) {
       console.error('Error al alternar estado de curso:', err);
+    }
+  };
+
+  const handleDeleteCurso = async (curso: CursoAdminItem) => {
+    const confirmMsg = `¿Deseas eliminar permanentemente el curso "${curso.nombre}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/cursos?id=${curso.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo eliminar el curso');
+        return;
+      }
+      await loadCursos();
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error al conectar con el servidor');
     }
   };
 
@@ -1103,6 +1123,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             }}
             onOpenEditCurso={openEditCursoModal}
             onToggleCursoActivo={handleToggleCursoActivo}
+            onDeleteCurso={handleDeleteCurso}
           />
         )}
 
@@ -1130,6 +1151,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onExportCsv={handleExportCsv}
             onOpenCerrarTurnoModal={openCerrarTurnoModal}
             onOpenAnularModal={openAnularModal}
+            onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
             onOpenKardex={(u) => {
               setKardexUser(u);
               setShowKardexDrawer(true);
@@ -1230,6 +1252,19 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         cursoError={cursoError}
         onClose={() => setShowCursoModal(false)}
         onSubmit={handleSaveCurso}
+      />
+
+      <ModalCrearAsistenciaManual
+        isOpen={showCrearAsistenciaManualModal}
+        usuariosList={usuariosList}
+        sedesList={sedesList}
+        cursosList={cursosList}
+        loading={false}
+        onClose={() => setShowCrearAsistenciaManualModal(false)}
+        onSuccess={() => {
+          loadAsistencias();
+          loadData();
+        }}
       />
 
       {/* DRAWER LATERAL FICHA 360° / KARDEX DE HORAS */}

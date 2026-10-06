@@ -29,6 +29,7 @@ interface AsistenciasTabProps {
   onOpenCerrarTurnoModal: (asist: AsistenciaAdminItem) => void;
   onOpenAnularModal: (asist: AsistenciaAdminItem) => void;
   onOpenKardex?: (user: UsuarioItem) => void;
+  onOpenCrearAsistenciaManual?: () => void;
 }
 
 export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
@@ -55,6 +56,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   onOpenCerrarTurnoModal,
   onOpenAnularModal,
   onOpenKardex,
+  onOpenCrearAsistenciaManual,
 }) => {
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
@@ -333,12 +335,26 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={modoVista === 'resumen' ? handleExportResumenCsv : onExportCsv}
-            className={styles.exportBtn}
-          >
-            <span>📥</span> {modoVista === 'resumen' ? 'Exportar Resumen (CSV)' : 'Descargar Excel (CSV)'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {onOpenCrearAsistenciaManual && (
+              <button
+                type="button"
+                onClick={onOpenCrearAsistenciaManual}
+                className={styles.actionBtn}
+                style={{ padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
+                title="Registrar manualmente una asistencia justificada para un colaborador que no marcó en el Kiosco"
+              >
+                <span>📝</span> + Asistencia Manual
+              </button>
+            )}
+
+            <button
+              onClick={modoVista === 'resumen' ? handleExportResumenCsv : onExportCsv}
+              className={styles.exportBtn}
+            >
+              <span>📥</span> {modoVista === 'resumen' ? 'Exportar Resumen (CSV)' : 'Descargar Excel (CSV)'}
+            </button>
+          </div>
         </div>
       </div>
 

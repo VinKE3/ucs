@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { cursos } from '@/db/schema';
+import { cursos, asistencias } from '@/db/schema';
 import { getSession } from '@/lib/auth';
-import { eq, desc, asc, like, or } from 'drizzle-orm';
+import { eq, desc, asc, like, or, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,5 +106,58 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error('Error actualizando curso:', error);
     return NextResponse.json({ error: 'Error al modificar curso' }, { status: 500 });
+  }
+}
+
+// DELETE /api/cursos - Eliminación segura de cursos sin historial
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID de curso requerido' }, { status: 400 });
+    }
+
+    const cursoIdNum = Number(id);
+
+    const [curso] = await db
+      .select()
+      .from(cursos)
+      .where(eq(cursos.id, cursoIdNum))
+      .limit(1);
+
+    if (!curso) {
+      return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
+    }
+
+    // Verificar si cuenta con asistencias registradas
+    const [asistenciasCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(asistencias)
+      .where(eq(asistencias.cursoId, cursoIdNum));
+
+    const totalAsistencias = asistenciasCount ? Number(asistenciasCount.count) : 0;
+
+    if (totalAsistencias > 0) {
+      return NextResponse.json(
+        {
+          error: `No se puede eliminar el curso "${curso.nombre}" porque cuenta con ${totalAsistencias} asistencia(s) registrada(s). Puedes desactivarlo para que no aparezca en el Kiosco.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    await db.delete(cursos).where(eq(cursos.id, cursoIdNum));
+
+    return NextResponse.json({ ok: true, mensaje: 'Curso eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error eliminando curso:', error);
+    return NextResponse.json({ error: 'Error interno al eliminar curso' }, { status: 500 });
   }
 }

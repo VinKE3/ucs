@@ -30,6 +30,7 @@ interface AsistenciasTabProps {
   onOpenAnularModal: (asist: AsistenciaAdminItem) => void;
   onOpenKardex?: (user: UsuarioItem) => void;
   onOpenCrearAsistenciaManual?: () => void;
+  onOpenAuditoriaModal?: (asist: AsistenciaAdminItem) => void;
 }
 
 export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
@@ -57,6 +58,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   onOpenAnularModal,
   onOpenKardex,
   onOpenCrearAsistenciaManual,
+  onOpenAuditoriaModal,
 }) => {
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
@@ -476,14 +478,63 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                       <td>
                         {colab.tipoPersonal === 'docente' ? (
                           colab.horasSemanalesMax ? (
-                            <div>
-                              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                Tope: {colab.horasSemanalesMax}h/sem
-                              </span>
-                              <div style={{ fontSize: '0.72rem', color: 'var(--ucs-blue-sky)' }}>
-                                Monitoreo activo
-                              </div>
-                            </div>
+                            (() => {
+                              const horasNum = Number(horasDecimal);
+                              const maxH = colab.horasSemanalesMax;
+                              const pct = Math.round((horasNum / maxH) * 100);
+                              const isExceeded = horasNum > maxH;
+                              const isNear = !isExceeded && horasNum >= maxH * 0.9;
+                              const badgeColor = isExceeded ? '#ef4444' : isNear ? '#f59e0b' : '#10b981';
+                              const badgeBg = isExceeded
+                                ? 'rgba(239, 68, 68, 0.14)'
+                                : isNear
+                                ? 'rgba(245, 158, 11, 0.14)'
+                                : 'rgba(16, 185, 129, 0.14)';
+                              const statusLabel = isExceeded
+                                ? '⚠️ Tope Excedido'
+                                : isNear
+                                ? '🟡 Próximo al tope'
+                                : '🟢 En regla';
+
+                              return (
+                                <div style={{ minWidth: '135px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                      background: badgeBg,
+                                      color: badgeColor,
+                                      border: `1px solid ${badgeColor}33`,
+                                    }}>
+                                      {statusLabel}
+                                    </span>
+                                    <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                      {pct}%
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                                    {horasDecimal} / {maxH} hrs
+                                  </div>
+                                  <div style={{
+                                    height: '4px',
+                                    width: '100%',
+                                    background: 'var(--border-color)',
+                                    borderRadius: '2px',
+                                    overflow: 'hidden',
+                                    marginTop: '0.25rem',
+                                  }}>
+                                    <div style={{
+                                      width: `${Math.min(100, pct)}%`,
+                                      height: '100%',
+                                      background: badgeColor,
+                                      borderRadius: '2px',
+                                    }} />
+                                  </div>
+                                </div>
+                              );
+                            })()
                           ) : (
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tope fijado</span>
                           )
@@ -680,6 +731,25 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
 
                       <td>
                         <div className={styles.actionRow}>
+                          {onOpenAuditoriaModal && (
+                            <button
+                              onClick={() => onOpenAuditoriaModal(asist)}
+                              className={styles.actionBtnSmall}
+                              style={{
+                                background: (asist.estado === 'ajustado_manual' || asist.estado === 'anulado' || asist.tipoRegistro === 'admin_manual' || asist.motivoModificacion)
+                                  ? 'rgba(56, 189, 248, 0.15)'
+                                  : 'var(--bg-elevated)',
+                                color: (asist.estado === 'ajustado_manual' || asist.estado === 'anulado' || asist.tipoRegistro === 'admin_manual' || asist.motivoModificacion)
+                                  ? '#38bdf8'
+                                  : 'var(--text-secondary)',
+                                border: '1px solid var(--border-color)',
+                              }}
+                              title="Ver trazabilidad y auditoría inmutable de este turno"
+                            >
+                              📜 Auditoría
+                            </button>
+                          )}
+
                           {asist.estado === 'en_curso' && (
                             <button
                               onClick={() => onOpenCerrarTurnoModal(asist)}

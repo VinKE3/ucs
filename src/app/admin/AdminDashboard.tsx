@@ -35,6 +35,7 @@ import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
 import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
 import { ModalCurso } from '@/components/admin/modals/ModalCurso';
 import { ModalCrearAsistenciaManual } from '@/components/admin/modals/ModalCrearAsistenciaManual';
+import { ModalAuditoriaAsistencia } from '@/components/admin/modals/ModalAuditoriaAsistencia';
 import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
@@ -94,6 +95,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [actionAsistLoading, setActionAsistLoading] = useState(false);
   const [showCrearAsistenciaManualModal, setShowCrearAsistenciaManualModal] = useState(false);
+  const [auditoriaAsistenciaTarget, setAuditoriaAsistenciaTarget] = useState<AsistenciaAdminItem | null>(null);
+  const [showAuditoriaModal, setShowAuditoriaModal] = useState(false);
 
   // Modales de Usuarios y Sedes
   const [showResetModal, setShowResetModal] = useState(false);
@@ -1152,6 +1155,10 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onOpenCerrarTurnoModal={openCerrarTurnoModal}
             onOpenAnularModal={openAnularModal}
             onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
+            onOpenAuditoriaModal={(asist) => {
+              setAuditoriaAsistenciaTarget(asist);
+              setShowAuditoriaModal(true);
+            }}
             onOpenKardex={(u) => {
               setKardexUser(u);
               setShowKardexDrawer(true);
@@ -1264,6 +1271,15 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         onSuccess={() => {
           loadAsistencias();
           loadData();
+        }}
+      />
+
+      <ModalAuditoriaAsistencia
+        isOpen={showAuditoriaModal}
+        asistencia={auditoriaAsistenciaTarget}
+        onClose={() => {
+          setShowAuditoriaModal(false);
+          setAuditoriaAsistenciaTarget(null);
         }}
       />
 

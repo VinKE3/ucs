@@ -141,3 +141,18 @@ export interface CategoriaAmbienteItem {
 }
 
 export type AdminTab = 'personal' | 'ambientes' | 'asistencias' | 'cursos';
+
+export interface AuditoriaItem {
+  id: number;
+  asistenciaId: number;
+  usuarioAdminId: number;
+  accion: string;
+  motivo: string;
+  datosAnteriores: any;
+  datosNuevos: any;
+  createdAt: string;
+  adminNombres?: string | null;
+  adminApellidos?: string | null;
+  adminDni?: string | null;
+  adminCorreo?: string | null;
+}

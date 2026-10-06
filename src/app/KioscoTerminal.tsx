@@ -81,8 +81,19 @@ export default function KioscoTerminal() {
   // Estado de marcación
   const [marcando, setMarcando] = useState(false);
   const [feedback, setFeedback] = useState<{ tipo: 'ingreso' | 'salida'; mensaje: string } | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Limpiar timer de countdown al desmontar
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+    };
+  }, []);
 
   // Cargar sedes y cursos, recordando la sede guardada en la tablet
   useEffect(() => {
@@ -229,10 +240,20 @@ export default function KioscoTerminal() {
         mensaje: data.mensaje,
       });
 
-      // Limpiar y resetear tras 4 segundos
-      setTimeout(() => {
-        resetearTerminal();
-      }, 4000);
+      // Iniciar countdown visible de 5 segundos con reinicio automático
+      setCountdown(5);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev === null || prev <= 1) {
+            if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+            resetearTerminal();
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Error inesperado al marcar');
     } finally {
@@ -241,6 +262,11 @@ export default function KioscoTerminal() {
   };
 
   const resetearTerminal = () => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setCountdown(null);
     setDniInput('');
     setUsuarioActual(null);
     setAsistenciaActiva(null);
@@ -365,9 +391,53 @@ export default function KioscoTerminal() {
                 {feedback.tipo === 'ingreso' ? '¡Ingreso Registrado con Éxito!' : '¡Salida Registrada con Éxito!'}
               </div>
               <p className={styles.feedbackSuccessDesc}>{feedback.mensaje}</p>
-              <button onClick={resetearTerminal} className={styles.nextPersonBtn}>
-                Siguiente persona →
-              </button>
+
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.65rem',
+                width: '100%',
+                marginTop: '1.25rem',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  fontSize: '0.86rem',
+                  color: 'var(--text-secondary)',
+                }}>
+                  <span style={{ display: 'inline-block', animation: 'spin 3s linear infinite' }}>🔄</span>
+                  <span>
+                    Reinicio automático en <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{countdown ?? 5}s</strong>
+                  </span>
+                </div>
+
+                <div style={{
+                  width: '100%',
+                  maxWidth: '280px',
+                  height: '4px',
+                  background: 'rgba(255,255,255,0.08)',
+                  borderRadius: '2px',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${((countdown ?? 5) / 5) * 100}%`,
+                    height: '100%',
+                    background: feedback.tipo === 'ingreso' ? '#00e699' : '#38bdf8',
+                    transition: 'width 1s linear',
+                  }} />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetearTerminal}
+                  className={styles.nextPersonBtn}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  Siguiente persona ahora →
+                </button>
+              </div>
             </div>
           ) : (
             <>

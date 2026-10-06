@@ -34,8 +34,10 @@ export async function GET() {
       .select({
         asistenciaId: asistencias.id,
         ambienteId: asistencias.ambienteId,
+        cursoId: asistencias.cursoId,
         cursoNombre: cursos.nombre,
         horaIngreso: asistencias.horaIngreso,
+        usuarioId: usuarios.id,
         nombres: usuarios.nombres,
         apellidos: usuarios.apellidos,
         tipoPersonal: usuarios.tipoPersonal,
@@ -58,7 +60,9 @@ export async function GET() {
         .map((amb) => {
           const ocupantes = activeAsistencias.filter((oa) => oa.ambienteId === amb.id);
           const docentes = ocupantes.filter((o) => o.tipoPersonal === 'docente');
+          const pacientes = ocupantes.filter((o) => o.tipoPersonal === 'paciente_simulado');
           const ocupantePrincipal = docentes[0] || ocupantes[0];
+          const cursoItem = ocupantes.find((o) => o.cursoId !== null);
 
           let ocupanteTexto: string | null = null;
           if (ocupantePrincipal) {
@@ -76,7 +80,20 @@ export async function GET() {
             ocupada: ocupantes.length > 0,
             docenteActivo: ocupanteTexto,
             horaIngresoDocente: ocupantePrincipal ? ocupantePrincipal.horaIngreso : null,
-            cursoActivo: ocupantes.find((o) => o.cursoNombre)?.cursoNombre || null,
+            cursoActivo: cursoItem?.cursoNombre || null,
+            cursoActivoId: cursoItem?.cursoId || null,
+            docentesActivos: docentes.map((d) => ({
+              usuarioId: d.usuarioId,
+              nombres: d.nombres,
+              apellidos: d.apellidos,
+              horaIngreso: d.horaIngreso,
+            })),
+            pacientesActivos: pacientes.map((p) => ({
+              usuarioId: p.usuarioId,
+              nombres: p.nombres,
+              apellidos: p.apellidos,
+              horaIngreso: p.horaIngreso,
+            })),
             totalOcupantes: ocupantes.length,
           };
         }),

@@ -15,6 +15,9 @@ interface AmbienteItem {
   docenteActivo?: string | null;
   horaIngresoDocente?: string | null;
   cursoActivo?: string | null;
+  cursoActivoId?: number | null;
+  docentesActivos?: Array<{ usuarioId: number; nombres: string; apellidos: string; horaIngreso: string }>;
+  pacientesActivos?: Array<{ usuarioId: number; nombres: string; apellidos: string; horaIngreso: string }>;
   totalOcupantes?: number;
 }
 
@@ -723,12 +726,17 @@ export default function KioscoTerminal() {
                                     className={`${styles.roomCard} ${
                                       selectedAmbienteId === amb.id ? styles.roomCardSelected : ''
                                     } ${amb.ocupada ? styles.roomCardOccupied : ''}`}
-                                    onClick={() => setSelectedAmbienteId(amb.id)}
+                                    onClick={() => {
+                                      setSelectedAmbienteId(amb.id);
+                                      if (amb.cursoActivoId) {
+                                        setSelectedCursoId(amb.cursoActivoId);
+                                      }
+                                    }}
                                   >
                                     <div className={styles.roomCardTop}>
                                       <div className={styles.roomName}>{amb.nombre}</div>
                                       {amb.ocupada && (
-                                        <span className={styles.roomOccupiedBadge} title="Sala con docente en escenario">
+                                        <span className={styles.roomOccupiedBadge} title="Sala con ocupantes en escenario">
                                           🟡 En uso
                                         </span>
                                       )}
@@ -748,27 +756,109 @@ export default function KioscoTerminal() {
                             )}
                           </div>
 
-                          {/* AVISO DE RELEVO / CO-DOCENCIA SI LA SALA SELECCIONADA ESTÁ OCUPADA */}
-                          {selectedAmbienteObj?.ocupada && (
-                            <div className={styles.relevoNoticeBox}>
-                              <div className={styles.relevoNoticeHeader}>
-                                <span className={styles.relevoNoticeIcon}>⚠️</span>
-                                <span className={styles.relevoNoticeTitle}>Aviso de Ocupación en Sala</span>
+                          {/* AVISO CONTEXTUAL INTELIGENTE (RELEVO O SESIÓN CONJUNTA DOCENTE + PACIENTE SIMULADO) */}
+                          {selectedAmbienteObj?.ocupada && (() => {
+                            const docentesEnSala = selectedAmbienteObj.docentesActivos || [];
+                            const pacientesEnSala = selectedAmbienteObj.pacientesActivos || [];
+                            const esDocente = usuarioActual.tipoPersonal === 'docente';
+                            const esPaciente = usuarioActual.tipoPersonal === 'paciente_simulado';
+
+                            // Caso 1: Quien ingresa es DOCENTE y en sala hay PACIENTE SIMULADO (y ningún docente)
+                            if (esDocente && docentesEnSala.length === 0 && pacientesEnSala.length > 0) {
+                              const pac = pacientesEnSala[0];
+                              const hora = new Date(pac.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                              return (
+                                <div className={styles.relevoNoticeBox} style={{ borderColor: 'rgba(56, 189, 248, 0.4)', background: 'rgba(56, 189, 248, 0.08)' }}>
+                                  <div className={styles.relevoNoticeHeader}>
+                                    <span className={styles.relevoNoticeIcon}>🎭</span>
+                                    <span className={styles.relevoNoticeTitle} style={{ color: 'var(--ucs-blue-sky)' }}>
+                                      Paciente Simulado en Sala
+                                    </span>
+                                  </div>
+                                  <p className={styles.relevoNoticeText}>
+                                    El paciente simulado <strong>{pac.nombres} {pac.apellidos}</strong> ya se encuentra en sala desde las <strong>{hora}</strong> preparándose para la simulación.
+                                    {selectedAmbienteObj.cursoActivo && (
+                                      <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                    )}
+                                  </p>
+                                  <div className={styles.relevoNoticeHint}>
+                                    💡 Al registrar tu ingreso, quedarás como docente a cargo de esta simulación clínica compartida.
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Caso 2: Quien ingresa es PACIENTE SIMULADO y en sala ya hay un DOCENTE
+                            if (esPaciente && docentesEnSala.length > 0) {
+                              const doc = docentesEnSala[0];
+                              const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                              return (
+                                <div className={styles.relevoNoticeBox} style={{ borderColor: 'rgba(168, 85, 247, 0.4)', background: 'rgba(168, 85, 247, 0.08)' }}>
+                                  <div className={styles.relevoNoticeHeader}>
+                                    <span className={styles.relevoNoticeIcon}>👨‍⚕️</span>
+                                    <span className={styles.relevoNoticeTitle} style={{ color: '#c084fc' }}>
+                                      Docente a Cargo en Sala
+                                    </span>
+                                  </div>
+                                  <p className={styles.relevoNoticeText}>
+                                    Esta sala está dirigida por el docente <strong>{doc.nombres} {doc.apellidos}</strong> desde las <strong>{hora}</strong>.
+                                    {selectedAmbienteObj.cursoActivo && (
+                                      <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                    )}
+                                  </p>
+                                  <div className={styles.relevoNoticeHint}>
+                                    💡 Al registrar tu ingreso, te incorporarás como paciente simulado participante de la sesión.
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Caso 3: Relevo o co-docencia entre Docentes
+                            if (esDocente && docentesEnSala.length > 0) {
+                              const doc = docentesEnSala[0];
+                              const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                              return (
+                                <div className={styles.relevoNoticeBox}>
+                                  <div className={styles.relevoNoticeHeader}>
+                                    <span className={styles.relevoNoticeIcon}>⚠️</span>
+                                    <span className={styles.relevoNoticeTitle}>Aviso de Relevo / Co-docencia</span>
+                                  </div>
+                                  <p className={styles.relevoNoticeText}>
+                                    Esta sala figura actualmente en uso por el docente <strong>{doc.nombres} {doc.apellidos}</strong>
+                                    {selectedAmbienteObj.cursoActivo && (
+                                      <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                    )}
+                                    <span> desde las <strong>{hora}</strong></span>.
+                                  </p>
+                                  <div className={styles.relevoNoticeHint}>
+                                    💡 Si estás relevando al docente o participando en co-docencia, puedes continuar con normalidad. Se registrará la hora exacta de tu ingreso como referencia para el turno.
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Caso por defecto / co-participación
+                            return (
+                              <div className={styles.relevoNoticeBox}>
+                                <div className={styles.relevoNoticeHeader}>
+                                  <span className={styles.relevoNoticeIcon}>ℹ️</span>
+                                  <span className={styles.relevoNoticeTitle}>Sala en Uso Compartido</span>
+                                </div>
+                                <p className={styles.relevoNoticeText}>
+                                  Esta sala figura actualmente en uso por <strong>{selectedAmbienteObj.docenteActivo}</strong>
+                                  {selectedAmbienteObj.cursoActivo && (
+                                    <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                  )}
+                                  {selectedAmbienteObj.horaIngresoDocente && (
+                                    <span> desde las <strong>{new Date(selectedAmbienteObj.horaIngresoDocente).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                                  )}.
+                                </p>
+                                <div className={styles.relevoNoticeHint}>
+                                  💡 Puedes continuar para registrar tu ingreso a la simulación.
+                                </div>
                               </div>
-                              <p className={styles.relevoNoticeText}>
-                                Esta sala figura actualmente en uso por <strong>{selectedAmbienteObj.docenteActivo}</strong>
-                                {selectedAmbienteObj.cursoActivo && (
-                                  <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
-                                )}
-                                {selectedAmbienteObj.horaIngresoDocente && (
-                                  <span> desde las <strong>{new Date(selectedAmbienteObj.horaIngresoDocente).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</strong></span>
-                                )}.
-                              </p>
-                              <div className={styles.relevoNoticeHint}>
-                                💡 Si estás relevando al docente o participando en co-docencia, puedes continuar con normalidad. Se registrará la hora exacta de tu ingreso como referencia para el turno.
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })()}
 
                           <button
                             onClick={() => handleMarcar('ingreso')}
@@ -781,7 +871,13 @@ export default function KioscoTerminal() {
                               ? 'Selecciona un curso para continuar'
                               : !selectedAmbienteId
                               ? 'Selecciona una sala para continuar'
-                              : selectedAmbienteObj?.ocupada
+                              : !selectedAmbienteObj?.ocupada
+                              ? '🟢 REGISTRAR INGRESO A SALA'
+                              : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) === 0 && (selectedAmbienteObj.pacientesActivos?.length || 0) > 0
+                              ? '🟢 INICIAR SIMULACIÓN (CON PACIENTE SIMULADO)'
+                              : usuarioActual.tipoPersonal === 'paciente_simulado' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
+                              ? '🟢 INGRESAR COMO PACIENTE SIMULADO'
+                              : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
                               ? '🟢 CONFIRMAR INGRESO (RELEVO / CO-DOCENCIA)'
                               : '🟢 REGISTRAR INGRESO A SALA'}
                           </button>

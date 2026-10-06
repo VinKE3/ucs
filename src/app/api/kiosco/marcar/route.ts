@@ -54,13 +54,14 @@ export async function POST(request: Request) {
       // Fecha en zona horaria estricta de Lima Perú (UTC-5)
       const fechaStr = getPeruDateString(now);
 
-      // Si la sala ya tiene un docente activo, registramos la nota de relevo / solapamiento
+      // Si la sala ya tiene ocupantes activos, registramos la nota contextual apropiada
       let notaObservacion = observaciones ? String(observaciones).trim() : null;
       if (user.tipoPersonal !== 'tecnico' && ambienteId) {
-        const docentesPrevios = await db
+        const ocupantesPrevios = await db
           .select({
             nombres: usuarios.nombres,
             apellidos: usuarios.apellidos,
+            tipoPersonal: usuarios.tipoPersonal,
             horaIngreso: asistencias.horaIngreso,
           })
           .from(asistencias)
@@ -70,18 +71,50 @@ export async function POST(request: Request) {
               eq(asistencias.ambienteId, Number(ambienteId)),
               eq(asistencias.estado, 'en_curso')
             )
-          )
-          .limit(1);
+          );
 
-        if (docentesPrevios.length > 0) {
-          const docPrevio = docentesPrevios[0];
-          const horaPrev = new Date(docPrevio.horaIngreso).toLocaleTimeString('es-PE', {
-            timeZone: PERU_TIMEZONE,
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          const notaRelevo = `Relevo / co-docencia: Sala en uso previo por ${docPrevio.nombres} ${docPrevio.apellidos} (desde ${horaPrev})`;
-          notaObservacion = notaObservacion ? `${notaObservacion} | ${notaRelevo}` : notaRelevo;
+        if (ocupantesPrevios.length > 0) {
+          const docentesPrev = ocupantesPrevios.filter((o) => o.tipoPersonal === 'docente');
+          const pacientesPrev = ocupantesPrevios.filter((o) => o.tipoPersonal === 'paciente_simulado');
+
+          let notaContextual = '';
+          if (user.tipoPersonal === 'docente' && docentesPrev.length > 0) {
+            const doc = docentesPrev[0];
+            const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', {
+              timeZone: PERU_TIMEZONE,
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            notaContextual = `Relevo / co-docencia: Docente ${doc.nombres} ${doc.apellidos} en sala desde ${hora}`;
+          } else if (user.tipoPersonal === 'docente' && pacientesPrev.length > 0) {
+            const pac = pacientesPrev[0];
+            const hora = new Date(pac.horaIngreso).toLocaleTimeString('es-PE', {
+              timeZone: PERU_TIMEZONE,
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            notaContextual = `Sesión conjunta: Paciente Simulado ${pac.nombres} ${pac.apellidos} presente desde ${hora}`;
+          } else if (user.tipoPersonal === 'paciente_simulado' && docentesPrev.length > 0) {
+            const doc = docentesPrev[0];
+            const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', {
+              timeZone: PERU_TIMEZONE,
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            notaContextual = `Sesión conjunta: Docente ${doc.nombres} ${doc.apellidos} a cargo de sala desde ${hora}`;
+          } else {
+            const prev = ocupantesPrevios[0];
+            const hora = new Date(prev.horaIngreso).toLocaleTimeString('es-PE', {
+              timeZone: PERU_TIMEZONE,
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            notaContextual = `Co-participación en sala con ${prev.nombres} ${prev.apellidos} desde ${hora}`;
+          }
+
+          if (notaContextual) {
+            notaObservacion = notaObservacion ? `${notaObservacion} | ${notaContextual}` : notaContextual;
+          }
         }
       }
 

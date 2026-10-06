@@ -65,6 +65,7 @@ src/
 1. **Kiosco de Autoservicio (`KioscoTerminal.tsx`)**:
    - Marcación ágil por DNI (teclado táctil en pantalla y físico).
    - Detección de relevos en salas y regularización de turnos anteriores.
+   - **Concurrencia Multirrol Inteligente (Docente + Paciente Simulado)**: Si un paciente simulado marca primero y luego llega el docente (o al revés), el Kiosco reconoce la sesión conjunta, hereda automáticamente el curso asignado y muestra avisos/botones específicos (`INICIAR SIMULACIÓN CON PACIENTE` / `INGRESAR COMO PACIENTE SIMULADO`). Notas de auditoría limpias en BD.
 2. **Kardex 360° de Horas (`KardexDrawer.tsx`)**:
    - Monitoreo en vivo de horas trabajadas por colaborador: Hoy, Esta Semana, Este Mes, Histórico.
    - **Termómetro de Carga Semanal Docente**: Barra de progreso con alertas de cobertura (`<80%` disponible, `80-99%` alerta, `>=100%` excedido).

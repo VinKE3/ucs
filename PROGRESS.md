@@ -1,0 +1,110 @@
+# 📌 Bitácora de Proyecto & Estado de Sincronización (PROGRESS.md)
+
+> **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
+> **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
+
+---
+
+## 🏛️ 1. Visión General del Proyecto
+* **Nombre**: Sistema de Registro y Control de Presencia para Simulación Clínica.
+* **Institución**: Universidad Científica del Sur (UCS).
+* **Entorno complementario**: Funciona en conjunto operativo con **SimClic** (`cientifica.simclic.com`), actuando como el sistema de presencia real, control de horas efectivas y auditoría de sala.
+* **Stack Tecnológico**:
+  * **Frontend**: Next.js 16 (App Router), React 19, TypeScript 5.
+  * **Estilos**: Vanilla CSS Modules (sin Tailwind) adaptados a la paleta oficial UCS (`#06152d`, `#0d346c`, `#ff5a00`, etc.) con soporte completo para Tema Oscuro / Claro / Sistema.
+  * **Base de Datos**: PostgreSQL Serverless (Neon) gestionado con **Drizzle ORM**.
+  * **Autenticación**: JWT (`jose`) y hashing seguro con `bcryptjs`.
+
+---
+
+## 📂 2. Estructura y Arquitectura Modular
+
+El proyecto fue refactorizado y desacoplado para máxima mantenibilidad:
+
+```
+src/
+├── types/
+│   └── admin.ts                          # Tipos globales centralizados (Usuario, Asistencia, Sede, etc.)
+├── db/
+│   ├── schema.ts                         # Tablas: sedes, ambientes, categoriasAmbiente, usuarios, asistencias, cursos, auditoria
+│   └── migrate_categorias.ts             # Script de inicialización de categorías
+├── app/
+│   ├── KioscoTerminal.tsx                # Terminal de autoservicio para marcación con DNI
+│   ├── admin/
+│   │   ├── AdminDashboard.tsx            # Orquestador del panel de administración (~800 líneas)
+│   │   ├── DateRangePicker.tsx           # Selector de rango de fechas adaptado
+│   │   └── admin.module.css              # Estilos del dashboard y tablas
+│   └── api/                              # Rutas REST (asistencias, usuarios, sedes, ambientes, cursos, categorias, auditoria)
+└── components/
+    └── admin/
+        ├── AdminNavbar.tsx               # Barra superior, navegación móvil y switch de tema
+        ├── AdminStatsCards.tsx           # Métricas resumen en vivo (Sedes, Salas, Personal, En Turno, Cursos)
+        ├── tabs/
+        │   ├── AmbientesTab.tsx          # Gestión de sedes/salas, categorías dinámicas, filtros y tarjetas de ocupación
+        │   ├── PersonalTab.tsx           # Directorio de personal, presencia en vivo, edición, inactivación y acceso a Kardex
+        │   ├── CursosTab.tsx             # Catálogo de cursos/escenarios médicos con borrado seguro
+        │   └── AsistenciasTab.tsx        # Vista dual: Turnos detallados vs. Resumen consolidado por persona con exportación CSV
+        └── modals/
+            ├── KardexDrawer.tsx          # Ficha 360° individual de horas (KPIs, barra de carga semanal docente y sesiones)
+            ├── ModalGestionCategorias.tsx # Administración dinámica de categorías de sala (iconos, colores, orden)
+            ├── ModalCrearSede.tsx        # Creación y edición de sedes
+            ├── ModalCrearAmbiente.tsx    # Creación, edición y mantenimiento de ambientes
+            ├── ModalCrearPersonal.tsx    # Registro de colaboradores con tope semanal opcional
+            ├── ModalCrearAsistenciaManual.tsx # Registro justificado de asistencias extemporáneas
+            ├── ModalAuditoriaAsistencia.tsx # Trazabilidad de cambios y justificaciones de auditoría
+            ├── ModalCerrarTurno.tsx      # Cierre forzado de turnos olvidados
+            ├── ModalAnularAsistencia.tsx # Anulación justificada de registros erróneos
+            ├── ModalResetPassword.tsx    # Cambio de claves de acceso al panel
+            └── ModalCurso.tsx            # Creación y edición de cursos
+```
+
+---
+
+## 🚀 3. Funcionalidades Principales Implementadas
+
+1. **Kiosco de Autoservicio (`KioscoTerminal.tsx`)**:
+   - Marcación ágil por DNI (teclado táctil en pantalla y físico).
+   - Detección de relevos en salas y regularización de turnos anteriores.
+2. **Kardex 360° de Horas (`KardexDrawer.tsx`)**:
+   - Monitoreo en vivo de horas trabajadas por colaborador: Hoy, Esta Semana, Este Mes, Histórico.
+   - **Termómetro de Carga Semanal Docente**: Barra de progreso con alertas de cobertura (`<80%` disponible, `80-99%` alerta, `>=100%` excedido).
+   - Modificación rápida de tope semanal sin salir de la ficha.
+3. **Consolidado de Asistencias & Exportación para Nómina (`AsistenciasTab.tsx`)**:
+   - Alternancia entre *Turnos Detallados* y *Resumen por Colaborador*.
+   - Exportador nativo a Excel (`CSV` con UTF-8 BOM) con desglose de horas, días trabajados y cursos.
+4. **Seguridad y CRUD Completo de Entidades**:
+   - Edición y borrado seguro de ambientes, sedes, personal y cursos (previene borrados accidentales si existen asistencias históricas vinculadas).
+   - Inactivación/reactivación de personal.
+   - Registro manual justificado con auditoría completa (`auditoria_asistencias`).
+5. **Categorías Dinámicas de Ambientes**:
+   - Gestión configurable de tipos de sala con nombres, códigos, colores e iconos propios.
+
+---
+
+## 📝 4. Últimos Commits Registrados
+
+* `2ed46f2`: feat: implement kiosk terminal and admin dashboard for attendance tracking
+* `2852792`: feat: safe course deletion and manual justified attendance registration
+* `2733d7d`: Fase 1: Edicion, inactivacion y eliminacion segura de personal
+* `0efdcfe`: Implementacion gestion dinamica de categorias de salas
+* `670a937`: Implementacion editar, mantenimiento y eliminacion de ambientes
+* `09b05d3`: Implementacion editar sedes
+* `2cbbddc`: Puliendo kardex-asistencia-personaltab
+* `45b9501`: Arreglando Kardex
+* `27c6f13`: feat(admin): agregar kardex 360 individual de horas, carga semanal para docentes y reporte consolidado
+* `43789ab`: refactor(admin): modularizar componentes, pestañas y modales de administracion
+
+---
+
+## 🎯 5. Próximas Mejoras Planificadas (Backlog)
+
+1. **Modo Live Board (Pantalla TV para Recepción)**:
+   - Vista a pantalla completa en tiempo real con el estado de ocupación de las salas para proyectar en la clínica.
+2. **Marcación con Fotocheck UCS (Código de Barras / QR)**:
+   - Integración con lector USB en el kiosco para marcación instantánea sin digitar DNI.
+3. **Alertas de Turnos Prolongados u Olvidados**:
+   - Alerta visual y recordatorio si un turno permanece abierto por más de 5-6 horas sin registrar salida.
+4. **Ficha de Pacientes Simulados**:
+   - Registro de perfiles de actuación y casos médicos que domina cada actor.
+5. **Integración con Programación de SimClic**:
+   - Importación de la sábana de programación de SimClic (`cientifica.simclic.com`) para sugerir salas y estaciones ECOE automáticamente al pasar el DNI.

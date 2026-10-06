@@ -36,6 +36,7 @@ export async function GET(request: Request) {
         nombres: usuarios.nombres,
         apellidos: usuarios.apellidos,
         tipoPersonal: usuarios.tipoPersonal,
+        tarifaHora: usuarios.tarifaHora,
         sedeNombre: sedes.nombre,
         ambienteNombre: ambientes.nombre,
         ambienteCodigo: ambientes.codigo,
@@ -97,6 +98,8 @@ export async function GET(request: Request) {
       'Hora Salida',
       'Minutos Totales',
       'Horas (Decimal)',
+      'Tarifa / Hora (S/.)',
+      'Monto Sesión Estimado (S/.)',
       'Estado',
       'Modo Registro',
       'Observaciones / Auditoría',
@@ -117,6 +120,10 @@ export async function GET(request: Request) {
         : '';
       const minutos = item.minutosTotales || 0;
       const horasDecimal = (minutos / 60).toFixed(2);
+      const tarifaNum = item.tarifaHora ? Number(item.tarifaHora) : null;
+      const montoSesion = (tarifaNum && minutos > 0 && item.estado !== 'anulado')
+        ? ((minutos / 60) * tarifaNum).toFixed(2)
+        : '';
 
       let tipoPersonalLabel: string = item.tipoPersonal;
       if (item.tipoPersonal === 'docente') tipoPersonalLabel = 'Docente';
@@ -144,6 +151,8 @@ export async function GET(request: Request) {
         escapeCsv(salidaStr),
         escapeCsv(minutos),
         escapeCsv(horasDecimal),
+        escapeCsv(tarifaNum ? tarifaNum.toFixed(2) : ''),
+        escapeCsv(montoSesion),
         escapeCsv(estadoLabel),
         escapeCsv(item.tipoRegistro),
         escapeCsv(item.motivoModificacion || item.observaciones || ''),

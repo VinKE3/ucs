@@ -42,6 +42,8 @@ export async function GET(request: Request) {
         apellidos: usuarios.apellidos,
         tipoPersonal: usuarios.tipoPersonal,
         correo: usuarios.correo,
+        tarifaHora: usuarios.tarifaHora,
+        horasSemanalesMax: usuarios.horasSemanalesMax,
         // Sede
         sedeId: sedes.id,
         sedeNombre: sedes.nombre,

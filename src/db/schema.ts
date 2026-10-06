@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp, boolean, integer, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, varchar, timestamp, boolean, integer, jsonb, pgEnum, numeric } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // --- ENUMS ---
@@ -70,6 +70,9 @@ export const usuarios = pgTable('usuarios', {
 
   // Tope de horas semanales (para docentes, coberturas)
   horasSemanalesMax: integer('horas_semanales_max'),
+
+  // Tarifa por hora en Soles (especialmente para pacientes simulados / honorarios)
+  tarifaHora: numeric('tarifa_hora', { precision: 8, scale: 2 }),
   
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

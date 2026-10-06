@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { asistencias, usuarios } from '@/db/schema';
+import { asistencias, usuarios, ambientes, sedes, cursos } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPeruDateString, PERU_TIMEZONE } from '@/lib/peruTime';
 
@@ -176,11 +176,78 @@ export async function POST(request: Request) {
       const minutos = minutosTotales % 60;
       const tiempoTexto = horas > 0 ? `${horas}h ${minutos}m` : `${minutos} minutos`;
 
+      // 1. Obtener datos de sala, sede y curso para el recibo/ticket
+      const [ambienteInfo] = asistenciaTarget.ambienteId
+        ? await db.select().from(ambientes).where(eq(ambientes.id, asistenciaTarget.ambienteId)).limit(1)
+        : [null];
+      const [sedeInfo] = await db.select().from(sedes).where(eq(sedes.id, asistenciaTarget.sedeId)).limit(1);
+      const [cursoInfo] = asistenciaTarget.cursoId
+        ? await db.select().from(cursos).where(eq(cursos.id, asistenciaTarget.cursoId)).limit(1)
+        : [null];
+
+      // 2. Calcular acumulados de la semana actual (Lunes a Domingo)
+      const ahora = new Date();
+      const day = ahora.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(ahora);
+      monday.setDate(ahora.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      // Primer día del mes actual
+      const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0, 0);
+
+      const asistenciasUsuario = await db
+        .select({
+          horaIngreso: asistencias.horaIngreso,
+          minutosTotales: asistencias.minutosTotales,
+          estado: asistencias.estado,
+        })
+        .from(asistencias)
+        .where(
+          and(
+            eq(asistencias.usuarioId, user.id),
+            eq(asistencias.estado, 'finalizado')
+          )
+        );
+
+      let minutosSemana = 0;
+      let minutosMes = 0;
+      for (const a of asistenciasUsuario) {
+        const d = new Date(a.horaIngreso);
+        const mins = a.minutosTotales || 0;
+        if (d >= monday) minutosSemana += mins;
+        if (d >= primerDiaMes) minutosMes += mins;
+      }
+
+      // Si tiene tarifa por hora, calcular monto estimado de la sesión
+      const tarifaNum = user.tarifaHora ? Number(user.tarifaHora) : null;
+      const montoSesion = tarifaNum ? Number(((minutosTotales / 60) * tarifaNum).toFixed(2)) : null;
+
+      const ticketSalida = {
+        colaborador: `${user.nombres} ${user.apellidos}`,
+        tipoPersonal: user.tipoPersonal,
+        ambienteNombre: ambienteInfo?.nombre || 'Clínica General',
+        sedeNombre: sedeInfo?.nombre || 'Sede',
+        cursoNombre: cursoInfo?.nombre || null,
+        horaIngreso: asistenciaTarget.horaIngreso,
+        horaSalida: now,
+        minutosSesion: minutosTotales,
+        tiempoSesionTexto: tiempoTexto,
+        minutosSemanaTotal: minutosSemana,
+        horasSemanaTexto: `${Math.floor(minutosSemana / 60)}h ${minutosSemana % 60}m`,
+        horasSemanaMax: user.horasSemanalesMax || null,
+        minutosMesTotal: minutosMes,
+        horasMesTexto: `${Math.floor(minutosMes / 60)}h ${minutosMes % 60}m`,
+        tarifaHora: tarifaNum,
+        montoSesionEstimado: montoSesion,
+      };
+
       return NextResponse.json({
         ok: true,
         tipo: 'salida',
         asistencia: asistenciaActualizada,
         minutosTotales,
+        ticketSalida,
         mensaje: `Salida registrada exitosamente. Tiempo total de sesión: ${tiempoTexto}`,
       });
     }

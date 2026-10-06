@@ -51,6 +51,58 @@ export const ModalCerrarTurno: React.FC<ModalCerrarTurnoProps> = ({
           Utiliza este formulario si el personal se retiró sin marcar salida en el kiosco. Esta acción quedará registrada en el log de auditoría institucional con tu usuario y motivo.
         </p>
 
+        {/* ATAJOS RÁPIDOS DE REGULARIZACIÓN */}
+        <div style={{ marginBottom: '1rem', background: 'var(--bg-elevated)', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ucs-blue-sky)', display: 'block', marginBottom: '0.4rem' }}>
+            ⚡ Atajos de regularización (rellena hora y motivo):
+          </span>
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+            {[
+              { label: '+2 horas', val: 2 },
+              { label: '+3 horas', val: 3 },
+              { label: '+4 horas', val: 4 },
+              { label: 'Fin 13:00', val: '13' },
+              { label: 'Fin 18:00', val: '18' },
+              { label: 'Hora Actual', val: 'ahora' },
+            ].map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  const ingreso = new Date(selectedAsistencia.horaIngreso);
+                  let salida = new Date();
+                  let motivoAuto = '';
+
+                  if (typeof p.val === 'number') {
+                    salida = new Date(ingreso.getTime() + p.val * 60 * 60 * 1000);
+                    motivoAuto = `Regularización de turno: Culminación estándar tras ${p.val} horas de práctica/simulación sin registro de salida en kiosco.`;
+                  } else if (p.val === '13') {
+                    salida = new Date(ingreso);
+                    salida.setHours(13, 0, 0, 0);
+                    motivoAuto = 'Regularización de turno matutino culminado a las 13:00 hrs.';
+                  } else if (p.val === '18') {
+                    salida = new Date(ingreso);
+                    salida.setHours(18, 0, 0, 0);
+                    motivoAuto = 'Regularización de turno vespertino culminado a las 18:00 hrs.';
+                  } else {
+                    salida = new Date();
+                    motivoAuto = 'Cierre administrativo a la hora actual por omisión de marcación en kiosco.';
+                  }
+
+                  const pad = (n: number) => n.toString().padStart(2, '0');
+                  const str = `${salida.getFullYear()}-${pad(salida.getMonth() + 1)}-${pad(salida.getDate())}T${pad(salida.getHours())}:${pad(salida.getMinutes())}`;
+                  setHoraSalidaInput(str);
+                  setMotivoCierre(motivoAuto);
+                }}
+                className={styles.pillBtn}
+                style={{ fontSize: '0.74rem', padding: '0.25rem 0.55rem' }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <form onSubmit={onSubmit}>
           <div className={styles.fieldGroup}>
             <label className={styles.label}>Fecha y Hora de Salida *</label>

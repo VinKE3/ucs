@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { asistencias, usuarios, ambientes, sedes, cursos } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, PERU_TIMEZONE } from '@/lib/peruTime';
 
 export async function POST(request: Request) {
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
         .where(
           and(
             eq(asistencias.usuarioId, user.id),
-            eq(asistencias.estado, 'finalizado')
+            inArray(asistencias.estado, ['finalizado', 'ajustado_manual'])
           )
         );
 
@@ -219,9 +219,10 @@ export async function POST(request: Request) {
         if (d >= primerDiaMes) minutosMes += mins;
       }
 
-      // Si tiene tarifa por hora, calcular monto estimado de la sesión
+      // Si tiene tarifa por hora, calcular monto estimado de la sesión y del mes
       const tarifaNum = user.tarifaHora ? Number(user.tarifaHora) : null;
       const montoSesion = tarifaNum ? Number(((minutosTotales / 60) * tarifaNum).toFixed(2)) : null;
+      const montoMes = tarifaNum ? Number(((minutosMes / 60) * tarifaNum).toFixed(2)) : null;
 
       const ticketSalida = {
         colaborador: `${user.nombres} ${user.apellidos}`,
@@ -240,6 +241,7 @@ export async function POST(request: Request) {
         horasMesTexto: `${Math.floor(minutosMes / 60)}h ${minutosMes % 60}m`,
         tarifaHora: tarifaNum,
         montoSesionEstimado: montoSesion,
+        montoMesEstimado: montoMes,
       };
 
       return NextResponse.json({

@@ -58,6 +58,7 @@ export interface TicketSalidaData {
   horasMesTexto: string;
   tarifaHora?: number | null;
   montoSesionEstimado?: number | null;
+  montoMesEstimado?: number | null;
 }
 
 export interface SedeAdminItem {

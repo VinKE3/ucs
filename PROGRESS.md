@@ -77,13 +77,26 @@ src/
    - Edición y borrado seguro de ambientes, sedes, personal y cursos (previene borrados accidentales si existen asistencias históricas vinculadas).
    - Inactivación/reactivación de personal.
    - Registro manual justificado con auditoría completa (`auditoria_asistencias`).
-5. **Categorías Dinámicas de Ambientes**:
-   - Gestión configurable de tipos de sala con nombres, códigos, colores e iconos propios.
+6. **Ticket / Recibo Digital de Salida en Kiosco (`KioscoTerminal.tsx` & `/api/kiosco/marcar`)**:
+   - Al marcar salida, el Kiosco presenta una constancia electrónica elegante con la jornada del día, el acumulado semanal (con barra de tope para docentes), el acumulado mensual y el cálculo de honorarios para pacientes simulados.
+   - Temporizador inteligente de 8 segundos con barra de progreso y botón de avance inmediato.
+7. **Control y Alerta de Turnos Prolongados / Olvidados (> 5 horas)**:
+   - Detección en tiempo real de turnos que superen las 5 horas continuas sin salida registrada.
+   - Banner de advertencia en el tab de Asistencias con filtro directo de turnos abiertos.
+   - Fila resaltada con insignia `⚠️ Prolongado` y botón `⚠️ Regularizar` en la tabla.
+   - Atajos rápidos de 1 clic en `ModalCerrarTurno.tsx` (+2h, +3h, +4h, 13:00, 18:00, Ahora) que autocompletan hora y motivo de auditoría.
+8. **Pre-Liquidación de Honorarios para Pacientes Simulados**:
+   - Campo `tarifaHora` en base de datos (`usuarios.tarifa_hora`), perfil y modales de registro/edición.
+   - Desglose y liquidación estimada en la pestaña *Resumen por Colaborador* (`S/. Monto Estimado` y `Tarifa / hr`).
+   - Exportación detallada y consolidada a Excel (CSV con UTF-8 BOM).
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `d811528`: implenetando tarifa hora
+* `9d24d92`: feat(kiosco): soporte inteligente de sesiones conjuntas Docente + Paciente Simulado y auto-seleccion de curso
+* `bbc3ae2`: docs: agregar PROGRESS.md y configurar directiva de sincronizacion multi-pc en AGENTS.md
 * `2ed46f2`: feat: implement kiosk terminal and admin dashboard for attendance tracking
 * `2852792`: feat: safe course deletion and manual justified attendance registration
 * `2733d7d`: Fase 1: Edicion, inactivacion y eliminacion segura de personal
@@ -91,21 +104,17 @@ src/
 * `670a937`: Implementacion editar, mantenimiento y eliminacion de ambientes
 * `09b05d3`: Implementacion editar sedes
 * `2cbbddc`: Puliendo kardex-asistencia-personaltab
-* `45b9501`: Arreglando Kardex
-* `27c6f13`: feat(admin): agregar kardex 360 individual de horas, carga semanal para docentes y reporte consolidado
-* `43789ab`: refactor(admin): modularizar componentes, pestañas y modales de administracion
 
 ---
 
 ## 🎯 5. Próximas Mejoras Planificadas (Backlog)
 
-1. **Modo Live Board (Pantalla TV para Recepción)**:
-   - Vista a pantalla completa en tiempo real con el estado de ocupación de las salas para proyectar en la clínica.
+1. **Modo Live Board (Pantalla TV para Recepción) (`/live` o `/pantalla`)**:
+   - Vista a pantalla completa en tiempo real con el estado de ocupación de las salas para proyectar en Smart TV en recepción/pasillo sin requerir login.
 2. **Marcación con Fotocheck UCS (Código de Barras / QR)**:
    - Integración con lector USB en el kiosco para marcación instantánea sin digitar DNI.
-3. **Alertas de Turnos Prolongados u Olvidados**:
-   - Alerta visual y recordatorio si un turno permanece abierto por más de 5-6 horas sin registrar salida.
-4. **Ficha de Pacientes Simulados**:
+3. **Ficha de Pacientes Simulados**:
    - Registro de perfiles de actuación y casos médicos que domina cada actor.
-5. **Integración con Programación de SimClic**:
+4. **Integración con Programación de SimClic**:
    - Importación de la sábana de programación de SimClic (`cientifica.simclic.com`) para sugerir salas y estaciones ECOE automáticamente al pasar el DNI.
+

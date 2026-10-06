@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import styles from './kiosco.module.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import type { TicketSalidaData } from '@/types/admin';
 
 interface AmbienteItem {
   id: number;
@@ -84,6 +85,7 @@ export default function KioscoTerminal() {
   // Estado de marcación
   const [marcando, setMarcando] = useState(false);
   const [feedback, setFeedback] = useState<{ tipo: 'ingreso' | 'salida'; mensaje: string } | null>(null);
+  const [ticketSalida, setTicketSalida] = useState<TicketSalidaData | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -238,13 +240,20 @@ export default function KioscoTerminal() {
         throw new Error(data.error || 'Error al registrar marcación');
       }
 
+      if (data.ticketSalida) {
+        setTicketSalida(data.ticketSalida);
+      } else {
+        setTicketSalida(null);
+      }
+
       setFeedback({
         tipo: data.tipo,
         mensaje: data.mensaje,
       });
 
-      // Iniciar countdown visible de 5 segundos con reinicio automático
-      setCountdown(5);
+      // Iniciar countdown visible (8s si hay ticket de salida para lectura cómoda, 5s para ingreso)
+      const segundosIniciales = data.ticketSalida ? 8 : 5;
+      setCountdown(segundosIniciales);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = setInterval(() => {
         setCountdown((prev) => {
@@ -278,6 +287,7 @@ export default function KioscoTerminal() {
     setRoomSearch('');
     setRoomCategoryFilter('todos');
     setFeedback(null);
+    setTicketSalida(null);
     setSearchError(null);
     inputRef.current?.focus();
   };
@@ -395,6 +405,186 @@ export default function KioscoTerminal() {
               </div>
               <p className={styles.feedbackSuccessDesc}>{feedback.mensaje}</p>
 
+              {/* TICKET DIGITAL DE SESIÓN */}
+              {ticketSalida && (
+                <div style={{
+                  background: 'var(--bg-elevated, rgba(13, 52, 108, 0.25))',
+                  border: '1px solid var(--border-color, rgba(56, 189, 248, 0.25))',
+                  borderRadius: '12px',
+                  padding: '1.25rem',
+                  marginTop: '1rem',
+                  width: '100%',
+                  maxWidth: '560px',
+                  textAlign: 'left',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px dashed var(--border-color, rgba(255, 255, 255, 0.15))',
+                    paddingBottom: '0.75rem',
+                    marginBottom: '0.85rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.3rem' }}>🧾</span>
+                      <div>
+                        <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                          Resumen Digital de Sesión
+                        </strong>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          Clínica de Simulación UCS • Constancia Electrónica
+                        </div>
+                      </div>
+                    </div>
+
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: '6px',
+                      background: ticketSalida.tipoPersonal === 'docente'
+                        ? 'rgba(56, 189, 248, 0.15)'
+                        : ticketSalida.tipoPersonal === 'paciente_simulado'
+                        ? 'rgba(168, 85, 247, 0.15)'
+                        : 'rgba(0, 230, 153, 0.15)',
+                      color: ticketSalida.tipoPersonal === 'docente'
+                        ? '#38bdf8'
+                        : ticketSalida.tipoPersonal === 'paciente_simulado'
+                        ? '#c084fc'
+                        : '#00e699',
+                      border: '1px solid currentColor',
+                    }}>
+                      {ticketSalida.tipoPersonal === 'docente' ? 'Docente' : ticketSalida.tipoPersonal === 'paciente_simulado' ? 'Paciente Simulado' : 'Técnico'}
+                    </span>
+                  </div>
+
+                  {/* DATOS DE LA SESIÓN */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '0.65rem',
+                    fontSize: '0.84rem',
+                    marginBottom: '0.85rem',
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Colaborador:</span>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{ticketSalida.colaborador}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Campus y Sala:</span>
+                      <div style={{ fontWeight: 600, color: 'var(--ucs-blue-sky, #38bdf8)' }}>
+                        {ticketSalida.sedeNombre} • {ticketSalida.ambienteNombre}
+                      </div>
+                    </div>
+                    {ticketSalida.cursoNombre && (
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Curso / Escenario:</span>
+                        <div style={{ fontWeight: 600, color: 'var(--ucs-orange, #ff5a00)' }}>
+                          📚 {ticketSalida.cursoNombre}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* DESTACADO DE LA JORNADA DE HOY */}
+                  <div style={{
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.85rem',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                  }}>
+                    <div>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Jornada de Hoy:</span>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                        ⏱️ {ticketSalida.tiempoSesionTexto}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      <div>Ingreso: {new Date(ticketSalida.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div>Salida: {new Date(ticketSalida.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                  </div>
+
+                  {/* MÉTRICAS ESPECÍFICAS SEGÚN ROL */}
+                  {ticketSalida.tipoPersonal === 'docente' && (
+                    <div style={{
+                      background: 'rgba(56, 189, 248, 0.08)',
+                      borderRadius: '8px',
+                      padding: '0.75rem 1rem',
+                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          📊 Acumulado Semanal (Lunes a Domingo):
+                        </span>
+                        <strong style={{ fontSize: '0.88rem', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                          {ticketSalida.horasSemanaTexto}
+                          {ticketSalida.horasSemanaMax ? ` / ${ticketSalida.horasSemanaMax}h tope` : ''}
+                        </strong>
+                      </div>
+                      {ticketSalida.horasSemanaMax && (
+                        <div style={{ width: '100%', height: '5px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${Math.min(100, Math.round(((ticketSalida.minutosSemanaTotal / 60) / ticketSalida.horasSemanaMax) * 100))}%`,
+                            height: '100%',
+                            background: ((ticketSalida.minutosSemanaTotal / 60) > ticketSalida.horasSemanaMax) ? '#ef4444' : '#38bdf8',
+                          }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {ticketSalida.tipoPersonal === 'paciente_simulado' && (
+                    <div style={{
+                      background: 'rgba(168, 85, 247, 0.08)',
+                      borderRadius: '8px',
+                      padding: '0.75rem 1rem',
+                      border: '1px solid rgba(168, 85, 247, 0.25)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          🎭 Total Acumulado en el Mes:
+                        </span>
+                        <strong style={{ fontSize: '0.9rem', color: '#c084fc', fontFamily: 'var(--font-mono)' }}>
+                          {ticketSalida.horasMesTexto}
+                        </strong>
+                      </div>
+                      {ticketSalida.tarifaHora && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px dashed rgba(255, 255, 255, 0.1)' }}>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            Tarifa: S/. {ticketSalida.tarifaHora.toFixed(2)}/h
+                          </span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#00e699', fontFamily: 'var(--font-mono)' }}>
+                            Hoy: S/. {ticketSalida.montoSesionEstimado?.toFixed(2) || '0.00'}
+                            {ticketSalida.montoMesEstimado ? ` • Mes: S/. ${ticketSalida.montoMesEstimado.toFixed(2)}` : ''}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {ticketSalida.tipoPersonal === 'tecnico' && (
+                    <div style={{
+                      background: 'rgba(0, 230, 153, 0.08)',
+                      borderRadius: '8px',
+                      padding: '0.65rem 0.85rem',
+                      border: '1px solid rgba(0, 230, 153, 0.2)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '0.78rem',
+                    }}>
+                      <span>Acumulado Semana: <strong>{ticketSalida.horasSemanaTexto}</strong></span>
+                      <span>Acumulado Mes: <strong>{ticketSalida.horasMesTexto}</strong></span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -412,7 +602,7 @@ export default function KioscoTerminal() {
                 }}>
                   <span style={{ display: 'inline-block', animation: 'spin 3s linear infinite' }}>🔄</span>
                   <span>
-                    Reinicio automático en <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{countdown ?? 5}s</strong>
+                    Reinicio automático en <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{countdown ?? (ticketSalida ? 8 : 5)}s</strong>
                   </span>
                 </div>
 
@@ -425,7 +615,7 @@ export default function KioscoTerminal() {
                   overflow: 'hidden',
                 }}>
                   <div style={{
-                    width: `${((countdown ?? 5) / 5) * 100}%`,
+                    width: `${((countdown ?? (ticketSalida ? 8 : 5)) / (ticketSalida ? 8 : 5)) * 100}%`,
                     height: '100%',
                     background: feedback.tipo === 'ingreso' ? '#00e699' : '#38bdf8',
                     transition: 'width 1s linear',

@@ -117,6 +117,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     rolSistema: 'ninguno',
     password: '',
     horasSemanalesMax: '',
+    tarifaHora: '',
     isEdit: false,
   });
   const [createLoading, setCreateLoading] = useState(false);
@@ -587,6 +588,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             tipoPersonal: createForm.tipoPersonal,
             rolSistema: createForm.rolSistema,
             horasSemanalesMax: createForm.horasSemanalesMax,
+            tarifaHora: createForm.tarifaHora,
           }),
         });
 
@@ -616,6 +618,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           rolSistema: 'ninguno',
           password: '',
           horasSemanalesMax: '',
+          tarifaHora: '',
           isEdit: false,
         });
         loadData();
@@ -644,6 +647,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           rolSistema: 'ninguno',
           password: '',
           horasSemanalesMax: '',
+          tarifaHora: '',
           isEdit: false,
         });
         loadData();
@@ -667,6 +671,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       rolSistema: u.rolSistema,
       password: '',
       horasSemanalesMax: u.horasSemanalesMax ? String(u.horasSemanalesMax) : '',
+      tarifaHora: u.tarifaHora !== undefined && u.tarifaHora !== null ? String(u.tarifaHora) : '',
       isEdit: true,
     });
     setCreateError(null);

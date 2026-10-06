@@ -114,6 +114,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       apellidos: string;
       tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
       horasSemanalesMax?: number | null;
+      tarifaHora?: number | null;
       fechasSet: Set<string>;
       minutosTotales: number;
       totalSesiones: number;
@@ -131,6 +132,9 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       let item = map.get(a.usuarioId);
       if (!item) {
         const uInfo = usuariosList.find((u) => u.id === a.usuarioId);
+        const tarifaNum = uInfo?.tarifaHora !== undefined && uInfo?.tarifaHora !== null && uInfo?.tarifaHora !== ''
+          ? Number(uInfo.tarifaHora)
+          : null;
         item = {
           usuarioId: a.usuarioId,
           dni: a.dni,
@@ -138,6 +142,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
           apellidos: a.apellidos,
           tipoPersonal: a.tipoPersonal,
           horasSemanalesMax: uInfo?.horasSemanalesMax || null,
+          tarifaHora: tarifaNum,
           fechasSet: new Set<string>(),
           minutosTotales: 0,
           totalSesiones: 0,
@@ -174,6 +179,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         apellidos: val.apellidos,
         tipoPersonal: val.tipoPersonal,
         horasSemanalesMax: val.horasSemanalesMax,
+        tarifaHora: val.tarifaHora,
+        montoLiquidacionEstimado: val.tarifaHora ? Number(((val.minutosTotales / 60) * val.tarifaHora).toFixed(2)) : null,
         diasTrabajados: val.fechasSet.size,
         minutosTotales: val.minutosTotales,
         horasTotalesFormato: `${Math.floor(val.minutosTotales / 60)}h ${val.minutosTotales % 60}m`,
@@ -187,6 +194,15 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       }))
       .sort((a, b) => b.minutosTotales - a.minutosTotales);
   }, [asistenciasList, usuariosList, nowTimestamp]);
+
+  // Turnos en curso con más de 5 horas continuas (turnos prolongados/olvidados)
+  const turnosProlongados = useMemo(() => {
+    return asistenciasList.filter((a) => {
+      if (a.estado !== 'en_curso' || !a.horaIngreso) return false;
+      const diffMins = (nowTimestamp - new Date(a.horaIngreso).getTime()) / 60000;
+      return diffMins >= 300; // >= 5 horas
+    });
+  }, [asistenciasList, nowTimestamp]);
 
   const handleExportResumenCsv = () => {
     if (resumenColaboradores.length === 0) {
@@ -204,6 +220,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       'Horas Netas (Decimal)',
       'Horas (Formato)',
       'Tope Semanal (Docentes)',
+      'Tarifa / Hora (S/.)',
+      'Monto Liquidación Estimado (S/.)',
       'Sesiones Totales',
       'Sesiones En Curso',
       'Cursos Participados',
@@ -219,6 +237,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       (r.minutosTotales / 60).toFixed(2),
       r.horasTotalesFormato,
       r.horasSemanalesMax ? `${r.horasSemanalesMax} hrs` : 'Sin tope',
+      r.tarifaHora ? Number(r.tarifaHora).toFixed(2) : '',
+      r.montoLiquidacionEstimado !== null && r.montoLiquidacionEstimado !== undefined ? r.montoLiquidacionEstimado.toFixed(2) : '',
       r.totalSesiones,
       r.sesionesEnCurso,
       `"${r.cursosParticipados.join(', ') || 'N/A'}"`,
@@ -360,6 +380,48 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         </div>
       </div>
 
+      {/* BANNER DE ALERTA DE TURNOS PROLONGADOS / OLVIDADOS (> 5 HORAS) */}
+      {turnosProlongados.length > 0 && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '10px',
+          padding: '0.9rem 1.25rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.6rem' }}>🚨</span>
+            <div>
+              <div style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.92rem' }}>
+                Alerta de Turnos Prolongados: {turnosProlongados.length} turno{turnosProlongados.length > 1 ? 's' : ''} abierto{turnosProlongados.length > 1 ? 's' : ''} con &gt;5 horas continuas
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                Es probable que el personal haya omitido marcar salida en el kiosco. Regularízalos con 1 clic para no distorsionar las métricas acumuladas.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAsistFiltroEstado('en_curso')}
+            className={styles.actionBtn}
+            style={{
+              padding: '0.45rem 0.95rem',
+              fontSize: '0.82rem',
+              background: '#f59e0b',
+              color: '#06152d',
+              fontWeight: 700,
+            }}
+          >
+            Filtrar Turnos Abiertos ({turnosProlongados.length})
+          </button>
+        </div>
+      )}
+
       {/* SELECTOR DE VISTA: DETALLADO VS RESUMEN POR COLABORADOR */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
         <button
@@ -416,7 +478,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                 <th>Presencia</th>
                 <th>Jornadas</th>
                 <th>Horas Computadas</th>
-                <th>Carga Semanal</th>
+                <th>Carga Semanal / Pre-Liquidación</th>
                 <th>Cursos / Escenarios</th>
                 <th>Acción</th>
               </tr>
@@ -538,6 +600,19 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                           ) : (
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tope fijado</span>
                           )
+                        ) : colab.tipoPersonal === 'paciente_simulado' ? (
+                          colab.tarifaHora ? (
+                            <div>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#00e699', fontFamily: 'var(--font-mono)' }}>
+                                S/. {colab.montoLiquidacionEstimado !== null && colab.montoLiquidacionEstimado !== undefined ? colab.montoLiquidacionEstimado.toFixed(2) : '0.00'}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                Tarifa: S/. {Number(colab.tarifaHora).toFixed(2)}/h
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tarifa fijada</span>
+                          )
                         ) : (
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ilimitado</span>
                         )}
@@ -633,8 +708,13 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                         : `${mins} min`
                       : '—';
 
+                  const diffMinsActual = (asist.estado === 'en_curso' && asist.horaIngreso)
+                    ? Math.max(0, Math.round((nowTimestamp - new Date(asist.horaIngreso).getTime()) / 60000))
+                    : 0;
+                  const esProlongado = asist.estado === 'en_curso' && diffMinsActual >= 300;
+
                   return (
-                    <tr key={asist.id}>
+                    <tr key={asist.id} style={esProlongado ? { background: 'rgba(245, 158, 11, 0.05)' } : undefined}>
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                         {asist.fecha}
                       </td>
@@ -717,7 +797,28 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                         {asist.estado === 'anulado' ? '0 min' : tiempoFormat}
                       </td>
 
-                      <td>{getEstadoBadge(asist.estado)}</td>
+                      <td>
+                        {getEstadoBadge(asist.estado)}
+                        {esProlongado && (
+                          <div style={{ marginTop: '0.35rem' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                fontSize: '0.68rem',
+                                fontWeight: 800,
+                                color: '#f59e0b',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                padding: '0.15rem 0.4rem',
+                                borderRadius: '4px',
+                              }}
+                              title="Este turno lleva más de 5 horas abierto. Se sugiere regularizar la hora de salida."
+                            >
+                              ⚠️ Prolongado ({Math.floor(diffMinsActual / 60)}h {diffMinsActual % 60}m)
+                            </span>
+                          </div>
+                        )}
+                      </td>
 
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '220px' }}>
                         {asist.motivoModificacion ? (
@@ -753,10 +854,11 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                           {asist.estado === 'en_curso' && (
                             <button
                               onClick={() => onOpenCerrarTurnoModal(asist)}
-                              className={`${styles.actionBtnSmall} ${styles.actionBtnWarning}`}
-                              title="Cerrar turno manualmente si olvidó marcar salida"
+                              className={`${styles.actionBtnSmall} ${esProlongado ? styles.actionBtnDanger : styles.actionBtnWarning}`}
+                              style={esProlongado ? { background: '#f59e0b', color: '#06152d', fontWeight: 700 } : undefined}
+                              title={esProlongado ? 'Turno prolongado (>5h). Haz clic para regularizar y cerrar con atajos rápidos' : 'Cerrar turno manualmente si olvidó marcar salida'}
                             >
-                              ⏱️ Cerrar
+                              {esProlongado ? '⚠️ Regularizar' : '⏱️ Cerrar'}
                             </button>
                           )}
 

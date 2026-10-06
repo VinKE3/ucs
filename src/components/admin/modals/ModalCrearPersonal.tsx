@@ -15,6 +15,7 @@ export interface PersonalFormData {
   rolSistema: 'ninguno' | 'admin' | 'super_admin';
   password?: string;
   horasSemanalesMax?: string;
+  tarifaHora?: string;
   isEdit?: boolean;
 }
 
@@ -145,6 +146,24 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
                 Establece un límite semanal para alertar en caso de que este docente cubra demasiadas horas.
+              </span>
+            </div>
+          )}
+
+          {createForm.tipoPersonal === 'paciente_simulado' && (
+            <div className={styles.fullWidth}>
+              <label className={styles.label}>Tarifa por Hora en Soles (S/. / hr)</label>
+              <input
+                type="number"
+                step="0.50"
+                min="0"
+                placeholder="ej: 35.00 (para pre-liquidación mensual de honorarios)"
+                value={createForm.tarifaHora || ''}
+                onChange={(e) => setCreateForm({ ...createForm, tarifaHora: e.target.value })}
+                className={styles.inputField}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                Tarifa referencial para calcular automáticamente el monto acumulado a pagar en los reportes de simulación.
               </span>
             </div>
           )}

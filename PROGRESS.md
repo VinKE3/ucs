@@ -124,7 +124,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `[commit pendiente]`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
+* `eb5c223`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
 * `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales
 * `f79e4ca`: fix(modales): corregir modal de auditoria y asegurar overlay global centrado z-index 1200
 * `b41982c`: fix(casting): corregir modales flotantes, ocultar cobros en kiosco y alinear presets de casting

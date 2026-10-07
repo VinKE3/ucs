@@ -243,9 +243,9 @@ export async function POST(request: Request) {
         horasSemanaMax: user.horasSemanalesMax || null,
         minutosMesTotal: minutosMes,
         horasMesTexto: `${Math.floor(minutosMes / 60)}h ${minutosMes % 60}m`,
-        tarifaHora: tarifaSesion,
-        montoSesionEstimado: montoSesion,
-        montoMesEstimado: montoMes,
+        tarifaHora: null,
+        montoSesionEstimado: null,
+        montoMesEstimado: null,
       };
 
       return NextResponse.json({

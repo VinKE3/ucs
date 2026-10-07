@@ -152,10 +152,40 @@ export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
   const rangoSeleccionado = rangosList.find((r) => r.id === Number(rangoEdadId));
 
   return (
-    <div className={styles.modalOverlay}>
-      <div className={styles.modalContent} style={{ maxWidth: '860px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      className={styles.modalBackdrop}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.25rem',
+        zIndex: 1200,
+      }}
+      onClick={onClose}
+    >
+      <div
+        className={styles.modal}
+        style={{
+          width: '100%',
+          maxWidth: '860px',
+          maxHeight: '90vh',
+          background: 'var(--bg-card)',
+          borderRadius: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          padding: 0,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* HEADER */}
-        <div className={styles.modalHeader}>
+        <div className={styles.modalHeader} style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <div
               style={{
@@ -178,22 +208,22 @@ export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.2rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                 <span>DNI: <strong>{actor.dni}</strong></span>
-                <span>•</span>
-                {actor.tarifaHora ? (
-                  <span style={{ color: '#00e699', fontWeight: 600 }}>Tarifa Base: S/. {Number(actor.tarifaHora).toFixed(2)}/h</span>
-                ) : (
-                  <span>Sin tarifa base</span>
-                )}
                 {actor.horasSemanalesMax && (
                   <>
                     <span>•</span>
                     <span style={{ color: '#38bdf8', fontWeight: 600 }}>Tope: {actor.horasSemanalesMax}h/sem</span>
                   </>
                 )}
+                {actor.tarifaHora && (
+                  <>
+                    <span>•</span>
+                    <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>(Control Interno Tarifa: S/. {Number(actor.tarifaHora).toFixed(2)}/h)</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
-          <button onClick={onClose} className={styles.modalCloseBtn} disabled={saveLoading}>
+          <button type="button" onClick={onClose} className={styles.closeBtn} disabled={saveLoading} style={{ cursor: 'pointer' }}>
             ✕
           </button>
         </div>

@@ -546,7 +546,7 @@ export default function KioscoTerminal() {
                       padding: '0.75rem 1rem',
                       border: '1px solid rgba(168, 85, 247, 0.25)',
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                           🎭 Total Acumulado en el Mes:
                         </span>
@@ -554,17 +554,6 @@ export default function KioscoTerminal() {
                           {ticketSalida.horasMesTexto}
                         </strong>
                       </div>
-                      {ticketSalida.tarifaHora && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px dashed rgba(255, 255, 255, 0.1)' }}>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                            Tarifa: S/. {ticketSalida.tarifaHora.toFixed(2)}/h
-                          </span>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#00e699', fontFamily: 'var(--font-mono)' }}>
-                            Hoy: S/. {ticketSalida.montoSesionEstimado?.toFixed(2) || '0.00'}
-                            {ticketSalida.montoMesEstimado ? ` • Mes: S/. ${ticketSalida.montoMesEstimado.toFixed(2)}` : ''}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   )}
 

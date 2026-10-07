@@ -102,12 +102,13 @@ src/
 
 10. **Módulo de Casting & Perfil Clínico para Pacientes Simulados**:
     - **CRUD Dinámico de Catálogos de Casting (`ModalGestionCastingCatalogos.tsx` & `/api/casting/catalogos`)**:
-      - **Rangos de Edad**: Gestión de rangos etarios con límites de edad min/max, color y descripción (ej. 18-25 años, 26-40 años, 41-59 años, 60+ años geriátrico).
-      - **Especialidades y Casos Clínicos**: Catálogo de áreas de actuación médica con iconos y colores (Salud Mental, Ginecología, Emergencias, Malas Noticias, Medicina Interna, Pediatría, etc.).
-      - **Restricciones y Contraindicaciones**: Niveles de severidad (Crítica, Moderada, Leve), alertas y colores (No contacto físico invasivo, No caídas, Alergia a látex, etc.).
+      - **Rangos de Edad**: Preset exacto con límites etarios: `Joven (18-28)`, `Adulto (30-50)`, `Adulto Mayor (60+)`.
+      - **Especialidades y Casos Clínicos**: Preset de roles solicitados: `Paciente crítico/urgencias`, `Familiar angustiado`, `Paciente psiquiátrico/agitado`, `Paciente ambulatorio estándar`.
+      - **Restricciones y Contraindicaciones**: Control de seguridad física: `Autoriza procedimientos de contacto (toma de signos, palpación, vendajes)`, `NO autoriza contacto físico directo ni invasivo`, etc.
+      - **Modal Overlay Fijo (`z-index: 1200`)**: Corregido posicionamiento centrado en pantalla sobre la tabla y sobre el drawer de Kardex.
     - **Ficha de Casting de Actor (`ModalFichaCasting.tsx` & `/api/casting/perfiles`)**:
       - Perfil integral con edad real vs aparente, género, biotipo, selección interactiva de especialidades dominadas con insignias y activación de restricciones médicas/éticas.
-      - Notas de experiencia actoral, disponibilidad horaria y contacto de emergencia.
+      - **Privacidad de Tarifas / Honorarios**: Ocultadas tarifas en el Kiosco de autoservicio y en la ficha de estación de evaluadores; se mantienen exclusivamente como control interno para el administrador.
       - **Ficha Técnica de Estación ECOE Imprimible (`@media print`)**: Formato formal con membrete oficial UCS, recuadro de seguridad de restricciones en rojo para docentes evaluadores, y casillas de firma del actor y coordinación.
     - **Buscador de Convocatoria para ECOEs (`PersonalTab.tsx`)**:
       - Filtro avanzado de casting para convocar actores por rango de edad, especialidad requerida y exclusión de restricciones específicas.
@@ -115,12 +116,13 @@ src/
       - **Exportar Convocatoria a CSV**: Descarga en Excel/CSV (UTF-8 BOM) con todos los atributos de perfil de los actores preseleccionados.
       - Distintivos visibles de casting en la tabla de personal y botón de acceso rápido `🎭 Casting`.
     - **Integración en Kardex 360° (`KardexDrawer.tsx`)**:
-      - Vista del perfil artístico y clínico del paciente simulado directamente en su ficha de horas.
+      - Vista del perfil artístico y clínico del paciente simulado directamente en su ficha de horas con enlace directo a edición de casting.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `b41982c`: fix(casting): corregir modales flotantes, ocultar cobros en kiosco y alinear presets de casting
 * `fb6c08c`: feat(casting): crud completo de catalogos, ficha de actor, convocatoria ecoe y ficha imprimible
 * `7f5d396`: feat(cursos): tarifas diferenciadas de pacientes simulados, tope de horas opcional y ranking de demanda operativa
 * `d811528`: implenetando tarifa hora

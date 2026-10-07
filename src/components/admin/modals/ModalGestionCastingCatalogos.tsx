@@ -281,17 +281,47 @@ export const ModalGestionCastingCatalogos: React.FC<ModalGestionCastingCatalogos
   };
 
   return (
-    <div className={styles.modalOverlay}>
-      <div className={styles.modalContent} style={{ maxWidth: '850px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      className={styles.modalBackdrop}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.25rem',
+        zIndex: 1200,
+      }}
+      onClick={onClose}
+    >
+      <div
+        className={styles.modal}
+        style={{
+          width: '100%',
+          maxWidth: '850px',
+          maxHeight: '90vh',
+          background: 'var(--bg-card)',
+          borderRadius: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          padding: 0,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* HEADER */}
-        <div className={styles.modalHeader}>
+        <div className={styles.modalHeader} style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
           <div>
             <h2 className={styles.modalTitle}>🎭 Catálogos Maestros de Casting</h2>
             <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               Administra los rangos etarios, especialidades clínicas y restricciones de los Pacientes Simulados.
             </p>
           </div>
-          <button onClick={onClose} className={styles.modalCloseBtn} disabled={actionLoading}>
+          <button type="button" onClick={onClose} className={styles.closeBtn} disabled={actionLoading} style={{ cursor: 'pointer' }}>
             ✕
           </button>
         </div>

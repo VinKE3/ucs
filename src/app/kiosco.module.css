@@ -37,9 +37,9 @@
 }
 
 .brandLogoImg {
-  height: 42px;
+  height: 64px;
   width: auto;
-  max-width: 150px;
+  max-width: 240px;
   object-fit: contain;
   display: block;
   user-select: none;
@@ -50,7 +50,14 @@
   opacity: 0.95;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
+  .brandLogoImg {
+    height: 42px;
+    max-width: 140px;
+  }
+}
+
+@media (max-width: 480px) {
   .brandLogoImg {
     height: 34px;
     max-width: 115px;

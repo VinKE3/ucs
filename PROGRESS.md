@@ -127,6 +127,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `4f183db`: style: aumentar dimension y visibilidad del logo en version de escritorio
 * `d97b0a8`: style(branding): simplificar cabecera dejando exclusivamente el logo oficial limpio y estilizado
 * `ec72217`: feat(branding): incorporar logo oficial de la Cientifica en Kiosco, AdminNavbar, Login y Ficha ECOE
 * `eb5c223`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias

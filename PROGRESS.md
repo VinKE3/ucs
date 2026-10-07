@@ -143,7 +143,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `[commit pendiente]`: feat(ux): integrar sweetalert2 institucional reemplazando modales nativos de confirmacion y alertas
+* `d22c0ba`: feat(ux): integrar sweetalert2 institucional reemplazando modales nativos de confirmacion y alertas
 * `abb46a2`: style(theme): alto contraste y legibilidad para banner de tecnicos y acentos verdes en tema claro
 * `222be76`: feat(security): modo oculto e interruptor secreto para cuenta maestra de super admin 00000001
 

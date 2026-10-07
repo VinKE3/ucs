@@ -122,10 +122,36 @@ export const ModalAuditoriaAsistencia: React.FC<ModalAuditoriaAsistenciaProps> =
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
+    <div
+      className={styles.modalBackdrop}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.25rem',
+        zIndex: 1200,
+      }}
+      onClick={onClose}
+    >
       <div
-        className={styles.modalContent}
-        style={{ maxWidth: '680px', width: '92%' }}
+        className={styles.modal}
+        style={{
+          width: '100%',
+          maxWidth: '720px',
+          maxHeight: '90vh',
+          background: 'var(--bg-card)',
+          borderRadius: '16px',
+          border: '1.5px solid var(--border-color)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          padding: '1.5rem',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.modalHeader}>

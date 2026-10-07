@@ -129,7 +129,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `[commit pendiente]`: feat(branding): incorporar logo oficial de la Cientifica en Kiosco, AdminNavbar, Login y Ficha ECOE
+* `ec72217`: feat(branding): incorporar logo oficial de la Cientifica en Kiosco, AdminNavbar, Login y Ficha ECOE
 * `eb5c223`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
 * `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales
 * `f79e4ca`: fix(modales): corregir modal de auditoria y asegurar overlay global centrado z-index 1200

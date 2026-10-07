@@ -115,13 +115,16 @@ src/
       - **Copiar Resumen WhatsApp**: Genera un mensaje estructurado y listo para enviar al grupo de actores o coordinación con 1 clic.
       - **Exportar Convocatoria a CSV**: Descarga en Excel/CSV (UTF-8 BOM) con todos los atributos de perfil de los actores preseleccionados.
       - Distintivos visibles de casting en la tabla de personal y botón de acceso rápido `🎭 Casting`.
-    - **Integración en Kardex 360° (`KardexDrawer.tsx`)**:
-      - Vista del perfil artístico y clínico del paciente simulado directamente en su ficha de horas con enlace directo a edición de casting.
+11. **Paginación Dinámica y Escalabilidad de Volumen (`PersonalTab.tsx` & `AsistenciasTab.tsx`)**:
+    - **Directorio de Personal**: Paginador configurable (10, 15, 25, 50, o 'Todos') para manejar ágilmente listas de 50+ pacientes simulados, 20+ técnicos, 100+ docentes o cientos de colaboradores.
+    - **Tab de Asistencias (Dual: Detallado y Resumen)**: Paginación reactiva tanto para la sábana de turnos detallados como para el consolidado acumulado por persona.
+    - **Navegación Intuitiva**: Saltos a primera página (`⏮️`), anterior (`◀`), indicador numérico de página `P / Total`, siguiente (`▶`), última página (`⏭️`), y reseteo automático a página 1 al cambiar términos de búsqueda o filtros.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `[commit pendiente]`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
 * `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales
 * `f79e4ca`: fix(modales): corregir modal de auditoria y asegurar overlay global centrado z-index 1200
 * `b41982c`: fix(casting): corregir modales flotantes, ocultar cobros en kiosco y alinear presets de casting

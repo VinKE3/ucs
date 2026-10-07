@@ -63,6 +63,27 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
 
+  // Estados de paginación para Detallado y Resumen
+  const [paginaDetalle, setPaginaDetalle] = useState<number>(1);
+  const [itemsPorPaginaDetalle, setItemsPorPaginaDetalle] = useState<number>(15);
+
+  const [paginaResumen, setPaginaResumen] = useState<number>(1);
+  const [itemsPorPaginaResumen, setItemsPorPaginaResumen] = useState<number>(15);
+
+  useEffect(() => {
+    setPaginaDetalle(1);
+    setPaginaResumen(1);
+  }, [
+    asistSearch,
+    asistFiltroSede,
+    asistFiltroTipo,
+    asistFiltroCurso,
+    asistFiltroEstado,
+    asistFiltroFechaDesde,
+    asistFiltroFechaHasta,
+    modoVista,
+  ]);
+
   useEffect(() => {
     setNowTimestamp(Date.now());
   }, [asistenciasList]);
@@ -232,6 +253,30 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       return diffMins >= 300; // >= 5 horas
     });
   }, [asistenciasList, nowTimestamp]);
+
+  // Paginación de Turnos Detallados
+  const totalDetalle = asistenciasList.length;
+  const totalPaginasDetalle = itemsPorPaginaDetalle === -1 ? 1 : Math.max(1, Math.ceil(totalDetalle / itemsPorPaginaDetalle));
+  const paginaValidaDetalle = Math.min(Math.max(1, paginaDetalle), totalPaginasDetalle);
+  const inicioIndexDetalle = (paginaValidaDetalle - 1) * (itemsPorPaginaDetalle === -1 ? totalDetalle : itemsPorPaginaDetalle);
+  const finIndexDetalle = itemsPorPaginaDetalle === -1 ? totalDetalle : Math.min(inicioIndexDetalle + itemsPorPaginaDetalle, totalDetalle);
+
+  const asistenciasPaginadas = useMemo(() => {
+    if (itemsPorPaginaDetalle === -1) return asistenciasList;
+    return asistenciasList.slice(inicioIndexDetalle, finIndexDetalle);
+  }, [asistenciasList, inicioIndexDetalle, finIndexDetalle, itemsPorPaginaDetalle]);
+
+  // Paginación de Resumen por Colaborador
+  const totalResumen = resumenColaboradores.length;
+  const totalPaginasResumen = itemsPorPaginaResumen === -1 ? 1 : Math.max(1, Math.ceil(totalResumen / itemsPorPaginaResumen));
+  const paginaValidaResumen = Math.min(Math.max(1, paginaResumen), totalPaginasResumen);
+  const inicioIndexResumen = (paginaValidaResumen - 1) * (itemsPorPaginaResumen === -1 ? totalResumen : itemsPorPaginaResumen);
+  const finIndexResumen = itemsPorPaginaResumen === -1 ? totalResumen : Math.min(inicioIndexResumen + itemsPorPaginaResumen, totalResumen);
+
+  const resumenPaginado = useMemo(() => {
+    if (itemsPorPaginaResumen === -1) return resumenColaboradores;
+    return resumenColaboradores.slice(inicioIndexResumen, finIndexResumen);
+  }, [resumenColaboradores, inicioIndexResumen, finIndexResumen, itemsPorPaginaResumen]);
 
   const handleExportResumenCsv = () => {
     if (resumenColaboradores.length === 0) {
@@ -497,8 +542,9 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       </div>
 
       {modoVista === 'resumen' ? (
-        /* TABLA CONSOLIDADA POR COLABORADOR */
-        <div className={styles.tableWrapper}>
+        <>
+          {/* TABLA CONSOLIDADA POR COLABORADOR */}
+          <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -520,7 +566,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                   </td>
                 </tr>
               ) : (
-                resumenColaboradores.map((colab) => {
+                resumenPaginado.map((colab) => {
                   const horasDecimal = (colab.minutosTotales / 60).toFixed(1);
                   const userObj = usuariosList.find((u) => u.id === colab.usuarioId) || {
                     id: colab.usuarioId,
@@ -708,9 +754,143 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* FOOTER DE PAGINACIÓN RESUMEN */}
+        {totalResumen > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              padding: '0.85rem 1.25rem',
+              background: 'var(--bg-elevated)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              marginTop: '1.25rem',
+            }}
+          >
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <span>
+                Mostrando <strong>{totalResumen === 0 ? 0 : inicioIndexResumen + 1}</strong> –{' '}
+                <strong>{finIndexResumen}</strong> de <strong>{totalResumen}</strong> colaboradores en resumen
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Filas por página:</span>
+              <select
+                value={itemsPorPaginaResumen}
+                onChange={(e) => {
+                  setItemsPorPaginaResumen(Number(e.target.value));
+                  setPaginaResumen(1);
+                }}
+                className={styles.select}
+                style={{
+                  width: 'auto',
+                  padding: '0.3rem 0.6rem',
+                  fontSize: '0.8rem',
+                  borderRadius: '6px',
+                  background: 'var(--bg-input)',
+                  borderColor: 'var(--border-color)',
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={-1}>Todos ({totalResumen})</option>
+              </select>
+            </div>
+
+            {itemsPorPaginaResumen !== -1 && totalPaginasResumen > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setPaginaResumen(1)}
+                  disabled={paginaValidaResumen === 1}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaResumen === 1 ? 0.4 : 1,
+                    cursor: paginaValidaResumen === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Ir a la primera página"
+                >
+                  ⏮️ Primera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaginaResumen((prev) => Math.max(1, prev - 1))}
+                  disabled={paginaValidaResumen === 1}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaResumen === 1 ? 0.4 : 1,
+                    cursor: paginaValidaResumen === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Página anterior"
+                >
+                  ◀ Anterior
+                </button>
+
+                <span
+                  style={{
+                    padding: '0.3rem 0.65rem',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  {paginaValidaResumen} / {totalPaginasResumen}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setPaginaResumen((prev) => Math.min(totalPaginasResumen, prev + 1))}
+                  disabled={paginaValidaResumen === totalPaginasResumen}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaResumen === totalPaginasResumen ? 0.4 : 1,
+                    cursor: paginaValidaResumen === totalPaginasResumen ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Página siguiente"
+                >
+                  Siguiente ▶
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaginaResumen(totalPaginasResumen)}
+                  disabled={paginaValidaResumen === totalPaginasResumen}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaResumen === totalPaginasResumen ? 0.4 : 1,
+                    cursor: paginaValidaResumen === totalPaginasResumen ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Ir a la última página"
+                >
+                  Última ⏭️
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        </>
       ) : (
-        /* TABLA DE ASISTENCIAS DETALLADA */
-        <div className={styles.tableWrapper}>
+        <>
+          {/* TABLA DE ASISTENCIAS DETALLADA */}
+          <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -739,7 +919,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                   </td>
                 </tr>
               ) : (
-                asistenciasList.map((asist) => {
+                asistenciasPaginadas.map((asist) => {
                   const horas = asist.minutosTotales ? Math.floor(asist.minutosTotales / 60) : 0;
                   const mins = asist.minutosTotales ? asist.minutosTotales % 60 : 0;
                   const tiempoFormat =
@@ -921,6 +1101,140 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* FOOTER DE PAGINACIÓN DETALLADO */}
+        {totalDetalle > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              padding: '0.85rem 1.25rem',
+              background: 'var(--bg-elevated)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              marginTop: '1.25rem',
+            }}
+          >
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <span>
+                Mostrando <strong>{totalDetalle === 0 ? 0 : inicioIndexDetalle + 1}</strong> –{' '}
+                <strong>{finIndexDetalle}</strong> de <strong>{totalDetalle}</strong> turnos registrados
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Filas por página:</span>
+              <select
+                value={itemsPorPaginaDetalle}
+                onChange={(e) => {
+                  setItemsPorPaginaDetalle(Number(e.target.value));
+                  setPaginaDetalle(1);
+                }}
+                className={styles.select}
+                style={{
+                  width: 'auto',
+                  padding: '0.3rem 0.6rem',
+                  fontSize: '0.8rem',
+                  borderRadius: '6px',
+                  background: 'var(--bg-input)',
+                  borderColor: 'var(--border-color)',
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={-1}>Todos ({totalDetalle})</option>
+              </select>
+            </div>
+
+            {itemsPorPaginaDetalle !== -1 && totalPaginasDetalle > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setPaginaDetalle(1)}
+                  disabled={paginaValidaDetalle === 1}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaDetalle === 1 ? 0.4 : 1,
+                    cursor: paginaValidaDetalle === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Ir a la primera página"
+                >
+                  ⏮️ Primera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaginaDetalle((prev) => Math.max(1, prev - 1))}
+                  disabled={paginaValidaDetalle === 1}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaDetalle === 1 ? 0.4 : 1,
+                    cursor: paginaValidaDetalle === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Página anterior"
+                >
+                  ◀ Anterior
+                </button>
+
+                <span
+                  style={{
+                    padding: '0.3rem 0.65rem',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  {paginaValidaDetalle} / {totalPaginasDetalle}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setPaginaDetalle((prev) => Math.min(totalPaginasDetalle, prev + 1))}
+                  disabled={paginaValidaDetalle === totalPaginasDetalle}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaDetalle === totalPaginasDetalle ? 0.4 : 1,
+                    cursor: paginaValidaDetalle === totalPaginasDetalle ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Página siguiente"
+                >
+                  Siguiente ▶
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaginaDetalle(totalPaginasDetalle)}
+                  disabled={paginaValidaDetalle === totalPaginasDetalle}
+                  className={styles.secondaryBtn}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.75rem',
+                    opacity: paginaValidaDetalle === totalPaginasDetalle ? 0.4 : 1,
+                    cursor: paginaValidaDetalle === totalPaginasDetalle ? 'not-allowed' : 'pointer',
+                  }}
+                  title="Ir a la última página"
+                >
+                  Última ⏭️
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        </>
       )}
     </section>
   );

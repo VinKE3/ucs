@@ -55,6 +55,10 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   const [filtroRestriccionExcluirId, setFiltroRestriccionExcluirId] = useState<string>('ninguna');
   const [copiadoExito, setCopiadoExito] = useState(false);
 
+  // Paginación dinámica
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [itemsPorPagina, setItemsPorPagina] = useState<number>(15);
+
   const totalEnClinica = usuariosList.filter((u) => Boolean(u.turnoActivoId)).length;
   const totalDocentes = usuariosList.filter((u) => u.tipoPersonal === 'docente').length;
   const totalTecnicos = usuariosList.filter((u) => u.tipoPersonal === 'tecnico').length;
@@ -120,6 +124,23 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     filtroRestriccionExcluirId,
     castingFiltroActivoCount,
   ]);
+
+  // Reseteo automático de página al cambiar filtros o búsqueda
+  React.useEffect(() => {
+    setPaginaActual(1);
+  }, [filterPersonalTipo, searchPersonal, filtroRangoEdadId, filtroEspecialidadId, filtroRestriccionExcluirId]);
+
+  const totalUsuarios = usuariosFiltrados.length;
+  const totalPaginas = itemsPorPagina === -1 ? 1 : Math.max(1, Math.ceil(totalUsuarios / itemsPorPagina));
+  const paginaValida = Math.min(Math.max(1, paginaActual), totalPaginas);
+
+  const inicioIndex = (paginaValida - 1) * (itemsPorPagina === -1 ? totalUsuarios : itemsPorPagina);
+  const finIndex = itemsPorPagina === -1 ? totalUsuarios : Math.min(inicioIndex + itemsPorPagina, totalUsuarios);
+
+  const usuariosPaginados = useMemo(() => {
+    if (itemsPorPagina === -1) return usuariosFiltrados;
+    return usuariosFiltrados.slice(inicioIndex, finIndex);
+  }, [usuariosFiltrados, inicioIndex, finIndex, itemsPorPagina]);
 
   const actoresConvocatoria = useMemo(() => {
     return usuariosFiltrados.filter((u) => u.tipoPersonal === 'paciente_simulado');
@@ -594,7 +615,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                 </td>
               </tr>
             ) : (
-              usuariosFiltrados.map((u) => (
+              usuariosPaginados.map((u) => (
                 <tr key={u.id} style={!u.activo ? { opacity: 0.65 } : undefined}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{u.dni}</td>
                   <td>
@@ -848,6 +869,140 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* BARRA DE PAGINACIÓN */}
+      {totalUsuarios > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '1rem 0.5rem 0.25rem',
+            borderTop: '1px solid var(--border-color)',
+            flexWrap: 'wrap',
+            gap: '0.85rem',
+            fontSize: '0.825rem',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {/* INFORMACIÓN DE REGISTROS */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>
+              Mostrando <strong>{totalUsuarios === 0 ? 0 : inicioIndex + 1}</strong> –{' '}
+              <strong>{finIndex}</strong> de <strong>{totalUsuarios}</strong> colaboradores
+            </span>
+          </div>
+
+          {/* SELECTOR DE FILAS POR PÁGINA */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Filas por página:</span>
+            <select
+              value={itemsPorPagina}
+              onChange={(e) => {
+                setItemsPorPagina(Number(e.target.value));
+                setPaginaActual(1);
+              }}
+              className={styles.select}
+              style={{
+                width: 'auto',
+                padding: '0.3rem 0.6rem',
+                fontSize: '0.8rem',
+                borderRadius: '6px',
+                background: 'var(--bg-input)',
+                borderColor: 'var(--border-color)',
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={15}>15</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={-1}>Todos ({totalUsuarios})</option>
+            </select>
+          </div>
+
+          {/* CONTROLES DE PÁGINA */}
+          {itemsPorPagina !== -1 && totalPaginas > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                type="button"
+                onClick={() => setPaginaActual(1)}
+                disabled={paginaValida === 1}
+                className={styles.secondaryBtn}
+                style={{
+                  padding: '0.3rem 0.6rem',
+                  fontSize: '0.75rem',
+                  opacity: paginaValida === 1 ? 0.4 : 1,
+                  cursor: paginaValida === 1 ? 'not-allowed' : 'pointer',
+                }}
+                title="Ir a la primera página"
+              >
+                ⏮️ Primera
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaginaActual((prev) => Math.max(1, prev - 1))}
+                disabled={paginaValida === 1}
+                className={styles.secondaryBtn}
+                style={{
+                  padding: '0.3rem 0.6rem',
+                  fontSize: '0.75rem',
+                  opacity: paginaValida === 1 ? 0.4 : 1,
+                  cursor: paginaValida === 1 ? 'not-allowed' : 'pointer',
+                }}
+                title="Página anterior"
+              >
+                ◀ Anterior
+              </button>
+
+              <span
+                style={{
+                  padding: '0.3rem 0.65rem',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {paginaValida} / {totalPaginas}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPaginaActual((prev) => Math.min(totalPaginas, prev + 1))}
+                disabled={paginaValida === totalPaginas}
+                className={styles.secondaryBtn}
+                style={{
+                  padding: '0.3rem 0.6rem',
+                  fontSize: '0.75rem',
+                  opacity: paginaValida === totalPaginas ? 0.4 : 1,
+                  cursor: paginaValida === totalPaginas ? 'not-allowed' : 'pointer',
+                }}
+                title="Página siguiente"
+              >
+                Siguiente ▶
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaginaActual(totalPaginas)}
+                disabled={paginaValida === totalPaginas}
+                className={styles.secondaryBtn}
+                style={{
+                  padding: '0.3rem 0.6rem',
+                  fontSize: '0.75rem',
+                  opacity: paginaValida === totalPaginas ? 0.4 : 1,
+                  cursor: paginaValida === totalPaginas ? 'not-allowed' : 'pointer',
+                }}
+                title="Ir a la última página"
+              >
+                Última ⏭️
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 };

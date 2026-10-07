@@ -122,6 +122,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales
 * `f79e4ca`: fix(modales): corregir modal de auditoria y asegurar overlay global centrado z-index 1200
 * `b41982c`: fix(casting): corregir modales flotantes, ocultar cobros en kiosco y alinear presets de casting
 * `fb6c08c`: feat(casting): crud completo de catalogos, ficha de actor, convocatoria ecoe y ficha imprimible

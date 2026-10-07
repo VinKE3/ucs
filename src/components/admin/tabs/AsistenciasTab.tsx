@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
+import { showAlert } from '@/lib/alerts';
 
 interface AsistenciasTabProps {
   asistenciasList: AsistenciaAdminItem[];
@@ -280,7 +281,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
 
   const handleExportResumenCsv = () => {
     if (resumenColaboradores.length === 0) {
-      alert('No hay colaboradores con horas registradas en el período actual.');
+      showAlert('Sin horas registradas', 'No hay colaboradores con horas registradas en el período actual.', 'info');
       return;
     }
 

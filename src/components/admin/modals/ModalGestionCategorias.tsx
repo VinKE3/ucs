@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { CategoriaAmbienteItem } from '@/types/admin';
+import { confirmDelete, confirmToggleActive, showAlert, showError, showToast } from '@/lib/alerts';
 
 interface ModalGestionCategoriasProps {
   isOpen: boolean;
@@ -125,11 +126,12 @@ export const ModalGestionCategorias: React.FC<ModalGestionCategoriasProps> = ({
 
   const handleToggleActivo = async (cat: CategoriaAmbienteItem) => {
     const accion = cat.activo ? 'desactivar' : 'activar';
-    const confirmMsg = cat.activo
-      ? `¿Deseas desactivar la categoría "${cat.nombre}"?\n\nAl desactivarla, dejará de aparecer en los filtros del Kiosco y no se podrá seleccionar para crear nuevas salas. Las salas existentes la conservarán.`
-      : `¿Deseas activar la categoría "${cat.nombre}"?\n\nVolverá a estar disponible en el Kiosco y en la creación de salas.`;
-
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmToggleActive(
+      `la categoría "${cat.nombre}"`,
+      !cat.activo,
+      'categoría'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch('/api/categorias-ambiente', {
@@ -142,23 +144,28 @@ export const ModalGestionCategorias: React.FC<ModalGestionCategoriasProps> = ({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error al ${accion} la categoría`);
+      showToast(!cat.activo ? 'Categoría reactivada con éxito' : 'Categoría desactivada', 'info');
       onRefresh();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : `Error al ${accion} la categoría`);
+      showError(`Error al ${accion} la categoría`, err instanceof Error ? err.message : undefined);
     }
   };
 
   const handleDelete = async (cat: CategoriaAmbienteItem) => {
     if (cat.totalAmbientes && cat.totalAmbientes > 0) {
-      alert(
-        `⚠️ No se puede eliminar la categoría "${cat.nombre}" porque actualmente tiene ${cat.totalAmbientes} sala(s) asignada(s).\n\nEn su lugar, puedes DESACTIVARLA usando el botón de pausa (⏸️) para que no aparezca en el Kiosco.`
+      showAlert(
+        'Categoría en uso',
+        `No se puede eliminar la categoría "${cat.nombre}" porque actualmente tiene ${cat.totalAmbientes} sala(s) asignada(s). En su lugar, puedes DESACTIVARLA usando el botón de pausa (⏸️).`,
+        'warning'
       );
       return;
     }
 
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente la categoría "${cat.nombre}"?`)) {
-      return;
-    }
+    const confirmed = await confirmDelete(
+      `la categoría "${cat.nombre}"`,
+      'Esta acción eliminará la categoría permanentemente.'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/categorias-ambiente?id=${cat.id}`, {
@@ -166,9 +173,10 @@ export const ModalGestionCategorias: React.FC<ModalGestionCategoriasProps> = ({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al eliminar la categoría');
+      showToast('Categoría eliminada con éxito', 'success');
       onRefresh();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar la categoría');
+      showError('Error al eliminar la categoría', err instanceof Error ? err.message : undefined);
     }
   };
 

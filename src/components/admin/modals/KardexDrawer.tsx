@@ -8,6 +8,7 @@ import {
   CastingRestriccionItem,
 } from '@/types/admin';
 import styles from './KardexDrawer.module.css';
+import { showAlert, showError, showToast } from '@/lib/alerts';
 
 interface KardexDrawerProps {
   usuario: UsuarioItem | null;
@@ -292,9 +293,10 @@ export function KardexDrawer({
       }
       setLimiteLocal(valor);
       setEditandoLimite(false);
+      showToast('Límite de horas actualizado con éxito', 'success');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'No se pudo actualizar';
-      alert(msg);
+      showError('Error al guardar', msg);
     } finally {
       setGuardandoLimite(false);
     }
@@ -303,7 +305,7 @@ export function KardexDrawer({
   // Exportar a CSV de este usuario
   const handleExportCSV = () => {
     if (!usuario || asistencias.length === 0) {
-      alert('No hay asistencias registradas en este período para exportar.');
+      showAlert('Sin asistencias', 'No hay asistencias registradas en este período para exportar.', 'info');
       return;
     }
 

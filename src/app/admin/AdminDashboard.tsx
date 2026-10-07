@@ -42,6 +42,7 @@ import { ModalAuditoriaAsistencia } from '@/components/admin/modals/ModalAuditor
 import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
 import { ModalGestionCastingCatalogos } from '@/components/admin/modals/ModalGestionCastingCatalogos';
 import { ModalFichaCasting } from '@/components/admin/modals/ModalFichaCasting';
+import { confirmDelete, confirmToggleActive, showError, showToast } from '@/lib/alerts';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
@@ -410,20 +411,24 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   };
 
   const handleDeleteCurso = async (curso: CursoAdminItem) => {
-    const confirmMsg = `¿Deseas eliminar permanentemente el curso "${curso.nombre}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmDelete(
+      `el curso "${curso.nombre}"`,
+      'Esta acción solo es posible si no cuenta con asistencias registradas.'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/cursos?id=${curso.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'No se pudo eliminar el curso');
+        showError('No se pudo eliminar el curso', data.error);
         return;
       }
+      showToast('Curso eliminado correctamente', 'success');
       await loadCursos();
       await loadData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al conectar con el servidor');
+      showError('Error de conexión', err instanceof Error ? err.message : 'Error al conectar con el servidor');
     }
   };
 
@@ -719,11 +724,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
   const handleToggleUserActivo = async (u: UsuarioItem) => {
     const accion = u.activo ? 'inactivar' : 'reactivar';
-    const confirmMsg = u.activo
-      ? `¿Deseas inactivar a "${u.nombres} ${u.apellidos}"?\n\nAl inactivarlo, no podrá marcar asistencia en el Kiosco ni acceder al sistema web.`
-      : `¿Deseas reactivar a "${u.nombres} ${u.apellidos}"?\n\nVolverá a estar habilitado para registrar asistencias y acceder al sistema.`;
-
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmToggleActive(
+      `${u.nombres} ${u.apellidos}`,
+      !u.activo,
+      'colaborador'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch('/api/usuarios', {
@@ -733,26 +739,34 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error al ${accion} usuario`);
+      showToast(
+        !u.activo ? 'Colaborador reactivado con éxito' : 'Colaborador inactivado',
+        !u.activo ? 'success' : 'info'
+      );
       loadData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : `Error al ${accion} usuario`);
+      showError(`Error al ${accion} colaborador`, err instanceof Error ? err.message : undefined);
     }
   };
 
   const handleDeleteUser = async (u: UsuarioItem) => {
-    const confirmMsg = `¿Deseas eliminar permanentemente a "${u.nombres} ${u.apellidos}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmDelete(
+      `${u.nombres} ${u.apellidos}`,
+      'Esta acción solo es posible si no cuenta con asistencias registradas.'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/usuarios?id=${u.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'No se pudo eliminar el usuario');
+        showError('No se pudo eliminar el colaborador', data.error);
         return;
       }
+      showToast('Colaborador eliminado permanentemente', 'success');
       loadData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error de conexión al eliminar usuario');
+      showError('Error de conexión', err instanceof Error ? err.message : 'Error al conectar con el servidor');
     }
   };
 
@@ -796,10 +810,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
         await loadData();
         if (data.sede) setSelectedSedeId(data.sede.id);
+        showToast(sedeForm.isEdit ? 'Sede actualizada con éxito' : 'Sede creada con éxito', 'success');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar sede';
-      alert(msg);
+      showError('Error al guardar sede', msg);
     } finally {
       setSedeLoading(false);
     }
@@ -817,12 +832,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   };
 
   const handleToggleSedeActivo = async (sede: SedeAdminItem) => {
-    const accion = sede.activo ? 'inactivar' : 'activar';
-    const confirmMsg = sede.activo
-      ? `¿Estás seguro de inactivar la sede "${sede.nombre}"?\n\nAl inactivarla, dejará de aparecer en la pantalla de bienvenida del Kiosco, pero todo su historial de turnos se mantendrá intacto.`
-      : `¿Deseas reactivar la sede "${sede.nombre}"?\n\nVolverá a estar disponible de inmediato en el Kiosco para marcaciones.`;
-
-    if (!window.confirm(confirmMsg)) return;
+    const accion = sede.activo ? 'inactivar' : 'reactivar';
+    const confirmed = await confirmToggleActive(
+      `la sede "${sede.nombre}"`,
+      !sede.activo,
+      'sede'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch('/api/sedes', {
@@ -837,16 +853,20 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error al ${accion} sede`);
 
+      showToast(!sede.activo ? 'Sede reactivada con éxito' : 'Sede inactivada', 'info');
       await loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : `Error al ${accion} sede`;
-      alert(msg);
+      showError(`Error al ${accion} sede`, msg);
     }
   };
 
   const handleDeleteSede = async (sede: SedeAdminItem) => {
-    const confirmMsg = `¿Deseas eliminar permanentemente la sede "${sede.nombre}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmDelete(
+      `la sede "${sede.nombre}"`,
+      'Esta acción solo es posible si no cuenta con asistencias registradas.'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/sedes?id=${sede.id}`, {
@@ -854,10 +874,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'No se pudo eliminar la sede');
+        showError('No se pudo eliminar la sede', data.error);
         return;
       }
 
+      showToast('Sede eliminada con éxito', 'success');
       await loadData();
       const remainingSedes = sedesList.filter((s) => s.id !== sede.id);
       if (remainingSedes.length > 0) {
@@ -867,7 +888,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error de conexión al eliminar sede';
-      alert(msg);
+      showError('Error de conexión', msg);
     }
   };
 
@@ -913,10 +934,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
         loadData();
+        showToast(ambienteForm.isEdit ? 'Sala actualizada con éxito' : 'Sala creada con éxito', 'success');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar sala';
-      alert(msg);
+      showError('Error al guardar sala', msg);
     } finally {
       setAmbienteLoading(false);
     }
@@ -936,11 +958,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
   const handleToggleAmbienteActivo = async (amb: AmbienteAdminItem) => {
     const accion = amb.activo ? 'poner en mantenimiento' : 'habilitar como operativa';
-    const confirmMsg = amb.activo
-      ? `¿Deseas poner en mantenimiento la sala "${amb.nombre}"?\n\nAl ponerla en mantenimiento, dejará de aparecer en la lista de salas disponibles del Kiosco, evitando que se registren asistencias en ella.`
-      : `¿Deseas habilitar la sala "${amb.nombre}" como operativa?\n\nVolverá a estar disponible de inmediato en el Kiosco para docentes y estudiantes.`;
-
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmToggleActive(
+      `la sala "${amb.nombre}"`,
+      !amb.activo,
+      'sala'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch('/api/ambientes', {
@@ -955,19 +978,23 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Error al ${accion} sala`);
 
+      showToast(!amb.activo ? 'Sala habilitada como operativa' : 'Sala puesta en mantenimiento', 'info');
       if (selectedSedeId) {
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
       }
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : `Error al ${accion} sala`;
-      alert(msg);
+      showError(`Error al ${accion} sala`, msg);
     }
   };
 
   const handleDeleteAmbiente = async (amb: AmbienteAdminItem) => {
-    const confirmMsg = `¿Deseas eliminar permanentemente la sala "${amb.nombre}"?\n\n⚠️ Esta acción solo es posible si no cuenta con asistencias registradas.`;
-    if (!window.confirm(confirmMsg)) return;
+    const confirmed = await confirmDelete(
+      `la sala "${amb.nombre}"`,
+      'Esta acción solo es posible si no cuenta con asistencias registradas.'
+    );
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/ambientes?id=${amb.id}`, {
@@ -975,17 +1002,18 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'No se pudo eliminar la sala');
+        showError('No se pudo eliminar la sala', data.error);
         return;
       }
 
+      showToast('Sala eliminada con éxito', 'success');
       if (selectedSedeId) {
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
       }
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error de conexión al eliminar sala';
-      alert(msg);
+      showError('Error de conexión', msg);
     }
   };
 

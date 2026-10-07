@@ -7,6 +7,7 @@ import type {
   CastingEspecialidadItem,
   CastingRestriccionItem,
 } from '@/types/admin';
+import { confirmDelete, showError, showToast } from '@/lib/alerts';
 
 interface ModalGestionCastingCatalogosProps {
   isOpen: boolean;
@@ -258,9 +259,13 @@ export const ModalGestionCastingCatalogos: React.FC<ModalGestionCastingCatalogos
   };
 
   const handleDelete = async (tipo: CatalogoTab, id: number, nombre: string) => {
-    if (!window.confirm(`¿Estás seguro de eliminar "${nombre}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
+    const labelTipo = tipo === 'rangos' ? 'el rango de edad' : tipo === 'especialidades' ? 'la especialidad' : 'la restricción';
+    const confirmed = await confirmDelete(
+      `${labelTipo} "${nombre}"`,
+      'Esta acción no se puede deshacer.'
+    );
+    if (!confirmed) return;
+
     setActionLoading(true);
     try {
       const tipoApi = tipo === 'rangos' ? 'rango' : tipo === 'especialidades' ? 'especialidad' : 'restriccion';
@@ -269,12 +274,13 @@ export const ModalGestionCastingCatalogos: React.FC<ModalGestionCastingCatalogos
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'No se pudo eliminar');
+        showError('No se pudo eliminar', data.error);
         return;
       }
+      showToast('Elemento eliminado del catálogo', 'success');
       onRefresh();
     } catch (err) {
-      alert('Error de conexión al eliminar');
+      showError('Error de conexión al eliminar');
     } finally {
       setActionLoading(false);
     }

@@ -9,6 +9,7 @@ import type {
   CastingRestriccionItem,
 } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
+import { showAlert, showError, showToast } from '@/lib/alerts';
 
 interface PersonalTabProps {
   usuariosList: UsuarioItem[];
@@ -163,7 +164,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
 
   const handleCopiarConvocatoria = () => {
     if (actoresConvocatoria.length === 0) {
-      alert('No hay pacientes simulados que cumplan los criterios seleccionados.');
+      showAlert('Sin actores seleccionados', 'No hay pacientes simulados que cumplan los criterios seleccionados.', 'info');
       return;
     }
 
@@ -206,16 +207,17 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
       .writeText(texto)
       .then(() => {
         setCopiadoExito(true);
+        showToast('Convocatoria copiada al portapapeles', 'success');
         setTimeout(() => setCopiadoExito(false), 3000);
       })
       .catch(() => {
-        alert('No se pudo copiar automáticamente al portapapeles.');
+        showError('Error al copiar', 'No se pudo copiar automáticamente al portapapeles.');
       });
   };
 
   const handleExportarConvocatoriaCSV = () => {
     if (actoresConvocatoria.length === 0) {
-      alert('No hay pacientes simulados que cumplan los criterios seleccionados.');
+      showAlert('Sin actores seleccionados', 'No hay pacientes simulados que cumplan los criterios seleccionados.', 'info');
       return;
     }
 

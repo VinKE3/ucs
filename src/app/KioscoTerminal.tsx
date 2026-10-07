@@ -312,14 +312,11 @@ export default function KioscoTerminal() {
       {/* BARRA SUPERIOR INSTITUCIONAL */}
       <header className={styles.topBar}>
         <div className={styles.brand}>
-          <div className={styles.brandLogoContainer}>
-            <img src="/logo.png" alt="Universidad Científica del Sur" className={styles.brandLogoImg} />
-          </div>
-          <div className={styles.brandDivider} />
-          <div className={styles.brandSubtitleWrap}>
-            <span className={styles.brandSubtitleMain}>Clínica de Simulación</span>
-            <span className={styles.brandSubtitleTag}>Control de Asistencias</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Universidad Científica del Sur"
+            className={styles.brandLogoImg}
+          />
         </div>
 
         <div className={styles.topBarActions}>

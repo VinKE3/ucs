@@ -34,69 +34,27 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.logoBadge {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0d346c 0%, #061836 100%);
-  border: 1.5px solid rgba(255, 90, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ff5a00;
-  box-shadow: 0 4px 14px rgba(255, 90, 0, 0.3);
-  flex-shrink: 0;
-}
-
-.brandLogoContainer {
-  background: #ffffff;
-  padding: 4px 10px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  height: 42px;
-  flex-shrink: 0;
 }
 
 .brandLogoImg {
-  height: 28px;
+  height: 42px;
   width: auto;
+  max-width: 150px;
   object-fit: contain;
   display: block;
+  user-select: none;
 }
 
-.brandDivider {
-  width: 1px;
-  height: 28px;
-  background: var(--border-color);
-  margin: 0 0.25rem;
+[data-theme="dark"] .brandLogoImg {
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
 }
 
-.brandSubtitleWrap {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.brandSubtitleMain {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-}
-
-.brandSubtitleTag {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--ucs-orange, #ff5a00);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+@media (max-width: 640px) {
+  .brandLogoImg {
+    height: 34px;
+    max-width: 115px;
+  }
 }
 
 .brandTitleWrap {

@@ -49,25 +49,19 @@
   margin-bottom: 1.75rem;
 }
 
-.logoBadge {
-  background: #ffffff;
-  padding: 8px 18px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  margin: 0 auto 1.15rem;
-  width: auto;
-  height: auto;
-}
-
 .logoImg {
-  height: 44px;
+  height: 54px;
   width: auto;
+  max-width: 200px;
   object-fit: contain;
   display: block;
+  margin: 0 auto 1.25rem;
+  user-select: none;
+}
+
+[data-theme="dark"] .logoImg {
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
 }
 
 .badge {

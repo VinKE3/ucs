@@ -27,47 +27,20 @@
 .navBrand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-}
-
-.brandLogo {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0d346c 0%, #061836 100%);
-  border: 2px solid #ff5a00;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  box-shadow: 0 4px 12px rgba(255, 90, 0, 0.35);
-}
-
-.brandLogoContainer {
-  background: #ffffff;
-  padding: 4px 8px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  height: 38px;
-  flex-shrink: 0;
 }
 
 .brandLogoImg {
-  height: 24px;
+  height: 40px;
   width: auto;
+  max-width: 150px;
   object-fit: contain;
   display: block;
+  user-select: none;
 }
 
-.brandDivider {
-  width: 1px;
-  height: 26px;
-  background: var(--border-color);
-  margin: 0 0.25rem;
+[data-theme="dark"] .brandLogoImg {
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
 }
 
 .brandText {
@@ -1699,31 +1672,20 @@
 .drawerBrand {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
 }
 
-.drawerLogoBadge {
-  background: #ffffff;
-  padding: 3px 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 34px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  flex-shrink: 0;
+.drawerLogoImg {
+  height: 32px;
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
+  display: block;
+  user-select: none;
 }
 
-.drawerBrandTitle {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-
-.drawerBrandSub {
-  font-size: 0.725rem;
-  color: var(--text-muted);
+[data-theme="dark"] .drawerLogoImg {
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
 }
 
 .drawerCloseBtn {

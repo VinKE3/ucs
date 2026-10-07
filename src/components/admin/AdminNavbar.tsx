@@ -35,14 +35,11 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
       {/* HEADER NAVBAR SUPERIOR */}
       <header className={styles.navbar}>
         <div className={styles.navBrand}>
-          <div className={styles.brandLogoContainer}>
-            <img src="/logo.png" alt="Universidad Científica del Sur" className={styles.brandLogoImg} />
-          </div>
-          <div className={styles.brandDivider} />
-          <div className={styles.brandText}>
-            <span className={styles.brandTitle}>Clínica de Simulación</span>
-            <span className={styles.brandTag}>Panel Administrativo</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Universidad Científica del Sur"
+            className={styles.brandLogoImg}
+          />
         </div>
 
         {/* ACCIONES DE ESCRITORIO */}
@@ -100,13 +97,11 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
       <aside className={`${styles.mobileDrawer} ${mobileMenuOpen ? styles.mobileDrawerOpen : ''}`}>
         <div className={styles.drawerHeader}>
           <div className={styles.drawerBrand}>
-            <div className={styles.drawerLogoBadge}>
-              <img src="/logo.png" alt="Universidad Científica del Sur" style={{ height: '20px', width: 'auto', display: 'block' }} />
-            </div>
-            <div>
-              <div className={styles.drawerBrandTitle}>Clínica de Simulación</div>
-              <div className={styles.drawerBrandSub}>Panel Administrativo</div>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Universidad Científica del Sur"
+              className={styles.drawerLogoImg}
+            />
           </div>
           <button
             type="button"

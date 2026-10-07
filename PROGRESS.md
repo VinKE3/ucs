@@ -120,15 +120,14 @@ src/
     - **Tab de Asistencias (Dual: Detallado y Resumen)**: Paginación reactiva tanto para la sábana de turnos detallados como para el consolidado acumulado por persona.
 12. **Identidad Visual e Integración de Logo Oficial Científica (`/logo.png`)**:
     - **Logo Oficial Institucional**: Incorporado `public/logo.png` de la Universidad Científica del Sur.
-    - **Kiosco Terminal (`KioscoTerminal.tsx`)**: Barra superior con contenedor de alto contraste y jerarquía visual de Simulación Clínica.
-    - **Navbar Administrador (`AdminNavbar.tsx`)**: Logotipo integrado en cabecera de escritorio y menú lateral móvil.
-    - **Pantalla de Inicio de Sesión (`/login`)**: Emblema oficial en la tarjeta de autenticación.
-    - **Ficha Técnica ECOE Imprimible (`ModalFichaCasting.tsx`)**: Membrete formal para estaciones evaluadoras con el logo institucional y Facultad de Ciencias de la Salud.
+    - **Diseño Minimalista y Limpio**: Se eliminaron los contenedores tipo tarjeta con borde blanco y los textos redundantes adyacentes (*«Clínica de Simulación • Control de Asistencias»*) en los encabezados, dejando exclusivamente el logo oficial integrado de forma limpia, espaciosa y adaptable a tema oscuro/claro sin sobrecargar la pantalla ni en móvil ni en desktop.
+    - **Presencia en Módulos**: Kiosco Terminal, Navbar de Administración, Menú Móvil, Login y Ficha Imprimible ECOE.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `[commit pendiente]`: style(branding): simplificar cabecera dejando exclusivamente el logo oficial limpio y estilizado
 * `ec72217`: feat(branding): incorporar logo oficial de la Cientifica en Kiosco, AdminNavbar, Login y Ficha ECOE
 * `eb5c223`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
 * `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales

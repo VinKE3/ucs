@@ -176,6 +176,8 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `b30734e`: feat(auth): rol Administrativo para control y fiscalizacion de asistencias
+* `6f0532d`: docs: actualizar PROGRESS.md con hito de control de turnos obligatorios
 * `2f4eafe`: feat(turnos): control de horarios obligatorios, presets rapidos y auditoria de puntualidad para tecnicos
 * `d22c0ba`: feat(ux): integrar sweetalert2 institucional reemplazando modales nativos de confirmacion y alertas
 * `abb46a2`: style(theme): alto contraste y legibilidad para banner de tecnicos y acentos verdes en tema claro

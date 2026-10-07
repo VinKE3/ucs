@@ -1029,9 +1029,20 @@
   background: rgba(16, 185, 129, 0.2);
   border: 1px solid rgba(16, 185, 129, 0.4);
   color: #ffffff;
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 6px;
   font-size: 0.775rem;
+  font-weight: 600;
+}
+
+.tecnicoPillDot {
+  color: #10b981;
+  font-size: 0.75rem;
+}
+
+.tecnicoPillTime {
+  font-size: 0.72rem;
+  opacity: 0.85;
 }
 
 .occupantCursoRow {
@@ -1303,6 +1314,57 @@
 :global([data-theme="light"]) .occupancyBadgeInUse .liveDot {
   background: #10b981 !important;
   box-shadow: 0 0 6px #10b981 !important;
+}
+
+:global([data-theme="light"]) .tecnicosBanner {
+  background: #ecfdf5 !important;
+  border: 1.5px solid #a7f3d0 !important;
+  color: #065f46 !important;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.08) !important;
+}
+
+:global([data-theme="light"]) .tecnicosBannerTitle {
+  color: #064e3b !important;
+  font-weight: 800 !important;
+}
+
+:global([data-theme="light"]) .tecnicoPillTag {
+  background: #ffffff !important;
+  border: 1.5px solid #86efac !important;
+  color: #065f46 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(6, 95, 70, 0.06) !important;
+}
+
+:global([data-theme="light"]) .tecnicoPillDot {
+  color: #059669 !important;
+}
+
+:global([data-theme="light"]) .tecnicoPillTime {
+  color: #047857 !important;
+  opacity: 0.95 !important;
+  font-weight: 600 !important;
+}
+
+:global([data-theme="light"]) .pillLiveActive {
+  background: #ecfdf5 !important;
+  border-color: #10b981 !important;
+  color: #065f46 !important;
+  font-weight: 700 !important;
+}
+
+:global([data-theme="light"]) .presenceStatusActive {
+  color: #065f46 !important;
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+
+:global([data-theme="light"]) .presenceRoomHighlight {
+  color: #0284c7 !important;
+}
+
+:global([data-theme="light"]) .presenceLocationDetail {
+  color: #475569 !important;
 }
 
 :global([data-theme="light"]) .occupantsBox {

@@ -127,11 +127,16 @@ src/
     - **Estadísticas Reales de Personal (`/api/dashboard/stats` & `AdminDashboard.tsx`)**: La cuenta maestra no altera los contadores de personal clínico (técnicos/docentes).
     - **Interruptor Secreto de Super Admin (`PersonalTab.tsx`)**: Oculto 100% por defecto. Si el usuario logueado es `super_admin`, se habilita el botón `[ 🔒 Cuentas Sistema ]` / `[ 🛡️ Cuenta Maestra Activa ]` para revelarla bajo demanda con su distintivo dorado `🛡️ Cuenta Maestra TI`.
     - **Protección contra Bloqueo Accidental**: Deshabilitadas las opciones de borrado e inactivación para la cuenta raíz.
+14. **Optimización de Accesibilidad y Alto Contraste en Tema Claro (WCAG AAA)**:
+    - **Banner de Técnicos de Turno (`tecnicosBanner` & `tecnicoPillTag`)**: En tema claro, el texto verde pastel deslavado (`#a7f3d0`) y el texto blanco sobre fondo translúcido fueron reemplazados por un contenedor menta nítido (`#ecfdf5`), títulos en verde bosque profundo (`#064e3b`, ratio > 10:1) y distintivos de técnicos en tarjeta blanca sólida con texto verde esmeralda de alta saturación (`#065f46` e ingreso `#047857`).
+    - **Variables Globales de Color Clínico (`globals.css`)**: Definición de `--ucs-clinical-green: #047857` en modo claro para indicadores de turnos activos y salas operativas.
+    - **Pills de Presencia y Filtros**: Ajustados `pillLiveActive` y `presenceStatusActive` para visibilidad impecable sobre fondo claro.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `[commit pendiente]`: style(theme): alto contraste y legibilidad para banner de tecnicos y acentos verdes en tema claro
 * `222be76`: feat(security): modo oculto e interruptor secreto para cuenta maestra de super admin 00000001
 
 * `4f183db`: style: aumentar dimension y visibilidad del logo en version de escritorio

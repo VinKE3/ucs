@@ -595,8 +595,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                       <td>{getTipoBadge(colab.tipoPersonal)}</td>
                       <td>
                         {colab.enTurnoAhora ? (
-                          <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                          <span style={{ color: 'var(--ucs-clinical-green, #10b981)', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--ucs-clinical-green, #10b981)' }} />
                             En Turno
                           </span>
                         ) : (

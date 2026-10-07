@@ -44,6 +44,7 @@
   --bg-input: #ffffff;
   --border-color: #cbd5e1;
   --border-glow: rgba(255, 90, 0, 0.3);
+  --ucs-clinical-green: #047857;   /* Verde médico de alta visibilidad para tema claro */
 
   --text-primary: #06152d;         /* Azul marino UCS profundo: contraste AA y AAA */
   --text-secondary: #334155;       /* Slate 700: nítido y legible */

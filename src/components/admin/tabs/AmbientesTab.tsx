@@ -264,8 +264,9 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
             </span>
             {tecnicosEnSede.map((t) => (
               <span key={t.asistenciaId} className={styles.tecnicoPillTag}>
-                ● {t.nombres} {t.apellidos}
-                <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                <span className={styles.tecnicoPillDot}>●</span>
+                <span>{t.nombres} {t.apellidos}</span>
+                <span className={styles.tecnicoPillTime}>
                   (Ingreso: {new Date(t.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})
                 </span>
               </span>
@@ -490,7 +491,7 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       Capacidad: <strong>{amb.capacidad || 10} personas</strong>
                     </span>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: amb.activo ? '#10b981' : '#f59e0b' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: amb.activo ? 'var(--ucs-clinical-green, #10b981)' : '#f59e0b' }}>
                       ● {amb.activo ? 'Operativa' : 'En Mantenimiento'}
                     </span>
                   </div>

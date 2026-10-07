@@ -437,11 +437,11 @@ export function KardexDrawer({
           </div>
 
           {/* TERMÓMETRO / BARRA DE PROGRESO DE HORAS SEMANALES */}
-          {usuario.tipoPersonal === 'docente' && (
+          {(usuario.tipoPersonal === 'docente' || (usuario.tipoPersonal === 'paciente_simulado' && statsSemanaActual.maxHoras)) && (
             <div className={styles.weeklyGaugeCard}>
               <div className={styles.gaugeHeader}>
                 <div className={styles.gaugeTitle}>
-                  <span>⏱️ Carga Semanal Asignada</span>
+                  <span>⏱️ {usuario.tipoPersonal === 'paciente_simulado' ? 'Tope de Horas Semanales' : 'Carga Semanal Asignada'}</span>
                   {statsSemanaActual.maxHoras && (
                     <span className={`${styles.gaugePercent} ${statsSemanaActual.statusClass}`}>
                       {statsSemanaActual.porcentaje}%

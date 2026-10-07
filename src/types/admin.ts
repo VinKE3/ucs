@@ -133,6 +133,7 @@ export interface AsistenciaAdminItem {
   cursoCodigo?: string | null;
   tarifaHora?: number | string | null;
   horasSemanalesMax?: number | null;
+  cursoTarifaHoraPs?: number | string | null;
 }
 
 export interface CursoAdminItem {
@@ -140,6 +141,11 @@ export interface CursoAdminItem {
   nombre: string;
   codigo: string | null;
   descripcion: string | null;
+  tarifaHoraPs?: number | string | null;
+  totalHorasPs?: number;
+  totalMinutosPs?: number;
+  totalSesionesPs?: number;
+  totalActoresPs?: number;
   activo: boolean;
   createdAt?: string;
 }

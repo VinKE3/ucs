@@ -219,9 +219,13 @@ export async function POST(request: Request) {
         if (d >= primerDiaMes) minutosMes += mins;
       }
 
-      // Si tiene tarifa por hora, calcular monto estimado de la sesión y del mes
-      const tarifaNum = user.tarifaHora ? Number(user.tarifaHora) : null;
-      const montoSesion = tarifaNum ? Number(((minutosTotales / 60) * tarifaNum).toFixed(2)) : null;
+      // Tarifa para la sesión: si es paciente simulado y el curso tiene tarifa asignada, prima el curso; de lo contrario se usa la tarifa base del usuario
+      const tarifaSesion = user.tipoPersonal === 'paciente_simulado' && cursoInfo?.tarifaHoraPs
+        ? Number(cursoInfo.tarifaHoraPs)
+        : (user.tarifaHora ? Number(user.tarifaHora) : null);
+
+      const tarifaNum = tarifaSesion ?? (user.tarifaHora ? Number(user.tarifaHora) : null);
+      const montoSesion = tarifaSesion ? Number(((minutosTotales / 60) * tarifaSesion).toFixed(2)) : null;
       const montoMes = tarifaNum ? Number(((minutosMes / 60) * tarifaNum).toFixed(2)) : null;
 
       const ticketSalida = {
@@ -239,7 +243,7 @@ export async function POST(request: Request) {
         horasSemanaMax: user.horasSemanalesMax || null,
         minutosMesTotal: minutosMes,
         horasMesTexto: `${Math.floor(minutosMes / 60)}h ${minutosMes % 60}m`,
-        tarifaHora: tarifaNum,
+        tarifaHora: tarifaSesion,
         montoSesionEstimado: montoSesion,
         montoMesEstimado: montoMes,
       };

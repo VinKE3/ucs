@@ -142,6 +142,7 @@ export const cursos = pgTable('cursos', {
   nombre: varchar('nombre', { length: 200 }).notNull(), // Ej: "Simulación Quirúrgica", "Simulación Clínica Integrada (SCI)"
   codigo: varchar('codigo', { length: 50 }),            // Ej: "SCI-101", "SBS"
   descripcion: text('descripcion'),
+  tarifaHoraPs: numeric('tarifa_hora_ps', { precision: 8, scale: 2 }), // Tarifa por hora en S/. para paciente simulado en este curso
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -89,11 +89,22 @@ src/
    - Campo `tarifaHora` en base de datos (`usuarios.tarifa_hora`), perfil y modales de registro/edición.
    - Desglose y liquidación estimada en la pestaña *Resumen por Colaborador* (`S/. Monto Estimado` y `Tarifa / hr`).
    - Exportación detallada y consolidada a Excel (CSV con UTF-8 BOM).
+9. **Tarifas Diferenciadas por Curso, Tope de Horas para Actores y Ranking de Demanda**:
+   - **Tarifa Diferenciada por Curso (`cursos.tarifa_hora_ps`)**: Cursos como Posgrado o Diplomados pueden fijar tarifas mayores (ej. S/. 50.00/h) y cursos como Ecografía menores (ej. S/. 25.00/h). La jerarquía de cálculo prioriza automáticamente la tarifa del curso sobre la tarifa base del actor.
+   - **Tope de Horas Opcional con Checkbox para Actores**: En el registro y edición de Pacientes Simulados, checkbox `[✓] Asignar tope de horas para este actor` para controlar carga y fatiga académica, integrado con el Kardex semanal y visualizado en tablas.
+   - **Ranking de Demanda Operativa de Pacientes Simulados (`CursosTab.tsx`)**:
+     - Tarjetas destacadas en tiempo real de Top Cursos con mayor demanda de simulación (Horas acumuladas, Sesiones ejecutadas y Actores convocados).
+     - Filtro selector para ordenar cursos por: *Mayor Demanda PS*, *Mayor Tarifa PS* o *Nombre A-Z*.
+     - Columnas de `Tarifa PS (S/.)` y `Demanda PS` en el catálogo de cursos.
+   - **Resolución Jerárquica en Kiosco, Resumen y Exportación CSV**:
+     - El ticket de salida en el Kiosco calcula el honorario de la sesión utilizando la tarifa del curso correspondiente.
+     - El Resumen consolidado y el reporte CSV aplican el cálculo proporcional por cada sesión y curso asistido.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `738d152`: feat(cursos): tarifas diferenciadas de pacientes simulados, tope de horas opcional y ranking de demanda operativa
 * `d811528`: implenetando tarifa hora
 * `9d24d92`: feat(kiosco): soporte inteligente de sesiones conjuntas Docente + Paciente Simulado y auto-seleccion de curso
 * `bbc3ae2`: docs: agregar PROGRESS.md y configurar directiva de sincronizacion multi-pc en AGENTS.md

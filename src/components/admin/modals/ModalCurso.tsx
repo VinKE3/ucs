@@ -3,11 +3,12 @@
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 
-interface CursoFormData {
+export interface CursoFormData {
   id: number;
   nombre: string;
   codigo: string;
   descripcion: string;
+  tarifaHoraPs?: string;
   activo: boolean;
   isEdit: boolean;
 }
@@ -86,6 +87,24 @@ export const ModalCurso: React.FC<ModalCursoProps> = ({
               className={styles.inputField}
               style={{ resize: 'vertical' }}
             />
+          </div>
+
+          <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
+            <label className={styles.label}>
+              🎭 Tarifa por Hora para Paciente Simulado (S/. / hr) (Opcional)
+            </label>
+            <input
+              type="number"
+              step="0.50"
+              min="0"
+              placeholder="ej: 50.00 para Posgrado, 35.00 para Pregrado, 25.00 para Ecografía"
+              value={cursoForm.tarifaHoraPs || ''}
+              onChange={(e) => setCursoForm({ ...cursoForm, tarifaHoraPs: e.target.value })}
+              className={styles.inputField}
+            />
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+              Tarifa específica que ganará el paciente simulado al actuar en este curso. Si se deja en blanco, se usará la tarifa base configurada en el perfil del actor.
+            </span>
           </div>
 
           {cursoForm.isEdit && (

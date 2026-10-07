@@ -151,21 +151,59 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
           )}
 
           {createForm.tipoPersonal === 'paciente_simulado' && (
-            <div className={styles.fullWidth}>
-              <label className={styles.label}>Tarifa por Hora en Soles (S/. / hr)</label>
-              <input
-                type="number"
-                step="0.50"
-                min="0"
-                placeholder="ej: 35.00 (para pre-liquidación mensual de honorarios)"
-                value={createForm.tarifaHora || ''}
-                onChange={(e) => setCreateForm({ ...createForm, tarifaHora: e.target.value })}
-                className={styles.inputField}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                Tarifa referencial para calcular automáticamente el monto acumulado a pagar en los reportes de simulación.
-              </span>
-            </div>
+            <>
+              <div className={styles.fullWidth}>
+                <label className={styles.label}>Tarifa Base por Hora en Soles (S/. / hr) (Opcional)</label>
+                <input
+                  type="number"
+                  step="0.50"
+                  min="0"
+                  placeholder="ej: 35.00 (tarifa de respaldo si el curso no fija una)"
+                  value={createForm.tarifaHora || ''}
+                  onChange={(e) => setCreateForm({ ...createForm, tarifaHora: e.target.value })}
+                  className={styles.inputField}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  Tarifa de respaldo si el curso en el que participa no tiene una tarifa asignada específica.
+                </span>
+              </div>
+
+              <div className={styles.fullWidth} style={{ marginTop: '0.35rem', background: 'var(--bg-elevated)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(createForm.horasSemanalesMax && Number(createForm.horasSemanalesMax) > 0)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setCreateForm({ ...createForm, horasSemanalesMax: '30' });
+                      } else {
+                        setCreateForm({ ...createForm, horasSemanalesMax: '' });
+                      }
+                    }}
+                    style={{ width: '18px', height: '18px', accentColor: '#38bdf8', cursor: 'pointer' }}
+                  />
+                  <span>Asignar tope de horas para este actor</span>
+                </label>
+
+                {Boolean(createForm.horasSemanalesMax && Number(createForm.horasSemanalesMax) > 0) && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <label className={styles.label}>Horas máximas permitidas (hrs)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="120"
+                      placeholder="ej: 30 (límite de horas para evitar fatiga)"
+                      value={createForm.horasSemanalesMax}
+                      onChange={(e) => setCreateForm({ ...createForm, horasSemanalesMax: e.target.value })}
+                      className={styles.inputField}
+                    />
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                      El sistema alertará a la coordinación si este actor está próximo o supera su límite de horas.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {session.rolSistema === 'super_admin' && (

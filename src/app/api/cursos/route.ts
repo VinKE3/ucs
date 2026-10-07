@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { cursos, asistencias } from '@/db/schema';
+import { cursos, asistencias, usuarios } from '@/db/schema';
 import { getSession } from '@/lib/auth';
-import { eq, desc, asc, like, or, sql } from 'drizzle-orm';
+import { eq, desc, asc, like, or, sql, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/cursos - Listar cursos
+// GET /api/cursos - Listar cursos con métricas de demanda operativa
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -31,7 +31,50 @@ export async function GET(request: Request) {
 
     const list = await query.orderBy(asc(cursos.nombre));
 
-    return NextResponse.json({ cursos: list });
+    // Métricas de demanda de Pacientes Simulados por curso (horas, sesiones y actores convocados)
+    const statsPs = await db
+      .select({
+        cursoId: asistencias.cursoId,
+        totalSesionesPs: sql<number>`count(${asistencias.id})::int`,
+        totalMinutosPs: sql<number>`coalesce(sum(${asistencias.minutosTotales}), 0)::int`,
+        totalActoresPs: sql<number>`count(distinct ${asistencias.usuarioId})::int`,
+      })
+      .from(asistencias)
+      .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+      .where(
+        and(
+          eq(usuarios.tipoPersonal, 'paciente_simulado'),
+          sql`${asistencias.estado} != 'anulado'`,
+          sql`${asistencias.cursoId} is not null`
+        )
+      )
+      .groupBy(asistencias.cursoId);
+
+    const statsMap = new Map<number, { totalSesionesPs: number; totalMinutosPs: number; totalHorasPs: number; totalActoresPs: number }>();
+    for (const s of statsPs) {
+      if (s.cursoId) {
+        const mins = Number(s.totalMinutosPs) || 0;
+        statsMap.set(s.cursoId, {
+          totalSesionesPs: Number(s.totalSesionesPs) || 0,
+          totalMinutosPs: mins,
+          totalHorasPs: Number((mins / 60).toFixed(1)),
+          totalActoresPs: Number(s.totalActoresPs) || 0,
+        });
+      }
+    }
+
+    const cursosWithStats = list.map((c) => {
+      const st = statsMap.get(c.id);
+      return {
+        ...c,
+        totalSesionesPs: st?.totalSesionesPs || 0,
+        totalMinutosPs: st?.totalMinutosPs || 0,
+        totalHorasPs: st?.totalHorasPs || 0,
+        totalActoresPs: st?.totalActoresPs || 0,
+      };
+    });
+
+    return NextResponse.json({ cursos: cursosWithStats });
   } catch (error) {
     console.error('Error listando cursos:', error);
     return NextResponse.json({ error: 'Error al consultar cursos' }, { status: 500 });
@@ -46,7 +89,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { nombre, codigo, descripcion } = await request.json();
+    const { nombre, codigo, descripcion, tarifaHoraPs } = await request.json();
 
     if (!nombre || !nombre.trim()) {
       return NextResponse.json({ error: 'El nombre del curso es obligatorio' }, { status: 400 });
@@ -58,6 +101,7 @@ export async function POST(request: Request) {
         nombre: nombre.trim(),
         codigo: codigo?.trim() || null,
         descripcion: descripcion?.trim() || null,
+        tarifaHoraPs: tarifaHoraPs !== undefined && tarifaHoraPs !== null && tarifaHoraPs !== '' ? String(tarifaHoraPs) : null,
         activo: true,
       })
       .returning();
@@ -77,7 +121,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id, nombre, codigo, descripcion, activo } = await request.json();
+    const { id, nombre, codigo, descripcion, tarifaHoraPs, activo } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID de curso requerido' }, { status: 400 });
@@ -90,6 +134,10 @@ export async function PATCH(request: Request) {
     if (nombre !== undefined) updateData.nombre = nombre.trim();
     if (codigo !== undefined) updateData.codigo = codigo?.trim() || null;
     if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null;
+    if (tarifaHoraPs !== undefined) {
+      updateData.tarifaHoraPs =
+        tarifaHoraPs === null || tarifaHoraPs === '' ? null : String(tarifaHoraPs);
+    }
     if (activo !== undefined) updateData.activo = Boolean(activo);
 
     const [cursoActualizado] = await db

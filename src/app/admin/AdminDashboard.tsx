@@ -33,7 +33,7 @@ import { ModalResetPassword } from '@/components/admin/modals/ModalResetPassword
 import { ModalCrearPersonal, type PersonalFormData } from '@/components/admin/modals/ModalCrearPersonal';
 import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
 import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
-import { ModalCurso } from '@/components/admin/modals/ModalCurso';
+import { ModalCurso, type CursoFormData } from '@/components/admin/modals/ModalCurso';
 import { ModalCrearAsistenciaManual } from '@/components/admin/modals/ModalCrearAsistenciaManual';
 import { ModalAuditoriaAsistencia } from '@/components/admin/modals/ModalAuditoriaAsistencia';
 import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
@@ -64,11 +64,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [searchCurso, setSearchCurso] = useState('');
   const [filterCursoActivo, setFilterCursoActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const [showCursoModal, setShowCursoModal] = useState(false);
-  const [cursoForm, setCursoForm] = useState({
+  const [cursoForm, setCursoForm] = useState<CursoFormData>({
     id: 0,
     nombre: '',
     codigo: '',
     descripcion: '',
+    tarifaHoraPs: '',
     activo: true,
     isEdit: false,
   });
@@ -326,12 +327,14 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             nombre: cursoForm.nombre.trim(),
             codigo: cursoForm.codigo.trim() || null,
             descripcion: cursoForm.descripcion.trim() || null,
+            tarifaHoraPs: cursoForm.tarifaHoraPs ? Number(cursoForm.tarifaHoraPs) : null,
             activo: cursoForm.activo,
           }
         : {
             nombre: cursoForm.nombre.trim(),
             codigo: cursoForm.codigo.trim() || null,
             descripcion: cursoForm.descripcion.trim() || null,
+            tarifaHoraPs: cursoForm.tarifaHoraPs ? Number(cursoForm.tarifaHoraPs) : null,
           };
 
       const res = await fetch(url, {
@@ -395,6 +398,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       nombre: curso.nombre,
       codigo: curso.codigo || '',
       descripcion: curso.descripcion || '',
+      tarifaHoraPs: curso.tarifaHoraPs !== undefined && curso.tarifaHoraPs !== null ? String(curso.tarifaHoraPs) : '',
       activo: curso.activo,
       isEdit: true,
     });
@@ -1011,7 +1015,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             {activeTab === 'cursos' && (
               <button
                 onClick={() => {
-                  setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', activo: true, isEdit: false });
+                  setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', tarifaHoraPs: '', activo: true, isEdit: false });
                   setCursoError(null);
                   setShowCursoModal(true);
                 }}
@@ -1125,7 +1129,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             filterCursoActivo={filterCursoActivo}
             setFilterCursoActivo={setFilterCursoActivo}
             onOpenCrearCurso={() => {
-              setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', activo: true, isEdit: false });
+              setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', tarifaHoraPs: '', activo: true, isEdit: false });
               setCursoError(null);
               setShowCursoModal(true);
             }}

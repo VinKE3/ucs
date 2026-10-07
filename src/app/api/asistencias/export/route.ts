@@ -42,6 +42,7 @@ export async function GET(request: Request) {
         ambienteCodigo: ambientes.codigo,
         cursoNombre: cursos.nombre,
         cursoCodigo: cursos.codigo,
+        cursoTarifaHoraPs: cursos.tarifaHoraPs,
       })
       .from(asistencias)
       .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
@@ -120,7 +121,10 @@ export async function GET(request: Request) {
         : '';
       const minutos = item.minutosTotales || 0;
       const horasDecimal = (minutos / 60).toFixed(2);
-      const tarifaNum = item.tarifaHora ? Number(item.tarifaHora) : null;
+      // Tarifa efectiva: si es paciente simulado y el curso tiene tarifa propia, prima el curso; de lo contrario se usa la tarifa base del usuario
+      const tarifaNum = (item.tipoPersonal === 'paciente_simulado' && item.cursoTarifaHoraPs)
+        ? Number(item.cursoTarifaHoraPs)
+        : (item.tarifaHora ? Number(item.tarifaHora) : null);
       const montoSesion = (tarifaNum && minutos > 0 && item.estado !== 'anulado')
         ? ((minutos / 60) * tarifaNum).toFixed(2)
         : '';

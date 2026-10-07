@@ -115,6 +115,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
       horasSemanalesMax?: number | null;
       tarifaHora?: number | null;
+      montoAcumulado: number;
+      tieneTarifa: boolean;
       fechasSet: Set<string>;
       minutosTotales: number;
       totalSesiones: number;
@@ -143,6 +145,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
           tipoPersonal: a.tipoPersonal,
           horasSemanalesMax: uInfo?.horasSemanalesMax || null,
           tarifaHora: tarifaNum,
+          montoAcumulado: 0,
+          tieneTarifa: false,
           fechasSet: new Set<string>(),
           minutosTotales: 0,
           totalSesiones: 0,
@@ -160,14 +164,37 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       if (a.fecha) item.fechasSet.add(a.fecha);
       if (a.cursoNombre) item.cursosSet.add(a.cursoNombre);
 
+      let sesionMinutos = 0;
       if (a.estado === 'en_curso') {
         item.sesionesEnCurso++;
         if (a.horaIngreso) {
           const diff = Math.round((nowTimestamp - new Date(a.horaIngreso).getTime()) / 60000);
-          if (diff > 0) item.minutosTotales += diff;
+          if (diff > 0) sesionMinutos = diff;
         }
       } else if (a.minutosTotales && a.minutosTotales > 0) {
-        item.minutosTotales += a.minutosTotales;
+        sesionMinutos = a.minutosTotales;
+      }
+      item.minutosTotales += sesionMinutos;
+
+      // Cálculo de honorarios para paciente simulado según tarifa de curso o base del actor
+      if (item.tipoPersonal === 'paciente_simulado' && sesionMinutos > 0) {
+        let tarifaSesion: number | null = null;
+        if (a.cursoTarifaHoraPs !== undefined && a.cursoTarifaHoraPs !== null && a.cursoTarifaHoraPs !== '') {
+          tarifaSesion = Number(a.cursoTarifaHoraPs);
+        } else if (a.cursoId) {
+          const cFound = cursosList.find((c) => c.id === a.cursoId);
+          if (cFound?.tarifaHoraPs !== undefined && cFound?.tarifaHoraPs !== null && cFound?.tarifaHoraPs !== '') {
+            tarifaSesion = Number(cFound.tarifaHoraPs);
+          }
+        }
+        if (tarifaSesion === null) {
+          tarifaSesion = item.tarifaHora ?? null;
+        }
+
+        if (tarifaSesion !== null && tarifaSesion > 0) {
+          item.montoAcumulado += (sesionMinutos / 60) * tarifaSesion;
+          item.tieneTarifa = true;
+        }
       }
     }
 
@@ -178,9 +205,11 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         nombres: val.nombres,
         apellidos: val.apellidos,
         tipoPersonal: val.tipoPersonal,
-        horasSemanalesMax: val.horasSemanalesMax,
-        tarifaHora: val.tarifaHora,
-        montoLiquidacionEstimado: val.tarifaHora ? Number(((val.minutosTotales / 60) * val.tarifaHora).toFixed(2)) : null,
+        horasSemanalesMax: val.horasSemanalesMax ?? null,
+        tarifaHora: val.tarifaHora ?? null,
+        montoLiquidacionEstimado: val.tieneTarifa
+          ? Number(val.montoAcumulado.toFixed(2))
+          : (val.tarifaHora ? Number(((val.minutosTotales / 60) * val.tarifaHora).toFixed(2)) : null),
         diasTrabajados: val.fechasSet.size,
         minutosTotales: val.minutosTotales,
         horasTotalesFormato: `${Math.floor(val.minutosTotales / 60)}h ${val.minutosTotales % 60}m`,
@@ -193,7 +222,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         ambienteActualNombre: val.ambienteActualNombre,
       }))
       .sort((a, b) => b.minutosTotales - a.minutosTotales);
-  }, [asistenciasList, usuariosList, nowTimestamp]);
+  }, [asistenciasList, usuariosList, cursosList, nowTimestamp]);
 
   // Turnos en curso con más de 5 horas continuas (turnos prolongados/olvidados)
   const turnosProlongados = useMemo(() => {
@@ -601,17 +630,29 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tope fijado</span>
                           )
                         ) : colab.tipoPersonal === 'paciente_simulado' ? (
-                          colab.tarifaHora ? (
+                          colab.montoLiquidacionEstimado !== null && colab.montoLiquidacionEstimado !== undefined ? (
                             <div>
                               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#00e699', fontFamily: 'var(--font-mono)' }}>
-                                S/. {colab.montoLiquidacionEstimado !== null && colab.montoLiquidacionEstimado !== undefined ? colab.montoLiquidacionEstimado.toFixed(2) : '0.00'}
+                                S/. {colab.montoLiquidacionEstimado.toFixed(2)}
                               </div>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                Tarifa: S/. {Number(colab.tarifaHora).toFixed(2)}/h
+                                {colab.tarifaHora ? `Base: S/. ${Number(colab.tarifaHora).toFixed(2)}/h` : 'Tarifa por curso'}
                               </div>
+                              {colab.horasSemanalesMax && (
+                                <div style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '0.2rem', fontFamily: 'var(--font-mono)' }}>
+                                  ⏱️ Tope: {colab.horasSemanalesMax}h máx
+                                </div>
+                              )}
                             </div>
                           ) : (
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tarifa fijada</span>
+                            <div>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin tarifa fijada</span>
+                              {colab.horasSemanalesMax && (
+                                <div style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '0.2rem', fontFamily: 'var(--font-mono)' }}>
+                                  ⏱️ Tope: {colab.horasSemanalesMax}h máx
+                                </div>
+                              )}
+                            </div>
                           )
                         ) : (
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ilimitado</span>

@@ -231,18 +231,35 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         ⏱️ Tope: {u.horasSemanalesMax}h/sem
                       </div>
                     )}
-                    {u.tipoPersonal === 'paciente_simulado' && u.tarifaHora && (
-                      <div
-                        style={{
-                          fontSize: '0.72rem',
-                          color: '#00e699',
-                          marginTop: '0.25rem',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 600,
-                        }}
-                      >
-                        💰 S/. {Number(u.tarifaHora).toFixed(2)}/h
-                      </div>
+                    {u.tipoPersonal === 'paciente_simulado' && (
+                      <>
+                        {u.tarifaHora && (
+                          <div
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#00e699',
+                              marginTop: '0.25rem',
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            💰 Base: S/. {Number(u.tarifaHora).toFixed(2)}/h
+                          </div>
+                        )}
+                        {u.horasSemanalesMax && (
+                          <div
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#38bdf8',
+                              marginTop: '0.2rem',
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            ⏱️ Tope: {u.horasSemanalesMax}h máx
+                          </div>
+                        )}
+                      </>
                     )}
                   </td>
                   <td>

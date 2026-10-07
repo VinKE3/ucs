@@ -195,6 +195,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `b6cad03`: feat(ui): separar tabs de Sedes y Ambientes y reordenar navegacion
 * `b30734e`: feat(auth): rol Administrativo para control y fiscalizacion de asistencias
 * `6f0532d`: docs: actualizar PROGRESS.md con hito de control de turnos obligatorios
 * `2f4eafe`: feat(turnos): control de horarios obligatorios, presets rapidos y auditoria de puntualidad para tecnicos

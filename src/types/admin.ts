@@ -11,6 +11,9 @@ export interface UsuarioItem {
   tienePassword: boolean;
   horasSemanalesMax?: number | null;
   tarifaHora?: number | string | null;
+  horaEntradaEsperada?: string | null;
+  horaSalidaEsperada?: string | null;
+  toleranciaMinutos?: number | null;
   turnoActivoId?: number | null;
   horaIngreso?: string | null;
   sedeActualId?: number | null;
@@ -40,6 +43,13 @@ export interface ResumenColaboradorItem {
   enTurnoAhora: boolean;
   sedeActualNombre?: string | null;
   ambienteActualNombre?: string | null;
+  minutosTardanzaTotales?: number;
+  minutosAnticipoTotales?: number;
+  minutosExtraTotales?: number;
+  turnosPuntuales?: number;
+  turnosConTardanza?: number;
+  horaEntradaEsperada?: string | null;
+  horaSalidaEsperada?: string | null;
 }
 
 export interface TicketSalidaData {
@@ -135,6 +145,11 @@ export interface AsistenciaAdminItem {
   tarifaHora?: number | string | null;
   horasSemanalesMax?: number | null;
   cursoTarifaHoraPs?: number | string | null;
+  horaEntradaProgramada?: string | null;
+  horaSalidaProgramada?: string | null;
+  minutosTardanza?: number | null;
+  minutosAnticipo?: number | null;
+  minutosExtra?: number | null;
 }
 
 export interface CursoAdminItem {

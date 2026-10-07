@@ -138,6 +138,26 @@ src/
       - Modales con bordes adaptables a temas claro y oscuro, tipografía institucional y botones con gradiente naranja UCS (`linear-gradient(135deg, #ff5a00, #ff701e)`) o carmesí (`#ef4444`) para acciones destructivas.
       - Notificaciones Toast superiores derechas de alta fidelidad para feedback instantáneo sin interrumpir el flujo.
     - **Cobertura Completa**: Personal (inactivación/eliminación), Sedes y Salas, Cursos, Categorías de Salas, Convocatoria ECOE y Kardex de Horas.
+16. **Control de Horarios Obligatorios, Presets Rápidos y Auditoría de Puntualidad para Técnicos**:
+    - **Horarios Obligatorios Asignables (`usuarios.hora_entrada_esperada`, `usuarios.hora_salida_esperada`, `usuarios.tolerancia_minutos`)**:
+      - Al registrar o editar un colaborador de tipo `Técnico de Simulación`, la asignación de horario es obligatoria para auditar el desempeño de sala.
+      - **Presets Rápidos de Turno Clave de la Clínica (1 Clic)**:
+        - 🌅 **Mañana**: `06:00 - 15:00`
+        - 🌇 **Tarde**: `13:00 - 22:00`
+        - 🏢 **Jornada**: `09:00 - 18:00`
+        - ⚙️ **Personalizado**: Selectores manuales de hora y tolerancia de gracia (por defecto 10 minutos).
+    - **Evaluación en Tiempo Real en Kiosco (`/api/kiosco/marcar`)**:
+      - Cálculo automático contra la hora oficial de Lima, Perú (`America/Lima`):
+        - Entrada: determina llegada puntual (dentro de tolerancia), anticipada (`minutosAnticipo`) o con tardanza (`minutosTardanza`).
+        - Salida: determina salida regular, anticipada o sobretiempo acumulado (`minutosExtra`).
+      - Feedback instantáneo en pantalla y notas estructuradas en `asistencias`.
+    - **Monitoreo en el Tab de Asistencias (`AsistenciasTab.tsx` & `/api/asistencias/export`)**:
+      - **Vista Detallada**: Insignias visuales de alta precisión por turno (`⏰ Turno: 06:00 - 15:00`, `✅ Puntual`, `⚠️ Tardanza +Xm`, `🌅 Anticipo Ym`, `⏱️ +Zm extra`).
+      - **Vista Resumen**: Indicador de turno habitual, tardanzas acumuladas y sobretiempo acumulado por técnico.
+      - **Exportación CSV**: Columnas dedicadas de `Turno Programado`, `Puntualidad Entrada`, `Tardanza (min)`, `Anticipo (min)` y `Sobretiempo (min)`.
+    - **Scorecard 360° en Kardex del Técnico (`KardexDrawer.tsx`)**:
+      - Tarjeta destacada de *Auditoría de Desempeño y Puntualidad* con ratio porcentual de puntualidad (`%`), tardanza total acumulada, sobretiempo adicional y turnos anticipados.
+      - Desglose por sesión y exportación a CSV con datos de auditoría horaria.
 
 ---
 

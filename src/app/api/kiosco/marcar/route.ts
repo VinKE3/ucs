@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { asistencias, usuarios, ambientes, sedes, cursos } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
-import { getPeruDateString, PERU_TIMEZONE } from '@/lib/peruTime';
+import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
 
 export async function POST(request: Request) {
   try {
@@ -122,6 +122,42 @@ export async function POST(request: Request) {
         }
       }
 
+      // Evaluación de puntualidad para Técnicos
+      let horaEntradaProg: string | null = null;
+      let horaSalidaProg: string | null = null;
+      let tardanzaMin: number | null = null;
+      let anticipoMin: number | null = null;
+      let feedbackPuntualidad = '';
+
+      if (user.tipoPersonal === 'tecnico' && user.horaEntradaEsperada) {
+        horaEntradaProg = user.horaEntradaEsperada;
+        horaSalidaProg = user.horaSalidaEsperada || null;
+
+        const [expH, expM] = user.horaEntradaEsperada.split(':').map(Number);
+        const expectedMinutes = expH * 60 + expM;
+
+        const actualTimeString = getPeruTimeString(now);
+        const [actH, actM] = actualTimeString.split(':').map(Number);
+        const actualMinutes = actH * 60 + actM;
+
+        const diffMinutes = actualMinutes - expectedMinutes;
+        const tolerancia = user.toleranciaMinutos ?? 10;
+
+        if (diffMinutes > tolerancia) {
+          tardanzaMin = diffMinutes;
+          anticipoMin = 0;
+          feedbackPuntualidad = ` • ⚠️ Tardanza de ${diffMinutes} min (Turno: ${user.horaEntradaEsperada} - ${user.horaSalidaEsperada || ''})`;
+        } else if (diffMinutes < 0) {
+          anticipoMin = Math.abs(diffMinutes);
+          tardanzaMin = 0;
+          feedbackPuntualidad = ` • 🌅 Llegó ${Math.abs(diffMinutes)} min temprano (Turno: ${user.horaEntradaEsperada} - ${user.horaSalidaEsperada || ''})`;
+        } else {
+          tardanzaMin = 0;
+          anticipoMin = 0;
+          feedbackPuntualidad = ` • ✅ A tiempo (Turno: ${user.horaEntradaEsperada} - ${user.horaSalidaEsperada || ''})`;
+        }
+      }
+
       const [nuevaAsistencia] = await db
         .insert(asistencias)
         .values({
@@ -131,6 +167,10 @@ export async function POST(request: Request) {
           cursoId: user.tipoPersonal === 'tecnico' ? null : (cursoId ? Number(cursoId) : null),
           fecha: fechaStr,
           horaIngreso: now,
+          horaEntradaProgramada: horaEntradaProg,
+          horaSalidaProgramada: horaSalidaProg,
+          minutosTardanza: tardanzaMin,
+          minutosAnticipo: anticipoMin,
           estado: 'en_curso',
           tipoRegistro: 'kiosco_autoservicio',
           observaciones: notaObservacion,
@@ -141,7 +181,7 @@ export async function POST(request: Request) {
         ok: true,
         tipo: 'ingreso',
         asistencia: nuevaAsistencia,
-        mensaje: `Ingreso registrado exitosamente a las ${now.toLocaleTimeString('es-PE', { timeZone: PERU_TIMEZONE, hour: '2-digit', minute: '2-digit' })}`,
+        mensaje: `Ingreso registrado exitosamente a las ${now.toLocaleTimeString('es-PE', { timeZone: PERU_TIMEZONE, hour: '2-digit', minute: '2-digit' })}${feedbackPuntualidad}`,
       });
     } else if (accion === 'salida') {
       // Buscar la asistencia activa
@@ -165,11 +205,39 @@ export async function POST(request: Request) {
       const diffMs = now.getTime() - new Date(asistenciaTarget.horaIngreso).getTime();
       const minutosTotales = Math.max(1, Math.round(diffMs / (1000 * 60)));
 
+      let extraMin: number | null = null;
+      let feedbackSalida = '';
+
+      if (user.tipoPersonal === 'tecnico') {
+        const horaSalidaRef = asistenciaTarget.horaSalidaProgramada || user.horaSalidaEsperada;
+        if (horaSalidaRef) {
+          const [expH, expM] = horaSalidaRef.split(':').map(Number);
+          const expectedMinutes = expH * 60 + expM;
+
+          const actualTimeString = getPeruTimeString(now);
+          const [actH, actM] = actualTimeString.split(':').map(Number);
+          const actualMinutes = actH * 60 + actM;
+
+          const diffMinutes = actualMinutes - expectedMinutes;
+          const tolerancia = user.toleranciaMinutos ?? 10;
+
+          if (diffMinutes > tolerancia) {
+            extraMin = diffMinutes;
+            feedbackSalida = ` • ⏱️ +${diffMinutes} min extra`;
+          } else if (diffMinutes < -tolerancia) {
+            feedbackSalida = ` • ⚠️ Salida anticipada (${Math.abs(diffMinutes)} min antes)`;
+          } else {
+            feedbackSalida = ` • ✅ Turno cumplido a tiempo`;
+          }
+        }
+      }
+
       const [asistenciaActualizada] = await db
         .update(asistencias)
         .set({
           horaSalida: now,
           minutosTotales: minutosTotales,
+          minutosExtra: extraMin,
           estado: 'finalizado',
           updatedAt: now,
         })
@@ -258,7 +326,7 @@ export async function POST(request: Request) {
         asistencia: asistenciaActualizada,
         minutosTotales,
         ticketSalida,
-        mensaje: `Salida registrada exitosamente. Tiempo total de sesión: ${tiempoTexto}`,
+        mensaje: `Salida registrada exitosamente. Tiempo total de sesión: ${tiempoTexto}${feedbackSalida}`,
       });
     }
 

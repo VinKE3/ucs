@@ -73,6 +73,11 @@ export const usuarios = pgTable('usuarios', {
 
   // Tarifa por hora en Soles (especialmente para pacientes simulados / honorarios)
   tarifaHora: numeric('tarifa_hora', { precision: 8, scale: 2 }),
+
+  // Control de Horario y Desempeño (Especialmente para Técnicos de Simulación)
+  horaEntradaEsperada: varchar('hora_entrada_esperada', { length: 5 }), // Ej: "06:00"
+  horaSalidaEsperada: varchar('hora_salida_esperada', { length: 5 }),   // Ej: "15:00"
+  toleranciaMinutos: integer('tolerancia_minutos').default(10),         // Margen de gracia en minutos (default 10)
   
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -104,6 +109,13 @@ export const asistencias = pgTable('asistencias', {
   horaSalida: timestamp('hora_salida', { withTimezone: true }), // NULL mientras la sesión esté activa/en curso
   
   minutosTotales: integer('minutos_totales'), // Calculado al marcar salida o ajuste manual
+
+  // Auditoría histórica de puntualidad y cumplimiento del turno programado
+  horaEntradaProgramada: varchar('hora_entrada_programada', { length: 5 }), // Snapshot turno entrada
+  horaSalidaProgramada: varchar('hora_salida_programada', { length: 5 }),   // Snapshot turno salida
+  minutosTardanza: integer('minutos_tardanza'),                             // Minutos de retraso (> 0)
+  minutosAnticipo: integer('minutos_anticipo'),                             // Minutos de anticipación (> 0)
+  minutosExtra: integer('minutos_extra'),                                   // Minutos de sobretiempo (> 0)
   
   estado: estadoAsistenciaEnum('estado_asistencia').default('en_curso').notNull(),
   tipoRegistro: tipoRegistroEnum('tipo_registro').default('kiosco_autoservicio').notNull(),

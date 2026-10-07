@@ -16,6 +16,9 @@ export interface PersonalFormData {
   password?: string;
   horasSemanalesMax?: string;
   tarifaHora?: string;
+  horaEntradaEsperada?: string;
+  horaSalidaEsperada?: string;
+  toleranciaMinutos?: string;
   isEdit?: boolean;
 }
 
@@ -146,6 +149,191 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
                 Establece un límite semanal para alertar en caso de que este docente cubra demasiadas horas.
+              </span>
+            </div>
+          )}
+
+          {createForm.tipoPersonal === 'tecnico' && (
+            <div
+              className={styles.fullWidth}
+              style={{
+                background: 'var(--pill-bg, rgba(2, 132, 199, 0.05))',
+                padding: '1rem',
+                borderRadius: '10px',
+                border: '1.5px solid var(--border-color)',
+                marginTop: '0.25rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <label className={styles.label} style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>⏰</span> Horario y Turno Obligatorio
+                </label>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    color: '#0284c7',
+                    background: 'rgba(2, 132, 199, 0.12)',
+                    border: '1px solid rgba(2, 132, 199, 0.3)',
+                    padding: '0.15rem 0.55rem',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Control de Desempeño
+                </span>
+              </div>
+
+              {/* Botones de Presets Rápidos */}
+              <div style={{ marginBottom: '0.85rem' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+                  Turnos típicos de la clínica (clic para autocompletar):
+                </span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCreateForm({
+                        ...createForm,
+                        horaEntradaEsperada: '06:00',
+                        horaSalidaEsperada: '15:00',
+                        toleranciaMinutos: createForm.toleranciaMinutos || '10',
+                      })
+                    }
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border:
+                        createForm.horaEntradaEsperada === '06:00' && createForm.horaSalidaEsperada === '15:00'
+                          ? '1.5px solid #0284c7'
+                          : '1px solid var(--border-color)',
+                      background:
+                        createForm.horaEntradaEsperada === '06:00' && createForm.horaSalidaEsperada === '15:00'
+                          ? 'rgba(2, 132, 199, 0.18)'
+                          : 'var(--bg-card, #ffffff)',
+                      color:
+                        createForm.horaEntradaEsperada === '06:00' && createForm.horaSalidaEsperada === '15:00'
+                          ? '#0284c7'
+                          : 'var(--text-primary)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    🌅 Mañana (06:00 - 15:00)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCreateForm({
+                        ...createForm,
+                        horaEntradaEsperada: '13:00',
+                        horaSalidaEsperada: '22:00',
+                        toleranciaMinutos: createForm.toleranciaMinutos || '10',
+                      })
+                    }
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border:
+                        createForm.horaEntradaEsperada === '13:00' && createForm.horaSalidaEsperada === '22:00'
+                          ? '1.5px solid #0284c7'
+                          : '1px solid var(--border-color)',
+                      background:
+                        createForm.horaEntradaEsperada === '13:00' && createForm.horaSalidaEsperada === '22:00'
+                          ? 'rgba(2, 132, 199, 0.18)'
+                          : 'var(--bg-card, #ffffff)',
+                      color:
+                        createForm.horaEntradaEsperada === '13:00' && createForm.horaSalidaEsperada === '22:00'
+                          ? '#0284c7'
+                          : 'var(--text-primary)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    🌇 Tarde (13:00 - 22:00)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCreateForm({
+                        ...createForm,
+                        horaEntradaEsperada: '09:00',
+                        horaSalidaEsperada: '18:00',
+                        toleranciaMinutos: createForm.toleranciaMinutos || '10',
+                      })
+                    }
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border:
+                        createForm.horaEntradaEsperada === '09:00' && createForm.horaSalidaEsperada === '18:00'
+                          ? '1.5px solid #0284c7'
+                          : '1px solid var(--border-color)',
+                      background:
+                        createForm.horaEntradaEsperada === '09:00' && createForm.horaSalidaEsperada === '18:00'
+                          ? 'rgba(2, 132, 199, 0.18)'
+                          : 'var(--bg-card, #ffffff)',
+                      color:
+                        createForm.horaEntradaEsperada === '09:00' && createForm.horaSalidaEsperada === '18:00'
+                          ? '#0284c7'
+                          : 'var(--text-primary)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    🏢 Jornada (09:00 - 18:00)
+                  </button>
+                </div>
+              </div>
+
+              {/* Inputs específicos de horario y tolerancia */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
+                <div>
+                  <label className={styles.label} style={{ fontSize: '0.78rem' }}>
+                    Hora Entrada *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={createForm.horaEntradaEsperada || ''}
+                    onChange={(e) => setCreateForm({ ...createForm, horaEntradaEsperada: e.target.value })}
+                    className={styles.inputField}
+                  />
+                </div>
+                <div>
+                  <label className={styles.label} style={{ fontSize: '0.78rem' }}>
+                    Hora Salida *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={createForm.horaSalidaEsperada || ''}
+                    onChange={(e) => setCreateForm({ ...createForm, horaSalidaEsperada: e.target.value })}
+                    className={styles.inputField}
+                  />
+                </div>
+                <div>
+                  <label className={styles.label} style={{ fontSize: '0.78rem' }}>
+                    Tolerancia (min)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    placeholder="10"
+                    value={createForm.toleranciaMinutos !== undefined ? createForm.toleranciaMinutos : '10'}
+                    onChange={(e) => setCreateForm({ ...createForm, toleranciaMinutos: e.target.value })}
+                    className={styles.inputField}
+                  />
+                </div>
+              </div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block' }}>
+                💡 El sistema comparará la hora en que el técnico marque en el Kiosco con este turno para registrar si llegó temprano, puntual o con tardanza, y si cumplió horas extra al salir.
               </span>
             </div>
           )}

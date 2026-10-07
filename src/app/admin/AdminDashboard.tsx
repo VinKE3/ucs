@@ -125,6 +125,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     password: '',
     horasSemanalesMax: '',
     tarifaHora: '',
+    horaEntradaEsperada: '06:00',
+    horaSalidaEsperada: '15:00',
+    toleranciaMinutos: '10',
     isEdit: false,
   });
   const [createLoading, setCreateLoading] = useState(false);
@@ -633,6 +636,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             rolSistema: createForm.rolSistema,
             horasSemanalesMax: createForm.horasSemanalesMax,
             tarifaHora: createForm.tarifaHora,
+            horaEntradaEsperada: createForm.horaEntradaEsperada,
+            horaSalidaEsperada: createForm.horaSalidaEsperada,
+            toleranciaMinutos: createForm.toleranciaMinutos,
           }),
         });
 
@@ -663,8 +669,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           password: '',
           horasSemanalesMax: '',
           tarifaHora: '',
+          horaEntradaEsperada: '06:00',
+          horaSalidaEsperada: '15:00',
+          toleranciaMinutos: '10',
           isEdit: false,
         });
+        showToast('Colaborador actualizado con éxito', 'success');
         loadData();
       } else {
         // Crear nuevo usuario
@@ -692,8 +702,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           password: '',
           horasSemanalesMax: '',
           tarifaHora: '',
+          horaEntradaEsperada: '06:00',
+          horaSalidaEsperada: '15:00',
+          toleranciaMinutos: '10',
           isEdit: false,
         });
+        showToast('Colaborador registrado con éxito', 'success');
         loadData();
       }
     } catch (err) {
@@ -716,6 +730,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       password: '',
       horasSemanalesMax: u.horasSemanalesMax ? String(u.horasSemanalesMax) : '',
       tarifaHora: u.tarifaHora !== undefined && u.tarifaHora !== null ? String(u.tarifaHora) : '',
+      horaEntradaEsperada: u.horaEntradaEsperada || '06:00',
+      horaSalidaEsperada: u.horaSalidaEsperada || '15:00',
+      toleranciaMinutos: u.toleranciaMinutos !== undefined && u.toleranciaMinutos !== null ? String(u.toleranciaMinutos) : '10',
       isEdit: true,
     });
     setCreateError(null);

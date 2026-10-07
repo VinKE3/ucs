@@ -43,6 +43,11 @@ export async function GET(request: Request) {
         cursoNombre: cursos.nombre,
         cursoCodigo: cursos.codigo,
         cursoTarifaHoraPs: cursos.tarifaHoraPs,
+        horaEntradaProgramada: asistencias.horaEntradaProgramada,
+        horaSalidaProgramada: asistencias.horaSalidaProgramada,
+        minutosTardanza: asistencias.minutosTardanza,
+        minutosAnticipo: asistencias.minutosAnticipo,
+        minutosExtra: asistencias.minutosExtra,
       })
       .from(asistencias)
       .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
@@ -91,6 +96,11 @@ export async function GET(request: Request) {
       'Apellidos',
       'Nombres',
       'Tipo de Personal',
+      'Turno Programado',
+      'Puntualidad Entrada',
+      'Tardanza (min)',
+      'Anticipo (min)',
+      'Sobretiempo (min)',
       'Sede',
       'Sala / Ambiente',
       'Código de Sala',
@@ -140,6 +150,22 @@ export async function GET(request: Request) {
       if (item.estado === 'ajustado_manual') estadoLabel = 'Ajustado Manual';
       if (item.estado === 'anulado') estadoLabel = 'Anulado';
 
+      // Turno y métricas de puntualidad
+      const turnoProg = (item.horaEntradaProgramada || item.horaSalidaProgramada)
+        ? `${item.horaEntradaProgramada || '--:--'} a ${item.horaSalidaProgramada || '--:--'}`
+        : '';
+
+      let puntualidadLabel = '';
+      if (item.horaEntradaProgramada) {
+        if (item.minutosTardanza && item.minutosTardanza > 0) {
+          puntualidadLabel = `Tardanza (+${item.minutosTardanza}m)`;
+        } else if (item.minutosAnticipo && item.minutosAnticipo > 0) {
+          puntualidadLabel = `Anticipo (${item.minutosAnticipo}m)`;
+        } else {
+          puntualidadLabel = 'Puntual';
+        }
+      }
+
       return [
         escapeCsv(item.id),
         escapeCsv(item.fecha),
@@ -147,6 +173,11 @@ export async function GET(request: Request) {
         escapeCsv(item.apellidos),
         escapeCsv(item.nombres),
         escapeCsv(tipoPersonalLabel),
+        escapeCsv(turnoProg || '—'),
+        escapeCsv(puntualidadLabel || '—'),
+        escapeCsv(item.minutosTardanza ?? ''),
+        escapeCsv(item.minutosAnticipo ?? ''),
+        escapeCsv(item.minutosExtra ? `+${item.minutosExtra}` : ''),
         escapeCsv(item.sedeNombre),
         escapeCsv(item.ambienteNombre || 'Clínica General'),
         escapeCsv(item.ambienteCodigo || '—'),

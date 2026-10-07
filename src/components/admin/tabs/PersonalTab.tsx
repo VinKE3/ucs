@@ -760,6 +760,20 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                   </td>
                   <td>
                     {getTipoBadge(u.tipoPersonal)}
+                    {u.tipoPersonal === 'tecnico' && u.horaEntradaEsperada && (
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: 'var(--ucs-blue-sky)',
+                          marginTop: '0.25rem',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 600,
+                        }}
+                        title={`Turno programado: ${u.horaEntradaEsperada} a ${u.horaSalidaEsperada || '--'} (Tolerancia: ${u.toleranciaMinutos || 10} min)`}
+                      >
+                        ⏰ Turno: {u.horaEntradaEsperada} - {u.horaSalidaEsperada || '--'}
+                      </div>
+                    )}
                     {u.tipoPersonal === 'docente' && u.horasSemanalesMax && (
                       <div
                         style={{

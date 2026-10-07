@@ -27,6 +27,9 @@ export async function GET() {
           rolSistema: usuarios.rolSistema,
           horasSemanalesMax: usuarios.horasSemanalesMax,
           tarifaHora: usuarios.tarifaHora,
+          horaEntradaEsperada: usuarios.horaEntradaEsperada,
+          horaSalidaEsperada: usuarios.horaSalidaEsperada,
+          toleranciaMinutos: usuarios.toleranciaMinutos,
           activo: usuarios.activo,
           tienePassword: sql<boolean>`${usuarios.passwordHash} IS NOT NULL`,
           createdAt: usuarios.createdAt,
@@ -98,11 +101,32 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { dni, nombres, apellidos, correo, telefono, tipoPersonal, rolSistema, password, horasSemanalesMax, tarifaHora } = body;
+    const {
+      dni,
+      nombres,
+      apellidos,
+      correo,
+      telefono,
+      tipoPersonal,
+      rolSistema,
+      password,
+      horasSemanalesMax,
+      tarifaHora,
+      horaEntradaEsperada,
+      horaSalidaEsperada,
+      toleranciaMinutos,
+    } = body;
 
     if (!dni || !nombres || !apellidos || !tipoPersonal) {
       return NextResponse.json(
         { error: 'DNI, Nombres, Apellidos y Tipo de Personal son obligatorios' },
+        { status: 400 }
+      );
+    }
+
+    if (tipoPersonal === 'tecnico' && (!horaEntradaEsperada || !horaSalidaEsperada)) {
+      return NextResponse.json(
+        { error: 'Para el personal técnico es obligatorio definir la hora de entrada y salida programada' },
         { status: 400 }
       );
     }
@@ -145,6 +169,9 @@ export async function POST(request: Request) {
         passwordHash: passwordHash,
         horasSemanalesMax: horasSemanalesMax ? Number(horasSemanalesMax) : null,
         tarifaHora: tarifaHora !== undefined && tarifaHora !== null && tarifaHora !== '' ? String(tarifaHora) : null,
+        horaEntradaEsperada: horaEntradaEsperada ? String(horaEntradaEsperada).trim() : null,
+        horaSalidaEsperada: horaSalidaEsperada ? String(horaSalidaEsperada).trim() : null,
+        toleranciaMinutos: toleranciaMinutos ? Number(toleranciaMinutos) : 10,
         activo: true,
       })
       .returning({
@@ -156,6 +183,9 @@ export async function POST(request: Request) {
         rolSistema: usuarios.rolSistema,
         horasSemanalesMax: usuarios.horasSemanalesMax,
         tarifaHora: usuarios.tarifaHora,
+        horaEntradaEsperada: usuarios.horaEntradaEsperada,
+        horaSalidaEsperada: usuarios.horaSalidaEsperada,
+        toleranciaMinutos: usuarios.toleranciaMinutos,
       });
 
     return NextResponse.json({ ok: true, usuario: newUser });
@@ -262,6 +292,18 @@ export async function PATCH(request: Request) {
         body.tarifaHora === null || body.tarifaHora === ''
           ? null
           : String(body.tarifaHora);
+    }
+
+    if (body.horaEntradaEsperada !== undefined) {
+      updateData.horaEntradaEsperada = body.horaEntradaEsperada ? String(body.horaEntradaEsperada).trim() : null;
+    }
+
+    if (body.horaSalidaEsperada !== undefined) {
+      updateData.horaSalidaEsperada = body.horaSalidaEsperada ? String(body.horaSalidaEsperada).trim() : null;
+    }
+
+    if (body.toleranciaMinutos !== undefined) {
+      updateData.toleranciaMinutos = body.toleranciaMinutos ? Number(body.toleranciaMinutos) : 10;
     }
 
     if (activo !== undefined) {

@@ -267,6 +267,53 @@ export function KardexDrawer({
     };
   }, [asistencias, asistenciasSemanaActual, periodo, maxHorasAsignadas, nowTimestamp]);
 
+  // Métricas de puntualidad y turno para Técnicos de Simulación
+  const statsTecnico = useMemo(() => {
+    if (usuario?.tipoPersonal !== 'tecnico') return null;
+
+    let turnosEvaluados = 0;
+    let turnosPuntuales = 0;
+    let turnosTardanza = 0;
+    let turnosAnticipados = 0;
+    let minutosTardanzaTotales = 0;
+    let minutosExtraTotales = 0;
+    let minutosAnticipoTotales = 0;
+
+    for (const a of asistencias) {
+      if (a.estado === 'anulado') continue;
+      if (a.horaEntradaProgramada) {
+        turnosEvaluados++;
+        if (a.minutosTardanza && a.minutosTardanza > 0) {
+          turnosTardanza++;
+          minutosTardanzaTotales += a.minutosTardanza;
+        } else if (a.minutosAnticipo && a.minutosAnticipo > 0) {
+          turnosAnticipados++;
+          minutosAnticipoTotales += a.minutosAnticipo;
+        } else {
+          turnosPuntuales++;
+        }
+      }
+      if (a.minutosExtra && a.minutosExtra > 0) {
+        minutosExtraTotales += a.minutosExtra;
+      }
+    }
+
+    const punctualityRate = turnosEvaluados > 0
+      ? Math.round(((turnosPuntuales + turnosAnticipados) / turnosEvaluados) * 100)
+      : 100;
+
+    return {
+      turnosEvaluados,
+      turnosPuntuales,
+      turnosTardanza,
+      turnosAnticipados,
+      minutosTardanzaTotales,
+      minutosExtraTotales,
+      minutosAnticipoTotales,
+      punctualityRate,
+    };
+  }, [asistencias, usuario]);
+
   // Guardar ajuste de horas semanales asignadas
   const handleGuardarLimite = async () => {
     if (!usuario) return;
@@ -309,15 +356,45 @@ export function KardexDrawer({
       return;
     }
 
-    const headers = ['Fecha', 'Entrada', 'Salida', 'Minutos', 'Horas', 'Sede', 'Sala', 'Curso', 'Estado'];
+    const headers = [
+      'Fecha',
+      'Entrada',
+      'Salida',
+      'Turno Programado',
+      'Puntualidad Entrada',
+      'Tardanza (min)',
+      'Anticipo (min)',
+      'Sobretiempo (min)',
+      'Minutos',
+      'Horas',
+      'Sede',
+      'Sala',
+      'Curso',
+      'Estado',
+    ];
     const rows = asistencias.map((a) => {
       const min = getMinutosAsistencia(a);
       const horaIn = a.horaIngreso ? new Date(a.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '-';
       const horaOut = a.horaSalida ? new Date(a.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : 'En curso';
+      const turnoProg = (a.horaEntradaProgramada || a.horaSalidaProgramada)
+        ? `${a.horaEntradaProgramada || '--:--'} a ${a.horaSalidaProgramada || '--:--'}`
+        : '';
+      let puntualidad = '';
+      if (a.horaEntradaProgramada) {
+        if (a.minutosTardanza && a.minutosTardanza > 0) puntualidad = `Tardanza (+${a.minutosTardanza}m)`;
+        else if (a.minutosAnticipo && a.minutosAnticipo > 0) puntualidad = `Anticipo (${a.minutosAnticipo}m)`;
+        else puntualidad = 'Puntual';
+      }
+
       return [
         a.fecha,
         horaIn,
         horaOut,
+        `"${turnoProg}"`,
+        `"${puntualidad}"`,
+        a.minutosTardanza ?? '',
+        a.minutosAnticipo ?? '',
+        a.minutosExtra ? `+${a.minutosExtra}` : '',
         min,
         (min / 60).toFixed(2),
         `"${a.sedeNombre || ''}"`,
@@ -406,6 +483,23 @@ export function KardexDrawer({
                   </span>
                 ) : (
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>⚪ Fuera de turno</span>
+                )}
+
+                {usuario.tipoPersonal === 'tecnico' && (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: '#93c5fd',
+                      background: 'rgba(59, 130, 246, 0.15)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '6px',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    ⏰ Turno Asignado: {usuario.horaEntradaEsperada || '06:00'} - {usuario.horaSalidaEsperada || '15:00'}
+                  </span>
                 )}
               </div>
             </div>
@@ -557,6 +651,77 @@ export function KardexDrawer({
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TARJETA DE AUDITORÍA Y PUNTUALIDAD PARA TÉCNICO DE SIMULACIÓN */}
+          {usuario.tipoPersonal === 'tecnico' && statsTecnico && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '12px',
+                padding: '1rem',
+                marginBottom: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>⏱️</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#60a5fa' }}>
+                    Auditoría de Desempeño y Puntualidad
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>
+                  ⏰ Turno programado: <strong>{usuario.horaEntradaEsperada || '06:00'} - {usuario.horaSalidaEsperada || '15:00'}</strong> (Tol. {usuario.toleranciaMinutos ?? 10}m)
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Puntualidad</div>
+                  <div style={{
+                    fontSize: '1.15rem',
+                    fontWeight: 800,
+                    color: statsTecnico.punctualityRate >= 90 ? '#10b981' : statsTecnico.punctualityRate >= 75 ? '#f59e0b' : '#ef4444'
+                  }}>
+                    {statsTecnico.punctualityRate}%
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    {statsTecnico.turnosPuntuales + statsTecnico.turnosAnticipados} de {statsTecnico.turnosEvaluados} turnos a tiempo
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Tardanza Total</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: statsTecnico.minutosTardanzaTotales > 0 ? '#ef4444' : '#10b981' }}>
+                    {statsTecnico.minutosTardanzaTotales} min
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    {statsTecnico.turnosTardanza} turno{statsTecnico.turnosTardanza === 1 ? '' : 's'} con retraso
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Sobretiempo</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#c084fc' }}>
+                    +{statsTecnico.minutosExtraTotales} min
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    {formatMinutosAHora(statsTecnico.minutosExtraTotales)} adicionales
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Llegada Anticipada</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#38bdf8' }}>
+                    {statsTecnico.minutosAnticipoTotales} min
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    {statsTecnico.turnosAnticipados} entrada{statsTecnico.turnosAnticipados === 1 ? '' : 's'} previas
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -834,6 +999,36 @@ export function KardexDrawer({
                       {a.cursoNombre && (
                         <div className={styles.sessionCourse}>
                           🎓 {a.cursoNombre} {a.cursoCodigo ? `(${a.cursoCodigo})` : ''}
+                        </div>
+                      )}
+
+                      {(a.tipoPersonal === 'tecnico' || a.horaEntradaProgramada) && (
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
+                          {a.horaEntradaProgramada && (
+                            <span style={{ fontSize: '0.72rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>
+                              ⏰ Turno: {a.horaEntradaProgramada} - {a.horaSalidaProgramada || '--:--'}
+                            </span>
+                          )}
+                          {a.horaEntradaProgramada && (
+                            a.minutosTardanza && a.minutosTardanza > 0 ? (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                ⚠️ Tardanza +{a.minutosTardanza}m
+                              </span>
+                            ) : a.minutosAnticipo && a.minutosAnticipo > 0 ? (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                🌅 Anticipo {a.minutosAnticipo}m
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                ✅ Puntual
+                              </span>
+                            )
+                          )}
+                          {a.minutosExtra && a.minutosExtra > 0 ? (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                              ⏱️ +{a.minutosExtra}m extra
+                            </span>
+                          ) : null}
                         </div>
                       )}
 

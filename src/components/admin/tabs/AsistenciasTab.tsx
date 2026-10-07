@@ -129,7 +129,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
 
   // Agrupación consolidada por colaborador
   const resumenColaboradores = useMemo<ResumenColaboradorItem[]>(() => {
-    const map = new Map<number, {
+    interface ColaboradorMapItem {
       usuarioId: number;
       dni: string;
       nombres: string;
@@ -148,7 +148,16 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       enTurnoAhora: boolean;
       sedeActualNombre?: string | null;
       ambienteActualNombre?: string | null;
-    }>();
+      minutosTardanzaTotales: number;
+      minutosAnticipoTotales: number;
+      minutosExtraTotales: number;
+      turnosPuntuales: number;
+      turnosConTardanza: number;
+      horaEntradaEsperada?: string | null;
+      horaSalidaEsperada?: string | null;
+    }
+
+    const map = new Map<number, ColaboradorMapItem>();
 
     for (const a of asistenciasList) {
       if (a.estado === 'anulado') continue;
@@ -178,9 +187,18 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
           enTurnoAhora: Boolean(uInfo?.turnoActivoId),
           sedeActualNombre: uInfo?.sedeActualNombre,
           ambienteActualNombre: uInfo?.ambienteActualNombre,
+          minutosTardanzaTotales: 0,
+          minutosAnticipoTotales: 0,
+          minutosExtraTotales: 0,
+          turnosPuntuales: 0,
+          turnosConTardanza: 0,
+          horaEntradaEsperada: uInfo?.horaEntradaEsperada || null,
+          horaSalidaEsperada: uInfo?.horaSalidaEsperada || null,
         };
         map.set(a.usuarioId, item);
       }
+
+      if (!item) continue;
 
       item.totalSesiones++;
       if (a.fecha) item.fechasSet.add(a.fecha);
@@ -197,6 +215,22 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         sesionMinutos = a.minutosTotales;
       }
       item.minutosTotales += sesionMinutos;
+
+      // Acumulación de puntualidad para técnicos
+      if (item.tipoPersonal === 'tecnico' || a.horaEntradaProgramada) {
+        if (a.minutosTardanza && a.minutosTardanza > 0) {
+          item.minutosTardanzaTotales += a.minutosTardanza;
+          item.turnosConTardanza++;
+        } else if (a.horaEntradaProgramada) {
+          item.turnosPuntuales++;
+        }
+        if (a.minutosAnticipo && a.minutosAnticipo > 0) {
+          item.minutosAnticipoTotales += a.minutosAnticipo;
+        }
+        if (a.minutosExtra && a.minutosExtra > 0) {
+          item.minutosExtraTotales += a.minutosExtra;
+        }
+      }
 
       // Cálculo de honorarios para paciente simulado según tarifa de curso o base del actor
       if (item.tipoPersonal === 'paciente_simulado' && sesionMinutos > 0) {
@@ -242,6 +276,13 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         enTurnoAhora: val.enTurnoAhora,
         sedeActualNombre: val.sedeActualNombre,
         ambienteActualNombre: val.ambienteActualNombre,
+        minutosTardanzaTotales: val.minutosTardanzaTotales,
+        minutosAnticipoTotales: val.minutosAnticipoTotales,
+        minutosExtraTotales: val.minutosExtraTotales,
+        turnosPuntuales: val.turnosPuntuales,
+        turnosConTardanza: val.turnosConTardanza,
+        horaEntradaEsperada: val.horaEntradaEsperada,
+        horaSalidaEsperada: val.horaSalidaEsperada,
       }))
       .sort((a, b) => b.minutosTotales - a.minutosTotales);
   }, [asistenciasList, usuariosList, cursosList, nowTimestamp]);
@@ -290,10 +331,13 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       'Apellidos',
       'Nombres',
       'Tipo de Personal',
+      'Turno Asignado',
       'Dias Asistidos',
       'Minutos Totales',
       'Horas Netas (Decimal)',
       'Horas (Formato)',
+      'Tardanza Total (min)',
+      'Sobretiempo Total (min)',
       'Tope Semanal (Docentes)',
       'Tarifa / Hora (S/.)',
       'Monto Liquidación Estimado (S/.)',
@@ -307,10 +351,15 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       `"${r.apellidos}"`,
       `"${r.nombres}"`,
       r.tipoPersonal,
+      r.tipoPersonal === 'tecnico'
+        ? `"${r.horaEntradaEsperada ? `${r.horaEntradaEsperada} - ${r.horaSalidaEsperada || '--:--'}` : '06:00 - 15:00'}"`
+        : '"N/A"',
       r.diasTrabajados,
       r.minutosTotales,
       (r.minutosTotales / 60).toFixed(2),
       r.horasTotalesFormato,
+      r.tipoPersonal === 'tecnico' ? r.minutosTardanzaTotales : '',
+      r.tipoPersonal === 'tecnico' ? r.minutosExtraTotales : '',
       r.horasSemanalesMax ? `${r.horasSemanalesMax} hrs` : 'Sin tope',
       r.tarifaHora ? Number(r.tarifaHora).toFixed(2) : '',
       r.montoLiquidacionEstimado !== null && r.montoLiquidacionEstimado !== undefined ? r.montoLiquidacionEstimado.toFixed(2) : '',
@@ -701,6 +750,52 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                               )}
                             </div>
                           )
+                        ) : colab.tipoPersonal === 'tecnico' ? (
+                          <div>
+                            <div style={{ fontSize: '0.78rem', color: '#93c5fd', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                              ⏰ {colab.horaEntradaEsperada ? `${colab.horaEntradaEsperada} - ${colab.horaSalidaEsperada || '--:--'}` : '06:00 - 15:00'}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                              {(colab.minutosTardanzaTotales || 0) > 0 ? (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  color: '#ef4444',
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '4px',
+                                }}>
+                                  ⚠️ {colab.minutosTardanzaTotales}m tardanza
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  color: '#10b981',
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '4px',
+                                }}>
+                                  ✅ Puntual
+                                </span>
+                              )}
+                              {(colab.minutosExtraTotales || 0) > 0 && (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  color: '#c084fc',
+                                  background: 'rgba(168, 85, 247, 0.15)',
+                                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '4px',
+                                }}>
+                                  ⏱️ +{colab.minutosExtraTotales}m extra
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         ) : (
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ilimitado</span>
                         )}
@@ -1013,6 +1108,84 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                             })
                             : 'Pendiente'}
                         </div>
+
+                        {/* INDICADORES DE TURNO Y PUNTUALIDAD PARA TÉCNICOS */}
+                        {asist.tipoPersonal === 'tecnico' && (
+                          <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {asist.horaEntradaProgramada && (
+                              <div style={{ fontSize: '0.68rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>
+                                ⏰ Turno: {asist.horaEntradaProgramada} - {asist.horaSalidaProgramada || '--:--'}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {asist.horaEntradaProgramada && (
+                                asist.minutosTardanza && asist.minutosTardanza > 0 ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      color: '#ef4444',
+                                      background: 'rgba(239, 68, 68, 0.15)',
+                                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                    }}
+                                    title={`Llegó ${asist.minutosTardanza} minutos tarde de su turno (${asist.horaEntradaProgramada})`}
+                                  >
+                                    ⚠️ Tardanza +{asist.minutosTardanza}m
+                                  </span>
+                                ) : asist.minutosAnticipo && asist.minutosAnticipo > 0 ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      color: '#38bdf8',
+                                      background: 'rgba(56, 189, 248, 0.15)',
+                                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                    }}
+                                    title={`Llegó ${asist.minutosAnticipo} minutos antes de su turno (${asist.horaEntradaProgramada})`}
+                                  >
+                                    🌅 Anticipo {asist.minutosAnticipo}m
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      color: '#10b981',
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                    }}
+                                    title="Puntual dentro del margen de tolerancia"
+                                  >
+                                    ✅ Puntual
+                                  </span>
+                                )
+                              )}
+
+                              {asist.minutosExtra && asist.minutosExtra > 0 ? (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    color: '#c084fc',
+                                    background: 'rgba(168, 85, 247, 0.15)',
+                                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                                    padding: '0.1rem 0.35rem',
+                                    borderRadius: '4px',
+                                  }}
+                                  title={`Permaneció ${asist.minutosExtra} minutos más después de su hora de salida (${asist.horaSalidaProgramada})`}
+                                >
+                                  ⏱️ +{asist.minutosExtra}m extra
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : 'var(--text-primary)' }}>

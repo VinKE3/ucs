@@ -35,6 +35,12 @@ export async function GET(request: Request) {
         observaciones: asistencias.observaciones,
         motivoModificacion: asistencias.motivoModificacion,
         createdAt: asistencias.createdAt,
+        // Auditoría y Desempeño
+        horaEntradaProgramada: asistencias.horaEntradaProgramada,
+        horaSalidaProgramada: asistencias.horaSalidaProgramada,
+        minutosTardanza: asistencias.minutosTardanza,
+        minutosAnticipo: asistencias.minutosAnticipo,
+        minutosExtra: asistencias.minutosExtra,
         // Usuario
         usuarioId: usuarios.id,
         dni: usuarios.dni,
@@ -44,6 +50,9 @@ export async function GET(request: Request) {
         correo: usuarios.correo,
         tarifaHora: usuarios.tarifaHora,
         horasSemanalesMax: usuarios.horasSemanalesMax,
+        horaEntradaEsperada: usuarios.horaEntradaEsperada,
+        horaSalidaEsperada: usuarios.horaSalidaEsperada,
+        toleranciaMinutos: usuarios.toleranciaMinutos,
         // Sede
         sedeId: sedes.id,
         sedeNombre: sedes.nombre,

@@ -50,17 +50,24 @@
 }
 
 .logoBadge {
-  width: 44px;
-  height: 44px;
+  background: #ffffff;
+  padding: 8px 18px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0d346c 0%, #061836 100%);
-  border: 1.5px solid rgba(255, 90, 0, 0.8);
-  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ff5a00;
-  box-shadow: 0 4px 14px rgba(255, 90, 0, 0.3);
-  margin: 0 auto 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  margin: 0 auto 1.15rem;
+  width: auto;
+  height: auto;
+}
+
+.logoImg {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .badge {

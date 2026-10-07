@@ -35,27 +35,13 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
       {/* HEADER NAVBAR SUPERIOR */}
       <header className={styles.navbar}>
         <div className={styles.navBrand}>
-          <div className={styles.brandLogo}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 6v12M6 12h12" />
-              <rect x="3" y="3" width="18" height="18" rx="5" />
-            </svg>
+          <div className={styles.brandLogoContainer}>
+            <img src="/logo.png" alt="Universidad Científica del Sur" className={styles.brandLogoImg} />
           </div>
+          <div className={styles.brandDivider} />
           <div className={styles.brandText}>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                UNIVERSIDAD
-              </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                  CIENTÍFICA
-                </span>
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--ucs-orange, #ff5a00)', letterSpacing: '0.08em' }}>
-                  DEL SUR
-                </span>
-              </div>
-            </div>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>Clínica de Simulación</span>
+            <span className={styles.brandTitle}>Clínica de Simulación</span>
+            <span className={styles.brandTag}>Panel Administrativo</span>
           </div>
         </div>
 
@@ -115,13 +101,10 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
         <div className={styles.drawerHeader}>
           <div className={styles.drawerBrand}>
             <div className={styles.drawerLogoBadge}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 6v12M6 12h12" />
-                <rect x="3" y="3" width="18" height="18" rx="5" />
-              </svg>
+              <img src="/logo.png" alt="Universidad Científica del Sur" style={{ height: '20px', width: 'auto', display: 'block' }} />
             </div>
             <div>
-              <div className={styles.drawerBrandTitle}>UCS Simulación</div>
+              <div className={styles.drawerBrandTitle}>Clínica de Simulación</div>
               <div className={styles.drawerBrandSub}>Panel Administrativo</div>
             </div>
           </div>

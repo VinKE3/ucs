@@ -358,12 +358,19 @@ export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
                     marginBottom: '1.25rem',
                   }}
                 >
-                  <div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '1px', color: '#0d346c', textTransform: 'uppercase' }}>
-                      UNIVERSIDAD CIENTÍFICA DEL SUR
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
-                      Facultad de Ciencias de la Salud • Centro de Simulación Clínica
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                    <img
+                      src="/logo.png"
+                      alt="Universidad Científica del Sur"
+                      style={{ height: '36px', width: 'auto', display: 'block' }}
+                    />
+                    <div style={{ borderLeft: '1.5px solid #cbd5e1', paddingLeft: '0.75rem' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0d346c', textTransform: 'uppercase' }}>
+                        Centro de Simulación Clínica
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                        Facultad de Ciencias de la Salud
+                      </div>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

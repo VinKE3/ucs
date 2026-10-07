@@ -118,12 +118,18 @@ src/
 11. **Paginación Dinámica y Escalabilidad de Volumen (`PersonalTab.tsx` & `AsistenciasTab.tsx`)**:
     - **Directorio de Personal**: Paginador configurable (10, 15, 25, 50, o 'Todos') para manejar ágilmente listas de 50+ pacientes simulados, 20+ técnicos, 100+ docentes o cientos de colaboradores.
     - **Tab de Asistencias (Dual: Detallado y Resumen)**: Paginación reactiva tanto para la sábana de turnos detallados como para el consolidado acumulado por persona.
-    - **Navegación Intuitiva**: Saltos a primera página (`⏮️`), anterior (`◀`), indicador numérico de página `P / Total`, siguiente (`▶`), última página (`⏭️`), y reseteo automático a página 1 al cambiar términos de búsqueda o filtros.
+12. **Identidad Visual e Integración de Logo Oficial Científica (`/logo.png`)**:
+    - **Logo Oficial Institucional**: Incorporado `public/logo.png` de la Universidad Científica del Sur.
+    - **Kiosco Terminal (`KioscoTerminal.tsx`)**: Barra superior con contenedor de alto contraste y jerarquía visual de Simulación Clínica.
+    - **Navbar Administrador (`AdminNavbar.tsx`)**: Logotipo integrado en cabecera de escritorio y menú lateral móvil.
+    - **Pantalla de Inicio de Sesión (`/login`)**: Emblema oficial en la tarjeta de autenticación.
+    - **Ficha Técnica ECOE Imprimible (`ModalFichaCasting.tsx`)**: Membrete formal para estaciones evaluadoras con el logo institucional y Facultad de Ciencias de la Salud.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `[commit pendiente]`: feat(branding): incorporar logo oficial de la Cientifica en Kiosco, AdminNavbar, Login y Ficha ECOE
 * `eb5c223`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
 * `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales
 * `f79e4ca`: fix(modales): corregir modal de auditoria y asegurar overlay global centrado z-index 1200

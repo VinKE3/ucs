@@ -207,6 +207,24 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
       <nav className={styles.bottomNav}>
         <button
           type="button"
+          className={`${styles.bottomNavItem} ${activeTab === 'sedes' ? styles.bottomNavItemActive : ''}`}
+          onClick={() => {
+            setActiveTab('sedes');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span className={styles.bottomNavBadge}>{stats.sedes}</span>
+          </div>
+          <span className={styles.bottomNavLabel}>Sedes</span>
+        </button>
+
+        <button
+          type="button"
           className={`${styles.bottomNavItem} ${activeTab === 'ambientes' ? styles.bottomNavItemActive : ''}`}
           onClick={() => {
             setActiveTab('ambientes');
@@ -218,9 +236,27 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-            <span className={styles.bottomNavBadge}>{stats.sedes}</span>
+            <span className={styles.bottomNavBadge}>{stats.ambientes}</span>
           </div>
-          <span className={styles.bottomNavLabel}>Sedes / Salas</span>
+          <span className={styles.bottomNavLabel}>Salas</span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${activeTab === 'cursos' ? styles.bottomNavItemActive : ''}`}
+          onClick={() => {
+            setActiveTab('cursos');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span className={styles.bottomNavBadge}>{cursosCount}</span>
+          </div>
+          <span className={styles.bottomNavLabel}>Cursos</span>
         </button>
 
         <button
@@ -241,24 +277,6 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             <span className={styles.bottomNavBadge}>{usuariosCount}</span>
           </div>
           <span className={styles.bottomNavLabel}>Personal</span>
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'cursos' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('cursos');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-            <span className={styles.bottomNavBadge}>{cursosCount}</span>
-          </div>
-          <span className={styles.bottomNavLabel}>Cursos</span>
         </button>
 
         <button

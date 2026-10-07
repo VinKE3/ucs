@@ -23,6 +23,7 @@ import type {
 // Componentes modulares
 import { AdminNavbar } from '@/components/admin/AdminNavbar';
 import { AdminStatsCards } from '@/components/admin/AdminStatsCards';
+import { SedesTab } from '@/components/admin/tabs/SedesTab';
 import { AmbientesTab } from '@/components/admin/tabs/AmbientesTab';
 import { PersonalTab } from '@/components/admin/tabs/PersonalTab';
 import { CursosTab } from '@/components/admin/tabs/CursosTab';
@@ -47,7 +48,7 @@ import { confirmDelete, confirmToggleActive, showError, showToast } from '@/lib/
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>(
-    session.rolSistema === 'administrativo' ? 'asistencias' : 'ambientes'
+    session.rolSistema === 'administrativo' ? 'asistencias' : 'sedes'
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0, cursos: 0 });
@@ -1058,20 +1059,20 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {/* TARJETAS DE ESTADÍSTICAS */}
         <AdminStatsCards stats={stats} cursosCount={cursosList.length} />
 
-        {/* BARRA DE PESTAÑAS Y ACCIONES RÁPIDAS */}
+        {/* BARRA DE PESTAÑAS */}
         <section className={styles.tabsBar}>
           <div className={styles.tabList}>
+            <button
+              className={`${styles.tabBtn} ${activeTab === 'sedes' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('sedes')}
+            >
+              🏛️ Sedes ({stats.sedes})
+            </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'ambientes' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('ambientes')}
             >
-              🏥 Sedes y Ambientes ({stats.sedes} Sedes • {stats.ambientes} Salas)
-            </button>
-            <button
-              className={`${styles.tabBtn} ${activeTab === 'personal' ? styles.activeTab : ''}`}
-              onClick={() => setActiveTab('personal')}
-            >
-              👥 Personal de Clínica ({usuariosList.filter((u) => u.dni !== '00000001').length})
+              🏥 Ambientes ({stats.ambientes})
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'cursos' ? styles.activeTab : ''}`}
@@ -1080,59 +1081,39 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               📚 Cursos ({cursosList.length})
             </button>
             <button
+              className={`${styles.tabBtn} ${activeTab === 'personal' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('personal')}
+            >
+              👥 Personal de Clínica ({usuariosList.filter((u) => u.dni !== '00000001').length})
+            </button>
+            <button
               className={`${styles.tabBtn} ${activeTab === 'asistencias' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('asistencias')}
             >
               ⏱️ Historial de Asistencias
             </button>
           </div>
-
-          <div className={styles.tabActionButtons}>
-            {activeTab === 'personal' && session.rolSistema !== 'administrativo' && (
-              <button onClick={() => setShowCreateModal(true)} className={styles.actionBtn}>
-                <span>+</span> Nuevo Personal
-              </button>
-            )}
-
-            {activeTab === 'cursos' && session.rolSistema !== 'administrativo' && (
-              <button
-                onClick={() => {
-                  setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', tarifaHoraPs: '', activo: true, isEdit: false });
-                  setCursoError(null);
-                  setShowCursoModal(true);
-                }}
-                className={styles.actionBtn}
-              >
-                <span>+</span> Nuevo Curso
-              </button>
-            )}
-
-            {activeTab === 'ambientes' && session.rolSistema !== 'administrativo' && (
-              <div className={styles.ambientesActionGroup}>
-                <button
-                  onClick={() => {
-                    setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
-                    setShowSedeModal(true);
-                  }}
-                  className={styles.secondaryActionBtn}
-                >
-                  <span>+</span> Nueva Sede
-                </button>
-                <button
-                  onClick={() => {
-                    setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
-                    setShowAmbienteModal(true);
-                  }}
-                  className={styles.actionBtn}
-                >
-                  <span>+</span> Agregar Sala a {selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}
-                </button>
-              </div>
-            )}
-          </div>
         </section>
 
         {/* VISTAS MODULARES DE PESTAÑAS */}
+        {activeTab === 'sedes' && (
+          <SedesTab
+            sedesList={sedesList}
+            session={session}
+            onOpenCrearSede={() => {
+              setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
+              setShowSedeModal(true);
+            }}
+            onOpenEditSede={openEditSedeModal}
+            onToggleSedeActivo={handleToggleSedeActivo}
+            onDeleteSede={handleDeleteSede}
+            onVerSalasDeSede={(sedeId) => {
+              setSelectedSedeId(sedeId);
+              setActiveTab('ambientes');
+            }}
+          />
+        )}
+
         {activeTab === 'ambientes' && (
           <AmbientesTab
             session={session}
@@ -1148,13 +1129,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             setSearchAmbiente={setSearchAmbiente}
             filterTipo={filterTipo}
             setFilterTipo={setFilterTipo}
-            onOpenCrearSede={() => {
-              setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
-              setShowSedeModal(true);
-            }}
-            onOpenEditSede={openEditSedeModal}
-            onToggleSedeActivo={handleToggleSedeActivo}
-            onDeleteSede={handleDeleteSede}
             onOpenCrearAmbiente={() => {
               setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
               setShowAmbienteModal(true);

@@ -40,7 +40,8 @@ src/
         ├── AdminNavbar.tsx               # Barra superior, navegación móvil y switch de tema
         ├── AdminStatsCards.tsx           # Métricas resumen en vivo (Sedes, Salas, Personal, En Turno, Cursos)
         ├── tabs/
-        │   ├── AmbientesTab.tsx          # Gestión de sedes/salas, categorías dinámicas, filtros y tarjetas de ocupación
+        │   ├── SedesTab.tsx              # Gestión independiente de campus/sedes, estado operativo y conmutación ágil a salas
+        │   ├── AmbientesTab.tsx          # Gestión de salas/ambientes por sede, categorías dinámicas, filtros y tarjetas de ocupación
         │   ├── PersonalTab.tsx           # Directorio de personal, presencia en vivo, edición, inactivación y acceso a Kardex
         │   ├── CursosTab.tsx             # Catálogo de cursos/escenarios médicos con borrado seguro
         │   └── AsistenciasTab.tsx        # Vista dual: Turnos detallados vs. Resumen consolidado por persona con exportación CSV
@@ -171,6 +172,24 @@ src/
       - Insignia distintiva violeta/púrpura institucional (`.roleAdministrativo` y `.badgeAdministrativo` con fondo `rgba(168, 85, 247, 0.15)` y texto `#c084fc` en oscuro; y `#f3e8ff` con texto `#7e22ce` en tema claro para óptima legibilidad).
     - **Terminal Kiosco Autoservicio (`KioscoTerminal.tsx`)**:
       - Marcación ágil directa a la sede general sin obligar a seleccionar ambientes clínicos ni cursos de simulación médica. Soporte de horarios programados y control de puntualidad.
+
+  * **Separación de Tabs (Sedes y Ambientes) & Reordenamiento de Navegación**:
+    - **Pestaña Independiente de Sedes (`SedesTab.tsx`)**:
+      - Vista en cuadrícula de todos los campus registrados con insignias de estado operativo, dirección y total de salas activas.
+      - Botón de acceso directo `Ver Salas (X)` que conmuta inmediatamente a `AmbientesTab` prefiltrando por el campus seleccionado.
+      - CRUD integrado para creación (`+ Nueva Sede`), edición, inactivación y eliminación segura de sedes.
+    - **Pestaña Independiente de Ambientes (`AmbientesTab.tsx`)**:
+      - Conmutador horizontal por campus (`📍 Campus Ate`, `Campus Norte`, etc.) en lugar de barra lateral fija.
+      - Grilla a pantalla completa para salas de simulación con filtros por categoría dinámica, buscador en tiempo real e indicador de técnico de turno.
+      - Acciones contextuales limpias (`+ Agregar Sala` y `🏷️ Categorías`) dentro del encabezado propio de la vista.
+    - **Navegación Superior Despejada**:
+      - Se eliminaron por completo los botones flotantes duplicados (`+ Nueva Sede` y `+ Agregar Sala a Campus`) que sobrecargaban la barra principal de tabs.
+    - **Orden Estricto de Navegación**:
+      1. **SEDES**
+      2. **AMBIENTES**
+      3. **CURSOS**
+      4. **PERSONAL CLÍNICA**
+      5. **HISTORIAL DE ASISTENCIA**
 
 ---
 

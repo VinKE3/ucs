@@ -22,6 +22,7 @@ export async function GET(request: Request) {
         nombres: usuarios.nombres,
         apellidos: usuarios.apellidos,
         tipoPersonal: usuarios.tipoPersonal,
+        rolSistema: usuarios.rolSistema,
         activo: usuarios.activo,
       })
       .from(usuarios)
@@ -33,6 +34,13 @@ export async function GET(request: Request) {
     }
 
     const usuario = foundUsers[0];
+    if (usuario.dni === '00000001' || usuario.rolSistema === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Esta cuenta es de gestión administrativa y no registra turnos de asistencia en el kiosco.' },
+        { status: 403 }
+      );
+    }
+
     if (!usuario.activo) {
       return NextResponse.json({ error: 'El usuario se encuentra inactivo' }, { status: 403 });
     }

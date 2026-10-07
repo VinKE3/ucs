@@ -59,11 +59,26 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina, setItemsPorPagina] = useState<number>(15);
 
-  const totalEnClinica = usuariosList.filter((u) => Boolean(u.turnoActivoId)).length;
-  const totalDocentes = usuariosList.filter((u) => u.tipoPersonal === 'docente').length;
-  const totalTecnicos = usuariosList.filter((u) => u.tipoPersonal === 'tecnico').length;
-  const totalPacientes = usuariosList.filter((u) => u.tipoPersonal === 'paciente_simulado').length;
-  const totalInactivos = usuariosList.filter((u) => !u.activo).length;
+  // Modo Oculto / Cuenta Maestra: Por defecto ocultar 00000001 (solo visible si super_admin activa el switch)
+  const isSuperAdmin = session.rolSistema === 'super_admin';
+  const [mostrarCuentasSistema, setMostrarCuentasSistema] = useState(false);
+
+  // Lista base excluyendo cuentas maestras si el interruptor está inactivo
+  const usuariosBase = useMemo(() => {
+    return usuariosList.filter((u) => {
+      const esCuentaSistema = u.dni === '00000001';
+      if (esCuentaSistema && !mostrarCuentasSistema) {
+        return false;
+      }
+      return true;
+    });
+  }, [usuariosList, mostrarCuentasSistema]);
+
+  const totalEnClinica = usuariosBase.filter((u) => Boolean(u.turnoActivoId)).length;
+  const totalDocentes = usuariosBase.filter((u) => u.tipoPersonal === 'docente').length;
+  const totalTecnicos = usuariosBase.filter((u) => u.tipoPersonal === 'tecnico').length;
+  const totalPacientes = usuariosBase.filter((u) => u.tipoPersonal === 'paciente_simulado').length;
+  const totalInactivos = usuariosBase.filter((u) => !u.activo).length;
 
   const castingFiltroActivoCount =
     (filtroRangoEdadId !== 'todos' ? 1 : 0) +
@@ -71,7 +86,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     (filtroRestriccionExcluirId !== 'ninguna' ? 1 : 0);
 
   const usuariosFiltrados = useMemo(() => {
-    return usuariosList.filter((u) => {
+    return usuariosBase.filter((u) => {
       let matchesTipo = true;
       if (filterPersonalTipo === 'inactivos') {
         matchesTipo = !u.activo;
@@ -116,7 +131,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
       return matchesTipo && matchesSearch;
     });
   }, [
-    usuariosList,
+    usuariosBase,
     filterPersonalTipo,
     searchPersonal,
     filtroRangoEdadId,
@@ -128,7 +143,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   // Reseteo automático de página al cambiar filtros o búsqueda
   React.useEffect(() => {
     setPaginaActual(1);
-  }, [filterPersonalTipo, searchPersonal, filtroRangoEdadId, filtroEspecialidadId, filtroRestriccionExcluirId]);
+  }, [filterPersonalTipo, searchPersonal, filtroRangoEdadId, filtroEspecialidadId, filtroRestriccionExcluirId, mostrarCuentasSistema]);
 
   const totalUsuarios = usuariosFiltrados.length;
   const totalPaginas = itemsPorPagina === -1 ? 1 : Math.max(1, Math.ceil(totalUsuarios / itemsPorPagina));
@@ -330,7 +345,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             className={`${styles.pillBtn} ${filterPersonalTipo === 'todos' ? styles.pillBtnActive : ''}`}
             onClick={() => setFilterPersonalTipo('todos')}
           >
-            Todos ({usuariosList.length})
+            Todos ({usuariosBase.length})
           </button>
           <button
             type="button"
@@ -374,6 +389,33 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
 
         {/* BOTONES DE ACCIÓN: REGISTRO Y CASTING */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={() => setMostrarCuentasSistema(!mostrarCuentasSistema)}
+              className={styles.secondaryActionBtn}
+              style={{
+                borderColor: mostrarCuentasSistema ? '#f59e0b' : 'var(--border-color)',
+                color: mostrarCuentasSistema ? '#f59e0b' : 'var(--text-muted)',
+                background: mostrarCuentasSistema ? 'rgba(245, 158, 11, 0.14)' : 'transparent',
+                whiteSpace: 'nowrap',
+                fontSize: '0.84rem',
+                padding: '0.5rem 0.85rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title={
+                mostrarCuentasSistema
+                  ? 'Ocultar cuenta maestra de sistema'
+                  : 'Revelar cuenta maestra de sistema (00000001) para gestión exclusiva'
+              }
+            >
+              <span>{mostrarCuentasSistema ? '🛡️' : '🔒'}</span>{' '}
+              {mostrarCuentasSistema ? 'Cuenta Maestra Visible' : 'Cuentas Sistema'}
+            </button>
+          )}
+
           {onOpenCastingCatalogos && (
             <button
               type="button"
@@ -624,6 +666,21 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         <strong style={{ color: 'var(--text-primary)' }}>
                           {u.nombres} {u.apellidos}
                         </strong>
+                        {u.dni === '00000001' && (
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              color: '#f59e0b',
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              border: '1px solid rgba(245, 158, 11, 0.4)',
+                              padding: '0.12rem 0.45rem',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            🛡️ Cuenta Maestra TI
+                          </span>
+                        )}
                         {!u.activo && (
                           <span
                             style={{
@@ -789,18 +846,20 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                   </td>
                   <td>
                     <div className={styles.actionRow}>
-                      <button
-                        onClick={() => onOpenKardex(u)}
-                        className={styles.iconBtn}
-                        style={{
-                          borderColor: 'rgba(56, 189, 248, 0.4)',
-                          color: 'var(--ucs-blue-sky)',
-                          background: 'rgba(56, 189, 248, 0.08)',
-                        }}
-                        title="Ver Ficha 360° y Cómputo de Horas"
-                      >
-                        <span>📊</span> Horas
-                      </button>
+                      {u.dni !== '00000001' && (
+                        <button
+                          onClick={() => onOpenKardex(u)}
+                          className={styles.iconBtn}
+                          style={{
+                            borderColor: 'rgba(56, 189, 248, 0.4)',
+                            color: 'var(--ucs-blue-sky)',
+                            background: 'rgba(56, 189, 248, 0.08)',
+                          }}
+                          title="Ver Ficha 360° y Cómputo de Horas"
+                        >
+                          <span>📊</span> Horas
+                        </button>
+                      )}
 
                       {u.tipoPersonal === 'paciente_simulado' && onOpenFichaCasting && (
                         <button
@@ -827,19 +886,21 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         <span>✏️</span> Editar
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => onToggleUsuarioActivo(u)}
-                        className={styles.iconBtn}
-                        style={!u.activo ? { color: '#10b981', borderColor: '#10b981' } : undefined}
-                        title={
-                          u.activo
-                            ? 'Inactivar colaborador (bloquea marcación en kiosco y acceso web)'
-                            : 'Reactivar colaborador en el sistema'
-                        }
-                      >
-                        {u.activo ? '⏸️' : '▶️'}
-                      </button>
+                      {u.dni !== '00000001' && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleUsuarioActivo(u)}
+                          className={styles.iconBtn}
+                          style={!u.activo ? { color: '#10b981', borderColor: '#10b981' } : undefined}
+                          title={
+                            u.activo
+                              ? 'Inactivar colaborador (bloquea marcación en kiosco y acceso web)'
+                              : 'Reactivar colaborador en el sistema'
+                          }
+                        >
+                          {u.activo ? '⏸️' : '▶️'}
+                        </button>
+                      )}
 
                       {session.rolSistema === 'super_admin' && (
                         <button
@@ -852,15 +913,17 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => onDeleteUsuario(u)}
-                        className={styles.iconBtn}
-                        style={{ color: '#ef4444' }}
-                        title="Eliminar usuario permanentemente (solo si no tiene asistencias asociadas)"
-                      >
-                        <span>🗑️</span>
-                      </button>
+                      {u.dni !== '00000001' && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteUsuario(u)}
+                          className={styles.iconBtn}
+                          style={{ color: '#ef4444' }}
+                          title="Eliminar usuario permanentemente (solo si no tiene asistencias asociadas)"
+                        >
+                          <span>🗑️</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

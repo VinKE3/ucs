@@ -122,10 +122,17 @@ src/
     - **Logo Oficial Institucional**: Incorporado `public/logo.png` de la Universidad Científica del Sur.
     - **Diseño Minimalista y Limpio**: Se eliminaron los contenedores tipo tarjeta con borde blanco y los textos redundantes adyacentes (*«Clínica de Simulación • Control de Asistencias»*) en los encabezados, dejando exclusivamente el logo oficial integrado de forma limpia, espaciosa y adaptable a tema oscuro/claro sin sobrecargar la pantalla ni en móvil ni en desktop.
     - **Presencia en Módulos**: Kiosco Terminal, Navbar de Administración, Menú Móvil, Login y Ficha Imprimible ECOE.
+13. **Protección y Modo Oculto de Cuenta Maestra TI (`00000001` - Super Admin)**:
+    - **Aislamiento en Kiosco (`/api/kiosco/lookup` & `/api/kiosco/marcar`)**: Bloqueo preventivo en el terminal táctil si se digita `00000001` (*«Esta cuenta es de gestión administrativa y no registra turnos de asistencia en el kiosco»*).
+    - **Estadísticas Reales de Personal (`/api/dashboard/stats` & `AdminDashboard.tsx`)**: La cuenta maestra no altera los contadores de personal clínico (técnicos/docentes).
+    - **Interruptor Secreto de Super Admin (`PersonalTab.tsx`)**: Oculto 100% por defecto. Si el usuario logueado es `super_admin`, se habilita el botón `[ 🔒 Cuentas Sistema ]` / `[ 🛡️ Cuenta Maestra Activa ]` para revelarla bajo demanda con su distintivo dorado `🛡️ Cuenta Maestra TI`.
+    - **Protección contra Bloqueo Accidental**: Deshabilitadas las opciones de borrado e inactivación para la cuenta raíz.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
+
+* `[commit pendiente]`: feat(security): modo oculto e interruptor secreto para cuenta maestra de super admin 00000001
 
 * `4f183db`: style: aumentar dimension y visibilidad del logo en version de escritorio
 * `d97b0a8`: style(branding): simplificar cabecera dejando exclusivamente el logo oficial limpio y estilizado

@@ -1002,7 +1002,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         stats={stats}
-        usuariosCount={usuariosList.length}
+        usuariosCount={usuariosList.filter((u) => u.dni !== '00000001').length}
         cursosCount={cursosList.length}
       />
 
@@ -1024,7 +1024,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               className={`${styles.tabBtn} ${activeTab === 'personal' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('personal')}
             >
-              👥 Personal de Clínica ({usuariosList.length})
+              👥 Personal de Clínica ({usuariosList.filter((u) => u.dni !== '00000001').length})
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'cursos' ? styles.activeTab : ''}`}

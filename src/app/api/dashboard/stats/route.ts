@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sedes, ambientes, usuarios, asistencias, cursos } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, ne, and, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ export async function GET() {
     const [usuariosCount] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(usuarios)
-      .where(eq(usuarios.activo, true));
+      .where(and(eq(usuarios.activo, true), ne(usuarios.dni, '00000001')));
 
     const [cursosCount] = await db
       .select({ count: sql<number>`count(*)::int` })

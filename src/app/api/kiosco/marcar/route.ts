@@ -18,6 +18,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
+    if (user.dni === '00000001' || user.rolSistema === 'super_admin') {
+      return NextResponse.json({ error: 'Esta cuenta es de gestión administrativa y no registra turnos de asistencia en el kiosco.' }, { status: 403 });
+    }
+
     if (!user.activo) {
       return NextResponse.json({ error: 'Usuario inactivo en el sistema. Consulta con la coordinación académica.' }, { status: 403 });
     }

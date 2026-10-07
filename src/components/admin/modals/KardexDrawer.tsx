@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { UsuarioItem, AsistenciaAdminItem } from '@/types/admin';
+import {
+  UsuarioItem,
+  AsistenciaAdminItem,
+  CastingEspecialidadItem,
+  CastingRestriccionItem,
+} from '@/types/admin';
 import styles from './KardexDrawer.module.css';
 
 interface KardexDrawerProps {
@@ -9,6 +14,9 @@ interface KardexDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onUsuarioUpdated?: (usuarioActualizado: UsuarioItem) => void;
+  onOpenFichaCasting?: (usuario: UsuarioItem) => void;
+  especialidadesList?: CastingEspecialidadItem[];
+  restriccionesList?: CastingRestriccionItem[];
 }
 
 type PeriodFilter = 'hoy' | 'semana' | 'mes' | 'todos';
@@ -64,6 +72,9 @@ export function KardexDrawer({
   isOpen,
   onClose,
   onUsuarioUpdated,
+  onOpenFichaCasting,
+  especialidadesList,
+  restriccionesList,
 }: KardexDrawerProps) {
   const [periodo, setPeriodo] = useState<PeriodFilter>('semana');
   const [asistencias, setAsistencias] = useState<AsistenciaAdminItem[]>([]);
@@ -542,6 +553,130 @@ export function KardexDrawer({
                   >
                     Cancelar
                   </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TARJETA DE PERFIL DE CASTING PARA PACIENTE SIMULADO */}
+          {usuario.tipoPersonal === 'paciente_simulado' && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(236, 72, 153, 0.08) 100%)',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                borderRadius: '12px',
+                padding: '1rem',
+                marginBottom: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🎭</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#c084fc' }}>
+                    Ficha de Casting & Competencias Clínicas
+                  </span>
+                </div>
+                {onOpenFichaCasting && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenFichaCasting(usuario)}
+                    style={{
+                      background: 'rgba(168, 85, 247, 0.2)',
+                      border: '1px solid #c084fc',
+                      color: '#ffffff',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✏️ Editar Casting
+                  </button>
+                )}
+              </div>
+
+              {usuario.castingPerfil ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {usuario.castingPerfil.rangoEdadNombre && (
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '4px',
+                          color: usuario.castingPerfil.rangoEdadColor || '#38bdf8',
+                          background: `${usuario.castingPerfil.rangoEdadColor || '#38bdf8'}22`,
+                          border: `1px solid ${usuario.castingPerfil.rangoEdadColor || '#38bdf8'}44`,
+                        }}
+                      >
+                        🎂 {usuario.castingPerfil.rangoEdadNombre}
+                      </span>
+                    )}
+                    {usuario.castingPerfil.genero && (
+                      <span style={{ color: 'var(--text-muted)' }}>Género: {usuario.castingPerfil.genero}</span>
+                    )}
+                    {usuario.castingPerfil.biotipo && (
+                      <span style={{ color: 'var(--text-muted)' }}>• Biotipo: {usuario.castingPerfil.biotipo}</span>
+                    )}
+                  </div>
+
+                  {usuario.castingPerfil.especialidadesIds && usuario.castingPerfil.especialidadesIds.length > 0 && (
+                    <div>
+                      <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Casos dominados:</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                        {usuario.castingPerfil.especialidadesIds.map((id) => {
+                          const esp = especialidadesList?.find((e) => e.id === id);
+                          return (
+                            <span
+                              key={id}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '4px',
+                                background: 'rgba(168, 85, 247, 0.15)',
+                                color: '#c084fc',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                              }}
+                            >
+                              {esp ? `${esp.icono || '🩺'} ${esp.nombre}` : `Especialidad #${id}`}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {usuario.castingPerfil.restriccionesIds && usuario.castingPerfil.restriccionesIds.length > 0 && (
+                    <div style={{ marginTop: '0.2rem' }}>
+                      <span style={{ color: '#f87171', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem', fontWeight: 600 }}>⚠️ Restricciones / Contraindicaciones:</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                        {usuario.castingPerfil.restriccionesIds.map((id) => {
+                          const rest = restriccionesList?.find((r) => r.id === id);
+                          return (
+                            <span
+                              key={id}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '4px',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#f87171',
+                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {rest ? `${rest.icono || '⚠️'} ${rest.nombre}` : `Restricción #${id}`}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Aún no cuenta con ficha de casting configurada. Haz clic en &quot;Editar Casting&quot; para registrar sus rangos, casos y restricciones.
                 </div>
               )}
             </div>

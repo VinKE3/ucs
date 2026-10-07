@@ -100,11 +100,29 @@ src/
      - El ticket de salida en el Kiosco calcula el honorario de la sesión utilizando la tarifa del curso correspondiente.
      - El Resumen consolidado y el reporte CSV aplican el cálculo proporcional por cada sesión y curso asistido.
 
+10. **Módulo de Casting & Perfil Clínico para Pacientes Simulados**:
+    - **CRUD Dinámico de Catálogos de Casting (`ModalGestionCastingCatalogos.tsx` & `/api/casting/catalogos`)**:
+      - **Rangos de Edad**: Gestión de rangos etarios con límites de edad min/max, color y descripción (ej. 18-25 años, 26-40 años, 41-59 años, 60+ años geriátrico).
+      - **Especialidades y Casos Clínicos**: Catálogo de áreas de actuación médica con iconos y colores (Salud Mental, Ginecología, Emergencias, Malas Noticias, Medicina Interna, Pediatría, etc.).
+      - **Restricciones y Contraindicaciones**: Niveles de severidad (Crítica, Moderada, Leve), alertas y colores (No contacto físico invasivo, No caídas, Alergia a látex, etc.).
+    - **Ficha de Casting de Actor (`ModalFichaCasting.tsx` & `/api/casting/perfiles`)**:
+      - Perfil integral con edad real vs aparente, género, biotipo, selección interactiva de especialidades dominadas con insignias y activación de restricciones médicas/éticas.
+      - Notas de experiencia actoral, disponibilidad horaria y contacto de emergencia.
+      - **Ficha Técnica de Estación ECOE Imprimible (`@media print`)**: Formato formal con membrete oficial UCS, recuadro de seguridad de restricciones en rojo para docentes evaluadores, y casillas de firma del actor y coordinación.
+    - **Buscador de Convocatoria para ECOEs (`PersonalTab.tsx`)**:
+      - Filtro avanzado de casting para convocar actores por rango de edad, especialidad requerida y exclusión de restricciones específicas.
+      - **Copiar Resumen WhatsApp**: Genera un mensaje estructurado y listo para enviar al grupo de actores o coordinación con 1 clic.
+      - **Exportar Convocatoria a CSV**: Descarga en Excel/CSV (UTF-8 BOM) con todos los atributos de perfil de los actores preseleccionados.
+      - Distintivos visibles de casting en la tabla de personal y botón de acceso rápido `🎭 Casting`.
+    - **Integración en Kardex 360° (`KardexDrawer.tsx`)**:
+      - Vista del perfil artístico y clínico del paciente simulado directamente en su ficha de horas.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
-* `738d152`: feat(cursos): tarifas diferenciadas de pacientes simulados, tope de horas opcional y ranking de demanda operativa
+* `fb6c08c`: feat(casting): crud completo de catalogos, ficha de actor, convocatoria ecoe y ficha imprimible
+* `7f5d396`: feat(cursos): tarifas diferenciadas de pacientes simulados, tope de horas opcional y ranking de demanda operativa
 * `d811528`: implenetando tarifa hora
 * `9d24d92`: feat(kiosco): soporte inteligente de sesiones conjuntas Docente + Paciente Simulado y auto-seleccion de curso
 * `bbc3ae2`: docs: agregar PROGRESS.md y configurar directiva de sincronizacion multi-pc en AGENTS.md
@@ -124,8 +142,6 @@ src/
    - Vista a pantalla completa en tiempo real con el estado de ocupación de las salas para proyectar en Smart TV en recepción/pasillo sin requerir login.
 2. **Marcación con Fotocheck UCS (Código de Barras / QR)**:
    - Integración con lector USB en el kiosco para marcación instantánea sin digitar DNI.
-3. **Ficha de Pacientes Simulados**:
-   - Registro de perfiles de actuación y casos médicos que domina cada actor.
-4. **Integración con Programación de SimClic**:
+3. **Integración con Programación de SimClic**:
    - Importación de la sábana de programación de SimClic (`cientifica.simclic.com`) para sugerir salas y estaciones ECOE automáticamente al pasar el DNI.
 

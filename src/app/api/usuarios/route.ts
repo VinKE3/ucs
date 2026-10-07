@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { usuarios, asistencias, sedes, ambientes } from '@/db/schema';
+import { usuarios, asistencias, sedes, ambientes, castingPerfiles, castingRangosEdad } from '@/db/schema';
 import { desc, eq, and, sql } from 'drizzle-orm';
 import { getSession, hashPassword } from '@/lib/auth';
 
@@ -14,45 +14,73 @@ export async function GET() {
     }
 
     // Consulta con LEFT JOIN para detectar en qué sede y sala se encuentra ahora mismo
-    const list = await db
-      .select({
-        id: usuarios.id,
-        dni: usuarios.dni,
-        nombres: usuarios.nombres,
-        apellidos: usuarios.apellidos,
-        correo: usuarios.correo,
-        telefono: usuarios.telefono,
-        tipoPersonal: usuarios.tipoPersonal,
-        rolSistema: usuarios.rolSistema,
-        horasSemanalesMax: usuarios.horasSemanalesMax,
-        tarifaHora: usuarios.tarifaHora,
-        activo: usuarios.activo,
-        tienePassword: sql<boolean>`${usuarios.passwordHash} IS NOT NULL`,
-        createdAt: usuarios.createdAt,
-        // Datos de turno activo en vivo
-        turnoActivoId: asistencias.id,
-        horaIngreso: asistencias.horaIngreso,
-        sedeActualId: sedes.id,
-        sedeActualNombre: sedes.nombre,
-        ambienteActualId: ambientes.id,
-        ambienteActualNombre: ambientes.nombre,
-        ambienteActualCodigo: ambientes.codigo,
-      })
-      .from(usuarios)
-      .leftJoin(
-        asistencias,
-        and(
-          eq(asistencias.usuarioId, usuarios.id),
-          eq(asistencias.estado, 'en_curso')
+    const [list, perfilesList] = await Promise.all([
+      db
+        .select({
+          id: usuarios.id,
+          dni: usuarios.dni,
+          nombres: usuarios.nombres,
+          apellidos: usuarios.apellidos,
+          correo: usuarios.correo,
+          telefono: usuarios.telefono,
+          tipoPersonal: usuarios.tipoPersonal,
+          rolSistema: usuarios.rolSistema,
+          horasSemanalesMax: usuarios.horasSemanalesMax,
+          tarifaHora: usuarios.tarifaHora,
+          activo: usuarios.activo,
+          tienePassword: sql<boolean>`${usuarios.passwordHash} IS NOT NULL`,
+          createdAt: usuarios.createdAt,
+          // Datos de turno activo en vivo
+          turnoActivoId: asistencias.id,
+          horaIngreso: asistencias.horaIngreso,
+          sedeActualId: sedes.id,
+          sedeActualNombre: sedes.nombre,
+          ambienteActualId: ambientes.id,
+          ambienteActualNombre: ambientes.nombre,
+          ambienteActualCodigo: ambientes.codigo,
+        })
+        .from(usuarios)
+        .leftJoin(
+          asistencias,
+          and(
+            eq(asistencias.usuarioId, usuarios.id),
+            eq(asistencias.estado, 'en_curso')
+          )
         )
-      )
-      .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
-      .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
-      .orderBy(desc(sql`${asistencias.id} IS NOT NULL`), usuarios.nombres);
+        .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+        .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+        .orderBy(desc(sql`${asistencias.id} IS NOT NULL`), usuarios.nombres),
+
+      db
+        .select({
+          id: castingPerfiles.id,
+          usuarioId: castingPerfiles.usuarioId,
+          rangoEdadId: castingPerfiles.rangoEdadId,
+          rangoEdadNombre: castingRangosEdad.nombre,
+          rangoEdadColor: castingRangosEdad.color,
+          edadReal: castingPerfiles.edadReal,
+          genero: castingPerfiles.genero,
+          biotipo: castingPerfiles.biotipo,
+          especialidadesIds: castingPerfiles.especialidadesIds,
+          restriccionesIds: castingPerfiles.restriccionesIds,
+          experienciaNotas: castingPerfiles.experienciaNotas,
+          disponibilidad: castingPerfiles.disponibilidad,
+          contactoEmergencia: castingPerfiles.contactoEmergencia,
+          activoCasting: castingPerfiles.activoCasting,
+        })
+        .from(castingPerfiles)
+        .leftJoin(castingRangosEdad, eq(castingPerfiles.rangoEdadId, castingRangosEdad.id)),
+    ]);
+
+    const perfilesMap = new Map<number, any>();
+    for (const p of perfilesList) {
+      perfilesMap.set(p.usuarioId, p);
+    }
 
     const sanitized = list.map((u) => ({
       ...u,
       tienePassword: Boolean(u.tienePassword),
+      castingPerfil: perfilesMap.get(u.id) || null,
     }));
 
     return NextResponse.json({ usuarios: sanitized });

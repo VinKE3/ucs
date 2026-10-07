@@ -220,6 +220,78 @@ export const categoriasAmbiente = pgTable('categorias_ambiente', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// --- 8. TABLAS DEL MÓDULO DE CASTING (Pacientes Simulados) ---
+export const castingRangosEdad = pgTable('casting_rangos_edad', {
+  id: serial('id').primaryKey(),
+  nombre: varchar('nombre', { length: 100 }).notNull(),
+  descripcion: text('descripcion'),
+  edadMin: integer('edad_min'),
+  edadMax: integer('edad_max'),
+  color: varchar('color', { length: 30 }).default('#38bdf8').notNull(),
+  orden: integer('orden').default(0).notNull(),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const castingEspecialidades = pgTable('casting_especialidades', {
+  id: serial('id').primaryKey(),
+  nombre: varchar('nombre', { length: 120 }).notNull(),
+  descripcion: text('descripcion'),
+  icono: varchar('icono', { length: 20 }).default('🧠'),
+  color: varchar('color', { length: 30 }).default('#c084fc').notNull(),
+  orden: integer('orden').default(0).notNull(),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const castingRestricciones = pgTable('casting_restricciones', {
+  id: serial('id').primaryKey(),
+  nombre: varchar('nombre', { length: 120 }).notNull(),
+  descripcion: text('descripcion'),
+  nivel: varchar('nivel', { length: 30 }).default('moderada').notNull(), // 'leve', 'moderada', 'critica'
+  icono: varchar('icono', { length: 20 }).default('⚠️'),
+  color: varchar('color', { length: 30 }).default('#ef4444').notNull(),
+  orden: integer('orden').default(0).notNull(),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const castingPerfiles = pgTable('casting_perfiles', {
+  id: serial('id').primaryKey(),
+  usuarioId: integer('usuario_id')
+    .notNull()
+    .unique()
+    .references(() => usuarios.id, { onDelete: 'cascade' }),
+  rangoEdadId: integer('rango_edad_id')
+    .references(() => castingRangosEdad.id, { onDelete: 'set null' }),
+  edadReal: integer('edad_real'),
+  genero: varchar('genero', { length: 50 }),
+  biotipo: varchar('biotipo', { length: 50 }),
+  especialidadesIds: jsonb('especialidades_ids').$type<number[]>().default([]).notNull(),
+  restriccionesIds: jsonb('restricciones_ids').$type<number[]>().default([]).notNull(),
+  experienciaNotas: text('experiencia_notas'),
+  disponibilidad: text('disponibilidad'),
+  contactoEmergencia: varchar('contacto_emergencia', { length: 150 }),
+  activoCasting: boolean('activo_casting').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Relaciones para Casting
+export const castingPerfilesRelations = relations(castingPerfiles, ({ one }) => ({
+  usuario: one(usuarios, {
+    fields: [castingPerfiles.usuarioId],
+    references: [usuarios.id],
+  }),
+  rangoEdad: one(castingRangosEdad, {
+    fields: [castingPerfiles.rangoEdadId],
+    references: [castingRangosEdad.id],
+  }),
+}));
+
 // --- TIPOS INFERIDOS (TypeScript) ---
 export type Sede = typeof sedes.$inferSelect;
 export type NewSede = typeof sedes.$inferInsert;
@@ -241,3 +313,16 @@ export type NewAuditoriaAsistencia = typeof auditoriaAsistencias.$inferInsert;
 
 export type CategoriaAmbiente = typeof categoriasAmbiente.$inferSelect;
 export type NewCategoriaAmbiente = typeof categoriasAmbiente.$inferInsert;
+
+export type CastingRangoEdad = typeof castingRangosEdad.$inferSelect;
+export type NewCastingRangoEdad = typeof castingRangosEdad.$inferInsert;
+
+export type CastingEspecialidad = typeof castingEspecialidades.$inferSelect;
+export type NewCastingEspecialidad = typeof castingEspecialidades.$inferInsert;
+
+export type CastingRestriccion = typeof castingRestricciones.$inferSelect;
+export type NewCastingRestriccion = typeof castingRestricciones.$inferInsert;
+
+export type CastingPerfil = typeof castingPerfiles.$inferSelect;
+export type NewCastingPerfil = typeof castingPerfiles.$inferInsert;
+

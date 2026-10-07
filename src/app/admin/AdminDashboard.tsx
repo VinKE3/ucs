@@ -15,6 +15,9 @@ import type {
   CategoriaAmbienteItem,
   StatsData,
   AdminTab,
+  CastingRangoEdadItem,
+  CastingEspecialidadItem,
+  CastingRestriccionItem,
 } from '@/types/admin';
 
 // Componentes modulares
@@ -37,6 +40,8 @@ import { ModalCurso, type CursoFormData } from '@/components/admin/modals/ModalC
 import { ModalCrearAsistenciaManual } from '@/components/admin/modals/ModalCrearAsistenciaManual';
 import { ModalAuditoriaAsistencia } from '@/components/admin/modals/ModalAuditoriaAsistencia';
 import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
+import { ModalGestionCastingCatalogos } from '@/components/admin/modals/ModalGestionCastingCatalogos';
+import { ModalFichaCasting } from '@/components/admin/modals/ModalFichaCasting';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
@@ -160,17 +165,26 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [categoriasList, setCategoriasList] = useState<CategoriaAmbienteItem[]>([]);
   const [showCategoriasModal, setShowCategoriasModal] = useState(false);
 
+  // Módulo de Casting
+  const [castingRangos, setCastingRangos] = useState<CastingRangoEdadItem[]>([]);
+  const [castingEspecialidades, setCastingEspecialidades] = useState<CastingEspecialidadItem[]>([]);
+  const [castingRestricciones, setCastingRestricciones] = useState<CastingRestriccionItem[]>([]);
+  const [showCastingCatalogosModal, setShowCastingCatalogosModal] = useState(false);
+  const [selectedCastingActor, setSelectedCastingActor] = useState<UsuarioItem | null>(null);
+  const [showFichaCastingModal, setShowFichaCastingModal] = useState(false);
+
   // ==========================================
   // CARGA DE DATOS DESDE LA API
   // ==========================================
   const loadData = async () => {
     try {
-      const [resStats, resUsers, resSedes, resCursos, resCategorias] = await Promise.all([
+      const [resStats, resUsers, resSedes, resCursos, resCategorias, resCasting] = await Promise.all([
         fetch('/api/dashboard/stats'),
         fetch('/api/usuarios'),
         fetch('/api/sedes'),
         fetch('/api/cursos'),
         fetch('/api/categorias-ambiente'),
+        fetch('/api/casting/catalogos'),
       ]);
 
       if (resStats.ok) {
@@ -200,10 +214,31 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         const dataCategorias = await resCategorias.json();
         setCategoriasList(dataCategorias.categorias || []);
       }
+
+      if (resCasting.ok) {
+        const dataCasting = await resCasting.json();
+        setCastingRangos(dataCasting.rangos || []);
+        setCastingEspecialidades(dataCasting.especialidades || []);
+        setCastingRestricciones(dataCasting.restricciones || []);
+      }
     } catch (err) {
       console.error('Error cargando dashboard:', err);
     }
   };
+
+  const loadCastingCatalogos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/casting/catalogos');
+      if (res.ok) {
+        const data = await res.json();
+        setCastingRangos(data.rangos || []);
+        setCastingEspecialidades(data.especialidades || []);
+        setCastingRestricciones(data.restricciones || []);
+      }
+    } catch (err) {
+      console.error('Error cargando catálogos de casting:', err);
+    }
+  }, []);
 
   const loadCategorias = useCallback(async () => {
     try {
@@ -1117,6 +1152,14 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               setKardexUser(u);
               setShowKardexDrawer(true);
             }}
+            rangosList={castingRangos}
+            especialidadesList={castingEspecialidades}
+            restriccionesList={castingRestricciones}
+            onOpenCastingCatalogos={() => setShowCastingCatalogosModal(true)}
+            onOpenFichaCasting={(u) => {
+              setSelectedCastingActor(u);
+              setShowFichaCastingModal(true);
+            }}
           />
         )}
 
@@ -1297,6 +1340,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         usuario={kardexUser}
         isOpen={showKardexDrawer}
         onClose={() => setShowKardexDrawer(false)}
+        especialidadesList={castingEspecialidades}
+        restriccionesList={castingRestricciones}
+        onOpenFichaCasting={(u) => {
+          setSelectedCastingActor(u);
+          setShowFichaCastingModal(true);
+        }}
         onUsuarioUpdated={(updated) => {
           setUsuariosList((prev) =>
             prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
@@ -1304,6 +1353,37 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           if (kardexUser && kardexUser.id === updated.id) {
             setKardexUser((prev) => (prev ? { ...prev, ...updated } : null));
           }
+        }}
+      />
+
+      {/* MODALES DE CASTING */}
+      <ModalGestionCastingCatalogos
+        isOpen={showCastingCatalogosModal}
+        rangosList={castingRangos}
+        especialidadesList={castingEspecialidades}
+        restriccionesList={castingRestricciones}
+        loading={false}
+        onClose={() => setShowCastingCatalogosModal(false)}
+        onRefresh={() => {
+          loadCastingCatalogos();
+          loadData();
+        }}
+      />
+
+      <ModalFichaCasting
+        isOpen={showFichaCastingModal}
+        actor={selectedCastingActor}
+        rangosList={castingRangos}
+        especialidadesList={castingEspecialidades}
+        restriccionesList={castingRestricciones}
+        onClose={() => {
+          setShowFichaCastingModal(false);
+          setSelectedCastingActor(null);
+        }}
+        onSaved={async () => {
+          setShowFichaCastingModal(false);
+          setSelectedCastingActor(null);
+          await loadData();
         }}
       />
     </div>

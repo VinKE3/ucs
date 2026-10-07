@@ -18,6 +18,7 @@ export interface UsuarioItem {
   ambienteActualId?: number | null;
   ambienteActualNombre?: string | null;
   ambienteActualCodigo?: string | null;
+  castingPerfil?: CastingPerfilItem | null;
 }
 
 export interface ResumenColaboradorItem {
@@ -187,3 +188,57 @@ export interface AuditoriaItem {
   adminDni?: string | null;
   adminCorreo?: string | null;
 }
+
+export interface CastingRangoEdadItem {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  edadMin: number | null;
+  edadMax: number | null;
+  color: string;
+  orden: number;
+  activo: boolean;
+  createdAt?: string;
+}
+
+export interface CastingEspecialidadItem {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  icono: string | null;
+  color: string;
+  orden: number;
+  activo: boolean;
+  createdAt?: string;
+}
+
+export interface CastingRestriccionItem {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  nivel: 'leve' | 'moderada' | 'critica' | string;
+  icono: string | null;
+  color: string;
+  orden: number;
+  activo: boolean;
+  createdAt?: string;
+}
+
+export interface CastingPerfilItem {
+  id: number;
+  usuarioId: number;
+  rangoEdadId: number | null;
+  rangoEdadNombre?: string | null;
+  rangoEdadColor?: string | null;
+  edadReal: number | null;
+  genero: string | null;
+  biotipo: string | null;
+  especialidadesIds: number[];
+  restriccionesIds: number[];
+  experienciaNotas: string | null;
+  disponibilidad: string | null;
+  contactoEmergencia: string | null;
+  activoCasting: boolean;
+  createdAt?: string;
+}
+

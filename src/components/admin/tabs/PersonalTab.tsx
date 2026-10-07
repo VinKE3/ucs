@@ -79,6 +79,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   const totalDocentes = usuariosBase.filter((u) => u.tipoPersonal === 'docente').length;
   const totalTecnicos = usuariosBase.filter((u) => u.tipoPersonal === 'tecnico').length;
   const totalPacientes = usuariosBase.filter((u) => u.tipoPersonal === 'paciente_simulado').length;
+  const totalAdministrativos = usuariosBase.filter((u) => u.tipoPersonal === 'administrativo').length;
   const totalInactivos = usuariosBase.filter((u) => !u.activo).length;
 
   const castingFiltroActivoCount =
@@ -299,6 +300,8 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
         return <span className={`${styles.personalBadge} ${styles.badgeTecnico}`}>Técnico</span>;
       case 'paciente_simulado':
         return <span className={`${styles.personalBadge} ${styles.badgePaciente}`}>Paciente Simulado</span>;
+      case 'administrativo':
+        return <span className={`${styles.personalBadge} ${styles.badgeAdministrativo}`}>Administrativo</span>;
       default:
         return <span>{tipo}</span>;
     }
@@ -334,6 +337,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
               <option value="docente">Docentes ({totalDocentes})</option>
               <option value="tecnico">Técnicos ({totalTecnicos})</option>
               <option value="paciente_simulado">🎭 Pacientes Simulados ({totalPacientes})</option>
+              <option value="administrativo">Administrativos ({totalAdministrativos})</option>
               <option value="inactivos">Inactivos ({totalInactivos})</option>
             </select>
             <span className={styles.selectChevron}>▼</span>
@@ -377,6 +381,13 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
           >
             🎭 Pacientes Simulados ({totalPacientes})
           </button>
+          <button
+            type="button"
+            className={`${styles.pillBtn} ${filterPersonalTipo === 'administrativo' ? styles.pillBtnActive : ''}`}
+            onClick={() => setFilterPersonalTipo('administrativo')}
+          >
+            Administrativos ({totalAdministrativos})
+          </button>
           {totalInactivos > 0 && (
             <button
               type="button"
@@ -418,7 +429,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             </button>
           )}
 
-          {onOpenCastingCatalogos && (
+          {session.rolSistema !== 'administrativo' && onOpenCastingCatalogos && (
             <button
               type="button"
               onClick={onOpenCastingCatalogos}
@@ -454,15 +465,17 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             <span>🔍</span> Convocatoria Casting {castingFiltroActivoCount > 0 && `(${castingFiltroActivoCount})`}
           </button>
 
-          <button
-            type="button"
-            onClick={onOpenCrearUsuario}
-            className={styles.actionBtn}
-            style={{ whiteSpace: 'nowrap', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            title="Registrar nuevo docente, técnico o paciente simulado"
-          >
-            <span>+</span> Registrar Personal
-          </button>
+          {session.rolSistema !== 'administrativo' && (
+            <button
+              type="button"
+              onClick={onOpenCrearUsuario}
+              className={styles.actionBtn}
+              style={{ whiteSpace: 'nowrap', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+              title="Registrar nuevo personal"
+            >
+              <span>+</span> Registrar Personal
+            </button>
+          )}
         </div>
       </div>
 
@@ -852,6 +865,8 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                       <span className={`${styles.roleBadge} ${styles.roleSuperAdmin}`}>Super Admin</span>
                     ) : u.rolSistema === 'admin' ? (
                       <span className={`${styles.roleBadge} ${styles.roleAdmin}`}>Admin</span>
+                    ) : u.rolSistema === 'administrativo' ? (
+                      <span className={`${styles.roleBadge} ${styles.roleAdministrativo}`}>Administrativo</span>
                     ) : (
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Sin acceso web</span>
                     )}
@@ -893,16 +908,18 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => onOpenEditUsuario(u)}
-                        className={styles.iconBtn}
-                        title="Editar datos, rol o tope de horas"
-                      >
-                        <span>✏️</span> Editar
-                      </button>
+                      {session.rolSistema !== 'administrativo' && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenEditUsuario(u)}
+                          className={styles.iconBtn}
+                          title="Editar datos, rol o tope de horas"
+                        >
+                          <span>✏️</span> Editar
+                        </button>
+                      )}
 
-                      {u.dni !== '00000001' && (
+                      {session.rolSistema !== 'administrativo' && u.dni !== '00000001' && (
                         <button
                           type="button"
                           onClick={() => onToggleUsuarioActivo(u)}
@@ -929,7 +946,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
-                      {u.dni !== '00000001' && (
+                      {session.rolSistema !== 'administrativo' && u.dni !== '00000001' && (
                         <button
                           type="button"
                           onClick={() => onDeleteUsuario(u)}

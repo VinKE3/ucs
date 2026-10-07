@@ -34,7 +34,7 @@ interface UsuarioData {
   dni: string;
   nombres: string;
   apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
 }
 
 interface AsistenciaActiva {
@@ -546,7 +546,7 @@ export default function KioscoTerminal() {
                     </div>
                   )}
 
-                  {ticketSalida.tipoPersonal === 'tecnico' && (
+                  {(ticketSalida.tipoPersonal === 'tecnico' || ticketSalida.tipoPersonal === 'administrativo') && (
                     <div style={{
                       background: 'rgba(0, 230, 153, 0.08)',
                       borderRadius: '8px',
@@ -763,6 +763,11 @@ export default function KioscoTerminal() {
                           🎭 Paciente Simulado
                         </span>
                       )}
+                      {usuarioActual.tipoPersonal === 'administrativo' && (
+                        <span className={`${styles.roleBadgeLarge}`} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
+                          📋 Administrativo
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -804,13 +809,13 @@ export default function KioscoTerminal() {
                   ) : (
                     /* CASO 2: NO TIENE ASISTENCIA ACTIVA -> MARCAR INGRESO */
                     <div>
-                      {/* Si es TÉCNICO: ingreso directo a la clínica */}
-                      {usuarioActual.tipoPersonal === 'tecnico' ? (
+                      {/* Si es TÉCNICO o ADMINISTRATIVO: ingreso directo a la sede / clínica */}
+                      {(usuarioActual.tipoPersonal === 'tecnico' || usuarioActual.tipoPersonal === 'administrativo') ? (
                         <div>
                           <div className={styles.tecnicoNotice}>
                             <span>💡</span>
                             <span>
-                              Tu ingreso se registrará para la clínica general de <strong>{sedeSeleccionada?.nombre}</strong>.
+                              Tu ingreso se registrará para la sede general de <strong>{sedeSeleccionada?.nombre}</strong>.
                             </span>
                           </div>
 
@@ -819,7 +824,7 @@ export default function KioscoTerminal() {
                             disabled={marcando}
                             className={styles.checkInBtn}
                           >
-                            {marcando ? 'Registrando ingreso...' : '🟢 REGISTRAR INGRESO A CLÍNICA'}
+                            {marcando ? 'Registrando ingreso...' : '🟢 REGISTRAR INGRESO'}
                           </button>
                         </div>
                       ) : (

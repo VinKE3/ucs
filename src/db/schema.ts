@@ -6,11 +6,13 @@ export const tipoPersonalEnum = pgEnum('tipo_personal', [
   'docente',
   'tecnico',
   'paciente_simulado',
+  'administrativo',
 ]);
 
 export const rolSistemaEnum = pgEnum('rol_sistema', [
   'super_admin',
   'admin',
+  'administrativo',
   'ninguno',
 ]);
 

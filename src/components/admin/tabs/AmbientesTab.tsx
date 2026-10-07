@@ -3,8 +3,10 @@
 import React, { useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem, AmbienteAdminItem, TecnicoTurnoItem, OcupanteItem, CategoriaAmbienteItem } from '@/types/admin';
+import type { SessionPayload } from '@/lib/auth';
 
 interface AmbientesTabProps {
+  session?: SessionPayload;
   sedesList: SedeAdminItem[];
   selectedSedeId: number | null;
   setSelectedSedeId: (id: number) => void;
@@ -30,6 +32,7 @@ interface AmbientesTabProps {
 }
 
 export const AmbientesTab: React.FC<AmbientesTabProps> = ({
+  session,
   sedesList,
   selectedSedeId,
   setSelectedSedeId,
@@ -130,12 +133,14 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
       <aside className={styles.sedesSidebar}>
         <div className={styles.sidebarHeader}>
           <span className={styles.sidebarTitle}>Sedes de la UCS ({sedesList.length})</span>
-          <button
-            onClick={onOpenCrearSede}
-            style={{ background: 'none', border: 'none', color: '#00b4d8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
-          >
-            + Sede
-          </button>
+          {session?.rolSistema !== 'administrativo' && (
+            <button
+              onClick={onOpenCrearSede}
+              style={{ background: 'none', border: 'none', color: '#00b4d8', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+            >
+              + Sede
+            </button>
+          )}
         </div>
 
         {sedesList.map((sede) => (
@@ -198,7 +203,7 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {selectedSedeObj && (
+            {selectedSedeObj && session?.rolSistema !== 'administrativo' && (
               <>
                 <button
                   type="button"
@@ -235,7 +240,7 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
               </>
             )}
 
-            {onOpenGestionCategorias && (
+            {session?.rolSistema !== 'administrativo' && onOpenGestionCategorias && (
               <button
                 type="button"
                 onClick={onOpenGestionCategorias}
@@ -496,36 +501,38 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenEditAmbiente(amb)}
-                      className={styles.iconBtn}
-                      title="Editar nombre, código, tipo o capacidad de la sala"
-                    >
-                      <span>✏️</span> Editar
-                    </button>
+                  {session?.rolSistema !== 'administrativo' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => onOpenEditAmbiente(amb)}
+                        className={styles.iconBtn}
+                        title="Editar nombre, código, tipo o capacidad de la sala"
+                      >
+                        <span>✏️</span> Editar
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onToggleAmbienteActivo(amb)}
-                      className={styles.iconBtn}
-                      style={!amb.activo ? { borderColor: '#10b981', color: '#10b981' } : undefined}
-                      title={amb.activo ? 'Poner en mantenimiento (no aparecerá en Kiosco)' : 'Habilitar como operativa'}
-                    >
-                      <span>{amb.activo ? '⏸️' : '▶️'}</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onToggleAmbienteActivo(amb)}
+                        className={styles.iconBtn}
+                        style={!amb.activo ? { borderColor: '#10b981', color: '#10b981' } : undefined}
+                        title={amb.activo ? 'Poner en mantenimiento (no aparecerá en Kiosco)' : 'Habilitar como operativa'}
+                      >
+                        <span>{amb.activo ? '⏸️' : '▶️'}</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onDeleteAmbiente(amb)}
-                      className={styles.iconBtn}
-                      style={{ color: '#ef4444' }}
-                      title="Eliminar permanentemente (solo si no tiene asistencias asociadas)"
-                    >
-                      <span>🗑️</span>
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteAmbiente(amb)}
+                        className={styles.iconBtn}
+                        style={{ color: '#ef4444' }}
+                        title="Eliminar permanentemente (solo si no tiene asistencias asociadas)"
+                      >
+                        <span>🗑️</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

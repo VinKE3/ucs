@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
+import type { TipoPersonal, RolSistema } from '@/types/admin';
 
 export interface PersonalFormData {
   id?: number;
@@ -11,8 +12,8 @@ export interface PersonalFormData {
   apellidos: string;
   correo: string;
   telefono: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
-  rolSistema: 'ninguno' | 'admin' | 'super_admin';
+  tipoPersonal: TipoPersonal;
+  rolSistema: RolSistema;
   password?: string;
   horasSemanalesMax?: string;
   tarifaHora?: string;
@@ -86,6 +87,7 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
               <option value="docente">Docente</option>
               <option value="tecnico">Técnico de Simulación</option>
               <option value="paciente_simulado">Paciente Simulado</option>
+              <option value="administrativo">Administrativo</option>
             </select>
           </div>
 
@@ -153,7 +155,7 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
             </div>
           )}
 
-          {createForm.tipoPersonal === 'tecnico' && (
+          {(createForm.tipoPersonal === 'tecnico' || createForm.tipoPersonal === 'administrativo') && (
             <div
               className={styles.fullWidth}
               style={{
@@ -166,7 +168,7 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <label className={styles.label} style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span>⏰</span> Horario y Turno Obligatorio
+                  <span>⏰</span> {createForm.tipoPersonal === 'tecnico' ? 'Horario y Turno Obligatorio' : 'Horario y Turno Laboral (Opcional)'}
                 </label>
                 <span
                   style={{
@@ -295,11 +297,11 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
                 <div>
                   <label className={styles.label} style={{ fontSize: '0.78rem' }}>
-                    Hora Entrada *
+                    Hora Entrada {createForm.tipoPersonal === 'tecnico' ? '*' : '(Opcional)'}
                   </label>
                   <input
                     type="time"
-                    required
+                    required={createForm.tipoPersonal === 'tecnico'}
                     value={createForm.horaEntradaEsperada || ''}
                     onChange={(e) => setCreateForm({ ...createForm, horaEntradaEsperada: e.target.value })}
                     className={styles.inputField}
@@ -307,11 +309,11 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
                 </div>
                 <div>
                   <label className={styles.label} style={{ fontSize: '0.78rem' }}>
-                    Hora Salida *
+                    Hora Salida {createForm.tipoPersonal === 'tecnico' ? '*' : '(Opcional)'}
                   </label>
                   <input
                     type="time"
-                    required
+                    required={createForm.tipoPersonal === 'tecnico'}
                     value={createForm.horaSalidaEsperada || ''}
                     onChange={(e) => setCreateForm({ ...createForm, horaSalidaEsperada: e.target.value })}
                     className={styles.inputField}
@@ -333,7 +335,7 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
                 </div>
               </div>
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block' }}>
-                💡 El sistema comparará la hora en que el técnico marque en el Kiosco con este turno para registrar si llegó temprano, puntual o con tardanza, y si cumplió horas extra al salir.
+                💡 El sistema comparará la hora en que el colaborador marque en el Kiosco con este turno para registrar si llegó temprano, puntual o con tardanza, y si cumplió horas extra al salir.
               </span>
             </div>
           )}
@@ -404,12 +406,13 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
                   className={styles.select}
                 >
                   <option value="ninguno">Ninguno (Solo marcación de asistencia en Kiosco)</option>
+                  <option value="administrativo">Administrativo (Control y gestión de asistencias)</option>
                   <option value="admin">Admin (Gestión y reportes sin borrado)</option>
                   <option value="super_admin">Super Admin (Control total)</option>
                 </select>
               </div>
 
-              {(createForm.rolSistema === 'admin' || createForm.rolSistema === 'super_admin') && (
+              {(createForm.rolSistema === 'admin' || createForm.rolSistema === 'super_admin' || createForm.rolSistema === 'administrativo') && (
                 <div className={styles.fullWidth}>
                   <label className={styles.label}>
                     Contraseña de Acceso Web {createForm.isEdit ? '(Opcional al editar)' : '*'}

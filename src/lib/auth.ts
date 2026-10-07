@@ -14,8 +14,8 @@ export interface SessionPayload {
   nombres: string;
   apellidos: string;
   correo: string | null;
-  rolSistema: 'super_admin' | 'admin' | 'ninguno';
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  rolSistema: 'super_admin' | 'admin' | 'administrativo' | 'ninguno';
+  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
 }
 
 // --- CONTRASEÑAS ---

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

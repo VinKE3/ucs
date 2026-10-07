@@ -1,3 +1,6 @@
+export type TipoPersonal = 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
+export type RolSistema = 'super_admin' | 'admin' | 'administrativo' | 'ninguno';
+
 export interface UsuarioItem {
   id: number;
   dni: string;
@@ -5,8 +8,8 @@ export interface UsuarioItem {
   apellidos: string;
   correo: string | null;
   telefono: string | null;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
-  rolSistema: 'super_admin' | 'admin' | 'ninguno';
+  tipoPersonal: TipoPersonal;
+  rolSistema: RolSistema;
   activo: boolean;
   tienePassword: boolean;
   horasSemanalesMax?: number | null;
@@ -29,7 +32,7 @@ export interface ResumenColaboradorItem {
   dni: string;
   nombres: string;
   apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  tipoPersonal: TipoPersonal;
   horasSemanalesMax?: number | null;
   tarifaHora?: number | null;
   montoLiquidacionEstimado?: number | null;
@@ -54,7 +57,7 @@ export interface ResumenColaboradorItem {
 
 export interface TicketSalidaData {
   colaborador: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  tipoPersonal: TipoPersonal;
   ambienteNombre: string;
   sedeNombre: string;
   cursoNombre: string | null;
@@ -86,7 +89,7 @@ export interface OcupanteItem {
   usuarioId: number;
   nombres: string;
   apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  tipoPersonal: TipoPersonal;
   dni: string;
   horaIngreso: string;
 }
@@ -131,7 +134,7 @@ export interface AsistenciaAdminItem {
   dni: string;
   nombres: string;
   apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+  tipoPersonal: TipoPersonal;
   correo: string | null;
   sedeId: number;
   sedeNombre: string;

@@ -33,8 +33,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Debe especificar la sede' }, { status: 400 });
       }
 
-      // Los técnicos no requieren ambienteId. Docentes y pacientes simulados sí.
-      if (user.tipoPersonal !== 'tecnico' && !ambienteId) {
+      // Los técnicos y administrativos no requieren ambienteId. Docentes y pacientes simulados sí.
+      if (user.tipoPersonal !== 'tecnico' && user.tipoPersonal !== 'administrativo' && !ambienteId) {
         return NextResponse.json(
           { error: 'Los docentes y pacientes simulados deben seleccionar un ambiente de simulación' },
           { status: 400 }
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       let anticipoMin: number | null = null;
       let feedbackPuntualidad = '';
 
-      if (user.tipoPersonal === 'tecnico' && user.horaEntradaEsperada) {
+      if ((user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') && user.horaEntradaEsperada) {
         horaEntradaProg = user.horaEntradaEsperada;
         horaSalidaProg = user.horaSalidaEsperada || null;
 
@@ -163,8 +163,8 @@ export async function POST(request: Request) {
         .values({
           usuarioId: user.id,
           sedeId: Number(sedeId),
-          ambienteId: user.tipoPersonal === 'tecnico' ? null : Number(ambienteId),
-          cursoId: user.tipoPersonal === 'tecnico' ? null : (cursoId ? Number(cursoId) : null),
+          ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
+          cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
           fecha: fechaStr,
           horaIngreso: now,
           horaEntradaProgramada: horaEntradaProg,
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
       let extraMin: number | null = null;
       let feedbackSalida = '';
 
-      if (user.tipoPersonal === 'tecnico') {
+      if (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') {
         const horaSalidaRef = asistenciaTarget.horaSalidaProgramada || user.horaSalidaEsperada;
         if (horaSalidaRef) {
           const [expH, expM] = horaSalidaRef.split(':').map(Number);

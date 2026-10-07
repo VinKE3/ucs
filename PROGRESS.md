@@ -159,6 +159,19 @@ src/
       - Tarjeta destacada de *Auditoría de Desempeño y Puntualidad* con ratio porcentual de puntualidad (`%`), tardanza total acumulada, sobretiempo adicional y turnos anticipados.
       - Desglose por sesión y exportación a CSV con datos de auditoría horaria.
 
+  * **Rol y Perfil "Administrativo" (Control & Fiscalización de Asistencias)**:
+    - **Doble Dimensión (DB & Enums)**:
+      - `tipo_personal`: `'administrativo'` para personal de coordinación clínica, secretaría y supervisión operativa que registra asistencia sin asociarse a un ambiente clínico ni curso médico.
+      - `rol_sistema`: `'administrativo'` para acceso web enfocado en control y fiscalización del sistema.
+    - **Permisos y Control de Acceso Granular**:
+      - **Asistencias (`/api/asistencias`, `AsistenciasTab.tsx`)**: Acceso completo a ver turnos en curso, filtrar por sede/rol/fechas, registrar asistencias manuales justificadas, regularizar turnos, ver auditorías y exportar informes en CSV/Excel. La vista por defecto al iniciar sesión se orienta automáticamente a este módulo.
+      - **Personal & Salas (Solo Lectura Segura)**: Acceso a consultar el directorio de colaboradores, fichas Kardex 360° y visualización en tiempo real de la ocupación de salas/sedes.
+      - **Protección de Infraestructura y Catálogos**: Se ocultan y restringen operaciones destructivas o críticas (crear/eliminar usuarios, modificar sedes/ambientes, configurar cursos o catálogos de casting).
+    - **Identidad Visual & Estilos (Dark & Light Mode)**:
+      - Insignia distintiva violeta/púrpura institucional (`.roleAdministrativo` y `.badgeAdministrativo` con fondo `rgba(168, 85, 247, 0.15)` y texto `#c084fc` en oscuro; y `#f3e8ff` con texto `#7e22ce` en tema claro para óptima legibilidad).
+    - **Terminal Kiosco Autoservicio (`KioscoTerminal.tsx`)**:
+      - Marcación ágil directa a la sede general sin obligar a seleccionar ambientes clínicos ni cursos de simulación médica. Soporte de horarios programados y control de puntualidad.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados

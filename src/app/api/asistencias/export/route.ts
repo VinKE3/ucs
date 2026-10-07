@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return new NextResponse('No autorizado', { status: 401 });
     }
 
@@ -143,6 +143,7 @@ export async function GET(request: Request) {
       if (item.tipoPersonal === 'docente') tipoPersonalLabel = 'Docente';
       if (item.tipoPersonal === 'tecnico') tipoPersonalLabel = 'Técnico de Simulación';
       if (item.tipoPersonal === 'paciente_simulado') tipoPersonalLabel = 'Paciente Simulado';
+      if (item.tipoPersonal === 'administrativo') tipoPersonalLabel = 'Administrativo';
 
       let estadoLabel: string = item.estado;
       if (item.estado === 'en_curso') estadoLabel = 'En Curso';

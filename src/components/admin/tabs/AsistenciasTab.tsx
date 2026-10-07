@@ -103,6 +103,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         return <span className={`${styles.personalBadge} ${styles.badgeTecnico}`}>Técnico</span>;
       case 'paciente_simulado':
         return <span className={`${styles.personalBadge} ${styles.badgePaciente}`}>Paciente Simulado</span>;
+      case 'administrativo':
+        return <span className={`${styles.personalBadge} ${styles.badgeAdministrativo}`}>Administrativo</span>;
       default:
         return <span>{tipo}</span>;
     }
@@ -134,7 +136,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       dni: string;
       nombres: string;
       apellidos: string;
-      tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+      tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
       horasSemanalesMax?: number | null;
       tarifaHora?: number | null;
       montoAcumulado: number;
@@ -351,15 +353,15 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       `"${r.apellidos}"`,
       `"${r.nombres}"`,
       r.tipoPersonal,
-      r.tipoPersonal === 'tecnico'
+      (r.tipoPersonal === 'tecnico' || r.tipoPersonal === 'administrativo')
         ? `"${r.horaEntradaEsperada ? `${r.horaEntradaEsperada} - ${r.horaSalidaEsperada || '--:--'}` : '06:00 - 15:00'}"`
         : '"N/A"',
       r.diasTrabajados,
       r.minutosTotales,
       (r.minutosTotales / 60).toFixed(2),
       r.horasTotalesFormato,
-      r.tipoPersonal === 'tecnico' ? r.minutosTardanzaTotales : '',
-      r.tipoPersonal === 'tecnico' ? r.minutosExtraTotales : '',
+      (r.tipoPersonal === 'tecnico' || r.tipoPersonal === 'administrativo') ? r.minutosTardanzaTotales : '',
+      (r.tipoPersonal === 'tecnico' || r.tipoPersonal === 'administrativo') ? r.minutosExtraTotales : '',
       r.horasSemanalesMax ? `${r.horasSemanalesMax} hrs` : 'Sin tope',
       r.tarifaHora ? Number(r.tarifaHora).toFixed(2) : '',
       r.montoLiquidacionEstimado !== null && r.montoLiquidacionEstimado !== undefined ? r.montoLiquidacionEstimado.toFixed(2) : '',
@@ -421,6 +423,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             <option value="docente">Docentes</option>
             <option value="tecnico">Técnicos</option>
             <option value="paciente_simulado">Pacientes Simulados</option>
+            <option value="administrativo">Administrativos</option>
           </select>
 
           <select
@@ -750,7 +753,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                               )}
                             </div>
                           )
-                        ) : colab.tipoPersonal === 'tecnico' ? (
+                        ) : (colab.tipoPersonal === 'tecnico' || colab.tipoPersonal === 'administrativo') ? (
                           <div>
                             <div style={{ fontSize: '0.78rem', color: '#93c5fd', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                               ⏰ {colab.horaEntradaEsperada ? `${colab.horaEntradaEsperada} - ${colab.horaSalidaEsperada || '--:--'}` : '06:00 - 15:00'}
@@ -1109,8 +1112,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                             : 'Pendiente'}
                         </div>
 
-                        {/* INDICADORES DE TURNO Y PUNTUALIDAD PARA TÉCNICOS */}
-                        {asist.tipoPersonal === 'tecnico' && (
+                        {/* INDICADORES DE TURNO Y PUNTUALIDAD PARA PERSONAL CON HORARIO */}
+                        {(asist.tipoPersonal === 'tecnico' || asist.tipoPersonal === 'administrativo') && (
                           <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                             {asist.horaEntradaProgramada && (
                               <div style={{ fontSize: '0.68rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       usuarioId: number;
       nombres: string;
       apellidos: string;
-      tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado';
+      tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
       dni: string;
     }[] = [];
 

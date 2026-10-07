@@ -132,6 +132,12 @@
   border: 1px solid rgba(0, 180, 216, 0.3);
 }
 
+.roleAdministrativo {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 .kioscoLink {
   padding: 0.45rem 0.9rem;
   background: var(--pill-bg);
@@ -369,6 +375,12 @@
   background: rgba(245, 158, 11, 0.15);
   color: #fbbf24;
   border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badgeAdministrativo {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
 .actionRow {
@@ -1365,6 +1377,13 @@
 
 :global([data-theme="light"]) .presenceLocationDetail {
   color: #475569 !important;
+}
+
+:global([data-theme="light"]) .roleAdministrativo,
+:global([data-theme="light"]) .badgeAdministrativo {
+  background: #f3e8ff !important;
+  color: #7e22ce !important;
+  border-color: #d8b4fe !important;
 }
 
 :global([data-theme="light"]) .occupantsBox {

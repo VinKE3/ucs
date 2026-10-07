@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -131,10 +131,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Regla de permisos: Solo SUPER_ADMIN puede crear a otros ADMIN o SUPER_ADMIN
-    if ((rolSistema === 'admin' || rolSistema === 'super_admin') && session.rolSistema !== 'super_admin') {
+    // Regla de permisos: Solo SUPER_ADMIN puede crear a otros ADMIN, SUPER_ADMIN o ADMINISTRATIVO
+    if ((rolSistema === 'admin' || rolSistema === 'super_admin' || rolSistema === 'administrativo') && session.rolSistema !== 'super_admin') {
       return NextResponse.json(
-        { error: 'Solo el Super Admin puede otorgar roles de sistema (Admin / Super Admin)' },
+        { error: 'Solo el Super Admin puede otorgar roles de sistema (Admin / Super Admin / Administrativo)' },
         { status: 403 }
       );
     }
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
     }
 
     let passwordHash: string | null = null;
-    if (rolSistema === 'admin' || rolSistema === 'super_admin') {
+    if (rolSistema === 'admin' || rolSistema === 'super_admin' || rolSistema === 'administrativo') {
       if (!password || password.trim().length < 6) {
         return NextResponse.json(
           { error: 'Para usuarios con acceso al sistema debe definir una contraseña de al menos 6 caracteres' },
@@ -264,7 +264,7 @@ export async function PATCH(request: Request) {
     }
 
     if (tipoPersonal !== undefined) {
-      if (!['docente', 'tecnico', 'paciente_simulado'].includes(tipoPersonal)) {
+      if (!['docente', 'tecnico', 'paciente_simulado', 'administrativo'].includes(tipoPersonal)) {
         return NextResponse.json({ error: 'Tipo de personal inválido' }, { status: 400 });
       }
       updateData.tipoPersonal = tipoPersonal;

@@ -444,15 +444,19 @@ export function KardexDrawer({
                     borderRadius: '6px',
                     background:
                       usuario.tipoPersonal === 'docente'
-                        ? 'rgba(168, 85, 247, 0.15)'
+                        ? 'rgba(59, 130, 246, 0.15)'
                         : usuario.tipoPersonal === 'paciente_simulado'
                         ? 'rgba(255, 90, 0, 0.15)'
+                        : usuario.tipoPersonal === 'administrativo'
+                        ? 'rgba(168, 85, 247, 0.15)'
                         : 'rgba(16, 185, 129, 0.15)',
                     color:
                       usuario.tipoPersonal === 'docente'
-                        ? '#c084fc'
+                        ? '#60a5fa'
                         : usuario.tipoPersonal === 'paciente_simulado'
                         ? '#ff701e'
+                        : usuario.tipoPersonal === 'administrativo'
+                        ? '#c084fc'
                         : '#34d399',
                   }}
                 >
@@ -485,7 +489,7 @@ export function KardexDrawer({
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>⚪ Fuera de turno</span>
                 )}
 
-                {usuario.tipoPersonal === 'tecnico' && (
+                {(usuario.tipoPersonal === 'tecnico' || usuario.tipoPersonal === 'administrativo') && (
                   <span
                     style={{
                       fontSize: '0.75rem',
@@ -654,8 +658,8 @@ export function KardexDrawer({
             </div>
           )}
 
-          {/* TARJETA DE AUDITORÍA Y PUNTUALIDAD PARA TÉCNICO DE SIMULACIÓN */}
-          {usuario.tipoPersonal === 'tecnico' && statsTecnico && (
+          {/* TARJETA DE AUDITORÍA Y PUNTUALIDAD PARA TÉCNICO Y ADMINISTRATIVO */}
+          {(usuario.tipoPersonal === 'tecnico' || usuario.tipoPersonal === 'administrativo') && statsTecnico && (
             <div
               style={{
                 background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',

@@ -46,7 +46,9 @@ import { confirmDelete, confirmToggleActive, showError, showToast } from '@/lib/
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<AdminTab>('ambientes');
+  const [activeTab, setActiveTab] = useState<AdminTab>(
+    session.rolSistema === 'administrativo' ? 'asistencias' : 'ambientes'
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0, cursos: 0 });
   
@@ -1086,13 +1088,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           </div>
 
           <div className={styles.tabActionButtons}>
-            {activeTab === 'personal' && (
+            {activeTab === 'personal' && session.rolSistema !== 'administrativo' && (
               <button onClick={() => setShowCreateModal(true)} className={styles.actionBtn}>
                 <span>+</span> Nuevo Personal
               </button>
             )}
 
-            {activeTab === 'cursos' && (
+            {activeTab === 'cursos' && session.rolSistema !== 'administrativo' && (
               <button
                 onClick={() => {
                   setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', tarifaHoraPs: '', activo: true, isEdit: false });
@@ -1105,7 +1107,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               </button>
             )}
 
-            {activeTab === 'ambientes' && (
+            {activeTab === 'ambientes' && session.rolSistema !== 'administrativo' && (
               <div className={styles.ambientesActionGroup}>
                 <button
                   onClick={() => {
@@ -1133,6 +1135,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {/* VISTAS MODULARES DE PESTAÑAS */}
         {activeTab === 'ambientes' && (
           <AmbientesTab
+            session={session}
             sedesList={sedesList}
             selectedSedeId={selectedSedeId}
             setSelectedSedeId={setSelectedSedeId}
@@ -1210,6 +1213,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'cursos' && (
           <CursosTab
+            session={session}
             cursosList={cursosList}
             loadingCursos={loadingCursos}
             searchCurso={searchCurso}

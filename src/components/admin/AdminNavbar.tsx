@@ -51,10 +51,18 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             <span className={styles.userName}>{session.nombres} {session.apellidos}</span>
             <span
               className={`${styles.roleBadge} ${
-                session.rolSistema === 'super_admin' ? styles.roleSuperAdmin : styles.roleAdmin
+                session.rolSistema === 'super_admin'
+                  ? styles.roleSuperAdmin
+                  : session.rolSistema === 'administrativo'
+                  ? styles.roleAdministrativo
+                  : styles.roleAdmin
               }`}
             >
-              {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
+              {session.rolSistema === 'super_admin'
+                ? 'Super Admin'
+                : session.rolSistema === 'administrativo'
+                ? 'Administrativo'
+                : 'Admin'}
             </span>
           </div>
 
@@ -119,8 +127,20 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
           <div className={styles.drawerUserInfo}>
             <div className={styles.drawerUserName}>{session.nombres} {session.apellidos}</div>
             <div className={styles.drawerUserEmail}>{session.correo || 'admin@cientifica.edu.pe'}</div>
-            <span className={`${styles.roleBadge} ${session.rolSistema === 'super_admin' ? styles.roleSuperAdmin : styles.roleAdmin}`}>
-              {session.rolSistema === 'super_admin' ? 'Super Admin' : 'Admin'}
+            <span
+              className={`${styles.roleBadge} ${
+                session.rolSistema === 'super_admin'
+                  ? styles.roleSuperAdmin
+                  : session.rolSistema === 'administrativo'
+                  ? styles.roleAdministrativo
+                  : styles.roleAdmin
+              }`}
+            >
+              {session.rolSistema === 'super_admin'
+                ? 'Super Admin'
+                : session.rolSistema === 'administrativo'
+                ? 'Administrativo'
+                : 'Admin'}
             </span>
           </div>
         </div>

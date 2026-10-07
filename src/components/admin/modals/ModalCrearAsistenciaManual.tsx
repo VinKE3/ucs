@@ -225,7 +225,7 @@ export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProp
             {/* SALA / AMBIENTE */}
             <div>
               <label className={styles.label}>
-                Sala / Ambiente {usuarioSeleccionado?.tipoPersonal === 'tecnico' ? '(Opcional para Técnicos)' : '*'}
+                Sala / Ambiente {(usuarioSeleccionado?.tipoPersonal === 'tecnico' || usuarioSeleccionado?.tipoPersonal === 'administrativo') ? '(Opcional)' : '*'}
               </label>
               <select
                 value={selectedAmbienteId}

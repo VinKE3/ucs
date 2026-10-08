@@ -392,7 +392,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
 
         {/* BOTONES DE ACCIÓN: REGISTRO Y CASTING */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {session.rolSistema !== 'administrativo' && onOpenCastingCatalogos && (
+          {onOpenCastingCatalogos && (
             <button
               type="button"
               onClick={onOpenCastingCatalogos}
@@ -428,17 +428,15 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             <span>🔍</span> Convocatoria Casting {castingFiltroActivoCount > 0 && `(${castingFiltroActivoCount})`}
           </button>
 
-          {session.rolSistema !== 'administrativo' && (
-            <button
-              type="button"
-              onClick={onOpenCrearUsuario}
-              className={styles.actionBtn}
-              style={{ whiteSpace: 'nowrap', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-              title="Registrar nuevo personal"
-            >
-              <span>+</span> Registrar Personal
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onOpenCrearUsuario}
+            className={styles.actionBtn}
+            style={{ whiteSpace: 'nowrap', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+            title="Registrar nuevo personal"
+          >
+            <span>+</span> Registrar Personal
+          </button>
         </div>
       </div>
 
@@ -856,18 +854,16 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
-                      {session.rolSistema !== 'administrativo' && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenEditUsuario(u)}
-                          className={styles.iconBtn}
-                          title="Editar datos, rol o tope de horas"
-                        >
-                          <span>✏️</span> Editar
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => onOpenEditUsuario(u)}
+                        className={styles.iconBtn}
+                        title="Editar datos, rol o tope de horas"
+                      >
+                        <span>✏️</span> Editar
+                      </button>
 
-                      {session.rolSistema !== 'administrativo' && u.dni !== '00000001' && (
+                      {u.dni !== '00000001' && (
                         <button
                           type="button"
                           onClick={() => onToggleUsuarioActivo(u)}
@@ -894,7 +890,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
-                      {session.rolSistema !== 'administrativo' && u.dni !== '00000001' && (
+                      {u.dni !== '00000001' && (
                         <button
                           type="button"
                           onClick={() => onDeleteUsuario(u)}

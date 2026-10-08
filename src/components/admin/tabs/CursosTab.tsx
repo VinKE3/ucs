@@ -259,11 +259,9 @@ export const CursosTab: React.FC<CursosTabProps> = ({
             <option value="inactivos">Solo Inactivos ({cursosList.filter((c) => !c.activo).length})</option>
           </select>
 
-          {session?.rolSistema !== 'administrativo' && (
-            <button onClick={onOpenCrearCurso} className={styles.actionBtn}>
-              <span>+</span> Nuevo Curso
-            </button>
-          )}
+          <button onClick={onOpenCrearCurso} className={styles.actionBtn}>
+            <span>+</span> Nuevo Curso
+          </button>
         </div>
       </div>
 
@@ -403,35 +401,29 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                   </td>
                   <td>
                     <div className={styles.actionRow}>
-                      {session?.rolSistema !== 'administrativo' ? (
-                        <>
-                          <button
-                            onClick={() => onOpenEditCurso(curso)}
-                            className={styles.iconBtn}
-                            title="Editar nombre, tarifa o código del curso"
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            onClick={() => onToggleCursoActivo(curso)}
-                            className={`${styles.actionBtnSmall} ${curso.activo ? styles.actionBtnWarning : styles.actionBtnSuccess}`}
-                            title={curso.activo ? 'Desactivar curso del kiosco' : 'Activar curso para el kiosco'}
-                          >
-                            {curso.activo ? 'Desactivar' : 'Activar'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDeleteCurso(curso)}
-                            className={styles.iconBtn}
-                            style={{ color: '#ef4444' }}
-                            title="Eliminar curso permanentemente (solo si no tiene asistencias asociadas)"
-                          >
-                            <span>🗑️</span>
-                          </button>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Solo lectura</span>
-                      )}
+                      <button
+                        onClick={() => onOpenEditCurso(curso)}
+                        className={styles.iconBtn}
+                        title="Editar nombre, tarifa o código del curso"
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        onClick={() => onToggleCursoActivo(curso)}
+                        className={`${styles.actionBtnSmall} ${curso.activo ? styles.actionBtnWarning : styles.actionBtnSuccess}`}
+                        title={curso.activo ? 'Desactivar curso del kiosco' : 'Activar curso para el kiosco'}
+                      >
+                        {curso.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCurso(curso)}
+                        className={styles.iconBtn}
+                        style={{ color: '#ef4444' }}
+                        title="Eliminar curso permanentemente (solo si no tiene asistencias asociadas)"
+                      >
+                        <span>🗑️</span>
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -78,8 +78,8 @@ export const SedesTab: React.FC<SedesTabProps> = ({
           </p>
         </div>
 
-        {session?.rolSistema !== 'administrativo' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          {(session?.rolSistema === 'super_admin' || session?.rolSistema === 'admin') && (
             <button
               type="button"
               onClick={() => setShowTerminalesModal(true)}
@@ -90,17 +90,17 @@ export const SedesTab: React.FC<SedesTabProps> = ({
               <span>🖥️</span>
               <span>Terminales Kiosco</span>
             </button>
+          )}
 
-            <button
-              type="button"
-              onClick={onOpenCrearSede}
-              className={styles.actionBtn}
-              style={{ padding: '0.55rem 1.1rem', fontSize: '0.875rem' }}
-            >
-              <span>+</span> Nueva Sede
-            </button>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={onOpenCrearSede}
+            className={styles.actionBtn}
+            style={{ padding: '0.55rem 1.1rem', fontSize: '0.875rem' }}
+          >
+            <span>+</span> Nueva Sede
+          </button>
+        </div>
       </div>
 
       {/* BARRA DE BÚSQUEDA */}
@@ -265,38 +265,36 @@ export const SedesTab: React.FC<SedesTabProps> = ({
                   <span>🔍</span> Ver Salas ({sede.totalAmbientes})
                 </button>
 
-                {session?.rolSistema !== 'administrativo' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenEditSede(sede)}
-                      className={styles.iconBtn}
-                      title="Editar nombre, código o dirección de la sede"
-                    >
-                      <span>✏️</span>
-                    </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenEditSede(sede)}
+                    className={styles.iconBtn}
+                    title="Editar nombre, código o dirección de la sede"
+                  >
+                    <span>✏️</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onToggleSedeActivo(sede)}
-                      className={styles.iconBtn}
-                      style={!sede.activo ? { color: '#10b981', borderColor: '#10b981' } : undefined}
-                      title={sede.activo ? 'Inactivar sede (no aparecerá en kiosco)' : 'Reactivar sede'}
-                    >
-                      <span>{sede.activo ? '⏸️' : '▶️'}</span>
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggleSedeActivo(sede)}
+                    className={styles.iconBtn}
+                    style={!sede.activo ? { color: '#10b981', borderColor: '#10b981' } : undefined}
+                    title={sede.activo ? 'Inactivar sede (no aparecerá en kiosco)' : 'Reactivar sede'}
+                  >
+                    <span>{sede.activo ? '⏸️' : '▶️'}</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onDeleteSede(sede)}
-                      className={styles.iconBtn}
-                      style={{ color: '#ef4444' }}
-                      title="Eliminar sede (solo si no tiene asistencias asociadas)"
-                    >
-                      <span>🗑️</span>
-                    </button>
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteSede(sede)}
+                    className={styles.iconBtn}
+                    style={{ color: '#ef4444' }}
+                    title="Eliminar sede (solo si no tiene asistencias asociadas)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

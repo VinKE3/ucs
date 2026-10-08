@@ -210,6 +210,12 @@ src/
       - Botón `🖥️ Terminales Kiosco` en el tab de **SEDES**.
       - El Administrador visualiza todas las tablets/PCs vinculadas, su campus, su última fecha/hora de uso, botón para desactivar temporalmente (`⏸️`) y botón para revocar/eliminar permanentemente (`🗑️`).
 
+18. **Ampliación de Capacidades Operativas para el Rol Administrativo (`administrativo`)**:
+    - **Gestión Completa de Personal**: Habilitada la creación (`+ Registrar Personal`), edición, alternancia de estado (`⏸️`/`▶️`) y eliminación (`🗑️`) de personal clínico. Blindaje activo: no pueden otorgar roles web de sistema ni eliminar administradores.
+    - **CRUD Completo de Sedes**: Creación, edición, activación/inactivación y eliminación de campus.
+    - **CRUD Completo de Cursos**: Creación, modificación de tarifas de pacientes simulados por asignatura, activación/desactivación y eliminación segura de cursos.
+    - **Gestión de Catálogos ECOE**: Mantenimiento completo de rangos de edad, especialidades y restricciones para convocatoria de actores.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados

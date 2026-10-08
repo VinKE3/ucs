@@ -98,7 +98,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -328,7 +328,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -361,6 +361,10 @@ export async function DELETE(request: Request) {
 
     if (targetUser.rolSistema === 'super_admin' && session.rolSistema !== 'super_admin') {
       return NextResponse.json({ error: 'No tienes permisos para eliminar a un Super Administrador' }, { status: 403 });
+    }
+
+    if ((targetUser.rolSistema === 'admin' || targetUser.rolSistema === 'administrativo') && session.rolSistema === 'administrativo') {
+      return NextResponse.json({ error: 'Un usuario Administrativo no puede eliminar a otros administradores del sistema' }, { status: 403 });
     }
 
     // 1. Verificar si tiene turno activo en curso

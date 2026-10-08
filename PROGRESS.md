@@ -198,6 +198,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `f5f61ba`: feat(ui): optimizar salas en dos columnas alargadas y separar buscador de categorias
 * `b6cad03`: feat(ui): separar tabs de Sedes y Ambientes y reordenar navegacion
 * `b30734e`: feat(auth): rol Administrativo para control y fiscalizacion de asistencias
 * `6f0532d`: docs: actualizar PROGRESS.md con hito de control de turnos obligatorios

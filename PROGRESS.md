@@ -123,11 +123,11 @@ src/
     - **Logo Oficial Institucional**: Incorporado `public/logo.png` de la Universidad Científica del Sur.
     - **Diseño Minimalista y Limpio**: Se eliminaron los contenedores tipo tarjeta con borde blanco y los textos redundantes adyacentes (*«Clínica de Simulación • Control de Asistencias»*) en los encabezados, dejando exclusivamente el logo oficial integrado de forma limpia, espaciosa y adaptable a tema oscuro/claro sin sobrecargar la pantalla ni en móvil ni en desktop.
     - **Presencia en Módulos**: Kiosco Terminal, Navbar de Administración, Menú Móvil, Login y Ficha Imprimible ECOE.
-13. **Protección y Modo Oculto de Cuenta Maestra TI (`00000001` - Super Admin)**:
+13. **Protección y Modo Fantasma Permanente de Cuenta Maestra TI (`00000001` - Super Admin)**:
+    - **Invisibilidad Absoluta (Cuenta Fantasma)**: La cuenta raíz `00000001` está excluida permanentemente tanto en backend (`/api/usuarios` mediante `ne(usuarios.dni, '00000001')`) como en frontend (`PersonalTab.tsx`). Se eliminó por completo el botón `🛡️ Cuenta Maestra Visible` y cualquier rastro visual o badge en el directorio. No infla conteos ni aparece bajo ningún filtro.
     - **Aislamiento en Kiosco (`/api/kiosco/lookup` & `/api/kiosco/marcar`)**: Bloqueo preventivo en el terminal táctil si se digita `00000001` (*«Esta cuenta es de gestión administrativa y no registra turnos de asistencia en el kiosco»*).
-    - **Estadísticas Reales de Personal (`/api/dashboard/stats` & `AdminDashboard.tsx`)**: La cuenta maestra no altera los contadores de personal clínico (técnicos/docentes).
-    - **Interruptor Secreto de Super Admin (`PersonalTab.tsx`)**: Oculto 100% por defecto. Si el usuario logueado es `super_admin`, se habilita el botón `[ 🔒 Cuentas Sistema ]` / `[ 🛡️ Cuenta Maestra Activa ]` para revelarla bajo demanda con su distintivo dorado `🛡️ Cuenta Maestra TI`.
-    - **Protección contra Bloqueo Accidental**: Deshabilitadas las opciones de borrado e inactivación para la cuenta raíz.
+    - **Estadísticas Reales de Personal (`/api/dashboard/stats` & `AdminDashboard.tsx`)**: La cuenta maestra no altera los contadores de personal clínico (técnicos, docentes, administrativos).
+    - **Protección y Operatividad Total**: La cuenta mantiene 100% sus privilegios de login maestro (`/login`), emparejamiento de terminales físicas (`/api/kiosco/terminal/autorizar`) y reseteo de claves, pero está blindada contra eliminación (`DELETE` bloqueado con HTTP 403).
 14. **Optimización de Accesibilidad y Alto Contraste en Tema Claro (WCAG AAA)**:
     - **Banner de Técnicos de Turno (`tecnicosBanner` & `tecnicoPillTag`)**: En tema claro, el texto verde pastel deslavado (`#a7f3d0`) y el texto blanco sobre fondo translúcido fueron reemplazados por un contenedor menta nítido (`#ecfdf5`), títulos en verde bosque profundo (`#064e3b`, ratio > 10:1) y distintivos de técnicos en tarjeta blanca sólida con texto verde esmeralda de alta saturación (`#065f46` e ingreso `#047857`).
     - **Variables Globales de Color Clínico (`globals.css`)**: Definición de `--ucs-clinical-green: #047857` en modo claro para indicadores de turnos activos y salas operativas.

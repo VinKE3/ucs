@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { usuarios, asistencias, sedes, ambientes, castingPerfiles, castingRangosEdad } from '@/db/schema';
-import { desc, eq, and, sql } from 'drizzle-orm';
+import { desc, eq, and, ne, sql } from 'drizzle-orm';
 import { getSession, hashPassword } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,7 @@ export async function GET() {
     }
 
     // Consulta con LEFT JOIN para detectar en qué sede y sala se encuentra ahora mismo
+    // Cuenta Maestra Fantasma: Se excluye permanentemente 00000001 de los listados
     const [list, perfilesList] = await Promise.all([
       db
         .select({
@@ -43,6 +44,7 @@ export async function GET() {
           ambienteActualCodigo: ambientes.codigo,
         })
         .from(usuarios)
+        .where(ne(usuarios.dni, '00000001'))
         .leftJoin(
           asistencias,
           and(
@@ -351,6 +353,10 @@ export async function DELETE(request: Request) {
 
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
+
+    if (targetUser.dni === '00000001') {
+      return NextResponse.json({ error: 'La cuenta maestra del sistema está protegida y no puede ser eliminada' }, { status: 403 });
     }
 
     if (targetUser.rolSistema === 'super_admin' && session.rolSistema !== 'super_admin') {

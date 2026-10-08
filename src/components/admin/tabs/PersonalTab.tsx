@@ -60,20 +60,10 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina, setItemsPorPagina] = useState<number>(15);
 
-  // Modo Oculto / Cuenta Maestra: Por defecto ocultar 00000001 (solo visible si super_admin activa el switch)
-  const isSuperAdmin = session.rolSistema === 'super_admin';
-  const [mostrarCuentasSistema, setMostrarCuentasSistema] = useState(false);
-
-  // Lista base excluyendo cuentas maestras si el interruptor está inactivo
+  // Cuenta Maestra Fantasma: 00000001 nunca se lista ni se cuenta en la interfaz
   const usuariosBase = useMemo(() => {
-    return usuariosList.filter((u) => {
-      const esCuentaSistema = u.dni === '00000001';
-      if (esCuentaSistema && !mostrarCuentasSistema) {
-        return false;
-      }
-      return true;
-    });
-  }, [usuariosList, mostrarCuentasSistema]);
+    return usuariosList.filter((u) => u.dni !== '00000001');
+  }, [usuariosList]);
 
   const totalEnClinica = usuariosBase.filter((u) => Boolean(u.turnoActivoId)).length;
   const totalDocentes = usuariosBase.filter((u) => u.tipoPersonal === 'docente').length;
@@ -145,7 +135,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   // Reseteo automático de página al cambiar filtros o búsqueda
   React.useEffect(() => {
     setPaginaActual(1);
-  }, [filterPersonalTipo, searchPersonal, filtroRangoEdadId, filtroEspecialidadId, filtroRestriccionExcluirId, mostrarCuentasSistema]);
+  }, [filterPersonalTipo, searchPersonal, filtroRangoEdadId, filtroEspecialidadId, filtroRestriccionExcluirId]);
 
   const totalUsuarios = usuariosFiltrados.length;
   const totalPaginas = itemsPorPagina === -1 ? 1 : Math.max(1, Math.ceil(totalUsuarios / itemsPorPagina));
@@ -332,7 +322,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
               onChange={(e) => setFilterPersonalTipo(e.target.value)}
               aria-label="Filtrar por tipo de personal"
             >
-              <option value="todos">Todos ({usuariosList.length})</option>
+              <option value="todos">Todos ({usuariosBase.length})</option>
               <option value="en_clinica">🟢 En Clínica Ahora ({totalEnClinica})</option>
               <option value="docente">Docentes ({totalDocentes})</option>
               <option value="tecnico">Técnicos ({totalTecnicos})</option>
@@ -402,33 +392,6 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
 
         {/* BOTONES DE ACCIÓN: REGISTRO Y CASTING */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {isSuperAdmin && (
-            <button
-              type="button"
-              onClick={() => setMostrarCuentasSistema(!mostrarCuentasSistema)}
-              className={styles.secondaryActionBtn}
-              style={{
-                borderColor: mostrarCuentasSistema ? '#f59e0b' : 'var(--border-color)',
-                color: mostrarCuentasSistema ? '#f59e0b' : 'var(--text-muted)',
-                background: mostrarCuentasSistema ? 'rgba(245, 158, 11, 0.14)' : 'transparent',
-                whiteSpace: 'nowrap',
-                fontSize: '0.84rem',
-                padding: '0.5rem 0.85rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-              title={
-                mostrarCuentasSistema
-                  ? 'Ocultar cuenta maestra de sistema'
-                  : 'Revelar cuenta maestra de sistema (00000001) para gestión exclusiva'
-              }
-            >
-              <span>{mostrarCuentasSistema ? '🛡️' : '🔒'}</span>{' '}
-              {mostrarCuentasSistema ? 'Cuenta Maestra Visible' : 'Cuentas Sistema'}
-            </button>
-          )}
-
           {session.rolSistema !== 'administrativo' && onOpenCastingCatalogos && (
             <button
               type="button"
@@ -681,21 +644,6 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         <strong style={{ color: 'var(--text-primary)' }}>
                           {u.nombres} {u.apellidos}
                         </strong>
-                        {u.dni === '00000001' && (
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 800,
-                              color: '#f59e0b',
-                              background: 'rgba(245, 158, 11, 0.15)',
-                              border: '1px solid rgba(245, 158, 11, 0.4)',
-                              padding: '0.12rem 0.45rem',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            🛡️ Cuenta Maestra TI
-                          </span>
-                        )}
                         {!u.activo && (
                           <span
                             style={{

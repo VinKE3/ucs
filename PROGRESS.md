@@ -221,6 +221,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `783d4de`: feat(roles): habilitar CRUD de ambientes y categorias de salas para rol administrativo
 * `609bb2a`: feat(roles): ampliar permisos para rol administrativo en personal, sedes, cursos y catalogos ecoe
 * `dffdbd6`: feat(security): cuenta maestra 00000001 en modo fantasma permanente e invisible
 * `fb28c09`: fix(ui): cambiar placeholder de login y autorizacion de terminal a 123456789

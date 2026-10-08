@@ -214,6 +214,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `dffdbd6`: feat(security): cuenta maestra 00000001 en modo fantasma permanente e invisible
 * `fb28c09`: fix(ui): cambiar placeholder de login y autorizacion de terminal a 123456789
 * `1c6d30a`: feat(security): control de terminales autorizadas con token persistente en navegador para evitar marcacion remota
 * `f5f61ba`: feat(ui): optimizar salas en dos columnas alargadas y separar buscador de categorias

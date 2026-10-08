@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -209,7 +209,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin')) {
+    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

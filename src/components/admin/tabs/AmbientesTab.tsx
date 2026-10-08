@@ -204,27 +204,25 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
           </p>
         </div>
 
-        {session?.rolSistema !== 'administrativo' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {onOpenGestionCategorias && (
-              <button
-                type="button"
-                onClick={onOpenGestionCategorias}
-                className={styles.secondaryActionBtn}
-                title="Administrar categorías de simulación (crear, editar, colores e iconos)"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-              >
-                <span>🏷️</span>
-                <span>Categorías</span>
-              </button>
-            )}
-
-            <button onClick={onOpenCrearAmbiente} className={styles.actionBtn}>
-              <span>+</span>
-              <span>Agregar Sala</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {onOpenGestionCategorias && (
+            <button
+              type="button"
+              onClick={onOpenGestionCategorias}
+              className={styles.secondaryActionBtn}
+              title="Administrar categorías de simulación (crear, editar, colores e iconos)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <span>🏷️</span>
+              <span>Categorías</span>
             </button>
-          </div>
-        )}
+          )}
+
+          <button onClick={onOpenCrearAmbiente} className={styles.actionBtn}>
+            <span>+</span>
+            <span>Agregar Sala</span>
+          </button>
+        </div>
       </div>
 
       {/* BANNER DE TÉCNICOS EN TURNO EN ESTA SEDE */}
@@ -476,38 +474,36 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                   </span>
                 </div>
 
-                {session?.rolSistema !== 'administrativo' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenEditAmbiente(amb)}
-                      className={styles.iconBtn}
-                      title="Editar nombre, código, tipo o capacidad de la sala"
-                    >
-                      <span>✏️</span> Editar
-                    </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenEditAmbiente(amb)}
+                    className={styles.iconBtn}
+                    title="Editar nombre, código, tipo o capacidad de la sala"
+                  >
+                    <span>✏️</span> Editar
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onToggleAmbienteActivo(amb)}
-                      className={styles.iconBtn}
-                      style={!amb.activo ? { borderColor: '#10b981', color: '#10b981' } : undefined}
-                      title={amb.activo ? 'Poner en mantenimiento (no aparecerá en Kiosco)' : 'Habilitar como operativa'}
-                    >
-                      <span>{amb.activo ? '⏸️' : '▶️'}</span>
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggleAmbienteActivo(amb)}
+                    className={styles.iconBtn}
+                    style={!amb.activo ? { borderColor: '#10b981', color: '#10b981' } : undefined}
+                    title={amb.activo ? 'Poner en mantenimiento (no aparecerá en Kiosco)' : 'Habilitar como operativa'}
+                  >
+                    <span>{amb.activo ? '⏸️' : '▶️'}</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onDeleteAmbiente(amb)}
-                      className={styles.iconBtn}
-                      style={{ color: '#ef4444' }}
-                      title="Eliminar permanentemente (solo si no tiene asistencias asociadas)"
-                    >
-                      <span>🗑️</span>
-                    </button>
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteAmbiente(amb)}
+                    className={styles.iconBtn}
+                    style={{ color: '#ef4444' }}
+                    title="Eliminar permanentemente (solo si no tiene asistencias asociadas)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

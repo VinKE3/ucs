@@ -1325,7 +1325,7 @@ export default function KioscoTerminal() {
                 <input
                   type="text"
                   required
-                  placeholder="ej: admin@cientifica.edu.pe o 00000001"
+                  placeholder="123456789"
                   value={authAdminId}
                   onChange={(e) => setAuthAdminId(e.target.value)}
                   className={styles.authInput}

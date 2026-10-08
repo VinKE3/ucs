@@ -87,7 +87,7 @@ export default function LoginPage() {
                 type="text"
                 required
                 autoFocus
-                placeholder="ej: admin.simulacion@cientifica.edu.pe o 00000001"
+                placeholder="123456789"
                 value={identificador}
                 onChange={(e) => setIdentificador(e.target.value)}
                 className={styles.input}

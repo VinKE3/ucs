@@ -194,6 +194,22 @@ src/
       4. **PERSONAL CLÍNICA**
       5. **HISTORIAL DE ASISTENCIA**
 
+  * **Control de Presencia Física & Terminales Oficiales de Kiosco (Token en Navegador)**:
+    - **Protección contra Marcación Remota / Fuera de Sede**:
+      - Si una persona obtiene la URL de la web y la abre en su celular o computadora personal desde su casa, el Kiosco se bloquea automáticamente:
+        > 🔒 *Terminal de Autoservicio Bloqueada: Este dispositivo no cuenta con autorización para registrar asistencias.*
+    - **Token Criptográfico Permanente en Navegador (`localStorage`)**:
+      - Compatible con Microsoft Edge, Google Chrome y navegadores táctiles de tablets. Persiste a través de cierres de navegador, reinicios de equipo y cortes de energía.
+    - **Flujo de Emparejamiento Directo en Pantalla**:
+      - El Administrador se acerca a la tablet/PC física de la clínica y hace clic en `🔑 Autorizar este Dispositivo`.
+      - Ingresa sus credenciales de Administrador (correo/DNI y contraseña), asigna un nombre (ej: "Tablet Recepción Villa") y la sede asignada.
+      - El sistema genera un token seguro único (`trm_...`), lo almacena en `localStorage` y desbloquea el Kiosco al instante.
+    - **Validación Estricta en Backend (`/api/kiosco/marcar`)**:
+      - El endpoint de marcación exige el encabezado `x-terminal-token`. Si la petición no tiene un token registrado y activo en la tabla `terminales_kiosco`, es rechazada con `HTTP 403 Forbidden`. Imposible de burlar con cURL, Postman o scripts externos.
+    - **Panel de Gestión de Dispositivos (`ModalGestionTerminales.tsx`)**:
+      - Botón `🖥️ Terminales Kiosco` en el tab de **SEDES**.
+      - El Administrador visualiza todas las tablets/PCs vinculadas, su campus, su última fecha/hora de uso, botón para desactivar temporalmente (`⏸️`) y botón para revocar/eliminar permanentemente (`🗑️`).
+
 ---
 
 ## 📝 4. Últimos Commits Registrados

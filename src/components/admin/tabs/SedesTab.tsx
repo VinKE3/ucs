@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
+import { ModalGestionTerminales } from '@/components/admin/modals/ModalGestionTerminales';
 
 interface SedesTabProps {
   sedesList: SedeAdminItem[];
@@ -25,6 +26,7 @@ export const SedesTab: React.FC<SedesTabProps> = ({
   onVerSalasDeSede,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showTerminalesModal, setShowTerminalesModal] = useState(false);
 
   const sedesFiltradas = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -77,14 +79,27 @@ export const SedesTab: React.FC<SedesTabProps> = ({
         </div>
 
         {session?.rolSistema !== 'administrativo' && (
-          <button
-            type="button"
-            onClick={onOpenCrearSede}
-            className={styles.actionBtn}
-            style={{ padding: '0.55rem 1.1rem', fontSize: '0.875rem' }}
-          >
-            <span>+</span> Nueva Sede
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowTerminalesModal(true)}
+              className={styles.secondaryActionBtn}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+              title="Gestionar tablets y pantallas autorizadas para marcar asistencia en Kiosco"
+            >
+              <span>🖥️</span>
+              <span>Terminales Kiosco</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenCrearSede}
+              className={styles.actionBtn}
+              style={{ padding: '0.55rem 1.1rem', fontSize: '0.875rem' }}
+            >
+              <span>+</span> Nueva Sede
+            </button>
+          </div>
         )}
       </div>
 
@@ -287,6 +302,13 @@ export const SedesTab: React.FC<SedesTabProps> = ({
           ))}
         </div>
       )}
+
+      {/* MODAL DE GESTIÓN Y REVOCACIÓN DE TERMINALES KIOSCO */}
+      <ModalGestionTerminales
+        isOpen={showTerminalesModal}
+        onClose={() => setShowTerminalesModal(false)}
+        sedesList={sedesList}
+      />
     </section>
   );
 };

@@ -1,12 +1,41 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { asistencias, usuarios, ambientes, sedes, cursos } from '@/db/schema';
+import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
 
 export async function POST(request: Request) {
   try {
-    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones } = await request.json();
+    const body = await request.json();
+    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones } = body;
+    const terminalToken = request.headers.get('x-terminal-token') || body.terminalToken;
+
+    // 1. Validar que la petición provenga de una terminal autorizada
+    if (!terminalToken) {
+      return NextResponse.json(
+        { error: 'Dispositivo no autorizado. Solo las tablets o pantallas oficiales de la clínica pueden registrar asistencias.' },
+        { status: 403 }
+      );
+    }
+
+    const [term] = await db
+      .select()
+      .from(terminalesKiosco)
+      .where(and(eq(terminalesKiosco.token, terminalToken), eq(terminalesKiosco.activo, true)))
+      .limit(1);
+
+    if (!term) {
+      return NextResponse.json(
+        { error: 'Esta terminal no cuenta con autorización activa o ha sido revocada por la coordinación.' },
+        { status: 403 }
+      );
+    }
+
+    // Actualizar último uso de la terminal de forma asíncrona
+    db.update(terminalesKiosco)
+      .set({ ultimoUso: new Date() })
+      .where(eq(terminalesKiosco.id, term.id))
+      .catch((err) => console.error('Error actualizando ultimoUso terminal:', err));
 
     if (!usuarioId || !accion) {
       return NextResponse.json({ error: 'Datos incompletos para registrar marcación' }, { status: 400 });

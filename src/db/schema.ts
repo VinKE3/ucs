@@ -340,3 +340,33 @@ export type NewCastingRestriccion = typeof castingRestricciones.$inferInsert;
 export type CastingPerfil = typeof castingPerfiles.$inferSelect;
 export type NewCastingPerfil = typeof castingPerfiles.$inferInsert;
 
+// --- 8. TABLA: TERMINALES KIOSCO (Control de Dispositivos Autorizados) ---
+export const terminalesKiosco = pgTable('terminales_kiosco', {
+  id: serial('id').primaryKey(),
+  token: varchar('token', { length: 120 }).notNull().unique(), // Token criptográfico único
+  nombre: varchar('nombre', { length: 150 }).notNull(),        // Ej: "Tablet Recepción Villa"
+  sedeId: integer('sede_id').references(() => sedes.id, { onDelete: 'set null' }),
+  dispositivoInfo: text('dispositivo_info'),                   // Navegador / SO (Edge, Chrome, etc.)
+  ipRegistro: varchar('ip_registro', { length: 50 }),
+  activo: boolean('activo').default(true).notNull(),
+  ultimoUso: timestamp('ultimo_uso'),
+  creadoPor: integer('creado_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const terminalesKioscoRelations = relations(terminalesKiosco, ({ one }) => ({
+  sede: one(sedes, {
+    fields: [terminalesKiosco.sedeId],
+    references: [sedes.id],
+  }),
+  creador: one(usuarios, {
+    fields: [terminalesKiosco.creadoPor],
+    references: [usuarios.id],
+  }),
+}));
+
+export type TerminalKiosco = typeof terminalesKiosco.$inferSelect;
+export type NewTerminalKiosco = typeof terminalesKiosco.$inferInsert;
+
+

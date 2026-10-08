@@ -5,6 +5,16 @@ import Link from 'next/link';
 import styles from './kiosco.module.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import type { TicketSalidaData } from '@/types/admin';
+import { confirmModal, showToast } from '@/lib/alerts';
+import Swal from 'sweetalert2';
+
+interface TerminalData {
+  id: number;
+  nombre: string;
+  sedeId: number | null;
+  sedeNombre: string | null;
+  sedeCodigo: string | null;
+}
 
 interface AmbienteItem {
   id: number;
@@ -90,6 +100,132 @@ export default function KioscoTerminal() {
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Control de Terminal Autorizada (Dispositivo Físico)
+  const [terminalChecking, setTerminalChecking] = useState(true);
+  const [terminalAuthorized, setTerminalAuthorized] = useState(false);
+  const [terminalInfo, setTerminalInfo] = useState<TerminalData | null>(null);
+
+  // Modal para autorizar terminal
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authAdminId, setAuthAdminId] = useState('');
+  const [authAdminPass, setAuthAdminPass] = useState('');
+  const [authTerminalName, setAuthTerminalName] = useState('');
+  const [authSedeId, setAuthSedeId] = useState<number | null>(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Verificación inicial del token de terminal en este navegador (Edge / Chrome)
+  useEffect(() => {
+    async function checkTerminal() {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
+        if (!token) {
+          setTerminalAuthorized(false);
+          setTerminalChecking(false);
+          return;
+        }
+
+        const res = await fetch('/api/kiosco/terminal/verificar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.autorizada) {
+          setTerminalAuthorized(true);
+          setTerminalInfo(data.terminal);
+          if (data.terminal?.sedeId) {
+            setSelectedSedeId(data.terminal.sedeId);
+          }
+        } else {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('ucs_terminal_token');
+          }
+          setTerminalAuthorized(false);
+        }
+      } catch (err) {
+        console.error('Error al verificar terminal oficial:', err);
+        setTerminalAuthorized(false);
+      } finally {
+        setTerminalChecking(false);
+      }
+    }
+
+    checkTerminal();
+  }, []);
+
+  const handleAuthorizeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authAdminId.trim() || !authAdminPass.trim() || !authTerminalName.trim()) {
+      setAuthError('Por favor complete todos los campos obligatorios');
+      return;
+    }
+    setAuthSubmitting(true);
+    setAuthError(null);
+
+    try {
+      const res = await fetch('/api/kiosco/terminal/autorizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identificador: authAdminId.trim(),
+          password: authAdminPass,
+          nombreTerminal: authTerminalName.trim(),
+          sedeId: authSedeId || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al autorizar terminal');
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ucs_terminal_token', data.token);
+      }
+
+      setTerminalAuthorized(true);
+      setTerminalInfo(data.terminal);
+      if (data.terminal?.sedeId) {
+        setSelectedSedeId(data.terminal.sedeId);
+      }
+      setShowAuthModal(false);
+      setAuthAdminPass('');
+      setAuthAdminId('');
+      setAuthTerminalName('');
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Dispositivo Autorizado!',
+        text: `Este navegador quedó vinculado permanentemente como "${data.terminal.nombre}".`,
+        confirmButtonColor: '#ff5a00',
+      });
+    } catch (err: any) {
+      setAuthError(err.message || 'Error al autorizar dispositivo');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleDesvincularTerminal = async () => {
+    const confirmed = await confirmModal({
+      title: '¿Desvincular esta Terminal?',
+      text: 'Este navegador ya no podrá registrar asistencias hasta que un administrador vuelva a autorizarlo.',
+      confirmText: 'Sí, desvincular',
+      isDanger: true,
+    });
+
+    if (confirmed) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('ucs_terminal_token');
+      }
+      setTerminalAuthorized(false);
+      setTerminalInfo(null);
+      showToast('Dispositivo desvinculado del sistema', 'info');
+    }
+  };
 
   // Limpiar timer de countdown al desmontar
   useEffect(() => {
@@ -222,9 +358,13 @@ export default function KioscoTerminal() {
     setSearchError(null);
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
       const res = await fetch('/api/kiosco/marcar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-terminal-token': token || '',
+        },
         body: JSON.stringify({
           usuarioId: usuarioActual.id,
           sedeId: selectedSedeId,
@@ -232,6 +372,7 @@ export default function KioscoTerminal() {
           cursoId: selectedCursoId,
           accion,
           asistenciaId: asistenciaActiva?.id,
+          terminalToken: token,
         }),
       });
 
@@ -320,6 +461,31 @@ export default function KioscoTerminal() {
         </div>
 
         <div className={styles.topBarActions}>
+          {terminalAuthorized && terminalInfo && (
+            <div className={styles.terminalBadge} title={`Dispositivo autorizado: ${terminalInfo.nombre}`}>
+              <span className={styles.terminalBadgeDot}></span>
+              <span>{terminalInfo.nombre}</span>
+              {terminalInfo.sedeNombre && (
+                <span style={{ opacity: 0.85, fontSize: '0.72rem' }}>({terminalInfo.sedeNombre})</span>
+              )}
+              <button
+                type="button"
+                onClick={handleDesvincularTerminal}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  padding: '0 0.2rem',
+                  fontSize: '0.75rem',
+                  opacity: 0.7,
+                }}
+                title="Desvincular esta terminal"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <ThemeToggle />
           <Link href="/login" className={styles.adminBtn} title="Ir a Panel Administrativo">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -331,9 +497,54 @@ export default function KioscoTerminal() {
         </div>
       </header>
 
-      {/* SECCIÓN PRINCIPAL DEL KIOSCO */}
-      <main className={styles.mainSection}>
-        <section className={styles.kioscoBox}>
+      {/* CONTROL DE TERMINAL OFICIAL: CARGANDO O BLOQUEADA */}
+      {terminalChecking ? (
+        <main className={styles.mainSection}>
+          <div style={{ textAlign: 'center', padding: '6rem 1rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏳</div>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem', fontWeight: 700 }}>
+              Verificando Terminal Oficial UCS...
+            </h3>
+            <p style={{ fontSize: '0.85rem' }}>Comprobando autorización de este dispositivo físico.</p>
+          </div>
+        </main>
+      ) : !terminalAuthorized ? (
+        <main className={styles.mainSection}>
+          <div className={styles.terminalLockedContainer}>
+            <div className={styles.terminalLockedCard}>
+              <div className={styles.terminalLockIcon}>
+                🔒
+              </div>
+
+              <h2 className={styles.terminalLockTitle}>
+                Terminal de Autoservicio Bloqueada
+              </h2>
+
+              <p className={styles.terminalLockDesc}>
+                Este navegador o dispositivo <strong>no cuenta con autorización</strong> para registrar turnos de asistencia en el Centro de Simulación Clínica de la UCS.
+              </p>
+
+              <div className={styles.terminalLockNotice}>
+                📍 <strong>Control de Presencia Física:</strong><br />
+                Por políticas de control presencial, el registro de asistencia solo está habilitado en las <strong>tablets y pantallas táctiles oficiales</strong> ubicadas físicamente en los campus de Villa, Ate y Norte.
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className={styles.terminalAuthBtn}
+                title="Vincular este equipo como terminal oficial mediante credenciales de Administrador"
+              >
+                <span>🔑</span>
+                <span>Autorizar este Dispositivo (Solo Administradores)</span>
+              </button>
+            </div>
+          </div>
+        </main>
+      ) : (
+        /* SECCIÓN PRINCIPAL DEL KIOSCO (SOLO VISIBLE EN TERMINALES AUTORIZADAS) */
+        <main className={styles.mainSection}>
+          <section className={styles.kioscoBox}>
           {/* BADGE DE ESTADO DEL SISTEMA */}
           <div className={styles.statusBar}>
             <span className={styles.statusDot}></span>
@@ -1070,6 +1281,112 @@ export default function KioscoTerminal() {
           )}
         </section>
       </main>
+      )}
+
+      {/* MODAL PARA AUTORIZAR TERMINAL (SOLO ADMINISTRADORES) */}
+      {showAuthModal && (
+        <div className={styles.authModalOverlay} onClick={() => !authSubmitting && setShowAuthModal(false)}>
+          <div className={styles.authModalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.authModalHeader}>
+              <h3 className={styles.authModalTitle}>
+                <span>🔐</span> Autorizar Terminal Oficial
+              </h3>
+              <button
+                type="button"
+                onClick={() => !authSubmitting && setShowAuthModal(false)}
+                className={styles.authCloseBtn}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+              Inicie sesión con su cuenta de Administrador de la Universidad para emparejar este navegador de forma permanente como una terminal autorizada del Kiosco.
+            </p>
+
+            {authError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#ef4444',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                }}
+              >
+                ⚠️ {authError}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthorizeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+              <div className={styles.authFormGroup}>
+                <label className={styles.authLabel}>Correo o DNI de Administrador *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ej: admin@cientifica.edu.pe o 00000001"
+                  value={authAdminId}
+                  onChange={(e) => setAuthAdminId(e.target.value)}
+                  className={styles.authInput}
+                  disabled={authSubmitting}
+                />
+              </div>
+
+              <div className={styles.authFormGroup}>
+                <label className={styles.authLabel}>Contraseña de Administrador *</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={authAdminPass}
+                  onChange={(e) => setAuthAdminPass(e.target.value)}
+                  className={styles.authInput}
+                  disabled={authSubmitting}
+                />
+              </div>
+
+              <div className={styles.authFormGroup}>
+                <label className={styles.authLabel}>Nombre de esta Terminal / Pantalla *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ej: Tablet Recepción Villa, PC Simulación Ate..."
+                  value={authTerminalName}
+                  onChange={(e) => setAuthTerminalName(e.target.value)}
+                  className={styles.authInput}
+                  disabled={authSubmitting}
+                />
+              </div>
+
+              <div className={styles.authFormGroup}>
+                <label className={styles.authLabel}>Campus / Sede Asignada (Opcional)</label>
+                <select
+                  value={authSedeId || ''}
+                  onChange={(e) => setAuthSedeId(e.target.value ? Number(e.target.value) : null)}
+                  className={styles.authSelect}
+                  disabled={authSubmitting}
+                >
+                  <option value="">Cualquier Sede (Multisede)</option>
+                  {sedesList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                disabled={authSubmitting}
+                className={styles.authSubmitBtn}
+              >
+                {authSubmitting ? 'Verificando y autorizando...' : '🔐 Vincular y Autorizar Dispositivo'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

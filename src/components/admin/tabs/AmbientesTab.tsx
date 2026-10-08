@@ -263,18 +263,25 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
           />
         </div>
 
-        <div className={styles.categoryPills}>
-          {categoriasActivas.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              className={`${styles.pillBtn} ${filterTipo === cat.id ? styles.pillBtnActive : ''}`}
-              onClick={() => setFilterTipo(cat.id)}
-            >
-              {cat.icono && <span style={{ marginRight: '0.3rem' }}>{cat.icono}</span>}
-              {cat.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>
+            <span>🏷️</span>
+            <span>Filtrar por categoría de simulación:</span>
+          </div>
+
+          <div className={styles.categoryPills}>
+            {categoriasActivas.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                className={`${styles.pillBtn} ${filterTipo === cat.id ? styles.pillBtnActive : ''}`}
+                onClick={() => setFilterTipo(cat.id)}
+              >
+                {cat.icono && <span style={{ marginRight: '0.35rem' }}>{cat.icono}</span>}
+                {cat.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -311,7 +318,7 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
               className={`${styles.ambienteItemCard} ${amb.ocupada ? styles.ambienteItemCardOccupied : ''}`}
             >
               <div className={styles.ambienteTopRow}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                   <span className={styles.ambienteCodeBadge}>{amb.codigo || 'SALA'}</span>
                   {(() => {
                     const catObj = categoriasMap.get(amb.tipo);
@@ -344,17 +351,24 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                   </span>
                 ) : (
                   <span
-                    className={`${styles.occupancyBadge} ${
-                      amb.ocupada ? styles.badgeOccupied : styles.badgeFree
-                    }`}
+                    className={amb.ocupada ? styles.occupancyBadgeInUse : styles.occupancyBadgeFree}
                   >
-                    {amb.ocupada ? '🔴 OCUPADA' : '🟢 DISPONIBLE'}
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: amb.ocupada ? '#10b981' : '#94a3b8',
+                        display: 'inline-block',
+                      }}
+                    />
+                    {amb.ocupada ? 'OCUPADA' : 'DISPONIBLE'}
                   </span>
                 )}
               </div>
 
               <div className={styles.ambienteMainInfo}>
-                <h3 className={styles.ambienteTitle}>{amb.nombre}</h3>
+                <h3 className={styles.ambienteCardTitle}>{amb.nombre}</h3>
                 {amb.cursoActivo && (
                   <div className={styles.cursoTag}>
                     <span>🎓</span>
@@ -434,7 +448,8 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
                   </div>
                 ) : (
                   <div className={styles.emptyRoomNotice}>
-                    ⚪ Sala libre y disponible para prácticas
+                    <span>✨</span>
+                    <span>Sala libre y disponible para prácticas y simulación</span>
                   </div>
                 )}
               </div>

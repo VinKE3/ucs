@@ -180,7 +180,10 @@ src/
       - CRUD integrado para creación (`+ Nueva Sede`), edición, inactivación y eliminación segura de sedes.
     - **Pestaña Independiente de Ambientes (`AmbientesTab.tsx`)**:
       - Conmutador horizontal por campus (`📍 Campus Ate`, `Campus Norte`, etc.) en lugar de barra lateral fija.
-      - Grilla a pantalla completa para salas de simulación con filtros por categoría dinámica, buscador en tiempo real e indicador de técnico de turno.
+      - Grilla optimizada a **2 columnas** (`repeat(2, minmax(0, 1fr))`, 1 columna en móvil) con diseño de tarjetas alargado, espacioso y rectangular apaisado (eliminando la sobrecarga y apiñamiento de 5 columnas estrechas).
+      - Separación vertical y visual limpia entre la barra de búsqueda de salas, el selector de categorías de simulación y la grilla de ambientes.
+      - Corrección y estilización de insignias de disponibilidad (`occupancyBadgeInUse`, `occupancyBadgeFree`) con punto de estado integrado.
+      - Aviso minimalista y horizontal para salas libres sin cajas de espacio vacío gigantes.
       - Acciones contextuales limpias (`+ Agregar Sala` y `🏷️ Categorías`) dentro del encabezado propio de la vista.
     - **Navegación Superior Despejada**:
       - Se eliminaron por completo los botones flotantes duplicados (`+ Nueva Sede` y `+ Agregar Sala a Campus`) que sobrecargaban la barra principal de tabs.

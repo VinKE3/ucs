@@ -214,6 +214,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `fb28c09`: fix(ui): cambiar placeholder de login y autorizacion de terminal a 123456789
 * `1c6d30a`: feat(security): control de terminales autorizadas con token persistente en navegador para evitar marcacion remota
 * `f5f61ba`: feat(ui): optimizar salas en dos columnas alargadas y separar buscador de categorias
 * `b6cad03`: feat(ui): separar tabs de Sedes y Ambientes y reordenar navegacion

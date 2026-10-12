@@ -38,6 +38,10 @@ export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProp
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Filtro y búsqueda de colaborador
+  const [searchColaborador, setSearchColaborador] = useState<string>('');
+  const [filtroRol, setFiltroRol] = useState<'todos' | 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo'>('todos');
+
   // Inicializar fecha de hoy (YYYY-MM-DD) al abrir
   useEffect(() => {
     if (isOpen) {
@@ -52,6 +56,8 @@ export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProp
         setSelectedSedeId(String(sedesList[0].id));
       }
       setErrorMsg(null);
+      setSearchColaborador('');
+      setFiltroRol('todos');
     }
   }, [isOpen, sedesList, selectedSedeId]);
 
@@ -81,6 +87,37 @@ export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProp
   const usuarioSeleccionado = useMemo(() => {
     return usuariosList.find((u) => u.id === Number(selectedUsuarioId));
   }, [usuariosList, selectedUsuarioId]);
+
+  const colaboradoresFiltrados = useMemo(() => {
+    return usuariosList
+      .filter((u) => u.dni !== '00000001' && u.activo)
+      .filter((u) => {
+        const matchesRol = filtroRol === 'todos' || u.tipoPersonal === filtroRol;
+        const q = searchColaborador.trim().toLowerCase();
+        const matchesSearch =
+          !q ||
+          u.nombres.toLowerCase().includes(q) ||
+          u.apellidos.toLowerCase().includes(q) ||
+          u.dni.includes(q);
+        return matchesRol && matchesSearch;
+      })
+      .sort((a, b) => a.apellidos.localeCompare(b.apellidos));
+  }, [usuariosList, filtroRol, searchColaborador]);
+
+  const getTipoBadge = (tipo: string) => {
+    switch (tipo) {
+      case 'docente':
+        return <span className={`${styles.personalBadge} ${styles.badgeDocente}`}>Docente</span>;
+      case 'tecnico':
+        return <span className={`${styles.personalBadge} ${styles.badgeTecnico}`}>Técnico</span>;
+      case 'paciente_simulado':
+        return <span className={`${styles.personalBadge} ${styles.badgePaciente}`}>Paciente Simulado</span>;
+      case 'administrativo':
+        return <span className={`${styles.personalBadge} ${styles.badgeAdministrativo}`}>Administrativo</span>;
+      default:
+        return <span>{tipo}</span>;
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -186,22 +223,237 @@ export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProp
 
         <form onSubmit={handleSubmit} style={{ overflowY: 'auto', paddingRight: '0.25rem', flex: 1 }}>
           <div className={styles.formGrid}>
-            {/* COLABORADOR */}
+            {/* COLABORADOR BUSCABLE (OPCIÓN 1) */}
             <div className={styles.fullWidth}>
-              <label className={styles.label}>Colaborador / Personal *</label>
-              <select
-                required
-                value={selectedUsuarioId}
-                onChange={(e) => setSelectedUsuarioId(e.target.value)}
-                className={styles.select}
-              >
-                <option value="">-- Seleccionar Docente, Técnico o Paciente Simulado --</option>
-                {usuariosList.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.apellidos}, {u.nombres} (DNI: {u.dni}) — {u.tipoPersonal.toUpperCase().replace('_', ' ')}
-                  </option>
-                ))}
-              </select>
+              <label className={styles.label}>
+                Colaborador / Personal *
+                {!usuarioSeleccionado && (
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>
+                    (Filtra por rol o escribe nombre/DNI)
+                  </span>
+                )}
+              </label>
+
+              {usuarioSeleccionado ? (
+                /* ESTADO 1: COLABORADOR SELECCIONADO */
+                <div
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.08)',
+                    border: '1.5px solid var(--ucs-blue-sky)',
+                    borderRadius: '10px',
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.25rem',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {usuarioSeleccionado.tipoPersonal === 'docente'
+                        ? '👨‍🏫'
+                        : usuarioSeleccionado.tipoPersonal === 'tecnico'
+                        ? '🧤'
+                        : usuarioSeleccionado.tipoPersonal === 'paciente_simulado'
+                        ? '🎭'
+                        : '🏢'}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                        {usuarioSeleccionado.apellidos}, {usuarioSeleccionado.nombres}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          DNI: {usuarioSeleccionado.dni}
+                        </span>
+                        {getTipoBadge(usuarioSeleccionado.tipoPersonal)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedUsuarioId('');
+                      setSearchColaborador('');
+                    }}
+                    className={styles.secondaryBtn}
+                    style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', whiteSpace: 'nowrap' }}
+                    title="Seleccionar a otro colaborador"
+                  >
+                    ✕ Cambiar
+                  </button>
+                </div>
+              ) : (
+                /* ESTADO 2: BUSCADOR ACTIVO CON PESTAÑAS DE ROL Y LISTA ENRIQUECIDA */
+                <div
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '0.75rem',
+                  }}
+                >
+                  {/* PESTAÑAS DE ROL RÁPIDO */}
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+                    {[
+                      { id: 'todos', label: 'Todos' },
+                      { id: 'docente', label: '👨‍🏫 Docentes' },
+                      { id: 'tecnico', label: '🧤 Técnicos' },
+                      { id: 'paciente_simulado', label: '🎭 Pacientes Simulados' },
+                      { id: 'administrativo', label: '🏢 Administrativos' },
+                    ].map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setFiltroRol(r.id as any)}
+                        className={`${styles.pillBtn} ${filtroRol === r.id ? styles.pillBtnActive : ''}`}
+                        style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem' }}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* CAMPO DE BÚSQUEDA */}
+                  <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '0.85rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        opacity: 0.6,
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      🔍
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Escribe apellido, nombre o DNI..."
+                      value={searchColaborador}
+                      onChange={(e) => setSearchColaborador(e.target.value)}
+                      className={styles.inputField}
+                      style={{
+                        paddingLeft: '2.3rem',
+                        paddingRight: searchColaborador ? '2.2rem' : '0.75rem',
+                        fontSize: '0.85rem',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    {searchColaborador && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchColaborador('')}
+                        style={{
+                          position: 'absolute',
+                          right: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          padding: '0.2rem',
+                        }}
+                        title="Limpiar búsqueda"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* LISTA SCROLLABLE DE COLABORADORES */}
+                  <div
+                    style={{
+                      maxHeight: '185px',
+                      overflowY: 'auto',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                    }}
+                  >
+                    {colaboradoresFiltrados.length === 0 ? (
+                      <div
+                        style={{
+                          padding: '1.25rem',
+                          textAlign: 'center',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        No se encontraron colaboradores que coincidan con la búsqueda.
+                      </div>
+                    ) : (
+                      colaboradoresFiltrados.map((u) => (
+                        <div
+                          key={u.id}
+                          onClick={() => {
+                            setSelectedUsuarioId(String(u.id));
+                            setSearchColaborador('');
+                          }}
+                          style={{
+                            padding: '0.55rem 0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid var(--border-color)',
+                            cursor: 'pointer',
+                            transition: 'background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.08)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {u.apellidos}, {u.nombres}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '0.74rem',
+                                color: 'var(--text-muted)',
+                                fontFamily: 'var(--font-mono)',
+                              }}
+                            >
+                              DNI: {u.dni}
+                            </div>
+                          </div>
+                          <div>{getTipoBadge(u.tipoPersonal)}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '0.4rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '0.72rem',
+                      color: 'var(--text-muted)',
+                      padding: '0 0.2rem',
+                    }}
+                  >
+                    <span>Haz clic en un colaborador para seleccionarlo</span>
+                    <span>{colaboradoresFiltrados.length} disponibles</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SEDE */}

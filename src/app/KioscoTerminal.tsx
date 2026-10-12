@@ -98,6 +98,7 @@ export default function KioscoTerminal() {
   const [ticketSalida, setTicketSalida] = useState<TicketSalidaData | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -227,11 +228,14 @@ export default function KioscoTerminal() {
     }
   };
 
-  // Limpiar timer de countdown al desmontar
+  // Limpiar timers al desmontar
   useEffect(() => {
     return () => {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
+      }
+      if (autoSearchTimerRef.current) {
+        clearTimeout(autoSearchTimerRef.current);
       }
     };
   }, []);
@@ -293,9 +297,15 @@ export default function KioscoTerminal() {
     }
   };
 
-  const handleBuscarDni = async (e?: React.FormEvent) => {
+  const handleBuscarDni = async (e?: React.FormEvent, dniOverride?: string) => {
     if (e) e.preventDefault();
-    if (!dniInput.trim()) return;
+    if (autoSearchTimerRef.current) {
+      clearTimeout(autoSearchTimerRef.current);
+      autoSearchTimerRef.current = null;
+    }
+
+    const dniABuscar = (typeof dniOverride === 'string' ? dniOverride : dniInput).trim();
+    if (!dniABuscar || loadingSearch) return;
 
     setSearchError(null);
     setFeedback(null);
@@ -309,7 +319,7 @@ export default function KioscoTerminal() {
 
     try {
       const [resLookup, resSedes] = await Promise.all([
-        fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniInput.trim())}`),
+        fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniABuscar)}`),
         fetch('/api/kiosco/sedes'),
       ]);
 
@@ -335,18 +345,38 @@ export default function KioscoTerminal() {
     }
   };
 
+  const triggerAutoSearch = (val: string) => {
+    if (autoSearchTimerRef.current) {
+      clearTimeout(autoSearchTimerRef.current);
+      autoSearchTimerRef.current = null;
+    }
+    // Si tiene exactamente 8 dígitos (DNI peruano estándar), auto-consultar con un breve retardo natural
+    if (val.length === 8) {
+      autoSearchTimerRef.current = setTimeout(() => {
+        handleBuscarDni(undefined, val);
+      }, 200);
+    }
+  };
+
   const handleKeypadPress = (val: string) => {
     if (val === 'clear') {
+      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
       setDniInput('');
+      setSearchError(null);
       inputRef.current?.focus();
     } else if (val === 'backspace') {
+      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
       setDniInput((prev) => prev.slice(0, -1));
+      setSearchError(null);
       inputRef.current?.focus();
     } else if (val === 'enter') {
       handleBuscarDni();
     } else {
       if (dniInput.length < 12) {
-        setDniInput((prev) => prev + val);
+        const nuevoDni = dniInput + val;
+        setDniInput(nuevoDni);
+        setSearchError(null);
+        triggerAutoSearch(nuevoDni);
       }
       inputRef.current?.focus();
     }
@@ -418,6 +448,10 @@ export default function KioscoTerminal() {
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
+    }
+    if (autoSearchTimerRef.current) {
+      clearTimeout(autoSearchTimerRef.current);
+      autoSearchTimerRef.current = null;
     }
     setCountdown(null);
     setDniInput('');
@@ -846,7 +880,12 @@ export default function KioscoTerminal() {
                             maxLength={12}
                             placeholder="Digita tu DNI o Carné..."
                             value={dniInput}
-                            onChange={(e) => setDniInput(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setDniInput(val);
+                              setSearchError(null);
+                              triggerAutoSearch(val);
+                            }}
                             className={styles.dniInput}
                             disabled={loadingSearch || marcando}
                           />
@@ -855,7 +894,9 @@ export default function KioscoTerminal() {
                               type="button"
                               className={styles.clearInputBtn}
                               onClick={() => {
+                                if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
                                 setDniInput('');
+                                setSearchError(null);
                                 inputRef.current?.focus();
                               }}
                               title="Borrar"
@@ -865,7 +906,13 @@ export default function KioscoTerminal() {
                           )}
                         </div>
                         <div className={styles.inputHintRow}>
-                          <span className={styles.inputHint}>8 dígitos para DNI nacional</span>
+                          <span className={styles.inputHint}>
+                            {dniInput.length === 8 && loadingSearch ? (
+                              <span style={{ color: '#00e699', fontWeight: 600 }}>⚡ Consultando datos automáticamente...</span>
+                            ) : (
+                              '💡 Búsqueda automática al ingresar 8 dígitos'
+                            )}
+                          </span>
                           <span className={styles.inputCounter}>{dniInput.length} / 8</span>
                         </div>
                       </div>

@@ -220,6 +220,17 @@ src/
     - **CRUD Completo de Cursos**: Creación, modificación de tarifas de pacientes simulados por asignatura, activación/desactivación y eliminación segura de cursos.
     - **Gestión de Catálogos ECOE**: Mantenimiento completo de rangos de edad, especialidades y restricciones para convocatoria de actores.
 
+19. **Selector Buscable con Filtro de Roles en Asistencias Manuales (`ModalCrearAsistenciaManual.tsx`)**:
+    - **Reemplazo del `<select>` Nativo**: Combobox interactivo con pestañas de rol rápido (`Todos`, `Docentes`, `Técnicos`, `Pacientes Simulados`, `Administrativos`).
+    - **Búsqueda Instantánea**: Filtrado en tiempo real por apellido, nombre o DNI con exclusión automática de la cuenta maestra.
+20. **Búsqueda Automática al 8° Dígito en Modo Kiosco (`KioscoTerminal.tsx`)**:
+    - **Carga Inmediata (0 clics para buscar)**: Al completar los 8 dígitos del DNI (sea por teclado táctil en pantalla, teclado físico o lector de código de barras/fotocheck), el sistema consulta la base de datos automáticamente con un retardo natural de 200ms sin requerir clic en "Continuar >".
+    - **Marcación a 1 Solo Clic Real**:
+      - *Técnicos y Administrativos*: Al digitar sus 8 dígitos, ven inmediatamente su perfil y registran su entrada con **1 solo clic** (`🟢 REGISTRAR INGRESO`).
+      - *Salida (Todos los roles)*: Si el colaborador tiene turno activo, se carga directamente su resumen y registra su salida con **1 solo clic** (`🛑 REGISTRAR SALIDA`).
+      - *Docentes y Pacientes Simulados*: Se ahorran el clic de búsqueda; el sistema reconoce su rol y despliega de inmediato los selectores de Curso y Sala (manteniendo la auto-herencia de curso si la sala ya está activa).
+    - **Feedback Visual Dinámico**: Indicador dinámico en tiempo real (`⚡ Consultando datos automáticamente...`) y limpieza segura de timers al desmontar o pulsar borrar/cancelar.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados

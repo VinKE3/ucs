@@ -99,6 +99,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   // Modales de Corrección de Asistencias
   const [selectedAsistencia, setSelectedAsistencia] = useState<AsistenciaAdminItem | null>(null);
   const [showCerrarTurnoModal, setShowCerrarTurnoModal] = useState(false);
+  const [horaIngresoInput, setHoraIngresoInput] = useState('');
   const [horaSalidaInput, setHoraSalidaInput] = useState('');
   const [motivoCierre, setMotivoCierre] = useState('');
   const [showAnularModal, setShowAnularModal] = useState(false);
@@ -456,6 +457,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     setSelectedAsistencia(asist);
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
+    
+    // Formatear hora de ingreso original para que sea editable si se marcó erróneamente
+    const ingreso = new Date(asist.horaIngreso);
+    const ingresoIso = `${ingreso.getFullYear()}-${pad(ingreso.getMonth() + 1)}-${pad(ingreso.getDate())}T${pad(ingreso.getHours())}:${pad(ingreso.getMinutes())}`;
+    setHoraIngresoInput(ingresoIso);
+
+    // Formatear hora de salida
     const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     setHoraSalidaInput(localIso);
     setMotivoCierre('');
@@ -473,22 +481,28 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         body: JSON.stringify({
           id: selectedAsistencia.id,
           accion: 'cerrar_turno',
+          horaIngreso: horaIngresoInput ? new Date(horaIngresoInput).toISOString() : undefined,
           horaSalida: horaSalidaInput ? new Date(horaSalidaInput).toISOString() : new Date().toISOString(),
           motivo: motivoCierre.trim(),
         }),
       });
-      if (res.ok) {
-        setShowCerrarTurnoModal(false);
-        setSelectedAsistencia(null);
-        setMotivoCierre('');
-        await loadAsistencias();
-        await loadData();
-        if (selectedSedeId) {
-          loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
-        }
+      const data = await res.json();
+      if (!res.ok) {
+        showError('Error al regularizar turno', data.error);
+        return;
+      }
+      showToast('Turno regularizado exitosamente', 'success');
+      setShowCerrarTurnoModal(false);
+      setSelectedAsistencia(null);
+      setMotivoCierre('');
+      await loadAsistencias();
+      await loadData();
+      if (selectedSedeId) {
+        loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
       }
     } catch (err) {
       console.error('Error cerrando turno:', err);
+      showError('Error de conexión', err instanceof Error ? err.message : 'Error al conectar con el servidor');
     } finally {
       setActionAsistLoading(false);
     }
@@ -1301,6 +1315,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       <ModalCerrarTurno
         isOpen={showCerrarTurnoModal}
         selectedAsistencia={selectedAsistencia}
+        horaIngresoInput={horaIngresoInput}
+        setHoraIngresoInput={setHoraIngresoInput}
         horaSalidaInput={horaSalidaInput}
         setHoraSalidaInput={setHoraSalidaInput}
         motivoCierre={motivoCierre}

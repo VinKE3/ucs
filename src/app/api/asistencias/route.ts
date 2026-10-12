@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos } from '@/db/schema';
 import { desc, eq, and, gte, lte, or, like } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { getPeruTimeString } from '@/lib/peruTime';
 
 export const dynamic = 'force-dynamic';
 
@@ -234,7 +235,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, accion, horaSalida, motivo } = body;
+    const { id, accion, horaIngreso, horaSalida, motivo } = body;
 
     if (!id || !accion || !motivo || !motivo.trim()) {
       return NextResponse.json(
@@ -255,24 +256,83 @@ export async function PATCH(request: Request) {
 
     const datosAnteriores = {
       estado: asistenciaActual.estado,
+      horaIngreso: asistenciaActual.horaIngreso,
       horaSalida: asistenciaActual.horaSalida,
       minutosTotales: asistenciaActual.minutosTotales,
+      minutosTardanza: asistenciaActual.minutosTardanza,
+      minutosAnticipo: asistenciaActual.minutosAnticipo,
+      minutosExtra: asistenciaActual.minutosExtra,
       motivoModificacion: asistenciaActual.motivoModificacion,
     };
 
     let nuevoEstado: 'ajustado_manual' | 'anulado' = 'ajustado_manual';
+    let nuevaHoraIngreso: Date = asistenciaActual.horaIngreso;
     let nuevaHoraSalida: Date | null = asistenciaActual.horaSalida;
     let nuevosMinutos: number | null = asistenciaActual.minutosTotales;
+    let nuevosMinutosTardanza: number | null = asistenciaActual.minutosTardanza;
+    let nuevosMinutosAnticipo: number | null = asistenciaActual.minutosAnticipo;
+    let nuevosMinutosExtra: number | null = asistenciaActual.minutosExtra;
 
     if (accion === 'cerrar_turno') {
       nuevoEstado = 'ajustado_manual';
+      nuevaHoraIngreso = horaIngreso ? new Date(horaIngreso) : new Date(asistenciaActual.horaIngreso);
       nuevaHoraSalida = horaSalida ? new Date(horaSalida) : new Date();
 
-      const diffMs = nuevaHoraSalida.getTime() - new Date(asistenciaActual.horaIngreso).getTime();
+      if (nuevaHoraSalida <= nuevaHoraIngreso) {
+        return NextResponse.json(
+          { error: 'La hora de salida debe ser posterior a la hora de ingreso' },
+          { status: 400 }
+        );
+      }
+
+      const diffMs = nuevaHoraSalida.getTime() - nuevaHoraIngreso.getTime();
       nuevosMinutos = Math.max(1, Math.round(diffMs / (1000 * 60)));
+
+      // Recalcular puntualidad si la asistencia tenía turno programado asignado
+      if (asistenciaActual.horaEntradaProgramada) {
+        const [expH, expM] = asistenciaActual.horaEntradaProgramada.split(':').map(Number);
+        const expectedMinutes = expH * 60 + expM;
+
+        const actualTimeString = getPeruTimeString(nuevaHoraIngreso);
+        const [actH, actM] = actualTimeString.split(':').map(Number);
+        const actualMinutes = actH * 60 + actM;
+
+        const diffMinutes = actualMinutes - expectedMinutes;
+        const tolerancia = 10;
+
+        if (diffMinutes > tolerancia) {
+          nuevosMinutosTardanza = diffMinutes;
+          nuevosMinutosAnticipo = 0;
+        } else if (diffMinutes < 0) {
+          nuevosMinutosAnticipo = Math.abs(diffMinutes);
+          nuevosMinutosTardanza = 0;
+        } else {
+          nuevosMinutosTardanza = 0;
+          nuevosMinutosAnticipo = 0;
+        }
+      }
+
+      if (asistenciaActual.horaSalidaProgramada && nuevaHoraSalida) {
+        const [expSalH, expSalM] = asistenciaActual.horaSalidaProgramada.split(':').map(Number);
+        const expectedSalMinutes = expSalH * 60 + expSalM;
+
+        const actualSalTimeString = getPeruTimeString(nuevaHoraSalida);
+        const [actSalH, actSalM] = actualSalTimeString.split(':').map(Number);
+        const actualSalMinutes = actSalH * 60 + actSalM;
+
+        const diffSal = actualSalMinutes - expectedSalMinutes;
+        if (diffSal > 0) {
+          nuevosMinutosExtra = diffSal;
+        } else {
+          nuevosMinutosExtra = 0;
+        }
+      }
     } else if (accion === 'anular') {
       nuevoEstado = 'anulado';
       nuevosMinutos = 0; // Al anular no suma horas
+      nuevosMinutosTardanza = 0;
+      nuevosMinutosAnticipo = 0;
+      nuevosMinutosExtra = 0;
     } else {
       return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
     }
@@ -282,8 +342,12 @@ export async function PATCH(request: Request) {
       .update(asistencias)
       .set({
         estado: nuevoEstado,
+        horaIngreso: nuevaHoraIngreso,
         horaSalida: nuevaHoraSalida,
         minutosTotales: nuevosMinutos,
+        minutosTardanza: nuevosMinutosTardanza,
+        minutosAnticipo: nuevosMinutosAnticipo,
+        minutosExtra: nuevosMinutosExtra,
         modificadoPorId: session.userId,
         motivoModificacion: motivo.trim(),
         updatedAt: new Date(),
@@ -300,8 +364,12 @@ export async function PATCH(request: Request) {
       datosAnteriores: datosAnteriores,
       datosNuevos: {
         estado: nuevoEstado,
+        horaIngreso: nuevaHoraIngreso,
         horaSalida: nuevaHoraSalida,
         minutosTotales: nuevosMinutos,
+        minutosTardanza: nuevosMinutosTardanza,
+        minutosAnticipo: nuevosMinutosAnticipo,
+        minutosExtra: nuevosMinutosExtra,
         motivoModificacion: motivo.trim(),
       },
     });

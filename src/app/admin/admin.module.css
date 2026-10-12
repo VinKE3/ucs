@@ -30,7 +30,7 @@
 }
 
 .brandLogoImg {
-  height: 56px;
+  height: 76px;
   width: auto;
   max-width: 220px;
   object-fit: contain;
@@ -1148,8 +1148,17 @@
 }
 
 @keyframes pulseWarning {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.02); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
 }
 
 .occupantTimeBadge {

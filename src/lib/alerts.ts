@@ -145,7 +145,7 @@ export function showToast(title: string, icon: SweetAlertIcon = 'success') {
     timerProgressBar: true,
     background: theme.background,
     color: theme.color,
-    didOpen: (toast) => {
+    didOpen: (toast: HTMLElement) => {
       toast.onmouseenter = Swal.stopTimer;
       toast.onmouseleave = Swal.resumeTimer;
     },

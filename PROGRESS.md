@@ -81,11 +81,14 @@ src/
 6. **Ticket / Recibo Digital de Salida en Kiosco (`KioscoTerminal.tsx` & `/api/kiosco/marcar`)**:
    - Al marcar salida, el Kiosco presenta una constancia electrónica elegante con la jornada del día, el acumulado semanal (con barra de tope para docentes), el acumulado mensual y el cálculo de honorarios para pacientes simulados.
    - Temporizador inteligente de 8 segundos con barra de progreso y botón de avance inmediato.
-7. **Control y Alerta de Turnos Prolongados / Olvidados (> 5 horas)**:
+7. **Control y Alerta de Turnos Prolongados / Olvidados (> 5 horas) & Regularización Bimodal (Entrada y Salida)**:
    - Detección en tiempo real de turnos que superen las 5 horas continuas sin salida registrada.
    - Banner de advertencia en el tab de Asistencias con filtro directo de turnos abiertos.
    - Fila resaltada con insignia `⚠️ Prolongado` y botón `⚠️ Regularizar` en la tabla.
-   - Atajos rápidos de 1 clic en `ModalCerrarTurno.tsx` (+2h, +3h, +4h, 13:00, 18:00, Ahora) que autocompletan hora y motivo de auditoría.
+   - **Corrección de Ingreso y Salida en 1 Clic (`ModalCerrarTurno.tsx` & `/api/asistencias`)**:
+     - Permite editar tanto la **Fecha y Hora de Ingreso Real** como la de salida si el colaborador omitió marcar al llegar o digitó entrada al retirarse.
+     - **Atajos Inteligentes de Turno**: Si el colaborador tiene turno asignado (ej: `13:00 - 22:00` o `06:00 - 15:00`), un solo clic ajusta la entrada y salida exactas, recalcula automáticamente la puntualidad (eliminando tardanzas erróneas) y autocompleta el motivo de auditoría.
+     - Cálculo en tiempo real de duración efectiva antes de guardar.
 8. **Pre-Liquidación de Honorarios para Pacientes Simulados**:
    - Campo `tarifaHora` en base de datos (`usuarios.tarifa_hora`), perfil y modales de registro/edición.
    - Desglose y liquidación estimada en la pestaña *Resumen por Colaborador* (`S/. Monto Estimado` y `Tarifa / hr`).
@@ -221,6 +224,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `4a93846`: feat: sincronización y actualización del componente KioscoTerminal (marcación, tokens y autorizaciones)
 * `783d4de`: feat(roles): habilitar CRUD de ambientes y categorias de salas para rol administrativo
 * `609bb2a`: feat(roles): ampliar permisos para rol administrativo en personal, sedes, cursos y catalogos ecoe
 * `dffdbd6`: feat(security): cuenta maestra 00000001 en modo fantasma permanente e invisible

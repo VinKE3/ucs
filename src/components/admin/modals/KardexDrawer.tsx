@@ -21,7 +21,7 @@ interface KardexDrawerProps {
   restriccionesList?: CastingRestriccionItem[];
 }
 
-type PeriodFilter = 'hoy' | 'semana' | 'mes' | 'septiembre' | 'todos';
+type PeriodFilter = 'hoy' | 'semana' | 'mes' | 'todos';
 
 // Formato de minutos a "Xh Ym"
 function formatMinutosAHora(minutos: number): string {
@@ -148,9 +148,6 @@ export function KardexDrawer({
           const mes = getRangoMesActual();
           fechaDesde = mes.desde;
           fechaHasta = mes.hasta;
-        } else if (periodo === 'septiembre') {
-          fechaDesde = '2026-09-01';
-          fechaHasta = '2026-09-30';
         }
 
         const params = new URLSearchParams();
@@ -406,8 +403,6 @@ export function KardexDrawer({
       ? 'Esta Semana'
       : periodo === 'mes'
       ? 'Este Mes'
-      : periodo === 'septiembre'
-      ? 'Septiembre 2026'
       : 'Período Histórico';
 
     if (cortePs === 'q1') {
@@ -650,16 +645,6 @@ export function KardexDrawer({
                 onClick={() => setPeriodo('mes')}
               >
                 Este Mes
-              </button>
-              <button
-                className={`${styles.pillBtn} ${periodo === 'septiembre' ? styles.pillBtnActive : ''}`}
-                onClick={() => setPeriodo('septiembre')}
-                style={{
-                  background: periodo === 'septiembre' ? '#ff5a00' : undefined,
-                  color: periodo === 'septiembre' ? '#ffffff' : undefined,
-                }}
-              >
-                🍂 Septiembre
               </button>
               <button
                 className={`${styles.pillBtn} ${periodo === 'todos' ? styles.pillBtnActive : ''}`}

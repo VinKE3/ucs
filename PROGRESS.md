@@ -260,11 +260,19 @@ src/
       - Tabla unificada con: Nombre del Actor, DNI, N° Sesiones, Cursos participados, Horas Netas (hh:mm y decimal), Tarifas, Total a Pagar (S/.) y Estado de Liquidación (Listo para pago / En sala).
       - **Exportación Contable a Excel (CSV)** con 1 solo clic y membrete formal para enviar directamente a la oficina de Finanzas/RRHH de la Científica.
 
+23. **Semillas y Limpieza de Demostración para Pacientes Simulados (Septiembre 2026)**:
+    - **Semilla Automatizada (`src/db/seed_demo_ps.ts` / `npm run demo:ps:seed`)**:
+      - Genera 8 Pacientes Simulados realistas con DNIs `77000001` al `77000008` con perfiles de casting y tarifas (S/. 28 a S/. 35 / hora).
+      - Inserta 56 turnos de asistencia finalizados a lo largo de todo el mes de Septiembre 2026 distribuidos en cursos de simulación (Quirúrgica, Pediátrica, Obstétrica, SCI, SBS) con duraciones de 3 a 5 horas por jornada y observaciones clínicas detalladas.
+    - **Limpieza Instantánea 100% Reversible (`src/db/cleanup_demo_ps.ts` / `npm run demo:ps:cleanup`)**:
+      - Elimina limpiamente las 56 asistencias, los perfiles de casting y los 8 usuarios ficticios con 1 solo comando, restaurando la base de datos a su estado original sin afectar ningún registro real.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
-* `e86ac19`: feat(honorarios): pre-liquidacion automatica de honorarios PS y planilla mensual consolidada para finanzas
+* `797576e`: feat(demo): semillas y script de limpieza para 8 pacientes simulados ficticios de septiembre
+* `5e2c211`: feat(honorarios): pre-liquidacion automatica de honorarios PS y planilla mensual consolidada para finanzas
 * `05eae0a`: feat(ui): loaders reactivos, spinners de marcacion y skeleton shimmer cards
 * `4a93846`: feat: sincronización y actualización del componente KioscoTerminal (marcación, tokens y autorizaciones)
 * `783d4de`: feat(roles): habilitar CRUD de ambientes y categorias de salas para rol administrativo

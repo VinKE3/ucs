@@ -193,9 +193,26 @@
 }
 
 .submitBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.7;
   cursor: not-allowed;
-  box-shadow: none;
+  transform: none;
+}
+
+.btnSpinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: loginSpin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@keyframes loginSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .errorAlert {
@@ -209,6 +226,14 @@
   align-items: center;
   gap: 0.6rem;
   margin-bottom: 1.25rem;
+  animation: errorShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes errorShake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+  40%, 60% { transform: translate3d(3px, 0, 0); }
 }
 
 .divider {

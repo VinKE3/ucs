@@ -2306,3 +2306,54 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ==========================================================================
+   SKELETON SHIMMER ROWS PARA TABLAS
+   ========================================================================== */
+.skeletonTableRow td {
+  padding: 1.1rem 0.85rem !important;
+  vertical-align: middle;
+}
+
+.skeletonCell {
+  height: 16px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+[data-theme="light"] .skeletonCell {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.skeletonCell::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 100%
+  );
+  animation: tableShimmer 1.4s infinite;
+}
+
+[data-theme="light"] .skeletonCell::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes tableShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}

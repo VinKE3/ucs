@@ -231,10 +231,23 @@ src/
       - *Docentes y Pacientes Simulados*: Se ahorran el clic de búsqueda; el sistema reconoce su rol y despliega de inmediato los selectores de Curso y Sala (manteniendo la auto-herencia de curso si la sala ya está activa).
     - **Feedback Visual Dinámico**: Indicador dinámico en tiempo real (`⚡ Consultando datos automáticamente...`) y limpieza segura de timers al desmontar o pulsar borrar/cancelar.
 
+21. **Sistema Integral de Loaders Reactivos y Shimmer Skeletons (UX 60 FPS)**:
+    - **Pantalla de Login (`/login`)**:
+      - Spinner SVG dinámico en el botón de acceso (*«Validando credenciales...»*).
+      - Bloqueo preventivo de formulario para evitar doble submit o manipulación de inputs en tránsito.
+      - Animación de sacudida (*shake effect*) en caso de credenciales incorrectas.
+    - **Kiosco Táctil de Autoservicio (`KioscoTerminal.tsx`)**:
+      - **Skeleton Shimmer Card**: Al consultar DNI, se despliega una silueta animada con efecto de brillo (*shimmer*) que anticipa la tarjeta del colaborador con pulso indicador (*«Identificando colaborador en padrón de clínica...»*).
+      - **Bloqueo Preventivo del Teclado Numérico**: Teclas táctiles desactivadas (`disabled={loadingSearch || marcando}`) durante búsquedas y marcaciones para evitar dobles toques por impaciencia en tablets.
+      - **Botones de Marcación con Spinner Activo**: Spinners animados dentro de `🟢 REGISTRAR INGRESO` y `🛑 REGISTRAR SALIDA` mientras viaja la transacción.
+    - **Tablas Administrativas (`AsistenciasTab.tsx`)**:
+      - Sustitución de textos estáticos de carga por **Skeleton Shimmer Rows** (6 filas de siluetas de alta fidelidad) tanto en la sábana detallada como en el consolidado de colaboradores.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `05eae0a`: feat(ui): loaders reactivos, spinners de marcacion y skeleton shimmer cards
 * `4a93846`: feat: sincronización y actualización del componente KioscoTerminal (marcación, tokens y autorizaciones)
 * `783d4de`: feat(roles): habilitar CRUD de ambientes y categorias de salas para rol administrativo
 * `609bb2a`: feat(roles): ampliar permisos para rol administrativo en personal, sedes, cursos y catalogos ecoe

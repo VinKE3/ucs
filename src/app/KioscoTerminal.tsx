@@ -972,6 +972,7 @@ export default function KioscoTerminal() {
                               type="button"
                               className={`${styles.keypadBtn} ${isSpecial ? styles.keypadBtnSpecial : ''}`}
                               onClick={() => handleKeypadPress(key)}
+                              disabled={loadingSearch || marcando}
                             >
                               {label}
                             </button>
@@ -988,6 +989,31 @@ export default function KioscoTerminal() {
                           <line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
                         <span>{searchError}</span>
+                      </div>
+                    )}
+
+                    {/* SKELETON SHIMMER CARD DURANTE CONSULTA DE DNI */}
+                    {loadingSearch && !usuarioActual && (
+                      <div className={styles.skeletonCard} aria-live="polite" aria-busy="true">
+                        <div className={styles.skeletonHeader}>
+                          <div className={styles.skeletonUserGroup}>
+                            <div className={styles.skeletonAvatar} />
+                            <div className={styles.skeletonTextGroup}>
+                              <div className={styles.skeletonGreeting} />
+                              <div className={styles.skeletonName} />
+                              <div className={styles.skeletonDni} />
+                            </div>
+                          </div>
+                          <div className={styles.skeletonBadge} />
+                        </div>
+                        <div className={styles.skeletonBody}>
+                          <div className={styles.skeletonLine} />
+                          <div className={styles.skeletonLineShort} />
+                        </div>
+                        <div className={styles.skeletonStatusRow}>
+                          <span className={styles.skeletonPulseDot} />
+                          <span>Identificando colaborador en padrón de clínica...</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1061,7 +1087,14 @@ export default function KioscoTerminal() {
                           disabled={marcando}
                           className={styles.checkOutBtn}
                         >
-                          {marcando ? 'Registrando salida...' : '🛑 REGISTRAR SALIDA'}
+                          {marcando ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
+                              <span className={styles.btnSpinner} />
+                              <span>Registrando salida...</span>
+                            </span>
+                          ) : (
+                            '🛑 REGISTRAR SALIDA'
+                          )}
                         </button>
                       </div>
                     ) : (
@@ -1082,7 +1115,14 @@ export default function KioscoTerminal() {
                               disabled={marcando}
                               className={styles.checkInBtn}
                             >
-                              {marcando ? 'Registrando ingreso...' : '🟢 REGISTRAR INGRESO'}
+                              {marcando ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
+                                  <span className={styles.btnSpinner} />
+                                  <span>Registrando ingreso...</span>
+                                </span>
+                              ) : (
+                                '🟢 REGISTRAR INGRESO'
+                              )}
                             </button>
                           </div>
                         ) : (
@@ -1294,21 +1334,24 @@ export default function KioscoTerminal() {
                               disabled={marcando || !selectedAmbienteId || !selectedCursoId}
                               className={styles.checkInBtn}
                             >
-                              {marcando
-                                ? 'Registrando ingreso...'
-                                : !selectedCursoId
-                                  ? 'Selecciona un curso para continuar'
-                                  : !selectedAmbienteId
-                                    ? 'Selecciona una sala para continuar'
-                                    : !selectedAmbienteObj?.ocupada
-                                      ? '🟢 REGISTRAR INGRESO A SALA'
-                                      : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) === 0 && (selectedAmbienteObj.pacientesActivos?.length || 0) > 0
-                                        ? '🟢 INICIAR SIMULACIÓN (CON PACIENTE SIMULADO)'
-                                        : usuarioActual.tipoPersonal === 'paciente_simulado' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
-                                          ? '🟢 INGRESAR COMO PACIENTE SIMULADO'
-                                          : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
-                                            ? '🟢 CONFIRMAR INGRESO (RELEVO / CO-DOCENCIA)'
-                                            : '🟢 REGISTRAR INGRESO A SALA'}
+                              {marcando ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
+                                  <span className={styles.btnSpinner} />
+                                  <span>Registrando ingreso...</span>
+                                </span>
+                              ) : !selectedCursoId
+                                ? 'Selecciona un curso para continuar'
+                                : !selectedAmbienteId
+                                  ? 'Selecciona una sala para continuar'
+                                  : !selectedAmbienteObj?.ocupada
+                                    ? '🟢 REGISTRAR INGRESO A SALA'
+                                    : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) === 0 && (selectedAmbienteObj.pacientesActivos?.length || 0) > 0
+                                      ? '🟢 INICIAR SIMULACIÓN (CON PACIENTE SIMULADO)'
+                                      : usuarioActual.tipoPersonal === 'paciente_simulado' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
+                                        ? '🟢 INGRESAR COMO PACIENTE SIMULADO'
+                                        : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
+                                          ? '🟢 CONFIRMAR INGRESO (RELEVO / CO-DOCENCIA)'
+                                          : '🟢 REGISTRAR INGRESO A SALA'}
                             </button>
                           </div>
                         )}

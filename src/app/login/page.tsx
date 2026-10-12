@@ -143,7 +143,17 @@ export default function LoginPage() {
             className={styles.submitBtn}
             disabled={loading}
           >
-            {loading ? 'Validando credenciales...' : 'Iniciar Sesión →'}
+            {loading ? (
+              <>
+                <span className={styles.btnSpinner} />
+                <span>Validando credenciales...</span>
+              </>
+            ) : (
+              <>
+                <span>Iniciar Sesión</span>
+                <span>→</span>
+              </>
+            )}
           </button>
         </form>
 

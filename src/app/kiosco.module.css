@@ -541,6 +541,12 @@
   font-size: 1.1rem;
 }
 
+.keypadBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ==========================================================================
    ALERTAS Y FEEDBACK
    ========================================================================== */
@@ -604,6 +610,179 @@
   justify-content: center;
   gap: 0.6rem;
   padding: 1rem;
+}
+
+/* ==========================================================================
+   SKELETON SHIMMER CARD (FEEDBACK DE BÚSQUEDA EN TIEMPO REAL)
+   ========================================================================== */
+.skeletonCard {
+  background: var(--bg-card, rgba(6, 18, 38, 0.6));
+  border: 1.5px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 18px;
+  padding: 1.75rem;
+  margin-top: 1rem;
+  animation: fadeIn 0.25s ease;
+  width: 100%;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.skeletonUserGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.skeletonAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonTextGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.skeletonGreeting {
+  width: 100px;
+  height: 11px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonName {
+  width: 65%;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonDni {
+  width: 110px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonBadge {
+  width: 130px;
+  height: 32px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonBody {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.skeletonLine {
+  width: 100%;
+  height: 16px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonLineShort {
+  width: 60%;
+  height: 16px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeletonStatusRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 90, 0, 0.08);
+  border: 1px solid rgba(255, 90, 0, 0.2);
+  border-radius: 12px;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.skeletonPulseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5a00;
+  animation: pulseDot 1s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes pulseDot {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.skeletonAvatar::after,
+.skeletonGreeting::after,
+.skeletonName::after,
+.skeletonDni::after,
+.skeletonBadge::after,
+.skeletonLine::after,
+.skeletonLineShort::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 100%
+  );
+  animation: shimmerAnim 1.4s infinite;
+}
+
+@keyframes shimmerAnim {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 /* ==========================================================================

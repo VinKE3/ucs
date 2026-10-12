@@ -612,7 +612,25 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
               </tr>
             </thead>
             <tbody>
-              {resumenColaboradores.length === 0 ? (
+              {loadingAsistencias ? (
+                [...Array(6)].map((_, i) => (
+                  <tr key={`skeleton-resumen-${i}`} className={styles.skeletonTableRow}>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div className={styles.skeletonCell} style={{ width: '140px', height: '15px' }} />
+                        <div className={styles.skeletonCell} style={{ width: '85px', height: '11px' }} />
+                      </div>
+                    </td>
+                    <td><div className={styles.skeletonCell} style={{ width: '90px', height: '24px', borderRadius: '12px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '95px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '45px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '70px', height: '16px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '130px', height: '26px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '120px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '75px', height: '28px', borderRadius: '8px' }} /></td>
+                  </tr>
+                ))
+              ) : resumenColaboradores.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                     No hay colaboradores con horas registradas en este período.
@@ -1006,11 +1024,24 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             </thead>
             <tbody>
               {loadingAsistencias ? (
-                <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    Cargando registros de asistencias...
-                  </td>
-                </tr>
+                [...Array(6)].map((_, i) => (
+                  <tr key={`skeleton-asist-${i}`} className={styles.skeletonTableRow}>
+                    <td><div className={styles.skeletonCell} style={{ width: '65px', height: '14px' }} /></td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div className={styles.skeletonCell} style={{ width: '145px', height: '15px' }} />
+                        <div className={styles.skeletonCell} style={{ width: '75px', height: '10px' }} />
+                      </div>
+                    </td>
+                    <td><div className={styles.skeletonCell} style={{ width: '85px', height: '22px', borderRadius: '12px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '120px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '110px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '55px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '55px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '75px', height: '16px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '60px', height: '26px', borderRadius: '6px' }} /></td>
+                  </tr>
+                ))
               ) : asistenciasList.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>

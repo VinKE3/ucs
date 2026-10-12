@@ -267,10 +267,22 @@ src/
     - **Limpieza Instantánea 100% Reversible (`src/db/cleanup_demo_ps.ts` / `npm run demo:ps:cleanup`)**:
       - Elimina limpiamente las 56 asistencias, los perfiles de casting y los 8 usuarios ficticios con 1 solo comando, restaurando la base de datos a su estado original sin afectar ningún registro real.
 
+24. **Sistema Flexible de Cortes Quincenales y Mensuales para Planilla y Liquidación PS**:
+    - **Planilla Mensual Consolidada (`ModalPlanillaPS.tsx`)**:
+      - Selector inteligente de mes con botones de navegación rápida `◀ Mes Anterior` y `Mes Siguiente ▶`.
+      - Botonera de presets a 1 solo clic: `📅 Mes Completo`, `1️⃣ 1ra Quincena (01-15)`, `2️⃣ 2da Quincena (16-fin)`, y `🎯 Personalizado (Rango Libre para ECOE)`.
+      - Tarjeta ejecutiva de mini-comparativa: desglosa en tiempo real el monto acumulado en la 1ra Quincena vs. 2da Quincena vs. Mes Completo.
+      - Nombres de archivo Excel y glosa adaptativos (ej. `Planilla_PS_1ra_Quincena_Septiembre_2026.csv`).
+    - **Pre-Liquidación Individual en Ficha 360° (`KardexDrawer.tsx`)**:
+      - Botonera quincenal integrada dentro de la tarjeta de pre-liquidación: permite alternar entre *Todo el Período*, *1ra Quincena (01-15)* y *2da Quincena (16-fin)* recalculando inmediatamente el importe en S/.
+      - Pastilla de acceso rápido `🍂 Septiembre` para consultar directamente el mes de la demostración.
+      - El comprobante imprimible y descargable (PDF/CSV) refleja únicamente las sesiones de la quincena seleccionada con el encabezado correspondiente.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `ba69f96`: feat(quincenas): soporte de cortes quincenales y mensuales flexibles para planillas y pre-liquidacion PS
 * `797576e`: feat(demo): semillas y script de limpieza para 8 pacientes simulados ficticios de septiembre
 * `5e2c211`: feat(honorarios): pre-liquidacion automatica de honorarios PS y planilla mensual consolidada para finanzas
 * `05eae0a`: feat(ui): loaders reactivos, spinners de marcacion y skeleton shimmer cards

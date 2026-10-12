@@ -21,7 +21,7 @@ interface KardexDrawerProps {
   restriccionesList?: CastingRestriccionItem[];
 }
 
-type PeriodFilter = 'hoy' | 'semana' | 'mes' | 'todos';
+type PeriodFilter = 'hoy' | 'semana' | 'mes' | 'septiembre' | 'todos';
 
 // Formato de minutos a "Xh Ym"
 function formatMinutosAHora(minutos: number): string {
@@ -98,6 +98,9 @@ export function KardexDrawer({
   // Modal para comprobante de liquidación PS
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
 
+  // Sub-corte quincenal para liquidación de honorarios PS
+  const [cortePs, setCortePs] = useState<'todo' | 'q1' | 'q2'>('todo');
+
   useEffect(() => {
     setLimiteLocal(undefined);
   }, [usuario?.id]);
@@ -145,6 +148,9 @@ export function KardexDrawer({
           const mes = getRangoMesActual();
           fechaDesde = mes.desde;
           fechaHasta = mes.hasta;
+        } else if (periodo === 'septiembre') {
+          fechaDesde = '2026-09-01';
+          fechaHasta = '2026-09-30';
         }
 
         const params = new URLSearchParams();
@@ -318,9 +324,19 @@ export function KardexDrawer({
     };
   }, [asistencias, usuario]);
 
-  // Pre-Liquidación automática de honorarios por curso para Pacientes Simulados
+  // Pre-Liquidación automática de honorarios por curso para Pacientes Simulados (con filtro quincenal)
   const preLiquidacion = useMemo(() => {
     if (usuario?.tipoPersonal !== 'paciente_simulado') return null;
+
+    // Filtrar por corte quincenal si aplica
+    const asistenciasCorte = asistencias.filter((a) => {
+      if (a.estado === 'anulado') return false;
+      if (!a.fecha) return true;
+      const dia = parseInt(a.fecha.split('-')[2] || '0', 10);
+      if (cortePs === 'q1' && dia > 15) return false;
+      if (cortePs === 'q2' && dia < 16) return false;
+      return true;
+    });
 
     const mapCursos = new Map<string, {
       cursoId: number | null;
@@ -335,9 +351,7 @@ export function KardexDrawer({
     let totalMonto = 0;
     let totalSesiones = 0;
 
-    for (const a of asistencias) {
-      if (a.estado === 'anulado') continue;
-
+    for (const a of asistenciasCorte) {
       const min = getMinutosAsistencia(a, nowTimestamp);
       totalMinutos += min;
       totalSesiones++;
@@ -386,13 +400,21 @@ export function KardexDrawer({
       };
     });
 
-    const periodoTexto = periodo === 'hoy'
+    let basePeriodoTexto = periodo === 'hoy'
       ? 'Hoy'
       : periodo === 'semana'
       ? 'Esta Semana'
       : periodo === 'mes'
       ? 'Este Mes'
+      : periodo === 'septiembre'
+      ? 'Septiembre 2026'
       : 'Período Histórico';
+
+    if (cortePs === 'q1') {
+      basePeriodoTexto = `1ra Quincena (01-15) • ${basePeriodoTexto}`;
+    } else if (cortePs === 'q2') {
+      basePeriodoTexto = `2da Quincena (16-fin) • ${basePeriodoTexto}`;
+    }
 
     return {
       desglose,
@@ -400,9 +422,10 @@ export function KardexDrawer({
       totalHorasFormato: formatMinutosAHora(totalMinutos),
       totalMonto: Number(totalMonto.toFixed(2)),
       totalSesiones,
-      periodoTexto,
+      periodoTexto: basePeriodoTexto,
+      asistenciasFiltradas: asistenciasCorte,
     };
-  }, [asistencias, usuario, nowTimestamp, periodo]);
+  }, [asistencias, usuario, nowTimestamp, periodo, cortePs]);
 
   // Guardar ajuste de horas semanales asignadas
   const handleGuardarLimite = async () => {
@@ -627,6 +650,16 @@ export function KardexDrawer({
                 onClick={() => setPeriodo('mes')}
               >
                 Este Mes
+              </button>
+              <button
+                className={`${styles.pillBtn} ${periodo === 'septiembre' ? styles.pillBtnActive : ''}`}
+                onClick={() => setPeriodo('septiembre')}
+                style={{
+                  background: periodo === 'septiembre' ? '#ff5a00' : undefined,
+                  color: periodo === 'septiembre' ? '#ffffff' : undefined,
+                }}
+              >
+                🍂 Septiembre
               </button>
               <button
                 className={`${styles.pillBtn} ${periodo === 'todos' ? styles.pillBtnActive : ''}`}
@@ -1001,7 +1034,7 @@ export function KardexDrawer({
                   background: 'rgba(255, 255, 255, 0.04)',
                   padding: '0.75rem 1rem',
                   borderRadius: '8px',
-                  marginBottom: '0.85rem',
+                  marginBottom: '0.65rem',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   flexWrap: 'wrap',
                   gap: '0.5rem',
@@ -1024,6 +1057,73 @@ export function KardexDrawer({
                     Tarifa Base: {usuario.tarifaHora ? `S/. ${Number(usuario.tarifaHora).toFixed(2)}/h` : 'No asignada'}
                   </div>
                 </div>
+              </div>
+
+              {/* BOTONERA DE CORTES QUINCENALES (1 CLIC) */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  marginBottom: '0.85rem',
+                  padding: '0.4rem 0.65rem',
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  Corte:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCortePs('todo')}
+                  style={{
+                    background: cortePs === 'todo' ? 'var(--ucs-orange)' : 'transparent',
+                    color: cortePs === 'todo' ? '#ffffff' : 'var(--text-secondary)',
+                    border: cortePs === 'todo' ? '1px solid var(--ucs-orange)' : '1px solid rgba(255,255,255,0.1)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  📅 Todo el Período
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCortePs('q1')}
+                  style={{
+                    background: cortePs === 'q1' ? '#0284c7' : 'transparent',
+                    color: cortePs === 'q1' ? '#ffffff' : 'var(--text-secondary)',
+                    border: cortePs === 'q1' ? '1px solid #0284c7' : '1px solid rgba(255,255,255,0.1)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  1️⃣ 1ra Quincena (01 - 15)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCortePs('q2')}
+                  style={{
+                    background: cortePs === 'q2' ? '#059669' : 'transparent',
+                    color: cortePs === 'q2' ? '#ffffff' : 'var(--text-secondary)',
+                    border: cortePs === 'q2' ? '1px solid #059669' : '1px solid rgba(255,255,255,0.1)',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  2️⃣ 2da Quincena (16 - fin)
+                </button>
               </div>
 
               {/* DESGLOSE AUTOMÁTICO POR CURSO */}
@@ -1304,7 +1404,7 @@ export function KardexDrawer({
           totalHorasFormato={preLiquidacion?.totalHorasFormato || '0h 0m'}
           totalMonto={preLiquidacion?.totalMonto || 0}
           totalSesiones={preLiquidacion?.totalSesiones || 0}
-          asistencias={asistencias}
+          asistencias={preLiquidacion?.asistenciasFiltradas || asistencias}
         />
       )}
     </div>

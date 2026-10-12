@@ -33,6 +33,11 @@ export interface FilaPlanillaActor {
   usuarioObj?: UsuarioItem;
 }
 
+const NOMBRES_MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
 export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
   isOpen,
   onClose,
@@ -43,62 +48,157 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
   fechaHastaDefecto = '',
   onOpenKardex,
 }) => {
-  const [filtroMes, setFiltroMes] = useState<'actual' | 'anterior' | 'rango'>('rango');
+  // Año y mes seleccionados (Por defecto Septiembre 2026 o el año/mes del filtro activo)
+  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(() => {
+    if (fechaDesdeDefecto && fechaDesdeDefecto.startsWith('202')) {
+      return parseInt(fechaDesdeDefecto.substring(0, 4), 10);
+    }
+    return 2026;
+  });
+
+  const [mesSeleccionado, setMesSeleccionado] = useState<number>(() => {
+    if (fechaDesdeDefecto && fechaDesdeDefecto.includes('-')) {
+      return parseInt(fechaDesdeDefecto.split('-')[1], 10) - 1; // 0-indexed (8 = Septiembre)
+    }
+    return 8; // Septiembre por defecto para demostración
+  });
+
+  // Tipo de corte contable: Mes completo, 1ra Quincena, 2da Quincena o Personalizado
+  const [corteTipo, setCorteTipo] = useState<'mes_completo' | 'quincena_1' | 'quincena_2' | 'personalizado'>('mes_completo');
+  const [fechaDesdeManual, setFechaDesdeManual] = useState<string>('2026-09-01');
+  const [fechaHastaManual, setFechaHastaManual] = useState<string>('2026-09-30');
+
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'listo' | 'en_curso'>('todos');
 
-  // Cálculo de rangos de meses
-  const { mesActualRango, mesAnteriorRango } = useMemo(() => {
-    const now = new Date();
-    // Mes actual
-    const yActual = now.getFullYear();
-    const mActual = now.getMonth();
-    const dInicioActual = new Date(yActual, mActual, 1);
-    const dFinActual = new Date(yActual, mActual + 1, 0);
+  // Navegación de mes
+  const handleMesAnterior = () => {
+    if (mesSeleccionado === 0) {
+      setMesSeleccionado(11);
+      setAnioSeleccionado((prev) => prev - 1);
+    } else {
+      setMesSeleccionado((prev) => prev - 1);
+    }
+  };
 
-    const fInicioActual = `${yActual}-${String(mActual + 1).padStart(2, '0')}-01`;
-    const fFinActual = `${yActual}-${String(mActual + 1).padStart(2, '0')}-${String(dFinActual.getDate()).padStart(2, '0')}`;
+  const handleMesSiguiente = () => {
+    if (mesSeleccionado === 11) {
+      setMesSeleccionado(0);
+      setAnioSeleccionado((prev) => prev + 1);
+    } else {
+      setMesSeleccionado((prev) => prev + 1);
+    }
+  };
 
-    // Mes anterior
-    const dInicioAnt = new Date(yActual, mActual - 1, 1);
-    const dFinAnt = new Date(yActual, mActual, 0);
-    const yAnt = dInicioAnt.getFullYear();
-    const mAnt = dInicioAnt.getMonth();
+  // Cálculo de fechas efectivas y labels según corte
+  const { fechaDesdeEfectiva, fechaHastaEfectiva, labelPeriodo, labelCorteCorto, slugCorte } = useMemo(() => {
+    const mesNombre = NOMBRES_MESES[mesSeleccionado];
+    const mesStr = String(mesSeleccionado + 1).padStart(2, '0');
+    const ultimoDia = new Date(anioSeleccionado, mesSeleccionado + 1, 0).getDate();
+    const ultimoDiaStr = String(ultimoDia).padStart(2, '0');
 
-    const fInicioAnt = `${yAnt}-${String(mAnt + 1).padStart(2, '0')}-01`;
-    const fFinAnt = `${yAnt}-${String(mAnt + 1).padStart(2, '0')}-${String(dFinAnt.getDate()).padStart(2, '0')}`;
-
-    return {
-      mesActualRango: { desde: fInicioActual, hasta: fFinActual, label: now.toLocaleString('es-PE', { month: 'long', year: 'numeric' }) },
-      mesAnteriorRango: { desde: fInicioAnt, hasta: fFinAnt, label: dInicioAnt.toLocaleString('es-PE', { month: 'long', year: 'numeric' }) },
-    };
-  }, []);
-
-  const { fechaDesdeEfectiva, fechaHastaEfectiva, labelPeriodo } = useMemo(() => {
-    if (filtroMes === 'actual') {
+    if (corteTipo === 'quincena_1') {
+      const fDesde = `${anioSeleccionado}-${mesStr}-01`;
+      const fHasta = `${anioSeleccionado}-${mesStr}-15`;
       return {
-        fechaDesdeEfectiva: mesActualRango.desde,
-        fechaHastaEfectiva: mesActualRango.hasta,
-        labelPeriodo: mesActualRango.label.toUpperCase(),
+        fechaDesdeEfectiva: fDesde,
+        fechaHastaEfectiva: fHasta,
+        labelPeriodo: `1RA QUINCENA DE ${mesNombre.toUpperCase()} ${anioSeleccionado} (01/${mesStr} AL 15/${mesStr})`,
+        labelCorteCorto: `1ra Quincena (01-15 ${mesNombre})`,
+        slugCorte: `1ra_Quincena_${mesNombre}_${anioSeleccionado}`,
       };
     }
-    if (filtroMes === 'anterior') {
+
+    if (corteTipo === 'quincena_2') {
+      const fDesde = `${anioSeleccionado}-${mesStr}-16`;
+      const fHasta = `${anioSeleccionado}-${mesStr}-${ultimoDiaStr}`;
       return {
-        fechaDesdeEfectiva: mesAnteriorRango.desde,
-        fechaHastaEfectiva: mesAnteriorRango.hasta,
-        labelPeriodo: mesAnteriorRango.label.toUpperCase(),
+        fechaDesdeEfectiva: fDesde,
+        fechaHastaEfectiva: fHasta,
+        labelPeriodo: `2DA QUINCENA DE ${mesNombre.toUpperCase()} ${anioSeleccionado} (16/${mesStr} AL ${ultimoDiaStr}/${mesStr})`,
+        labelCorteCorto: `2da Quincena (16-${ultimoDiaStr} ${mesNombre})`,
+        slugCorte: `2da_Quincena_${mesNombre}_${anioSeleccionado}`,
       };
     }
-    return {
-      fechaDesdeEfectiva: fechaDesdeDefecto,
-      fechaHastaEfectiva: fechaHastaDefecto,
-      labelPeriodo: fechaDesdeDefecto && fechaHastaDefecto
-        ? `${fechaDesdeDefecto} al ${fechaHastaDefecto}`
-        : 'PERÍODO SELECCIONADO',
-    };
-  }, [filtroMes, mesActualRango, mesAnteriorRango, fechaDesdeDefecto, fechaHastaDefecto]);
 
-  // Consolidación de datos de Pacientes Simulados
+    if (corteTipo === 'personalizado') {
+      return {
+        fechaDesdeEfectiva: fechaDesdeManual,
+        fechaHastaEfectiva: fechaHastaManual,
+        labelPeriodo: `PERÍODO PERSONALIZADO (${fechaDesdeManual} AL ${fechaHastaManual})`,
+        labelCorteCorto: `Personalizado (${fechaDesdeManual} a ${fechaHastaManual})`,
+        slugCorte: `Personalizado_${fechaDesdeManual}_al_${fechaHastaManual}`,
+      };
+    }
+
+    // Default: Mes completo
+    const fDesde = `${anioSeleccionado}-${mesStr}-01`;
+    const fHasta = `${anioSeleccionado}-${mesStr}-${ultimoDiaStr}`;
+    return {
+      fechaDesdeEfectiva: fDesde,
+      fechaHastaEfectiva: fHasta,
+      labelPeriodo: `MES COMPLETO DE ${mesNombre.toUpperCase()} ${anioSeleccionado} (01/${mesStr} AL ${ultimoDiaStr}/${mesStr})`,
+      labelCorteCorto: `Mes Completo (${mesNombre} ${anioSeleccionado})`,
+      slugCorte: `Mes_Completo_${mesNombre}_${anioSeleccionado}`,
+    };
+  }, [corteTipo, anioSeleccionado, mesSeleccionado, fechaDesdeManual, fechaHastaManual]);
+
+  // Mini comparativa quincenal (Monto Q1 vs Monto Q2 vs Mes)
+  const statsComparativasQuincenas = useMemo(() => {
+    const mesStr = String(mesSeleccionado + 1).padStart(2, '0');
+    const fQ1Desde = `${anioSeleccionado}-${mesStr}-01`;
+    const fQ1Hasta = `${anioSeleccionado}-${mesStr}-15`;
+    const fQ2Desde = `${anioSeleccionado}-${mesStr}-16`;
+    const ultimoDia = new Date(anioSeleccionado, mesSeleccionado + 1, 0).getDate();
+    const fQ2Hasta = `${anioSeleccionado}-${mesStr}-${String(ultimoDia).padStart(2, '0')}`;
+
+    let totalMontoQ1 = 0;
+    let totalSesionesQ1 = 0;
+    let totalMontoQ2 = 0;
+    let totalSesionesQ2 = 0;
+
+    for (const a of asistenciasList) {
+      if (a.estado === 'anulado') continue;
+      const uInfo = usuariosList.find((u) => u.id === a.usuarioId);
+      const tipo = a.tipoPersonal || uInfo?.tipoPersonal;
+      if (tipo !== 'paciente_simulado') continue;
+
+      let tarifaSesion = 0;
+      if (a.cursoTarifaHoraPs !== undefined && a.cursoTarifaHoraPs !== null && a.cursoTarifaHoraPs !== '') {
+        tarifaSesion = Number(a.cursoTarifaHoraPs);
+      } else if (a.cursoId) {
+        const cFound = cursosList.find((c) => c.id === a.cursoId);
+        if (cFound?.tarifaHoraPs !== undefined && cFound?.tarifaHoraPs !== null && cFound?.tarifaHoraPs !== '') {
+          tarifaSesion = Number(cFound.tarifaHoraPs);
+        }
+      }
+      if (tarifaSesion === 0 && uInfo?.tarifaHora) {
+        tarifaSesion = Number(uInfo.tarifaHora);
+      }
+
+      const min = a.minutosTotales || 0;
+      const subtotal = (min / 60) * tarifaSesion;
+
+      if (a.fecha >= fQ1Desde && a.fecha <= fQ1Hasta) {
+        totalMontoQ1 += subtotal;
+        totalSesionesQ1++;
+      } else if (a.fecha >= fQ2Desde && a.fecha <= fQ2Hasta) {
+        totalMontoQ2 += subtotal;
+        totalSesionesQ2++;
+      }
+    }
+
+    return {
+      montoQ1: totalMontoQ1,
+      sesionesQ1: totalSesionesQ1,
+      montoQ2: totalMontoQ2,
+      sesionesQ2: totalSesionesQ2,
+      montoMes: totalMontoQ1 + totalMontoQ2,
+      sesionesMes: totalSesionesQ1 + totalSesionesQ2,
+    };
+  }, [asistenciasList, usuariosList, cursosList, anioSeleccionado, mesSeleccionado]);
+
+  // Consolidación de datos de Pacientes Simulados para el corte actual
   const { actoresPlanilla, kpisPlanilla } = useMemo(() => {
     const map = new Map<number, FilaPlanillaActor>();
     const nowTimestamp = Date.now();
@@ -106,7 +206,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
     for (const a of asistenciasList) {
       if (a.estado === 'anulado') continue;
 
-      // Filtro de fechas si aplica
+      // Filtro de fechas efectivo según el corte seleccionado
       if (fechaDesdeEfectiva && a.fecha < fechaDesdeEfectiva) continue;
       if (fechaHastaEfectiva && a.fecha > fechaHastaEfectiva) continue;
 
@@ -248,7 +348,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
     year: 'numeric',
   });
 
-  // Exportación formal a Excel (CSV con membrete para Finanzas UCS)
+  // Exportación formal a Excel (CSV con membrete adaptado al corte)
   const handleExportarExcelFinanzas = () => {
     if (actoresPlanilla.length === 0) {
       alert('No hay actores con horas para exportar en el período seleccionado.');
@@ -258,7 +358,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
     const headers = [
       'UNIVERSIDAD CIENTÍFICA DEL SUR - CENTRO DE SIMULACIÓN CLÍNICA',
       'PLANILLA CONSOLIDADA DE HONORARIOS DE PACIENTES SIMULADOS (ACTORES)',
-      `Período: ${labelPeriodo}`,
+      `Período Contable: ${labelPeriodo}`,
       `Fecha de Emisión: ${fechaHoy}`,
       `Presupuesto Total a Pagar: S/. ${kpisPlanilla.totalMontoGral.toFixed(2)}`,
       '',
@@ -306,7 +406,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Planilla_Actores_PS_UCS_${labelPeriodo.replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `Planilla_PS_${slugCorte}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -337,7 +437,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
           border: '1px solid var(--border-color)',
           borderRadius: '16px',
           width: '100%',
-          maxWidth: '1180px',
+          maxWidth: '1200px',
           maxHeight: '94vh',
           display: 'flex',
           flexDirection: 'column',
@@ -379,7 +479,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Planilla Consolidada de Honorarios PS
+                  Planilla de Honorarios PS — Liquidación y Finanzas
                 </h2>
                 <span
                   style={{
@@ -393,11 +493,11 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                     textTransform: 'uppercase',
                   }}
                 >
-                  Finanzas & RRHH
+                  Cortes Quincenales & Mensuales
                 </span>
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                Liquidación mensual de Pacientes Simulados para envío a Contabilidad y emisión de RHE
+                Cálculo automático para emisión de planillas de Finanzas, Contabilidad y comprobantes RHE
               </div>
             </div>
           </div>
@@ -420,8 +520,9 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                 gap: '0.45rem',
                 boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
               }}
+              title={`Exportar planilla de ${labelCorteCorto}`}
             >
-              <span>📥</span> Exportar a Excel (Finanzas)
+              <span>📥</span> Exportar Excel ({labelCorteCorto})
             </button>
 
             <button
@@ -457,108 +558,348 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
 
         {/* BODY */}
         <div style={{ overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* BARRA DE FILTRO DE PERÍODO Y BÚSQUEDA */}
+          
+          {/* PANEL DE CONTROL DE CORTE CONTABLE (MES + PRESETS QUINCENALES) */}
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '0.85rem',
               background: 'var(--bg-elevated)',
-              padding: '0.9rem 1.25rem',
-              borderRadius: '12px',
+              borderRadius: '14px',
               border: '1px solid var(--border-color)',
+              padding: '1.1rem 1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Período:</span>
-              <button
-                type="button"
-                onClick={() => setFiltroMes('actual')}
-                style={{
-                  background: filtroMes === 'actual' ? 'var(--ucs-orange)' : 'var(--bg-secondary)',
-                  color: filtroMes === 'actual' ? '#ffffff' : 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                📅 {mesActualRango.label} (Mes Actual)
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroMes('anterior')}
-                style={{
-                  background: filtroMes === 'anterior' ? 'var(--ucs-orange)' : 'var(--bg-secondary)',
-                  color: filtroMes === 'anterior' ? '#ffffff' : 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                📅 {mesAnteriorRango.label}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroMes('rango')}
-                style={{
-                  background: filtroMes === 'rango' ? 'var(--ucs-orange)' : 'var(--bg-secondary)',
-                  color: filtroMes === 'rango' ? '#ffffff' : 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Filtro General Activo
-              </button>
+            {/* FILA SUPERIOR: SELECTOR DE MES + NAVEGACIÓN + PRESETS DE CORTE */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '1rem',
+              }}
+            >
+              {/* SELECTOR DE MES CON FLECHAS */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  Mes Contable:
+                </span>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    padding: '0.15rem 0.35rem',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleMesAnterior}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                    }}
+                    title="Mes anterior"
+                  >
+                    ◀
+                  </button>
+
+                  <select
+                    value={mesSeleccionado}
+                    onChange={(e) => setMesSeleccionado(parseInt(e.target.value, 10))}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: '0.25rem 0.5rem',
+                      outline: 'none',
+                    }}
+                  >
+                    {NOMBRES_MESES.map((m, idx) => (
+                      <option key={idx} value={idx}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={anioSeleccionado}
+                    onChange={(e) => setAnioSeleccionado(parseInt(e.target.value, 10))}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: '0.25rem 0.5rem',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value={2025}>2025</option>
+                    <option value={2026}>2026</option>
+                    <option value={2027}>2027</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleMesSiguiente}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                    }}
+                    title="Mes siguiente"
+                  >
+                    ▶
+                  </button>
+                </div>
+              </div>
+
+              {/* BOTONERA DE PRESETS DE CORTE CONTABLE (1 CLIC) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                  Corte:
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setCorteTipo('mes_completo')}
+                  style={{
+                    background: corteTipo === 'mes_completo' ? 'var(--ucs-orange)' : 'var(--bg-secondary)',
+                    color: corteTipo === 'mes_completo' ? '#ffffff' : 'var(--text-primary)',
+                    border: '1px solid',
+                    borderColor: corteTipo === 'mes_completo' ? 'var(--ucs-orange)' : 'var(--border-color)',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    boxShadow: corteTipo === 'mes_completo' ? '0 2px 8px rgba(255, 90, 0, 0.35)' : 'none',
+                  }}
+                >
+                  📅 Mes Completo (01 - {new Date(anioSeleccionado, mesSeleccionado + 1, 0).getDate()})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCorteTipo('quincena_1')}
+                  style={{
+                    background: corteTipo === 'quincena_1' ? '#0284c7' : 'var(--bg-secondary)',
+                    color: corteTipo === 'quincena_1' ? '#ffffff' : 'var(--text-primary)',
+                    border: '1px solid',
+                    borderColor: corteTipo === 'quincena_1' ? '#0284c7' : 'var(--border-color)',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    boxShadow: corteTipo === 'quincena_1' ? '0 2px 8px rgba(2, 132, 199, 0.35)' : 'none',
+                  }}
+                >
+                  1️⃣ 1ra Quincena (01 - 15)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCorteTipo('quincena_2')}
+                  style={{
+                    background: corteTipo === 'quincena_2' ? '#059669' : 'var(--bg-secondary)',
+                    color: corteTipo === 'quincena_2' ? '#ffffff' : 'var(--text-primary)',
+                    border: '1px solid',
+                    borderColor: corteTipo === 'quincena_2' ? '#059669' : 'var(--border-color)',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    boxShadow: corteTipo === 'quincena_2' ? '0 2px 8px rgba(5, 150, 105, 0.35)' : 'none',
+                  }}
+                >
+                  2️⃣ 2da Quincena (16 - {new Date(anioSeleccionado, mesSeleccionado + 1, 0).getDate()})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCorteTipo('personalizado')}
+                  style={{
+                    background: corteTipo === 'personalizado' ? '#7c3aed' : 'var(--bg-secondary)',
+                    color: corteTipo === 'personalizado' ? '#ffffff' : 'var(--text-primary)',
+                    border: '1px solid',
+                    borderColor: corteTipo === 'personalizado' ? '#7c3aed' : 'var(--border-color)',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  🎯 Personalizado
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <input
-                type="text"
-                placeholder="Buscar por DNI o nombre..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
+            {/* SI SE ELIGIÓ PERSONALIZADO: INPUTS DE FECHA */}
+            {corteTipo === 'personalizado' && (
+              <div
                 style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.65rem 0.85rem',
+                  background: 'rgba(124, 58, 237, 0.1)',
+                  border: '1px solid rgba(124, 58, 237, 0.3)',
                   borderRadius: '8px',
-                  padding: '0.45rem 0.85rem',
-                  fontSize: '0.82rem',
-                  minWidth: '220px',
-                }}
-              />
-              <select
-                value={filtroEstado}
-                onChange={(e) => setFiltroEstado(e.target.value as any)}
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  borderRadius: '8px',
-                  padding: '0.45rem 0.85rem',
-                  fontSize: '0.82rem',
+                  flexWrap: 'wrap',
                 }}
               >
-                <option value="todos">Todos los estados</option>
-                <option value="listo">✅ Listos para pago</option>
-                <option value="en_curso">⚠️ En sala ahora</option>
-              </select>
+                <span style={{ fontSize: '0.78rem', color: '#c4b5fd', fontWeight: 600 }}>
+                  Rango Libre para Exámenes ECOE / Campañas:
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Desde:</label>
+                  <input
+                    type="date"
+                    value={fechaDesdeManual}
+                    onChange={(e) => setFechaDesdeManual(e.target.value)}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.8rem',
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Hasta:</label>
+                  <input
+                    type="date"
+                    value={fechaHastaManual}
+                    onChange={(e) => setFechaHastaManual(e.target.value)}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.8rem',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* MINI COMPARATIVA DE QUINCENAS (RESUMEN EJECUTIVO DEL MES) */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '0.65rem',
+                background: 'rgba(0, 0, 0, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '10px',
+                padding: '0.65rem 0.9rem',
+                fontSize: '0.8rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>1️⃣ 1ra Quincena (01-15):</span>
+                <strong style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                  S/. {statsComparativasQuincenas.montoQ1.toFixed(2)} ({statsComparativasQuincenas.sesionesQ1} turnos)
+                </strong>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>2️⃣ 2da Quincena (16-fin):</span>
+                <strong style={{ color: '#34d399', fontFamily: 'var(--font-mono)' }}>
+                  S/. {statsComparativasQuincenas.montoQ2.toFixed(2)} ({statsComparativasQuincenas.sesionesQ2} turnos)
+                </strong>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Total Mes Completo:</span>
+                <strong style={{ color: '#ff701e', fontFamily: 'var(--font-mono)' }}>
+                  S/. {statsComparativasQuincenas.montoMes.toFixed(2)} ({statsComparativasQuincenas.sesionesMes} turnos)
+                </strong>
+              </div>
+            </div>
+
+            {/* BARRA INFERIOR DE FILTROS EN TABLA */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+                paddingTop: '0.35rem',
+              }}
+            >
+              <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                📋 Mostrando: <span style={{ color: 'var(--ucs-orange)' }}>{labelPeriodo}</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <input
+                  type="text"
+                  placeholder="Buscar actor por DNI o nombre..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '8px',
+                    padding: '0.4rem 0.8rem',
+                    fontSize: '0.82rem',
+                    minWidth: '230px',
+                  }}
+                />
+
+                <select
+                  value={filtroEstado}
+                  onChange={(e) => setFiltroEstado(e.target.value as any)}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '8px',
+                    padding: '0.4rem 0.8rem',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="listo">✅ Listos para pago</option>
+                  <option value="en_curso">⚠️ En sala ahora</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* KPIS DE PLANILLA */}
+          {/* KPIS DE PLANILLA DEL CORTE ACTIVO */}
           <div
             style={{
               display: 'grid',
@@ -575,13 +916,13 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
               }}
             >
               <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: 700, textTransform: 'uppercase' }}>
-                💰 Presupuesto Total a Liquidar
+                💰 Presupuesto a Liquidar ({labelCorteCorto})
               </div>
               <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#10b981', marginTop: '0.2rem', fontFamily: 'var(--font-mono)' }}>
                 S/. {kpisPlanilla.totalMontoGral.toFixed(2)}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                Total devengado en Soles (PEN)
+                Total devengado en el corte seleccionado
               </div>
             </div>
 
@@ -594,13 +935,13 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
               }}
             >
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-                🎭 Actores en Planilla
+                🎭 Actores en este Corte
               </div>
               <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
                 {kpisPlanilla.totalActores}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                Con marcaciones en el período
+                Con marcaciones en este período
               </div>
             </div>
 
@@ -613,7 +954,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
               }}
             >
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-                ⏱️ Horas Netas Realizadas
+                ⏱️ Horas Netas Computadas
               </div>
               <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#38bdf8', marginTop: '0.2rem', fontFamily: 'var(--font-mono)' }}>
                 {kpisPlanilla.totalHorasFormato}
@@ -638,7 +979,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                 {kpisPlanilla.totalCursos}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                Estaciones con cobertura PS
+                Estaciones con cobertura en el corte
               </div>
             </div>
           </div>
@@ -659,7 +1000,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                     <th style={{ padding: '0.85rem 1rem' }}>Paciente Simulado (Actor)</th>
                     <th style={{ padding: '0.85rem 1rem' }}>DNI</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Sesiones</th>
-                    <th style={{ padding: '0.85rem 1rem' }}>Cursos Participados</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Cursos Participados en el Corte</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Total Horas</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Tarifa Base</th>
                     <th style={{ padding: '0.85rem 1rem', textAlign: 'right', color: '#10b981', fontWeight: 800 }}>Total a Pagar (S/.)</th>
@@ -671,7 +1012,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                   {actoresFiltrados.length === 0 ? (
                     <tr>
                       <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                        No se encontraron registros de Pacientes Simulados en este período o filtro.
+                        No se encontraron registros de Pacientes Simulados en este corte o filtro ({labelPeriodo}).
                       </td>
                     </tr>
                   ) : (
@@ -838,7 +1179,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
           }}
         >
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Mostrando <strong>{actoresFiltrados.length}</strong> de <strong>{actoresPlanilla.length}</strong> actores en planilla • Período: <strong>{labelPeriodo}</strong>
+            Mostrando <strong>{actoresFiltrados.length}</strong> de <strong>{actoresPlanilla.length}</strong> actores en planilla • Corte: <strong>{labelPeriodo}</strong>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

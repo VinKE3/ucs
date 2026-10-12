@@ -243,10 +243,28 @@ src/
     - **Tablas Administrativas (`AsistenciasTab.tsx`)**:
       - Sustitución de textos estáticos de carga por **Skeleton Shimmer Rows** (6 filas de siluetas de alta fidelidad) tanto en la sábana detallada como en el consolidado de colaboradores.
 
+22. **Pre-Liquidación Automática de Honorarios y Planilla Consolidada para Finanzas (Pacientes Simulados)**:
+    - **Pre-Liquidación Individual en Ficha/Kardex 360° (`KardexDrawer.tsx`)**:
+      - Cálculo automático de honorarios netos en S/. agrupados por curso/estación ECOE (horas dictadas × tarifa por hora aplicada = subtotal).
+      - Respaldo de tarifa por curso (`tarifa_hora_ps`) o tarifa base del actor (`tarifa_hora`) en caso de actividades clínicas generales.
+      - Tarjeta de liquidación del período seleccionado con importe total destacado y desglose detallado.
+      - **Comprobante de Pre-Liquidación Imprimible y Descargable (`ModalComprobanteLiquidacion.tsx`)**:
+        - Membrete oficial de la Universidad Científica del Sur y Facultad de Ciencias de la Salud.
+        - Detalle de cursos, horas netas, tarifa e importes, junto con la auditoría cronológica de marcaciones.
+        - Espacio de firmas para Jefatura de Simulación y conformidad del Paciente Simulado.
+        - Exportación a CSV/Excel y botón de impresión directa / PDF (`window.print()`).
+    - **Planilla Mensual Consolidada de Honorarios PS para Finanzas (`ModalPlanillaPS.tsx` & `AsistenciasTab.tsx`)**:
+      - Acceso directo mediante botón de alta visibilidad: *«📑 Planilla Mensual PS (Finanzas)»* en la cabecera de Asistencias.
+      - Filtros de período inteligentes: Mes Actual, Mes Anterior y rango personalizado.
+      - Tarjetas KPI consolidadas: Presupuesto total a liquidar (S/.), actores participantes, horas totales y cursos cubiertos.
+      - Tabla unificada con: Nombre del Actor, DNI, N° Sesiones, Cursos participados, Horas Netas (hh:mm y decimal), Tarifas, Total a Pagar (S/.) y Estado de Liquidación (Listo para pago / En sala).
+      - **Exportación Contable a Excel (CSV)** con 1 solo clic y membrete formal para enviar directamente a la oficina de Finanzas/RRHH de la Científica.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `e86ac19`: feat(honorarios): pre-liquidacion automatica de honorarios PS y planilla mensual consolidada para finanzas
 * `05eae0a`: feat(ui): loaders reactivos, spinners de marcacion y skeleton shimmer cards
 * `4a93846`: feat: sincronización y actualización del componente KioscoTerminal (marcación, tokens y autorizaciones)
 * `783d4de`: feat(roles): habilitar CRUD de ambientes y categorias de salas para rol administrativo

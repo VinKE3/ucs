@@ -5,6 +5,7 @@ import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
 import { showAlert } from '@/lib/alerts';
+import { ModalPlanillaPS } from '@/components/admin/modals/ModalPlanillaPS';
 
 interface AsistenciasTabProps {
   asistenciasList: AsistenciaAdminItem[];
@@ -63,6 +64,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
 }) => {
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
+  const [showModalPlanillaPS, setShowModalPlanillaPS] = useState<boolean>(false);
 
   // Estados de paginación para Detallado y Resumen
   const [paginaDetalle, setPaginaDetalle] = useState<number>(1);
@@ -485,6 +487,24 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
           </div>
 
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowModalPlanillaPS(true)}
+              className={styles.actionBtn}
+              style={{
+                padding: '0.45rem 1rem',
+                fontSize: '0.85rem',
+                background: 'linear-gradient(135deg, #ff5a00 0%, #e04f00 100%)',
+                color: '#ffffff',
+                fontWeight: 700,
+                border: 'none',
+                boxShadow: '0 2px 8px rgba(255, 90, 0, 0.3)',
+              }}
+              title="Planilla mensual consolidada de actores y pacientes simulados para Finanzas / RRHH"
+            >
+              <span>📑</span> Planilla Mensual PS (Finanzas)
+            </button>
+
             {onOpenCrearAsistenciaManual && (
               <button
                 type="button"
@@ -1444,6 +1464,18 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         )}
         </>
       )}
+
+      {/* MODAL PLANILLA CONSOLIDADA DE ACTORES PS (FINANZAS) */}
+      <ModalPlanillaPS
+        isOpen={showModalPlanillaPS}
+        onClose={() => setShowModalPlanillaPS(false)}
+        asistenciasList={asistenciasList}
+        usuariosList={usuariosList}
+        cursosList={cursosList}
+        fechaDesdeDefecto={asistFiltroFechaDesde}
+        fechaHastaDefecto={asistFiltroFechaHasta}
+        onOpenKardex={onOpenKardex}
+      />
     </section>
   );
 };

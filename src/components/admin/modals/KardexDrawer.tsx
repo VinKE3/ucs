@@ -9,6 +9,7 @@ import {
 } from '@/types/admin';
 import styles from './KardexDrawer.module.css';
 import { showAlert, showError, showToast } from '@/lib/alerts';
+import { ModalComprobanteLiquidacion, DesgloseCursoPS } from './ModalComprobanteLiquidacion';
 
 interface KardexDrawerProps {
   usuario: UsuarioItem | null;
@@ -93,6 +94,9 @@ export function KardexDrawer({
 
   // Límite local para actualización reactiva sin mutar props
   const [limiteLocal, setLimiteLocal] = useState<number | null | undefined>(undefined);
+
+  // Modal para comprobante de liquidación PS
+  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
 
   useEffect(() => {
     setLimiteLocal(undefined);
@@ -313,6 +317,92 @@ export function KardexDrawer({
       punctualityRate,
     };
   }, [asistencias, usuario]);
+
+  // Pre-Liquidación automática de honorarios por curso para Pacientes Simulados
+  const preLiquidacion = useMemo(() => {
+    if (usuario?.tipoPersonal !== 'paciente_simulado') return null;
+
+    const mapCursos = new Map<string, {
+      cursoId: number | null;
+      cursoNombre: string;
+      cursoCodigo?: string | null;
+      minutos: number;
+      tarifaHora: number;
+      sesionesCount: number;
+    }>();
+
+    let totalMinutos = 0;
+    let totalMonto = 0;
+    let totalSesiones = 0;
+
+    for (const a of asistencias) {
+      if (a.estado === 'anulado') continue;
+
+      const min = getMinutosAsistencia(a, nowTimestamp);
+      totalMinutos += min;
+      totalSesiones++;
+
+      let tarifa = 0;
+      if (a.cursoTarifaHoraPs !== undefined && a.cursoTarifaHoraPs !== null && a.cursoTarifaHoraPs !== '') {
+        tarifa = Number(a.cursoTarifaHoraPs);
+      } else if (usuario.tarifaHora !== undefined && usuario.tarifaHora !== null && usuario.tarifaHora !== '') {
+        tarifa = Number(usuario.tarifaHora);
+      }
+
+      const subtotalSesion = (min / 60) * tarifa;
+      totalMonto += subtotalSesion;
+
+      const key = a.cursoId ? `c-${a.cursoId}` : 'sin-curso';
+      const cNombre = a.cursoNombre || 'Simulación Clínica General';
+
+      const item = mapCursos.get(key);
+      if (!item) {
+        mapCursos.set(key, {
+          cursoId: a.cursoId || null,
+          cursoNombre: cNombre,
+          cursoCodigo: a.cursoCodigo,
+          minutos: min,
+          tarifaHora: tarifa,
+          sesionesCount: 1,
+        });
+      } else {
+        item.minutos += min;
+        item.sesionesCount += 1;
+        if (!item.tarifaHora && tarifa > 0) item.tarifaHora = tarifa;
+      }
+    }
+
+    const desglose: DesgloseCursoPS[] = Array.from(mapCursos.values()).map((c) => {
+      const horasDec = c.minutos / 60;
+      return {
+        cursoId: c.cursoId,
+        cursoNombre: c.cursoNombre,
+        cursoCodigo: c.cursoCodigo,
+        horasDecimal: Number(horasDec.toFixed(2)),
+        horasFormato: formatMinutosAHora(c.minutos),
+        tarifaHora: c.tarifaHora,
+        subtotal: Number((horasDec * c.tarifaHora).toFixed(2)),
+        sesionesCount: c.sesionesCount,
+      };
+    });
+
+    const periodoTexto = periodo === 'hoy'
+      ? 'Hoy'
+      : periodo === 'semana'
+      ? 'Esta Semana'
+      : periodo === 'mes'
+      ? 'Este Mes'
+      : 'Período Histórico';
+
+    return {
+      desglose,
+      totalHorasDecimal: Number((totalMinutos / 60).toFixed(2)),
+      totalHorasFormato: formatMinutosAHora(totalMinutos),
+      totalMonto: Number(totalMonto.toFixed(2)),
+      totalSesiones,
+      periodoTexto,
+    };
+  }, [asistencias, usuario, nowTimestamp, periodo]);
 
   // Guardar ajuste de horas semanales asignadas
   const handleGuardarLimite = async () => {
@@ -853,6 +943,136 @@ export function KardexDrawer({
             </div>
           )}
 
+          {/* TARJETA DE PRE-LIQUIDACIÓN DE HONORARIOS PARA PACIENTES SIMULADOS */}
+          {usuario.tipoPersonal === 'paciente_simulado' && preLiquidacion && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                borderRadius: '12px',
+                padding: '1.1rem',
+                marginBottom: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>💰</span>
+                  <div>
+                    <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#10b981' }}>
+                      Pre-Liquidación de Honorarios ({preLiquidacion.periodoTexto})
+                    </span>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Cálculo automático según horas registradas y tarifas de curso
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowComprobanteModal(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                    }}
+                    title="Ver e imprimir comprobante con membrete UCS"
+                  >
+                    <span>📄</span> Comprobante PDF / Imprimir
+                  </button>
+                </div>
+              </div>
+
+              {/* MONTO PRINCIPAL DESTACADO */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  marginBottom: '0.85rem',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                    Total a Pagar Estimado
+                  </span>
+                  <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+                    S/. {preLiquidacion.totalMonto.toFixed(2)}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {preLiquidacion.totalHorasFormato} ({preLiquidacion.totalHorasDecimal}h) en {preLiquidacion.totalSesiones} turno{preLiquidacion.totalSesiones === 1 ? '' : 's'}
+                  </span>
+                  <div style={{ fontSize: '0.7rem', color: '#93c5fd', marginTop: '0.15rem' }}>
+                    Tarifa Base: {usuario.tarifaHora ? `S/. ${Number(usuario.tarifaHora).toFixed(2)}/h` : 'No asignada'}
+                  </div>
+                </div>
+              </div>
+
+              {/* DESGLOSE AUTOMÁTICO POR CURSO */}
+              {preLiquidacion.desglose.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                    Desglose por Curso / Estación:
+                  </div>
+                  {preLiquidacion.desglose.map((c, i) => (
+                    <div
+                      key={c.cursoId ?? `desglose-${i}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '6px',
+                        background: 'rgba(0, 0, 0, 0.2)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <span>🎓</span>
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)' }}>{c.cursoNombre}</strong>
+                          {c.cursoCodigo && <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginLeft: '0.35rem' }}>({c.cursoCodigo})</span>}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          {c.horasDecimal} hrs × S/. {c.tarifaHora.toFixed(2)}
+                        </span>
+                        <strong style={{ color: '#34d399', fontSize: '0.88rem' }}>
+                          = S/. {c.subtotal.toFixed(2)}
+                        </strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '0.5rem' }}>
+                  No registra horas de simulación computables en este período.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* GRID DE KPIs DEL PERÍODO */}
           <div className={styles.kpiGrid}>
             <div className={styles.kpiCard}>
@@ -1071,6 +1291,22 @@ export function KardexDrawer({
           </button>
         </div>
       </div>
+
+      {/* MODAL IMPRIMIBLE / COMPROBANTE DE LIQUIDACIÓN PS */}
+      {usuario.tipoPersonal === 'paciente_simulado' && (
+        <ModalComprobanteLiquidacion
+          isOpen={showComprobanteModal}
+          onClose={() => setShowComprobanteModal(false)}
+          usuario={usuario}
+          periodoLabel={preLiquidacion?.periodoTexto || 'Período'}
+          desgloseCursos={preLiquidacion?.desglose || []}
+          totalHorasDecimal={preLiquidacion?.totalHorasDecimal || 0}
+          totalHorasFormato={preLiquidacion?.totalHorasFormato || '0h 0m'}
+          totalMonto={preLiquidacion?.totalMonto || 0}
+          totalSesiones={preLiquidacion?.totalSesiones || 0}
+          asistencias={asistencias}
+        />
+      )}
     </div>
   );
 }

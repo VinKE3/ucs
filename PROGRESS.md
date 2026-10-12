@@ -286,6 +286,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `7f2be7a`: fix(kardex): retirar pastilla de septiembre del selector de periodo en la Ficha 360°
 * `eb3fee0`: fix(ui): retirar boton de Horas de la columna Acciones en Personal de Clinica
 * `ba69f96`: feat(quincenas): soporte de cortes quincenales y mensuales flexibles para planillas y pre-liquidacion PS
 * `797576e`: feat(demo): semillas y script de limpieza para 8 pacientes simulados ficticios de septiembre

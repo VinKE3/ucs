@@ -823,21 +823,6 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                   </td>
                   <td>
                     <div className={styles.actionRow}>
-                      {u.dni !== '00000001' && (
-                        <button
-                          onClick={() => onOpenKardex(u)}
-                          className={styles.iconBtn}
-                          style={{
-                            borderColor: 'rgba(56, 189, 248, 0.4)',
-                            color: 'var(--ucs-blue-sky)',
-                            background: 'rgba(56, 189, 248, 0.08)',
-                          }}
-                          title="Ver Ficha 360° y Cómputo de Horas"
-                        >
-                          <span>📊</span> Horas
-                        </button>
-                      )}
-
                       {u.tipoPersonal === 'paciente_simulado' && onOpenFichaCasting && (
                         <button
                           type="button"

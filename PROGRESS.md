@@ -278,10 +278,15 @@ src/
       - Pastilla de acceso rápido `🍂 Septiembre` para consultar directamente el mes de la demostración.
       - El comprobante imprimible y descargable (PDF/CSV) refleja únicamente las sesiones de la quincena seleccionada con el encabezado correspondiente.
 
+25. **Desacoplamiento de Horas en Directorio de Personal (`PersonalTab.tsx`)**:
+    - Retiro del botón *«📊 Horas»* en la columna de Acciones de la tabla de Personal de Clínica.
+    - Evita mezclar la gestión del padrón de colaboradores (roles, altas, edición y casting) con la fiscalización de asistencias y liquidaciones de horas (centralizadas limpiamente en *Historial de Asistencias* y *Planilla Mensual*).
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `eb3fee0`: fix(ui): retirar boton de Horas de la columna Acciones en Personal de Clinica
 * `ba69f96`: feat(quincenas): soporte de cortes quincenales y mensuales flexibles para planillas y pre-liquidacion PS
 * `797576e`: feat(demo): semillas y script de limpieza para 8 pacientes simulados ficticios de septiembre
 * `5e2c211`: feat(honorarios): pre-liquidacion automatica de honorarios PS y planilla mensual consolidada para finanzas

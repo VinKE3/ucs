@@ -16,6 +16,7 @@
   --bg-secondary: #0b2247;
   --bg-card: rgba(11, 34, 71, 0.75);
   --bg-card-hover: rgba(17, 50, 102, 0.85);
+  --bg-elevated: #0f2d5c;
   --bg-input: rgba(6, 18, 38, 0.85);
   --border-color: rgba(255, 255, 255, 0.12);
   --border-glow: rgba(255, 90, 0, 0.35);
@@ -41,6 +42,7 @@
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9;
+  --bg-elevated: #ffffff;
   --bg-input: #ffffff;
   --border-color: #cbd5e1;
   --border-glow: rgba(255, 90, 0, 0.3);
@@ -65,6 +67,7 @@
   --bg-secondary: #0b2247;
   --bg-card: rgba(11, 34, 71, 0.75);
   --bg-card-hover: rgba(17, 50, 102, 0.85);
+  --bg-elevated: #0f2d5c;
   --bg-input: rgba(6, 18, 38, 0.85);
   --border-color: rgba(255, 255, 255, 0.12);
   --border-glow: rgba(255, 90, 0, 0.35);

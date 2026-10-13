@@ -841,17 +841,18 @@ export function KardexDrawer({
           {usuario.tipoPersonal === 'paciente_simulado' && (
             <div
               style={{
-                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(236, 72, 153, 0.08) 100%)',
+                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(236, 72, 153, 0.04) 100%), var(--bg-card)',
                 border: '1px solid rgba(168, 85, 247, 0.3)',
                 borderRadius: '12px',
                 padding: '1rem',
                 marginBottom: '1rem',
+                boxShadow: 'var(--shadow-card)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                   <span style={{ fontSize: '1.2rem' }}>🎭</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#c084fc' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#8b5cf6' }}>
                     Ficha de Casting & Competencias Clínicas
                   </span>
                 </div>
@@ -860,14 +861,15 @@ export function KardexDrawer({
                     type="button"
                     onClick={() => onOpenFichaCasting(usuario)}
                     style={{
-                      background: 'rgba(168, 85, 247, 0.2)',
-                      border: '1px solid #c084fc',
+                      background: '#7c3aed',
+                      border: 'none',
                       color: '#ffffff',
                       fontSize: '0.74rem',
-                      fontWeight: 600,
-                      padding: '0.25rem 0.6rem',
+                      fontWeight: 700,
+                      padding: '0.3rem 0.65rem',
                       borderRadius: '6px',
                       cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)',
                     }}
                   >
                     ✏️ Editar Casting
@@ -965,18 +967,19 @@ export function KardexDrawer({
           {usuario.tipoPersonal === 'paciente_simulado' && preLiquidacion && (
             <div
               style={{
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.02) 100%), var(--bg-card)',
                 border: '1px solid rgba(16, 185, 129, 0.35)',
                 borderRadius: '12px',
                 padding: '1.1rem',
                 marginBottom: '1rem',
+                boxShadow: 'var(--shadow-card)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '1.25rem' }}>💰</span>
                   <div>
-                    <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#10b981' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--ucs-clinical-green, #10b981)' }}>
                       Pre-Liquidación de Honorarios ({preLiquidacion.periodoTexto})
                     </span>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -1016,11 +1019,12 @@ export function KardexDrawer({
                   display: 'flex',
                   alignItems: 'baseline',
                   justifyContent: 'space-between',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '8px',
-                  marginBottom: '0.65rem',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'var(--bg-secondary)',
+                  padding: '0.85rem 1.1rem',
+                  borderRadius: '10px',
+                  marginBottom: '0.75rem',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
                   flexWrap: 'wrap',
                   gap: '0.5rem',
                 }}
@@ -1029,7 +1033,7 @@ export function KardexDrawer({
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
                     Total a Pagar Estimado
                   </span>
-                  <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ fontSize: '1.65rem', fontWeight: 900, color: 'var(--ucs-clinical-green, #10b981)', fontFamily: 'var(--font-mono)' }}>
                     S/. {preLiquidacion.totalMonto.toFixed(2)}
                   </div>
                 </div>
@@ -1038,7 +1042,7 @@ export function KardexDrawer({
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     {preLiquidacion.totalHorasFormato} ({preLiquidacion.totalHorasDecimal}h) en {preLiquidacion.totalSesiones} turno{preLiquidacion.totalSesiones === 1 ? '' : 's'}
                   </span>
-                  <div style={{ fontSize: '0.7rem', color: '#93c5fd', marginTop: '0.15rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600, marginTop: '0.15rem' }}>
                     Tarifa Base: {usuario.tarifaHora ? `S/. ${Number(usuario.tarifaHora).toFixed(2)}/h` : 'No asignada'}
                   </div>
                 </div>
@@ -1051,10 +1055,11 @@ export function KardexDrawer({
                   alignItems: 'center',
                   gap: '0.45rem',
                   marginBottom: '0.85rem',
-                  padding: '0.4rem 0.65rem',
-                  background: 'rgba(0, 0, 0, 0.25)',
+                  padding: '0.45rem 0.75rem',
+                  background: 'var(--bg-secondary)',
                   borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
                   flexWrap: 'wrap',
                 }}
               >
@@ -1065,14 +1070,15 @@ export function KardexDrawer({
                   type="button"
                   onClick={() => setCortePs('todo')}
                   style={{
-                    background: cortePs === 'todo' ? 'var(--ucs-orange)' : 'transparent',
+                    background: cortePs === 'todo' ? 'var(--ucs-orange)' : 'var(--bg-primary)',
                     color: cortePs === 'todo' ? '#ffffff' : 'var(--text-secondary)',
-                    border: cortePs === 'todo' ? '1px solid var(--ucs-orange)' : '1px solid rgba(255,255,255,0.1)',
-                    padding: '0.2rem 0.55rem',
+                    border: cortePs === 'todo' ? '1px solid var(--ucs-orange)' : '1px solid var(--border-color)',
+                    padding: '0.25rem 0.6rem',
                     borderRadius: '6px',
                     fontSize: '0.74rem',
                     fontWeight: 700,
                     cursor: 'pointer',
+                    transition: 'all 0.15s',
                   }}
                 >
                   📅 Todo el Período
@@ -1081,14 +1087,15 @@ export function KardexDrawer({
                   type="button"
                   onClick={() => setCortePs('q1')}
                   style={{
-                    background: cortePs === 'q1' ? '#0284c7' : 'transparent',
+                    background: cortePs === 'q1' ? '#0284c7' : 'var(--bg-primary)',
                     color: cortePs === 'q1' ? '#ffffff' : 'var(--text-secondary)',
-                    border: cortePs === 'q1' ? '1px solid #0284c7' : '1px solid rgba(255,255,255,0.1)',
-                    padding: '0.2rem 0.55rem',
+                    border: cortePs === 'q1' ? '1px solid #0284c7' : '1px solid var(--border-color)',
+                    padding: '0.25rem 0.6rem',
                     borderRadius: '6px',
                     fontSize: '0.74rem',
                     fontWeight: 700,
                     cursor: 'pointer',
+                    transition: 'all 0.15s',
                   }}
                 >
                   1️⃣ 1ra Quincena (01 - 15)
@@ -1097,14 +1104,15 @@ export function KardexDrawer({
                   type="button"
                   onClick={() => setCortePs('q2')}
                   style={{
-                    background: cortePs === 'q2' ? '#059669' : 'transparent',
+                    background: cortePs === 'q2' ? '#059669' : 'var(--bg-primary)',
                     color: cortePs === 'q2' ? '#ffffff' : 'var(--text-secondary)',
-                    border: cortePs === 'q2' ? '1px solid #059669' : '1px solid rgba(255,255,255,0.1)',
-                    padding: '0.2rem 0.55rem',
+                    border: cortePs === 'q2' ? '1px solid #059669' : '1px solid var(--border-color)',
+                    padding: '0.25rem 0.6rem',
                     borderRadius: '6px',
                     fontSize: '0.74rem',
                     fontWeight: 700,
                     cursor: 'pointer',
+                    transition: 'all 0.15s',
                   }}
                 >
                   2️⃣ 2da Quincena (16 - fin)
@@ -1124,11 +1132,12 @@ export function KardexDrawer({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: '6px',
-                        background: 'rgba(0, 0, 0, 0.2)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        fontSize: '0.8rem',
+                        padding: '0.55rem 0.85rem',
+                        borderRadius: '8px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+                        fontSize: '0.82rem',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -1140,10 +1149,10 @@ export function KardexDrawer({
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontFamily: 'var(--font-mono)' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
                           {c.horasDecimal} hrs × S/. {c.tarifaHora.toFixed(2)}
                         </span>
-                        <strong style={{ color: '#34d399', fontSize: '0.88rem' }}>
+                        <strong style={{ color: 'var(--ucs-clinical-green, #10b981)', fontSize: '0.92rem', fontWeight: 800 }}>
                           = S/. {c.subtotal.toFixed(2)}
                         </strong>
                       </div>

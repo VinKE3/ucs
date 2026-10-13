@@ -284,6 +284,29 @@ src/
     - Retiro del botón *«📊 Horas»* en la columna de Acciones de la tabla de Personal de Clínica.
     - Evita mezclar la gestión del padrón de colaboradores (roles, altas, edición y casting) con la fiscalización de asistencias y liquidaciones de horas (centralizadas limpiamente en *Historial de Asistencias* y *Planilla Mensual*).
 
+26. **Rediseño Espacioso, Grilla de Cursos y Tabla Panorámica en Planilla Mensual PS (`PlanillaTab.tsx` & `admin.module.css`)**:
+    - **Ampliación Panorámica del Dashboard (`admin.module.css`)**: Se incrementó el `max-width` global del panel de 1400px a **1780px** con `padding: 1.5rem 2.5rem`, eliminando los más de 500px de márgenes grises desperdiciados en monitores de escritorio/1080p y permitiendo que las tablas de gestión respiren con amplitud ejecutiva.
+    - **Nombres de Actores Completos (Sin Truncar)**: Columna de *Actor / Paciente Simulado* ampliada a **285px** y retiro de `textOverflow: ellipsis` en los nombres para visualizar nombres completos y compuestos (ej. *«Castro Huamán, Valeria Sofía»*) junto con su DNI, tarifa base y correo.
+    - **Grilla de Cursos en 2 Columnas Simétricas**: Reemplazo del apilamiento vertical de 4 pisos por un layout en grilla responsivo (`repeat(2, minmax(0, 1fr))`). Esto redujo la altura vertical de las filas a la mitad (~65px) y eliminó los recortes de texto en los títulos de cursos. Cada tarjeta muestra el icono clínico, el nombre completo de la asignatura y la fórmula de horas × tarifa = subtotal destacado en verde.
+    - **Columnas Proporcionales y `table-layout: fixed`**: Calibración estricta de anchos (`#`: 40px, `Actor`: 255px, `Cursos`: flexible ~700px, `Horas Netas`: 105px, `Total a Pagar`: 125px, `Estado`: 135px, `Acciones`: 215px). Se eliminó el `overflow: hidden` del contenedor exterior que recortaba el borde derecho de las acciones y se garantizó `white-space: nowrap` en los botones.
+    - **Botones de Acción con Bordes y Paleta Distintiva**: `[📄 Boleta]` en verde esmeralda translúcido con borde `1px solid rgba(16, 185, 129, 0.35)` y `[🔍 Ficha]` en naranja UCS institucional con borde `1px solid rgba(255, 90, 0, 0.35)`, con 215px de ancho garantizado para que nunca se apiñen ni se corten.
+    - **Tarjetas de Cursos en Doble Nivel**: Nivel 1 con el nombre completo de la asignatura ocupando el 100% del ancho sin cortes, y Nivel 2 con el desglose matemático alineado (`horas × tarifa ➝ subtotal en verde`).
+
+27. **Navegación Móvil Estilo Mercado Pago con 4 Pestañas Operativas y Bottom Sheet "Más •••" (`AdminNavbar.tsx` & `admin.module.css`)**:
+    - **Solución al Colapso Móvil de 6 Ítems**: Se sustituyó la barra inferior saturada de 6 pestañas comprimidas por un estándar nativo de **5 slots exactos** (`flex: 1`, `max-width: 78px`) con espaciado uniforme sin cortes en cualquier celular.
+    - **4 Pestañas Operativas Fijas**:
+      1. `🏠 Salas` (Ocupación en tiempo real y ambientes)
+      2. `👥 Personal` (Padrón clínico de técnicos, docentes y pacientes)
+      3. `⏱️ Asistencias` (Marcaciones del día y turnos activos en sala)
+      4. `📑 Planilla PS` (Honorarios, pre-liquidación y cortes quincenales sin cortes)
+    - **Botón "Más •••" y Bottom Sheet Deslizante**:
+      - Botón de 3 puntitos horizontales con indicador de estado activo cuando se navega en vistas secundarias.
+      - Al pulsar, despliega suavemente desde abajo una **hoja deslizante modal (Bottom Sheet)** con tirador táctil, desenfoque de fondo (*backdrop-filter blur*), cabecera con botón de cierre `✕`, y tarjetas táctiles para:
+        - 📍 **Sedes Clínicas (Campus)**: Con contador de sedes e indicador de terminales autorizadas.
+        - 📖 **Cursos y Asignaturas**: Con contador de asignaturas y catálogo de tarifas por hora.
+        - ⚡ **Modo Kiosco**: Acceso directo con 1 toque a la pantalla de marcación táctil por DNI.
+        - 🌙 **Selector de Tema**: Alternancia entre modo Claro y Oscuro integrada en el pie de la hoja.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados

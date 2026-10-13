@@ -1042,20 +1042,21 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
         style={{
           border: '1px solid var(--border-color)',
           borderRadius: '12px',
-          overflow: 'hidden',
+          overflowX: 'auto',
           background: 'var(--bg-card)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
         }}
       >
-        <table className={styles.table} style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className={styles.table} style={{ width: '100%', minWidth: '1100px', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', width: '40px' }}>#</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Actor / Paciente Simulado</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Cursos y Escenarios (Horas × Tarifa)</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Horas Netas</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Total a Pagar</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Estado</th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Acciones</th>
+              <th style={{ padding: '0.85rem 0.4rem', textAlign: 'center', width: '40px' }}>#</th>
+              <th style={{ padding: '0.85rem 0.85rem', textAlign: 'left', width: '255px' }}>Actor / Paciente Simulado</th>
+              <th style={{ padding: '0.85rem 0.85rem', textAlign: 'left' }}>Cursos y Escenarios (Horas × Tarifa)</th>
+              <th style={{ padding: '0.85rem 0.75rem', textAlign: 'right', width: '105px' }}>Horas Netas</th>
+              <th style={{ padding: '0.85rem 0.75rem', textAlign: 'right', width: '125px' }}>Total a Pagar</th>
+              <th style={{ padding: '0.85rem 0.5rem', textAlign: 'center', width: '135px' }}>Estado</th>
+              <th style={{ padding: '0.85rem 0.75rem', textAlign: 'center', width: '215px' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -1085,14 +1086,14 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
                   style={{
                     borderBottom: '1px solid var(--border-color)',
                     background: idx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)',
-                    transition: 'background 0.15s',
+                    transition: 'background 0.15s ease',
                   }}
                 >
-                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  <td style={{ padding: '0.85rem 0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', verticalAlign: 'middle' }}>
                     {idx + 1}
                   </td>
 
-                  <td style={{ padding: '0.85rem 1rem' }}>
+                  <td style={{ padding: '0.85rem', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <div
                         style={{
@@ -1107,52 +1108,101 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
                           fontSize: '0.85rem',
                           fontWeight: 800,
                           flexShrink: 0,
-                          border: '2px solid rgba(255, 90, 0, 0.4)',
+                          border: '2px solid rgba(255, 90, 0, 0.45)',
+                          boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)',
                         }}
                       >
                         {actor.nombres.charAt(0)}{actor.apellidos.charAt(0)}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.15rem', lineHeight: 1.25 }}>
                           {actor.apellidos}, {actor.nombres}
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span>DNI: <strong style={{ color: 'var(--text-secondary)' }}>{actor.dni}</strong></span>
                           <span>•</span>
-                          <span>Base: <strong style={{ color: '#10b981' }}>{actor.tarifaHoraBase ? `S/. ${actor.tarifaHoraBase.toFixed(2)}/h` : 'Por curso'}</strong></span>
-                          {actor.correo && (
-                            <>
-                              <span>•</span>
-                              <span>{actor.correo}</span>
-                            </>
-                          )}
+                          <span>Base: <strong style={{ color: 'var(--ucs-clinical-green, #10b981)' }}>{actor.tarifaHoraBase ? `S/. ${actor.tarifaHoraBase.toFixed(2)}/h` : 'Por curso'}</strong></span>
                         </div>
+                        {actor.correo && (
+                          <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {actor.correo}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
 
-                  <td style={{ padding: '0.85rem 1rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxWidth: '380px' }}>
+                  {/* CURSOS Y ESCENARIOS: GRID BALANCEADO CON TÍTULO COMPLETO Y FÓRMULA CLARA */}
+                  <td style={{ padding: '0.85rem', verticalAlign: 'middle' }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: actor.cursosMap.size === 1 ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                        gap: '0.45rem',
+                        width: '100%',
+                      }}
+                    >
                       {Array.from(actor.cursosMap.values()).map((c, cIdx) => (
                         <div
                           key={cIdx}
                           style={{
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
                             background: 'var(--bg-secondary)',
-                            padding: '0.25rem 0.55rem',
-                            borderRadius: '6px',
-                            fontSize: '0.78rem',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '8px',
                             border: '1px solid var(--border-color)',
+                            gap: '0.25rem',
+                            minWidth: 0,
+                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
+                            transition: 'all 0.15s ease',
                           }}
+                          title={`${c.cursoNombre}: ${c.horas.toFixed(1)} hrs × S/. ${c.tarifa.toFixed(2)} = S/. ${c.subtotal.toFixed(2)}`}
                         >
-                          <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '190px' }} title={c.cursoNombre}>
-                            {c.cursoNombre}
-                          </span>
-                          <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.74rem' }}>
-                            {c.horas.toFixed(1)}h × S/.{c.tarifa.toFixed(2)} = <strong style={{ color: '#10b981' }}>S/.{c.subtotal.toFixed(2)}</strong>
-                          </span>
+                          {/* Nivel 1: Título completo del Curso (Aprovecha el 100% del ancho) */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
+                            <span style={{ fontSize: '0.82rem', flexShrink: 0 }}>🩺</span>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                lineHeight: 1.2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={c.cursoNombre}
+                            >
+                              {c.cursoNombre}
+                            </span>
+                          </div>
+
+                          {/* Nivel 2: Desglose matemático horas × tarifa ➝ subtotal en verde */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.4rem',
+                              fontFamily: 'var(--font-mono)',
+                              paddingLeft: '1.15rem',
+                            }}
+                          >
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.73rem' }}>
+                              {c.horas.toFixed(1)}h <span style={{ opacity: 0.65 }}>× S/.{c.tarifa.toFixed(0)}/h</span>
+                            </span>
+                            <strong
+                              style={{
+                                color: 'var(--ucs-clinical-green, #10b981)',
+                                fontSize: '0.82rem',
+                                fontWeight: 800,
+                              }}
+                            >
+                              S/. {c.subtotal.toFixed(2)}
+                            </strong>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1160,44 +1210,48 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
 
                   <td
                     style={{
-                      padding: '0.85rem 1rem',
+                      padding: '0.85rem 0.75rem',
                       textAlign: 'right',
                       fontFamily: 'var(--font-mono)',
-                      fontSize: '0.92rem',
+                      verticalAlign: 'middle',
                     }}
                   >
-                    <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                    <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
                       {actor.horasFormato}
                     </div>
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                       {actor.horasDecimal.toFixed(1)} hrs netas
                     </div>
                   </td>
 
                   <td
                     style={{
-                      padding: '0.85rem 1rem',
+                      padding: '0.85rem 0.75rem',
                       textAlign: 'right',
                       fontWeight: 900,
-                      fontSize: '1.05rem',
-                      color: '#10b981',
+                      fontSize: '1.15rem',
+                      color: 'var(--ucs-clinical-green, #10b981)',
                       fontFamily: 'var(--font-mono)',
+                      verticalAlign: 'middle',
                     }}
                   >
                     S/. {actor.totalAPagar.toFixed(2)}
                   </td>
 
-                  <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                  {/* ESTADO CON ESPACIO DESAHOGADO Y SEPARACIÓN CLARA */}
+                  <td style={{ padding: '0.85rem 0.4rem', textAlign: 'center', verticalAlign: 'middle' }}>
                     {actor.estadoPlanilla === 'en_curso' ? (
                       <span
                         style={{
                           background: 'rgba(245, 158, 11, 0.15)',
                           color: '#f59e0b',
                           border: '1px solid rgba(245, 158, 11, 0.3)',
-                          padding: '0.2rem 0.55rem',
+                          padding: '0.3rem 0.6rem',
                           borderRadius: '12px',
-                          fontSize: '0.72rem',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
+                          display: 'inline-block',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         ⚠️ En Sala ({actor.sesionesEnCurso})
@@ -1208,10 +1262,12 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
                           background: 'rgba(16, 185, 129, 0.15)',
                           color: '#10b981',
                           border: '1px solid rgba(16, 185, 129, 0.3)',
-                          padding: '0.2rem 0.55rem',
+                          padding: '0.3rem 0.65rem',
                           borderRadius: '12px',
-                          fontSize: '0.72rem',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
+                          display: 'inline-block',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         ✅ Listo Pago
@@ -1219,19 +1275,29 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
                     )}
                   </td>
 
-                  <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                  {/* ACCIONES: ANCHO SUFICIENTE (215px) PARA QUE NINGÚN BOTÓN SE CORTE NI SE APLASTE */}
+                  <td style={{ padding: '0.85rem 0.75rem', textAlign: 'center', verticalAlign: 'middle' }}>
+                    <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
                       <button
                         type="button"
                         onClick={() => setActorComprobante(actor)}
                         className={styles.actionBtn}
                         style={{
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.76rem',
+                          padding: '0.42rem 0.75rem',
+                          fontSize: '0.78rem',
                           background: 'rgba(16, 185, 129, 0.12)',
                           color: '#10b981',
-                          borderColor: 'rgba(16, 185, 129, 0.3)',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
                           fontWeight: 700,
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          boxShadow: '0 1px 3px rgba(16, 185, 129, 0.15)',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
                         }}
                         title="Ver Comprobante de Pre-Liquidación Oficial"
                       >
@@ -1242,7 +1308,23 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
                         type="button"
                         onClick={() => setActorFicha(actor)}
                         className={styles.actionBtn}
-                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.76rem' }}
+                        style={{
+                          padding: '0.42rem 0.75rem',
+                          fontSize: '0.78rem',
+                          background: 'rgba(255, 90, 0, 0.12)',
+                          color: '#ff5a00',
+                          border: '1px solid rgba(255, 90, 0, 0.35)',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          boxShadow: '0 1px 3px rgba(255, 90, 0, 0.15)',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
                         title="Abrir Expediente y Ficha Integral del Paciente Simulado"
                       >
                         <span>🔍</span> Ficha

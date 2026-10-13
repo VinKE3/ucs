@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import styles from '@/app/admin/admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
@@ -30,6 +30,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
   usuariosCount,
   cursosCount,
 }) => {
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   return (
     <>
       {/* HEADER NAVBAR SUPERIOR */}
@@ -203,26 +204,9 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
         </div>
       </aside>
 
-      {/* BOTTOM NAVIGATION BAR PARA MÓVILES */}
+      {/* BOTTOM NAVIGATION BAR PARA MÓVILES (ESTILO MERCADO PAGO: 4 TABS OPERATIVOS + MÁS) */}
       <nav className={styles.bottomNav}>
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'sedes' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('sedes');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span className={styles.bottomNavBadge}>{stats.sedes}</span>
-          </div>
-          <span className={styles.bottomNavLabel}>Sedes</span>
-        </button>
-
+        {/* 1. SALAS / AMBIENTES */}
         <button
           type="button"
           className={`${styles.bottomNavItem} ${activeTab === 'ambientes' ? styles.bottomNavItemActive : ''}`}
@@ -241,24 +225,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
           <span className={styles.bottomNavLabel}>Salas</span>
         </button>
 
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${activeTab === 'cursos' ? styles.bottomNavItemActive : ''}`}
-          onClick={() => {
-            setActiveTab('cursos');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <div className={styles.bottomNavIconWrap}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-            <span className={styles.bottomNavBadge}>{cursosCount}</span>
-          </div>
-          <span className={styles.bottomNavLabel}>Cursos</span>
-        </button>
-
+        {/* 2. PERSONAL CLÍNICA */}
         <button
           type="button"
           className={`${styles.bottomNavItem} ${activeTab === 'personal' ? styles.bottomNavItemActive : ''}`}
@@ -279,6 +246,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
           <span className={styles.bottomNavLabel}>Personal</span>
         </button>
 
+        {/* 3. HISTORIAL DE ASISTENCIAS */}
         <button
           type="button"
           className={`${styles.bottomNavItem} ${activeTab === 'asistencias' ? styles.bottomNavItemActive : ''}`}
@@ -301,6 +269,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
           <span className={styles.bottomNavLabel}>Asistencias</span>
         </button>
 
+        {/* 4. PLANILLA MENSUAL PS */}
         <button
           type="button"
           className={`${styles.bottomNavItem} ${activeTab === 'planilla' ? styles.bottomNavItemActive : ''}`}
@@ -320,7 +289,129 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
           </div>
           <span className={styles.bottomNavLabel}>Planilla PS</span>
         </button>
+
+        {/* 5. MENÚ MÁS (3 PUNTITOS •••) */}
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${(activeTab === 'sedes' || activeTab === 'cursos' || moreSheetOpen) ? styles.bottomNavItemActive : ''}`}
+          onClick={() => setMoreSheetOpen(true)}
+          aria-label="Más opciones"
+        >
+          <div className={styles.bottomNavIconWrap}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+            </svg>
+            {(activeTab === 'sedes' || activeTab === 'cursos') && (
+              <span className={`${styles.bottomNavBadge} ${styles.bottomNavBadgeActive}`} style={{ width: '8px', height: '8px', minWidth: '8px', padding: 0 }} />
+            )}
+          </div>
+          <span className={styles.bottomNavLabel}>
+            {activeTab === 'sedes' ? 'Sedes' : activeTab === 'cursos' ? 'Cursos' : 'Más'}
+          </span>
+        </button>
       </nav>
+
+      {/* BOTTOM SHEET MÓVIL (ESTILO MERCADO PAGO / NATIVO) */}
+      <div
+        className={`${styles.bottomSheetOverlay} ${moreSheetOpen ? styles.bottomSheetOverlayVisible : ''}`}
+        onClick={() => setMoreSheetOpen(false)}
+      />
+      <div className={`${styles.bottomSheet} ${moreSheetOpen ? styles.bottomSheetOpen : ''}`}>
+        <div className={styles.bottomSheetHandle} />
+
+        <div className={styles.bottomSheetHeader}>
+          <div className={styles.bottomSheetTitle}>
+            <span>•••</span> Más Opciones
+          </div>
+          <button
+            type="button"
+            className={styles.bottomSheetCloseBtn}
+            onClick={() => setMoreSheetOpen(false)}
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className={styles.bottomSheetGrid}>
+          {/* SEDES */}
+          <button
+            type="button"
+            className={`${styles.bottomSheetItem} ${activeTab === 'sedes' ? styles.bottomSheetItemActive : ''}`}
+            onClick={() => {
+              setActiveTab('sedes');
+              setMoreSheetOpen(false);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            <div className={styles.bottomSheetItemLeft}>
+              <div className={styles.bottomSheetItemIcon}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div className={styles.bottomSheetItemTitle}>Sedes Clínicas</div>
+                <div className={styles.bottomSheetItemDesc}>Campus y terminales autorizadas de kiosco</div>
+              </div>
+            </div>
+            <span className={styles.bottomSheetItemBadge}>{stats.sedes} sedes</span>
+          </button>
+
+          {/* CURSOS */}
+          <button
+            type="button"
+            className={`${styles.bottomSheetItem} ${activeTab === 'cursos' ? styles.bottomSheetItemActive : ''}`}
+            onClick={() => {
+              setActiveTab('cursos');
+              setMoreSheetOpen(false);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            <div className={styles.bottomSheetItemLeft}>
+              <div className={styles.bottomSheetItemIcon}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                </svg>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div className={styles.bottomSheetItemTitle}>Cursos y Asignaturas</div>
+                <div className={styles.bottomSheetItemDesc}>Catálogo clínico y tarifas por hora PS</div>
+              </div>
+            </div>
+            <span className={styles.bottomSheetItemBadge}>{cursosCount} cursos</span>
+          </button>
+
+          {/* KIOSCO */}
+          <Link
+            href="/"
+            className={styles.bottomSheetItem}
+            onClick={() => setMoreSheetOpen(false)}
+          >
+            <div className={styles.bottomSheetItemLeft}>
+              <div className={styles.bottomSheetItemIcon} style={{ background: 'rgba(0, 230, 153, 0.12)', color: '#00e699' }}>
+                <span style={{ fontSize: '1.2rem' }}>⚡</span>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div className={styles.bottomSheetItemTitle}>Modo Kiosco</div>
+                <div className={styles.bottomSheetItemDesc}>Terminal táctil de marcación por DNI</div>
+              </div>
+            </div>
+            <span style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>➔</span>
+          </Link>
+        </div>
+
+        <div className={styles.bottomSheetFooter}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.25rem 0' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Apariencia</span>
+            <ThemeToggle showLabels />
+          </div>
+        </div>
+      </div>
     </>
   );
 };

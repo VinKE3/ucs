@@ -287,7 +287,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `8db61bc`: feat(tabs): promover Planilla Mensual PS a pestaña dedicada del Dashboard con vista panoramica
+* `4263018`: feat(tabs): promover Planilla Mensual PS a pestaña dedicada del Dashboard con vista panoramica
 * `7f2be7a`: fix(kardex): retirar pastilla de septiembre del selector de periodo en la Ficha 360°
 * `eb3fee0`: fix(ui): retirar boton de Horas de la columna Acciones en Personal de Clinica
 * `ba69f96`: feat(quincenas): soporte de cortes quincenales y mensuales flexibles para planillas y pre-liquidacion PS

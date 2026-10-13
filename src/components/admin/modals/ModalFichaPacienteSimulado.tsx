@@ -17,7 +17,6 @@ interface ModalFichaPacienteSimuladoProps {
   rangosList?: CastingRangoEdadItem[];
   especialidadesList?: CastingEspecialidadItem[];
   restriccionesList?: CastingRestriccionItem[];
-  onOpenComprobante?: (actor: FilaPlanillaActor) => void;
 }
 
 export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProps> = ({
@@ -28,7 +27,6 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
   rangosList = [],
   especialidadesList = [],
   restriccionesList = [],
-  onOpenComprobante,
 }) => {
   const [tabActiva, setTabActiva] = useState<'honorarios' | 'casting'>('honorarios');
 
@@ -726,29 +724,6 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
           </div>
 
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-            {onOpenComprobante && (
-              <button
-                type="button"
-                onClick={() => onOpenComprobante(actor)}
-                style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '8px',
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-                }}
-              >
-                <span>📄</span> Boleta de Liquidación
-              </button>
-            )}
-
             <button
               type="button"
               onClick={onClose}
@@ -756,7 +731,7 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border-color)',
                 color: 'var(--text-primary)',
-                padding: '0.5rem 1.15rem',
+                padding: '0.5rem 1.25rem',
                 borderRadius: '8px',
                 fontSize: '0.84rem',
                 fontWeight: 600,

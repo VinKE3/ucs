@@ -1310,7 +1310,6 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
           rangosList={rangosCatalogos}
           especialidadesList={especialidadesCatalogos}
           restriccionesList={restriccionesCatalogos}
-          onOpenComprobante={(act) => setActorComprobante(act)}
         />
       )}
     </section>

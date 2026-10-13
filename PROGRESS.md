@@ -311,6 +311,10 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `902b19b`: feat: unificar terminologia oficial a 'Clinica de Simulacion UCS' en modales, convocatoria ecoe y cabeceras
+* `1aa947f`: feat: rediseño espacioso de tabla Planilla PS (grilla 2 cols, layout 1780px) y navegacion movil Bottom Sheet
+* `85a4480`: feat: actualizar membresias y encabezados oficiales de liquidacion y casting a 'Clinica de simulacion'
+* `07b808e`: docs: registrar commit 129f32f en PROGRESS.md
 * `129f32f`: style(kardex): reemplazar fondos grises oscuros por superficies adaptativas claras en modo claro
 * `c2e7b41`: fix(ps): retirar boton de boleta del modal de ficha del paciente simulado
 * `afa3624`: feat(ps): expediente y ficha integral 360° exclusiva para paciente simulado en planilla mensual

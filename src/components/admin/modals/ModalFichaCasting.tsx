@@ -315,7 +315,7 @@ export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
                 }}
               >
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  📋 Vista lista para la carpeta de estación del docente evaluador o archivo del centro de simulación.
+                  📋 Vista lista para la carpeta de estación del docente evaluador o archivo de la clínica de simulación.
                 </div>
                 <button
                   type="button"
@@ -366,7 +366,7 @@ export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
                     />
                     <div style={{ borderLeft: '1.5px solid #cbd5e1', paddingLeft: '0.75rem' }}>
                       <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0d346c', textTransform: 'uppercase' }}>
-                        Centro de Simulación Clínica
+                        Clínica de simulación
                       </div>
                       <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
                         Facultad de Ciencias de la Salud

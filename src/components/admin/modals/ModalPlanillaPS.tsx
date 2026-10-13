@@ -356,7 +356,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
     }
 
     const headers = [
-      'UNIVERSIDAD CIENTÍFICA DEL SUR - CENTRO DE SIMULACIÓN CLÍNICA',
+      'UNIVERSIDAD CIENTÍFICA DEL SUR - CLÍNICA DE SIMULACIÓN',
       'PLANILLA CONSOLIDADA DE HONORARIOS DE PACIENTES SIMULADOS (ACTORES)',
       `Período Contable: ${labelPeriodo}`,
       `Fecha de Emisión: ${fechaHoy}`,
@@ -558,7 +558,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
 
         {/* BODY */}
         <div style={{ overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          
+
           {/* PANEL DE CONTROL DE CORTE CONTABLE (MES + PRESETS QUINCENALES) */}
           <div
             style={{

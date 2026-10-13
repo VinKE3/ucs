@@ -419,7 +419,7 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
     }
 
     const headers = [
-      'UNIVERSIDAD CIENTÍFICA DEL SUR - CENTRO DE SIMULACIÓN CLÍNICA',
+      'UNIVERSIDAD CIENTÍFICA DEL SUR - CLÍNICA DE SIMULACIÓN',
       'PLANILLA CONSOLIDADA DE HONORARIOS DE PACIENTES SIMULADOS (ACTORES)',
       `Período Contable: ${labelPeriodo}`,
       `Fecha de Emisión: ${fechaHoy}`,

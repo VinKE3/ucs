@@ -271,7 +271,7 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
                 />
                 <div style={{ borderLeft: '1.5px solid #cbd5e1', paddingLeft: '0.75rem' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.5px', color: '#0d346c', textTransform: 'uppercase' }}>
-                    Centro de Simulación Clínica
+                    Clinica de simulación
                   </div>
                   <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
                     Facultad de Ciencias de la Salud
@@ -503,7 +503,7 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
               <div style={{ textAlign: 'center' }}>
                 <div style={{ height: '45px' }} />
                 <div style={{ borderTop: '1px solid #0f172a', paddingTop: '0.4rem', fontWeight: 700, fontSize: '0.78rem' }}>
-                  CENTRO DE SIMULACIÓN CLÍNICA
+                  CLÍNICA DE SIMULACIÓN
                 </div>
                 <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
                   V°B° Jefatura / Coordinación Operativa

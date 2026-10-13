@@ -288,6 +288,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `c2e7b41`: fix(ps): retirar boton de boleta del modal de ficha del paciente simulado
 * `afa3624`: feat(ps): expediente y ficha integral 360° exclusiva para paciente simulado en planilla mensual
 * `4263018`: feat(tabs): promover Planilla Mensual PS a pestaña dedicada del Dashboard con vista panoramica
 * `7f2be7a`: fix(kardex): retirar pastilla de septiembre del selector de periodo en la Ficha 360°

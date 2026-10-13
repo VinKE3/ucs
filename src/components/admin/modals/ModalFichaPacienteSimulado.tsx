@@ -263,7 +263,7 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
 
         {/* CONTENIDO DEL MODAL */}
         <div style={{ overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          
+
           {/* TAB 1: HONORARIOS Y ACTIVIDAD EN SIMULACIÓN */}
           {tabActiva === 'honorarios' && (
             <>
@@ -720,7 +720,7 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
           }}
         >
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Expediente 360° del Paciente Simulado • <strong>UCS Simulación Clínica</strong>
+            Expediente 360° del Paciente Simulado • <strong>Clínica de Simulación UCS</strong>
           </div>
 
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>

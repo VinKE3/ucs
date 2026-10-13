@@ -74,7 +74,7 @@ export const SedesTab: React.FC<SedesTabProps> = ({
             </span>
           </div>
           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-            Administración de campus y centros de simulación clínica de la Universidad Científica del Sur
+            Administración de sedes para las clinicas de simulación de la Universidad Científica del Sur
           </p>
         </div>
 

@@ -164,7 +164,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     const restExcluida = restriccionesList.find((r) => r.id === Number(filtroRestriccionExcluirId))?.nombre || 'Ninguna';
     const fechaHoy = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    let texto = `🎭 *CONVOCATORIA DE CASTING ECOE - SIMULACIÓN CLÍNICA UCS*\n`;
+    let texto = `🎭 *CONVOCATORIA DE CASTING ECOE - CLÍNICA DE SIMULACIÓN UCS*\n`;
     texto += `📅 *Fecha:* ${fechaHoy}\n`;
     texto += `🎯 *Filtros:* [Rango: ${rangoNombre}] | [Especialidad: ${espNombre}] | [Excluir: ${restExcluida}]\n`;
     texto += `👥 *Actores Preseleccionados (${actoresConvocatoria.length}):*\n\n`;

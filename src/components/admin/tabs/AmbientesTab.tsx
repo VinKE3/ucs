@@ -200,7 +200,7 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
             )}
           </div>
           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-            {selectedSedeObj?.direccion || 'Salas de simulación clínica y entrenamiento médico'}
+            {selectedSedeObj?.direccion || 'Salas de la clínica de simulación'}
           </p>
         </div>
 

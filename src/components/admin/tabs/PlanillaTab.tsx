@@ -4,11 +4,20 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, UsuarioItem, CursoAdminItem } from '@/types/admin';
 import { ModalComprobanteLiquidacion, type DesgloseCursoPS } from '@/components/admin/modals/ModalComprobanteLiquidacion';
+import { ModalFichaPacienteSimulado } from '@/components/admin/modals/ModalFichaPacienteSimulado';
+import type {
+  CastingRangoEdadItem,
+  CastingEspecialidadItem,
+  CastingRestriccionItem,
+} from '@/types/admin';
 
 export interface PlanillaTabProps {
   asistenciasList?: AsistenciaAdminItem[];
   usuariosList?: UsuarioItem[];
   cursosList?: CursoAdminItem[];
+  rangosList?: CastingRangoEdadItem[];
+  especialidadesList?: CastingEspecialidadItem[];
+  restriccionesList?: CastingRestriccionItem[];
   onOpenKardex?: (user: UsuarioItem) => void;
   loading?: boolean;
 }
@@ -41,6 +50,9 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
   asistenciasList: asistenciasProp = [],
   usuariosList = [],
   cursosList = [],
+  rangosList: rangosProp = [],
+  especialidadesList: especialidadesProp = [],
+  restriccionesList: restriccionesProp = [],
   onOpenKardex,
 }) => {
   // Año y mes seleccionados (Por defecto Septiembre 2026 para la demostración de los 8 PS)
@@ -62,6 +74,31 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
 
   // Modal para comprobante individual oficial
   const [actorComprobante, setActorComprobante] = useState<FilaPlanillaActor | null>(null);
+
+  // Modal para Ficha Integral del Paciente Simulado
+  const [actorFicha, setActorFicha] = useState<FilaPlanillaActor | null>(null);
+
+  // Catálogos para el perfil de casting
+  const [rangosCatalogos, setRangosCatalogos] = useState<CastingRangoEdadItem[]>(rangosProp);
+  const [especialidadesCatalogos, setEspecialidadesCatalogos] = useState<CastingEspecialidadItem[]>(especialidadesProp);
+  const [restriccionesCatalogos, setRestriccionesCatalogos] = useState<CastingRestriccionItem[]>(restriccionesProp);
+
+  useEffect(() => {
+    if (rangosProp.length > 0) setRangosCatalogos(rangosProp);
+    if (especialidadesProp.length > 0) setEspecialidadesCatalogos(especialidadesProp);
+    if (restriccionesProp.length > 0) setRestriccionesCatalogos(restriccionesProp);
+
+    if (rangosProp.length === 0 || especialidadesProp.length === 0 || restriccionesProp.length === 0) {
+      fetch('/api/casting/catalogos')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.rangos && data.rangos.length > 0) setRangosCatalogos(data.rangos);
+          if (data.especialidades && data.especialidades.length > 0) setEspecialidadesCatalogos(data.especialidades);
+          if (data.restricciones && data.restricciones.length > 0) setRestriccionesCatalogos(data.restricciones);
+        })
+        .catch((err) => console.error('Error fetching catalogos casting:', err));
+    }
+  }, [rangosProp, especialidadesProp, restriccionesProp]);
 
   // Navegación de mes
   const handleMesAnterior = () => {
@@ -1203,14 +1240,10 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => {
-                          if (actor.usuarioObj && onOpenKardex) {
-                            onOpenKardex(actor.usuarioObj);
-                          }
-                        }}
+                        onClick={() => setActorFicha(actor)}
                         className={styles.actionBtn}
                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.76rem' }}
-                        title="Abrir Kardex / Ficha 360° individual"
+                        title="Abrir Expediente y Ficha Integral del Paciente Simulado"
                       >
                         <span>🔍</span> Ficha
                       </button>
@@ -1266,6 +1299,18 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
           totalMonto={actorComprobante.totalAPagar}
           totalSesiones={actorComprobante.totalSesiones}
           asistencias={actorComprobante.asistenciasActor}
+        />
+      )}
+      {actorFicha && (
+        <ModalFichaPacienteSimulado
+          isOpen={true}
+          onClose={() => setActorFicha(null)}
+          actor={actorFicha}
+          periodoLabel={labelPeriodo}
+          rangosList={rangosCatalogos}
+          especialidadesList={especialidadesCatalogos}
+          restriccionesList={restriccionesCatalogos}
+          onOpenComprobante={(act) => setActorComprobante(act)}
         />
       )}
     </section>

@@ -1267,6 +1267,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             asistenciasList={asistenciasList}
             usuariosList={usuariosList}
             cursosList={cursosList}
+            rangosList={castingRangos}
+            especialidadesList={castingEspecialidades}
+            restriccionesList={castingRestricciones}
             onOpenKardex={(u) => {
               setKardexUser(u);
               setShowKardexDrawer(true);

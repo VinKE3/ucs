@@ -57,7 +57,8 @@ src/
             ├── ModalCerrarTurno.tsx      # Cierre forzado de turnos olvidados
             ├── ModalAnularAsistencia.tsx # Anulación justificada de registros erróneos
             ├── ModalResetPassword.tsx    # Cambio de claves de acceso al panel
-            └── ModalCurso.tsx            # Creación y edición de cursos
+            ├── ModalCurso.tsx            # Creación y edición de cursos
+            └── ModalFichaPacienteSimulado.tsx # Expediente 360° exclusivo del actor: honorarios, sesiones y perfil casting ECOE
 ```
 
 ---
@@ -287,6 +288,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `feat(ps)`: feat(ps): expediente y ficha integral 360° exclusiva para paciente simulado en planilla mensual
 * `4263018`: feat(tabs): promover Planilla Mensual PS a pestaña dedicada del Dashboard con vista panoramica
 * `7f2be7a`: fix(kardex): retirar pastilla de septiembre del selector de periodo en la Ficha 360°
 * `eb3fee0`: fix(ui): retirar boton de Horas de la columna Acciones en Personal de Clinica

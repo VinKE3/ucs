@@ -28,6 +28,7 @@ import { AmbientesTab } from '@/components/admin/tabs/AmbientesTab';
 import { PersonalTab } from '@/components/admin/tabs/PersonalTab';
 import { CursosTab } from '@/components/admin/tabs/CursosTab';
 import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
+import { PlanillaTab } from '@/components/admin/tabs/PlanillaTab';
 
 // Modales modulares
 import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
@@ -1106,6 +1107,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             >
               ⏱️ Historial de Asistencias
             </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === 'planilla' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('planilla')}
+            >
+              📑 Planilla Mensual PS
+            </button>
           </div>
         </section>
 
@@ -1248,6 +1255,18 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               setAuditoriaAsistenciaTarget(asist);
               setShowAuditoriaModal(true);
             }}
+            onOpenKardex={(u) => {
+              setKardexUser(u);
+              setShowKardexDrawer(true);
+            }}
+          />
+        )}
+
+        {activeTab === 'planilla' && (
+          <PlanillaTab
+            asistenciasList={asistenciasList}
+            usuariosList={usuariosList}
+            cursosList={cursosList}
             onOpenKardex={(u) => {
               setKardexUser(u);
               setShowKardexDrawer(true);

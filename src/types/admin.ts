@@ -190,7 +190,7 @@ export interface CategoriaAmbienteItem {
   createdAt?: string;
 }
 
-export type AdminTab = 'sedes' | 'ambientes' | 'cursos' | 'personal' | 'asistencias';
+export type AdminTab = 'sedes' | 'ambientes' | 'cursos' | 'personal' | 'asistencias' | 'planilla';
 
 export interface AuditoriaItem {
   id: number;

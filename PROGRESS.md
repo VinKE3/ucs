@@ -44,7 +44,8 @@ src/
         │   ├── AmbientesTab.tsx          # Gestión de salas/ambientes por sede, categorías dinámicas, filtros y tarjetas de ocupación
         │   ├── PersonalTab.tsx           # Directorio de personal, presencia en vivo, edición, inactivación y acceso a Kardex
         │   ├── CursosTab.tsx             # Catálogo de cursos/escenarios médicos con borrado seguro
-        │   └── AsistenciasTab.tsx        # Vista dual: Turnos detallados vs. Resumen consolidado por persona con exportación CSV
+        │   ├── AsistenciasTab.tsx        # Vista dual: Turnos detallados vs. Resumen consolidado por persona con exportación CSV
+        │   └── PlanillaTab.tsx           # Pestaña dedicada: Planilla mensual de honorarios PS, cortes quincenales, comparativas y reportes Finanzas
         └── modals/
             ├── KardexDrawer.tsx          # Ficha 360° individual de horas (KPIs, barra de carga semanal docente y sesiones)
             ├── ModalGestionCategorias.tsx # Administración dinámica de categorías de sala (iconos, colores, orden)
@@ -286,6 +287,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `8db61bc`: feat(tabs): promover Planilla Mensual PS a pestaña dedicada del Dashboard con vista panoramica
 * `7f2be7a`: fix(kardex): retirar pastilla de septiembre del selector de periodo en la Ficha 360°
 * `eb3fee0`: fix(ui): retirar boton de Horas de la columna Acciones en Personal de Clinica
 * `ba69f96`: feat(quincenas): soporte de cortes quincenales y mensuales flexibles para planillas y pre-liquidacion PS

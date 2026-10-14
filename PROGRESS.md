@@ -322,11 +322,18 @@ src/
       - **Banner de Técnicos (`.tecnicosBanner`)**: Margen inferior generoso (`margin-bottom: 1.35rem`), contenedor flex con `gap: 0.6rem` y rediseño de pastillas (`.tecnicoPillTag`) con nombres en negrita y hora de ingreso en micro-cápsula independiente mono. En móviles (<768px), las tarjetas se distribuyen limpiamente a lo ancho con espacio vertical entre cada una.
       - **Buscador de Salas (`.searchBoxWrapper` / `.searchInput`)**: Input más cómodo y espacioso, y botón de limpieza rápida con 1 clic (`✕`) cuando hay texto escrito (`.searchClearBtn`).
       - **Categorías de Simulación (`.ambientesCategoryPills`)**: Espaciado vertical equilibrado y soporte de scroll horizontal suave en móviles.
+31. **Lógica Inteligente de Turnos Prolongados Adaptativa por Rol y Horario Programado**:
+    - **Problema reportado**: El sistema aplicaba una regla rígida de 5 horas para todos los roles. Para Técnicos con jornada de 8 a 9 horas (ej. 13:00 - 22:00), les saltaba falsa alarma de "Turno Prolongado" a mitad de su jornada laboral, tiñendo la fila de naranja y pidiendo regularización.
+    - **Solución implementada**:
+      - **Técnicos y Administrativos**: Se evalúa contra su `horaSalidaProgramada` (o `horaSalidaEsperada`). Mientras estén en su jornada o en los 30 min de cortesía tras salir, figuran como **`🟢 En Curso`** normal (sin alerta en banner ni botón naranja). Solo si transcurren >30 min tras su hora oficial de salida sin marcar en kiosco, se activa `⚠️ Excedió Horario (+Xm tras {salida})` y el botón `⚠️ Regularizar`.
+      - **Docentes y Pacientes Simulados**: Se mantiene el umbral de 5 horas continuas adecuado a escenarios de clase y simulación clínica.
+      - **Banner Superior**: Ahora contabiliza únicamente *Salidas Pendientes* legítimas, eliminando falsos positivos.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `PENDING`: feat(asistencias): logica adaptativa de turnos prolongados por rol y horario laboral programado
 * `012a69b`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
 * `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
 * `94c4041`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal

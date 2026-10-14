@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
@@ -129,6 +129,17 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
     }
   };
 
+  // Mapa de usuarios por ID para búsquedas directas O(1)
+  const usuariosMap = useMemo(() => {
+    const map = new Map<number, UsuarioItem>();
+    if (usuariosList) {
+      for (const u of usuariosList) {
+        map.set(u.id, u);
+      }
+    }
+    return map;
+  }, [usuariosList]);
+
   // Agrupación consolidada por colaborador
   const resumenColaboradores = useMemo<ResumenColaboradorItem[]>(() => {
     interface ColaboradorMapItem {
@@ -166,7 +177,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
 
       let item = map.get(a.usuarioId);
       if (!item) {
-        const uInfo = usuariosList.find((u) => u.id === a.usuarioId);
+        const uInfo = usuariosMap.get(a.usuarioId);
         const tarifaNum = uInfo?.tarifaHora !== undefined && uInfo?.tarifaHora !== null && uInfo?.tarifaHora !== ''
           ? Number(uInfo.tarifaHora)
           : null;
@@ -289,14 +300,96 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
       .sort((a, b) => b.minutosTotales - a.minutosTotales);
   }, [asistenciasList, usuariosList, cursosList, nowTimestamp]);
 
-  // Turnos en curso con más de 5 horas continuas (turnos prolongados/olvidados)
+  // Función de evaluación adaptativa: ¿un turno en curso es prolongado o excedió su horario?
+  const evaluarTurnoProlongado = useCallback((asist: AsistenciaAdminItem) => {
+    if (asist.estado !== 'en_curso' || !asist.horaIngreso) {
+      return { esProlongado: false, diffMinsActual: 0, etiquetaAlerta: '', esTecnicoOAdmin: false };
+    }
+
+    const diffMinsActual = Math.max(0, Math.round((nowTimestamp - new Date(asist.horaIngreso).getTime()) / 60000));
+    const esTecnicoOAdmin = asist.tipoPersonal === 'tecnico' || asist.tipoPersonal === 'administrativo';
+
+    if (esTecnicoOAdmin) {
+      // Personal con jornada laboral programada (ej. 8-9h: 13:00 - 22:00, 06:00 - 15:00)
+      const uInfo = usuariosMap.get(asist.usuarioId);
+      const salidaProg = asist.horaSalidaProgramada || uInfo?.horaSalidaEsperada;
+
+      if (salidaProg && salidaProg.includes(':')) {
+        const [salH, salM] = salidaProg.split(':').map(Number);
+        const ingresoDate = new Date(asist.horaIngreso);
+        const salidaProgDate = new Date(ingresoDate);
+        salidaProgDate.setHours(salH, salM, 0, 0);
+
+        // Si el turno cruza medianoche (ej. entrada 20:00, salida 04:00)
+        if (salidaProgDate.getTime() < ingresoDate.getTime()) {
+          salidaProgDate.setDate(salidaProgDate.getDate() + 1);
+        }
+
+        // Minutos transcurridos desde su hora programada de salida
+        const minsDesdeSalidaProg = Math.round((nowTimestamp - salidaProgDate.getTime()) / 60000);
+
+        // Solo alertar si ya pasaron más de 30 minutos de cortesía tras su hora de salida
+        if (minsDesdeSalidaProg >= 30) {
+          const horasExceso = Math.floor(minsDesdeSalidaProg / 60);
+          const minsExceso = minsDesdeSalidaProg % 60;
+          const tiempoExcesoTexto = horasExceso > 0 ? `+${horasExceso}h ${minsExceso}m` : `+${minsExceso}m`;
+          return {
+            esProlongado: true,
+            diffMinsActual,
+            etiquetaAlerta: `⚠️ Excedió Horario (${tiempoExcesoTexto} tras ${salidaProg})`,
+            esTecnicoOAdmin: true,
+          };
+        }
+
+        // Está dentro de su horario o dentro de los 30 min de gracia tras terminar
+        return {
+          esProlongado: false,
+          diffMinsActual,
+          etiquetaAlerta: '',
+          esTecnicoOAdmin: true,
+        };
+      }
+
+      // Si no tiene horario programado cargado, umbral laboral completo: >= 9h 30m (570 min)
+      if (diffMinsActual >= 570) {
+        return {
+          esProlongado: true,
+          diffMinsActual,
+          etiquetaAlerta: `⚠️ Jornada Excedida (${Math.floor(diffMinsActual / 60)}h ${diffMinsActual % 60}m)`,
+          esTecnicoOAdmin: true,
+        };
+      }
+
+      return {
+        esProlongado: false,
+        diffMinsActual,
+        etiquetaAlerta: '',
+        esTecnicoOAdmin: true,
+      };
+    }
+
+    // Para Docentes y Pacientes Simulados: actividad por sesión/escenario (umbral >= 5 horas continuas)
+    if (diffMinsActual >= 300) {
+      return {
+        esProlongado: true,
+        diffMinsActual,
+        etiquetaAlerta: `⚠️ Sesión Prolongada (${Math.floor(diffMinsActual / 60)}h ${diffMinsActual % 60}m)`,
+        esTecnicoOAdmin: false,
+      };
+    }
+
+    return {
+      esProlongado: false,
+      diffMinsActual,
+      etiquetaAlerta: '',
+      esTecnicoOAdmin: false,
+    };
+  }, [nowTimestamp, usuariosMap]);
+
+  // Turnos en curso con salida pendiente o que excedieron su horario/duración prevista
   const turnosProlongados = useMemo(() => {
-    return asistenciasList.filter((a) => {
-      if (a.estado !== 'en_curso' || !a.horaIngreso) return false;
-      const diffMins = (nowTimestamp - new Date(a.horaIngreso).getTime()) / 60000;
-      return diffMins >= 300; // >= 5 horas
-    });
-  }, [asistenciasList, nowTimestamp]);
+    return asistenciasList.filter((a) => evaluarTurnoProlongado(a).esProlongado);
+  }, [asistenciasList, evaluarTurnoProlongado]);
 
   // Paginación de Turnos Detallados
   const totalDetalle = asistenciasList.length;
@@ -508,7 +601,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         </div>
       </div>
 
-      {/* BANNER DE ALERTA DE TURNOS PROLONGADOS / OLVIDADOS (> 5 HORAS) */}
+      {/* BANNER DE ALERTA DE TURNOS CON SALIDA PENDIENTE / PROLONGADOS */}
       {turnosProlongados.length > 0 && (
         <div style={{
           background: 'rgba(245, 158, 11, 0.1)',
@@ -526,7 +619,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             <span style={{ fontSize: '1.6rem' }}>🚨</span>
             <div>
               <div style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.92rem' }}>
-                Alerta de Turnos Prolongados: {turnosProlongados.length} turno{turnosProlongados.length > 1 ? 's' : ''} abierto{turnosProlongados.length > 1 ? 's' : ''} con &gt;5 horas continuas
+                Alerta de Salidas Pendientes: {turnosProlongados.length} turno{turnosProlongados.length > 1 ? 's' : ''} que excedieron su horario o duración prevista
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
                 Es probable que el personal haya omitido marcar salida en el kiosco. Regularízalos con 1 clic para no distorsionar las métricas acumuladas.
@@ -545,7 +638,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
               fontWeight: 700,
             }}
           >
-            Filtrar Turnos Abiertos ({turnosProlongados.length})
+            Filtrar Salidas Pendientes ({turnosProlongados.length})
           </button>
         </div>
       )}
@@ -1060,10 +1153,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                         : `${mins} min`
                       : '—';
 
-                  const diffMinsActual = (asist.estado === 'en_curso' && asist.horaIngreso)
-                    ? Math.max(0, Math.round((nowTimestamp - new Date(asist.horaIngreso).getTime()) / 60000))
-                    : 0;
-                  const esProlongado = asist.estado === 'en_curso' && diffMinsActual >= 300;
+                  const { esProlongado, diffMinsActual, etiquetaAlerta, esTecnicoOAdmin } = evaluarTurnoProlongado(asist);
 
                   return (
                     <tr key={asist.id} style={esProlongado ? { background: 'rgba(245, 158, 11, 0.05)' } : undefined}>
@@ -1239,12 +1329,12 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                                 color: '#f59e0b',
                                 background: 'rgba(245, 158, 11, 0.15)',
                                 border: '1px solid rgba(245, 158, 11, 0.4)',
-                                padding: '0.15rem 0.4rem',
+                                padding: '0.15rem 0.45rem',
                                 borderRadius: '4px',
                               }}
-                              title="Este turno lleva más de 5 horas abierto. Se sugiere regularizar la hora de salida."
+                              title={esTecnicoOAdmin ? 'Este turno excedió la hora de salida programada sin marcar salida en el kiosco.' : 'Esta sesión lleva más de 5 horas abierta sin marcar salida.'}
                             >
-                              ⚠️ Prolongado ({Math.floor(diffMinsActual / 60)}h {diffMinsActual % 60}m)
+                              {etiquetaAlerta}
                             </span>
                           </div>
                         )}
@@ -1268,7 +1358,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                               className={styles.actionBtnSmall}
                               style={{
                                 background: (asist.estado === 'ajustado_manual' || asist.estado === 'anulado' || asist.tipoRegistro === 'admin_manual' || asist.motivoModificacion)
-                                  ? 'rgba(56, 189, 248, 0.15)'
+                                   ? 'rgba(56, 189, 248, 0.15)'
                                   : 'var(--bg-elevated)',
                                 color: (asist.estado === 'ajustado_manual' || asist.estado === 'anulado' || asist.tipoRegistro === 'admin_manual' || asist.motivoModificacion)
                                   ? '#38bdf8'
@@ -1286,7 +1376,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                               onClick={() => onOpenCerrarTurnoModal(asist)}
                               className={`${styles.actionBtnSmall} ${esProlongado ? styles.actionBtnDanger : styles.actionBtnWarning}`}
                               style={esProlongado ? { background: '#f59e0b', color: '#06152d', fontWeight: 700 } : undefined}
-                              title={esProlongado ? 'Turno prolongado (>5h). Haz clic para regularizar y cerrar con atajos rápidos' : 'Cerrar turno manualmente si olvidó marcar salida'}
+                              title={esProlongado ? 'Turno con salida pendiente o excedido. Haz clic para regularizar y cerrar con atajos rápidos' : 'Cerrar turno manualmente si olvidó marcar salida'}
                             >
                               {esProlongado ? '⚠️ Regularizar' : '⏱️ Cerrar'}
                             </button>

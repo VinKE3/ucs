@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { categoriasAmbiente, ambientes } from '@/db/schema';
 import { getSession } from '@/lib/auth';
-import { eq, asc, sql } from 'drizzle-orm';
+import { eq, ne, and, asc, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +72,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El nombre de la categoría es obligatorio' }, { status: 400 });
     }
 
+    const nombreTrim = nombre.trim();
+
+    // Validar duplicado de nombre
+    const [nombreDuplicado] = await db
+      .select({ id: categoriasAmbiente.id, nombre: categoriasAmbiente.nombre })
+      .from(categoriasAmbiente)
+      .where(sql`lower(trim(${categoriasAmbiente.nombre})) = lower(trim(${nombreTrim}))`)
+      .limit(1);
+
+    if (nombreDuplicado) {
+      return NextResponse.json(
+        { error: `Ya existe una categoría con el nombre "${nombreDuplicado.nombre}".` },
+        { status: 409 }
+      );
+    }
+
     const codigoGenerado = (codigo && codigo.trim()) ? slugify(codigo) : slugify(nombre);
     if (!codigoGenerado) {
       return NextResponse.json({ error: 'Código de categoría inválido' }, { status: 400 });
@@ -95,7 +111,7 @@ export async function POST(request: Request) {
       .insert(categoriasAmbiente)
       .values({
         codigo: codigoGenerado,
-        nombre: nombre.trim(),
+        nombre: nombreTrim,
         descripcion: descripcion?.trim() || null,
         color: color?.trim() || '#38bdf8',
         icono: icono?.trim() || '🏥',
@@ -126,10 +142,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ID de categoría requerido' }, { status: 400 });
     }
 
+    const numId = Number(id);
+
     const [categoriaActual] = await db
       .select()
       .from(categoriasAmbiente)
-      .where(eq(categoriasAmbiente.id, Number(id)))
+      .where(eq(categoriasAmbiente.id, numId))
       .limit(1);
 
     if (!categoriaActual) {
@@ -141,10 +159,31 @@ export async function PATCH(request: Request) {
     };
 
     if (nombre !== undefined) {
-      if (!nombre || !nombre.trim()) {
+      const nombreTrim = nombre ? nombre.trim() : '';
+      if (!nombreTrim) {
         return NextResponse.json({ error: 'El nombre no puede estar vacío' }, { status: 400 });
       }
-      updateData.nombre = nombre.trim();
+
+      // Validar si otra categoría ya tiene ese nombre
+      const [nombreDuplicado] = await db
+        .select({ id: categoriasAmbiente.id, nombre: categoriasAmbiente.nombre })
+        .from(categoriasAmbiente)
+        .where(
+          and(
+            ne(categoriasAmbiente.id, numId),
+            sql`lower(trim(${categoriasAmbiente.nombre})) = lower(trim(${nombreTrim}))`
+          )
+        )
+        .limit(1);
+
+      if (nombreDuplicado) {
+        return NextResponse.json(
+          { error: `Ya existe otra categoría con el nombre "${nombreDuplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+
+      updateData.nombre = nombreTrim;
     }
 
     let nuevoCodigo = categoriaActual.codigo;

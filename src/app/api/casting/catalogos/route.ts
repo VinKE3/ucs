@@ -6,7 +6,7 @@ import {
   castingRestricciones,
 } from '@/db/schema';
 import { getSession } from '@/lib/auth';
-import { eq, asc } from 'drizzle-orm';
+import { eq, ne, and, asc, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,11 +49,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
     }
 
+    const nombreTrim = body.nombre.trim();
+
     if (tipo === 'rango') {
+      const [duplicado] = await db
+        .select({ id: castingRangosEdad.id, nombre: castingRangosEdad.nombre })
+        .from(castingRangosEdad)
+        .where(sql`lower(trim(${castingRangosEdad.nombre})) = lower(trim(${nombreTrim}))`)
+        .limit(1);
+
+      if (duplicado) {
+        return NextResponse.json(
+          { error: `Ya existe un rango de edad llamado "${duplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+
       const [nuevo] = await db
         .insert(castingRangosEdad)
         .values({
-          nombre: body.nombre.trim(),
+          nombre: nombreTrim,
           descripcion: body.descripcion?.trim() || null,
           edadMin: body.edadMin !== undefined && body.edadMin !== null && body.edadMin !== '' ? Number(body.edadMin) : null,
           edadMax: body.edadMax !== undefined && body.edadMax !== null && body.edadMax !== '' ? Number(body.edadMax) : null,
@@ -66,10 +81,23 @@ export async function POST(request: Request) {
     }
 
     if (tipo === 'especialidad') {
+      const [duplicado] = await db
+        .select({ id: castingEspecialidades.id, nombre: castingEspecialidades.nombre })
+        .from(castingEspecialidades)
+        .where(sql`lower(trim(${castingEspecialidades.nombre})) = lower(trim(${nombreTrim}))`)
+        .limit(1);
+
+      if (duplicado) {
+        return NextResponse.json(
+          { error: `Ya existe una especialidad/rol llamada "${duplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+
       const [nuevo] = await db
         .insert(castingEspecialidades)
         .values({
-          nombre: body.nombre.trim(),
+          nombre: nombreTrim,
           descripcion: body.descripcion?.trim() || null,
           icono: body.icono || '🧠',
           color: body.color || '#c084fc',
@@ -81,10 +109,23 @@ export async function POST(request: Request) {
     }
 
     if (tipo === 'restriccion') {
+      const [duplicado] = await db
+        .select({ id: castingRestricciones.id, nombre: castingRestricciones.nombre })
+        .from(castingRestricciones)
+        .where(sql`lower(trim(${castingRestricciones.nombre})) = lower(trim(${nombreTrim}))`)
+        .limit(1);
+
+      if (duplicado) {
+        return NextResponse.json(
+          { error: `Ya existe una condición/restricción llamada "${duplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+
       const [nuevo] = await db
         .insert(castingRestricciones)
         .values({
-          nombre: body.nombre.trim(),
+          nombre: nombreTrim,
           descripcion: body.descripcion?.trim() || null,
           nivel: body.nivel || 'moderada',
           icono: body.icono || '⚠️',
@@ -123,7 +164,21 @@ export async function PATCH(request: Request) {
 
     if (tipo === 'rango') {
       const updateData: Record<string, any> = { updatedAt: now };
-      if (body.nombre !== undefined) updateData.nombre = body.nombre.trim();
+      if (body.nombre !== undefined) {
+        const nombreTrim = body.nombre ? body.nombre.trim() : '';
+        if (!nombreTrim) return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
+
+        const [duplicado] = await db
+          .select({ id: castingRangosEdad.id, nombre: castingRangosEdad.nombre })
+          .from(castingRangosEdad)
+          .where(and(ne(castingRangosEdad.id, numId), sql`lower(trim(${castingRangosEdad.nombre})) = lower(trim(${nombreTrim}))`))
+          .limit(1);
+
+        if (duplicado) {
+          return NextResponse.json({ error: `Ya existe otro rango llamado "${duplicado.nombre}".` }, { status: 409 });
+        }
+        updateData.nombre = nombreTrim;
+      }
       if (body.descripcion !== undefined) updateData.descripcion = body.descripcion?.trim() || null;
       if (body.edadMin !== undefined) updateData.edadMin = body.edadMin !== '' && body.edadMin !== null ? Number(body.edadMin) : null;
       if (body.edadMax !== undefined) updateData.edadMax = body.edadMax !== '' && body.edadMax !== null ? Number(body.edadMax) : null;
@@ -141,7 +196,21 @@ export async function PATCH(request: Request) {
 
     if (tipo === 'especialidad') {
       const updateData: Record<string, any> = { updatedAt: now };
-      if (body.nombre !== undefined) updateData.nombre = body.nombre.trim();
+      if (body.nombre !== undefined) {
+        const nombreTrim = body.nombre ? body.nombre.trim() : '';
+        if (!nombreTrim) return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
+
+        const [duplicado] = await db
+          .select({ id: castingEspecialidades.id, nombre: castingEspecialidades.nombre })
+          .from(castingEspecialidades)
+          .where(and(ne(castingEspecialidades.id, numId), sql`lower(trim(${castingEspecialidades.nombre})) = lower(trim(${nombreTrim}))`))
+          .limit(1);
+
+        if (duplicado) {
+          return NextResponse.json({ error: `Ya existe otra especialidad llamada "${duplicado.nombre}".` }, { status: 409 });
+        }
+        updateData.nombre = nombreTrim;
+      }
       if (body.descripcion !== undefined) updateData.descripcion = body.descripcion?.trim() || null;
       if (body.icono !== undefined) updateData.icono = body.icono;
       if (body.color !== undefined) updateData.color = body.color;
@@ -158,7 +227,21 @@ export async function PATCH(request: Request) {
 
     if (tipo === 'restriccion') {
       const updateData: Record<string, any> = { updatedAt: now };
-      if (body.nombre !== undefined) updateData.nombre = body.nombre.trim();
+      if (body.nombre !== undefined) {
+        const nombreTrim = body.nombre ? body.nombre.trim() : '';
+        if (!nombreTrim) return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
+
+        const [duplicado] = await db
+          .select({ id: castingRestricciones.id, nombre: castingRestricciones.nombre })
+          .from(castingRestricciones)
+          .where(and(ne(castingRestricciones.id, numId), sql`lower(trim(${castingRestricciones.nombre})) = lower(trim(${nombreTrim}))`))
+          .limit(1);
+
+        if (duplicado) {
+          return NextResponse.json({ error: `Ya existe otra condición/restricción llamada "${duplicado.nombre}".` }, { status: 409 });
+        }
+        updateData.nombre = nombreTrim;
+      }
       if (body.descripcion !== undefined) updateData.descripcion = body.descripcion?.trim() || null;
       if (body.nivel !== undefined) updateData.nivel = body.nivel;
       if (body.icono !== undefined) updateData.icono = body.icono;

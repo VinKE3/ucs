@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { ambientes, sedes, asistencias, usuarios, cursos } from '@/db/schema';
-import { eq, and, like, or, sql } from 'drizzle-orm';
+import { eq, ne, and, like, or, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -146,12 +146,56 @@ export async function POST(request: Request) {
       );
     }
 
+    const numSedeId = Number(sedeId);
+    const nombreTrim = nombre.trim();
+    const codigoTrim = codigo ? codigo.trim() : null;
+
+    // 1. Validar nombre duplicado dentro de la misma sede (case-insensitive)
+    const [nombreDuplicado] = await db
+      .select({ id: ambientes.id, nombre: ambientes.nombre })
+      .from(ambientes)
+      .where(
+        and(
+          eq(ambientes.sedeId, numSedeId),
+          sql`lower(trim(${ambientes.nombre})) = lower(trim(${nombreTrim}))`
+        )
+      )
+      .limit(1);
+
+    if (nombreDuplicado) {
+      return NextResponse.json(
+        { error: `Ya existe una sala llamada "${nombreDuplicado.nombre}" en esta sede. Por favor elige otro nombre o edita la sala existente.` },
+        { status: 409 }
+      );
+    }
+
+    // 2. Validar código duplicado dentro de la misma sede (si fue ingresado)
+    if (codigoTrim) {
+      const [codigoDuplicado] = await db
+        .select({ id: ambientes.id, codigo: ambientes.codigo, nombre: ambientes.nombre })
+        .from(ambientes)
+        .where(
+          and(
+            eq(ambientes.sedeId, numSedeId),
+            sql`lower(trim(${ambientes.codigo})) = lower(trim(${codigoTrim}))`
+          )
+        )
+        .limit(1);
+
+      if (codigoDuplicado) {
+        return NextResponse.json(
+          { error: `El código "${codigoTrim}" ya está asignado a la sala "${codigoDuplicado.nombre}" en esta sede.` },
+          { status: 409 }
+        );
+      }
+    }
+
     const [nuevoAmbiente] = await db
       .insert(ambientes)
       .values({
-        sedeId: Number(sedeId),
-        nombre: nombre.trim(),
-        codigo: codigo ? codigo.trim() : null,
+        sedeId: numSedeId,
+        nombre: nombreTrim,
+        codigo: codigoTrim,
         tipo: tipo || 'general',
         capacidad: capacidad ? Number(capacidad) : 10,
         activo: true,
@@ -179,19 +223,73 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ID de ambiente requerido' }, { status: 400 });
     }
 
+    const [ambienteActual] = await db
+      .select()
+      .from(ambientes)
+      .where(eq(ambientes.id, Number(id)))
+      .limit(1);
+
+    if (!ambienteActual) {
+      return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+    }
+
     const updateData: Partial<typeof ambientes.$inferInsert> = {
       updatedAt: new Date(),
     };
 
     if (nombre !== undefined) {
-      if (!nombre || !nombre.trim()) {
+      const nombreTrim = nombre ? nombre.trim() : '';
+      if (!nombreTrim) {
         return NextResponse.json({ error: 'El nombre de la sala no puede estar vacío' }, { status: 400 });
       }
-      updateData.nombre = nombre.trim();
+
+      // Validar que no exista otra sala con el mismo nombre en la misma sede
+      const [nombreDuplicado] = await db
+        .select({ id: ambientes.id, nombre: ambientes.nombre })
+        .from(ambientes)
+        .where(
+          and(
+            eq(ambientes.sedeId, ambienteActual.sedeId),
+            ne(ambientes.id, ambienteActual.id),
+            sql`lower(trim(${ambientes.nombre})) = lower(trim(${nombreTrim}))`
+          )
+        )
+        .limit(1);
+
+      if (nombreDuplicado) {
+        return NextResponse.json(
+          { error: `Ya existe otra sala llamada "${nombreDuplicado.nombre}" en esta sede.` },
+          { status: 409 }
+        );
+      }
+
+      updateData.nombre = nombreTrim;
     }
 
     if (codigo !== undefined) {
-      updateData.codigo = codigo ? codigo.trim() : null;
+      const codigoTrim = codigo ? codigo.trim() : null;
+      if (codigoTrim) {
+        // Validar que no exista otra sala con el mismo código en la misma sede
+        const [codigoDuplicado] = await db
+          .select({ id: ambientes.id, codigo: ambientes.codigo, nombre: ambientes.nombre })
+          .from(ambientes)
+          .where(
+            and(
+              eq(ambientes.sedeId, ambienteActual.sedeId),
+              ne(ambientes.id, ambienteActual.id),
+              sql`lower(trim(${ambientes.codigo})) = lower(trim(${codigoTrim}))`
+            )
+          )
+          .limit(1);
+
+        if (codigoDuplicado) {
+          return NextResponse.json(
+            { error: `El código "${codigoTrim}" ya está asignado a la sala "${codigoDuplicado.nombre}" en esta sede.` },
+            { status: 409 }
+          );
+        }
+      }
+      updateData.codigo = codigoTrim;
     }
 
     if (tipo !== undefined) {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cursos, asistencias, usuarios } from '@/db/schema';
 import { getSession } from '@/lib/auth';
-import { eq, desc, asc, like, or, sql, and } from 'drizzle-orm';
+import { eq, ne, desc, asc, like, or, sql, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,11 +95,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El nombre del curso es obligatorio' }, { status: 400 });
     }
 
+    const nombreTrim = nombre.trim();
+    const codigoTrim = codigo?.trim() || null;
+
+    // 1. Validar nombre duplicado (case-insensitive)
+    const [nombreDuplicado] = await db
+      .select({ id: cursos.id, nombre: cursos.nombre })
+      .from(cursos)
+      .where(sql`lower(trim(${cursos.nombre})) = lower(trim(${nombreTrim}))`)
+      .limit(1);
+
+    if (nombreDuplicado) {
+      return NextResponse.json(
+        { error: `Ya existe un curso registrado como "${nombreDuplicado.nombre}". Elige un nombre diferente.` },
+        { status: 409 }
+      );
+    }
+
+    // 2. Validar código duplicado (si fue ingresado)
+    if (codigoTrim) {
+      const [codigoDuplicado] = await db
+        .select({ id: cursos.id, codigo: cursos.codigo, nombre: cursos.nombre })
+        .from(cursos)
+        .where(sql`lower(trim(${cursos.codigo})) = lower(trim(${codigoTrim}))`)
+        .limit(1);
+
+      if (codigoDuplicado) {
+        return NextResponse.json(
+          { error: `El código "${codigoTrim}" ya está asignado al curso "${codigoDuplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+    }
+
     const [nuevoCurso] = await db
       .insert(cursos)
       .values({
-        nombre: nombre.trim(),
-        codigo: codigo?.trim() || null,
+        nombre: nombreTrim,
+        codigo: codigoTrim,
         descripcion: descripcion?.trim() || null,
         tarifaHoraPs: tarifaHoraPs !== undefined && tarifaHoraPs !== null && tarifaHoraPs !== '' ? String(tarifaHoraPs) : null,
         activo: true,
@@ -127,12 +160,75 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ID de curso requerido' }, { status: 400 });
     }
 
+    const cursoIdNum = Number(id);
+
+    const [cursoActual] = await db
+      .select()
+      .from(cursos)
+      .where(eq(cursos.id, cursoIdNum))
+      .limit(1);
+
+    if (!cursoActual) {
+      return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
+    }
+
     const updateData: Partial<typeof cursos.$inferInsert> = {
       updatedAt: new Date(),
     };
 
-    if (nombre !== undefined) updateData.nombre = nombre.trim();
-    if (codigo !== undefined) updateData.codigo = codigo?.trim() || null;
+    if (nombre !== undefined) {
+      const nombreTrim = nombre ? nombre.trim() : '';
+      if (!nombreTrim) {
+        return NextResponse.json({ error: 'El nombre del curso no puede estar vacío' }, { status: 400 });
+      }
+
+      // Validar si otro curso tiene el mismo nombre
+      const [nombreDuplicado] = await db
+        .select({ id: cursos.id, nombre: cursos.nombre })
+        .from(cursos)
+        .where(
+          and(
+            ne(cursos.id, cursoIdNum),
+            sql`lower(trim(${cursos.nombre})) = lower(trim(${nombreTrim}))`
+          )
+        )
+        .limit(1);
+
+      if (nombreDuplicado) {
+        return NextResponse.json(
+          { error: `Ya existe otro curso registrado como "${nombreDuplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+
+      updateData.nombre = nombreTrim;
+    }
+
+    if (codigo !== undefined) {
+      const codigoTrim = codigo ? codigo.trim() : null;
+      if (codigoTrim) {
+        // Validar si otro curso tiene el mismo código
+        const [codigoDuplicado] = await db
+          .select({ id: cursos.id, codigo: cursos.codigo, nombre: cursos.nombre })
+          .from(cursos)
+          .where(
+            and(
+              ne(cursos.id, cursoIdNum),
+              sql`lower(trim(${cursos.codigo})) = lower(trim(${codigoTrim}))`
+            )
+          )
+          .limit(1);
+
+        if (codigoDuplicado) {
+          return NextResponse.json(
+            { error: `El código "${codigoTrim}" ya está asignado al curso "${codigoDuplicado.nombre}".` },
+            { status: 409 }
+          );
+        }
+      }
+      updateData.codigo = codigoTrim;
+    }
+
     if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null;
     if (tarifaHoraPs !== undefined) {
       updateData.tarifaHoraPs =
@@ -143,7 +239,7 @@ export async function PATCH(request: Request) {
     const [cursoActualizado] = await db
       .update(cursos)
       .set(updateData)
-      .where(eq(cursos.id, Number(id)))
+      .where(eq(cursos.id, cursoIdNum))
       .returning();
 
     if (!cursoActualizado) {

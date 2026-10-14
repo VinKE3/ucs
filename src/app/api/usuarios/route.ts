@@ -141,10 +141,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const dniTrim = dni.trim();
+
     // Validar DNI duplicado
-    const existing = await db.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.dni, dni.trim())).limit(1);
+    const existing = await db
+      .select({ id: usuarios.id, nombres: usuarios.nombres, apellidos: usuarios.apellidos })
+      .from(usuarios)
+      .where(eq(usuarios.dni, dniTrim))
+      .limit(1);
+
     if (existing.length > 0) {
-      return NextResponse.json({ error: 'Ya existe un usuario con este DNI' }, { status: 400 });
+      return NextResponse.json(
+        { error: `Ya existe un colaborador registrado con el DNI ${dniTrim} (${existing[0].nombres} ${existing[0].apellidos}).` },
+        { status: 409 }
+      );
+    }
+
+    // Validar Correo duplicado (si fue ingresado)
+    const correoTrim = correo ? correo.trim().toLowerCase() : null;
+    if (correoTrim) {
+      const [correoExistente] = await db
+        .select({ id: usuarios.id, nombres: usuarios.nombres, apellidos: usuarios.apellidos })
+        .from(usuarios)
+        .where(sql`lower(trim(${usuarios.correo})) = ${correoTrim}`)
+        .limit(1);
+
+      if (correoExistente) {
+        return NextResponse.json(
+          { error: `El correo "${correoTrim}" ya está registrado para ${correoExistente.nombres} ${correoExistente.apellidos}.` },
+          { status: 409 }
+        );
+      }
     }
 
     let passwordHash: string | null = null;
@@ -161,10 +188,10 @@ export async function POST(request: Request) {
     const [newUser] = await db
       .insert(usuarios)
       .values({
-        dni: dni.trim(),
+        dni: dniTrim,
         nombres: nombres.trim(),
         apellidos: apellidos.trim(),
-        correo: correo ? correo.trim().toLowerCase() : null,
+        correo: correoTrim,
         telefono: telefono ? telefono.trim() : null,
         tipoPersonal: tipoPersonal,
         rolSistema: rolSistema || 'ninguno',
@@ -258,7 +285,27 @@ export async function PATCH(request: Request) {
     }
 
     if (correo !== undefined) {
-      updateData.correo = correo ? correo.trim().toLowerCase() : null;
+      const correoTrim = correo ? correo.trim().toLowerCase() : null;
+      if (correoTrim && correoTrim !== usuarioActual.correo?.toLowerCase()) {
+        const [correoDuplicado] = await db
+          .select({ id: usuarios.id, nombres: usuarios.nombres, apellidos: usuarios.apellidos })
+          .from(usuarios)
+          .where(
+            and(
+              ne(usuarios.id, usuarioActual.id),
+              sql`lower(trim(${usuarios.correo})) = ${correoTrim}`
+            )
+          )
+          .limit(1);
+
+        if (correoDuplicado) {
+          return NextResponse.json(
+            { error: `El correo "${correoTrim}" ya está registrado para ${correoDuplicado.nombres} ${correoDuplicado.apellidos}.` },
+            { status: 409 }
+          );
+        }
+      }
+      updateData.correo = correoTrim;
     }
 
     if (telefono !== undefined) {

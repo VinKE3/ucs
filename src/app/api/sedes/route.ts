@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sedes, ambientes, asistencias } from '@/db/schema';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, ne, and, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -66,11 +66,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El nombre de la sede es obligatorio' }, { status: 400 });
     }
 
+    const nombreTrim = nombre.trim();
+    const codigoTrim = codigo ? codigo.trim().toUpperCase() : null;
+
+    // 1. Validar nombre duplicado (case-insensitive)
+    const [nombreDuplicado] = await db
+      .select({ id: sedes.id, nombre: sedes.nombre })
+      .from(sedes)
+      .where(sql`lower(trim(${sedes.nombre})) = lower(trim(${nombreTrim}))`)
+      .limit(1);
+
+    if (nombreDuplicado) {
+      return NextResponse.json(
+        { error: `Ya existe una sede registrada con el nombre "${nombreDuplicado.nombre}".` },
+        { status: 409 }
+      );
+    }
+
+    // 2. Validar código duplicado (si fue ingresado)
+    if (codigoTrim) {
+      const [codigoDuplicado] = await db
+        .select({ id: sedes.id, codigo: sedes.codigo, nombre: sedes.nombre })
+        .from(sedes)
+        .where(sql`lower(trim(${sedes.codigo})) = lower(trim(${codigoTrim}))`)
+        .limit(1);
+
+      if (codigoDuplicado) {
+        return NextResponse.json(
+          { error: `El código "${codigoTrim}" ya está asignado a la sede "${codigoDuplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+    }
+
     const [nuevaSede] = await db
       .insert(sedes)
       .values({
-        nombre: nombre.trim(),
-        codigo: codigo ? codigo.trim().toUpperCase() : null,
+        nombre: nombreTrim,
+        codigo: codigoTrim,
         direccion: direccion ? direccion.trim() : null,
         activo: true,
       })
@@ -96,19 +129,73 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ID de sede requerido' }, { status: 400 });
     }
 
+    const numId = Number(id);
+
+    const [sedeActual] = await db
+      .select()
+      .from(sedes)
+      .where(eq(sedes.id, numId))
+      .limit(1);
+
+    if (!sedeActual) {
+      return NextResponse.json({ error: 'Sede no encontrada' }, { status: 404 });
+    }
+
     const updateData: Partial<typeof sedes.$inferInsert> = {
       updatedAt: new Date(),
     };
 
     if (nombre !== undefined) {
-      if (!nombre || !nombre.trim()) {
+      const nombreTrim = nombre ? nombre.trim() : '';
+      if (!nombreTrim) {
         return NextResponse.json({ error: 'El nombre de la sede no puede estar vacío' }, { status: 400 });
       }
-      updateData.nombre = nombre.trim();
+
+      // Validar si otra sede tiene el mismo nombre
+      const [nombreDuplicado] = await db
+        .select({ id: sedes.id, nombre: sedes.nombre })
+        .from(sedes)
+        .where(
+          and(
+            ne(sedes.id, numId),
+            sql`lower(trim(${sedes.nombre})) = lower(trim(${nombreTrim}))`
+          )
+        )
+        .limit(1);
+
+      if (nombreDuplicado) {
+        return NextResponse.json(
+          { error: `Ya existe otra sede llamada "${nombreDuplicado.nombre}".` },
+          { status: 409 }
+        );
+      }
+
+      updateData.nombre = nombreTrim;
     }
 
     if (codigo !== undefined) {
-      updateData.codigo = codigo ? codigo.trim().toUpperCase() : null;
+      const codigoTrim = codigo ? codigo.trim().toUpperCase() : null;
+      if (codigoTrim) {
+        // Validar si otra sede tiene el mismo código
+        const [codigoDuplicado] = await db
+          .select({ id: sedes.id, codigo: sedes.codigo, nombre: sedes.nombre })
+          .from(sedes)
+          .where(
+            and(
+              ne(sedes.id, numId),
+              sql`lower(trim(${sedes.codigo})) = lower(trim(${codigoTrim}))`
+            )
+          )
+          .limit(1);
+
+        if (codigoDuplicado) {
+          return NextResponse.json(
+            { error: `El código "${codigoTrim}" ya está asignado a la sede "${codigoDuplicado.nombre}".` },
+            { status: 409 }
+          );
+        }
+      }
+      updateData.codigo = codigoTrim;
     }
 
     if (direccion !== undefined) {
@@ -122,7 +209,7 @@ export async function PATCH(request: Request) {
     const [sedeActualizada] = await db
       .update(sedes)
       .set(updateData)
-      .where(eq(sedes.id, Number(id)))
+      .where(eq(sedes.id, numId))
       .returning();
 
     if (!sedeActualizada) {

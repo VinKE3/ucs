@@ -305,12 +305,19 @@ src/
         - 📍 **Sedes Clínicas (Campus)**: Con contador de sedes e indicador de terminales autorizadas.
         - 📖 **Cursos y Asignaturas**: Con contador de asignaturas y catálogo de tarifas por hora.
         - ⚡ **Modo Kiosco**: Acceso directo con 1 toque a la pantalla de marcación táctil por DNI.
-        - 🌙 **Selector de Tema**: Alternancia entre modo Claro y Oscuro integrada en el pie de la hoja.
+28. **Sistema Integral de Blindaje y Prevención de Duplicados (Salas, Sedes, Cursos, Personal y Catálogos)**:
+    - **Salas / Ambientes por Sede (`/api/ambientes`)**: Regla de unicidad estricta (`LOWER(TRIM(nombre))`) dentro del mismo campus. Impide registrar o renombrar dos salas con el mismo nombre en la misma sede (ej. dos *"Quirófano A"* en Campus Villa). También valida unicidad de código de pabellón/aula (ej. `L-101`) dentro de la sede. Retorna HTTP 409 descriptivo y conserva el modal abierto en caso de error.
+    - **Sedes Clínicas (`/api/sedes`)**: Verificación en POST y PATCH contra nombres o códigos de campus ya existentes (ej. `VILLA`).
+    - **Cursos y Asignaturas (`/api/cursos`)**: Bloqueo preventivo en POST y PATCH contra nombres o códigos académicos repetidos (ej. `SIM-Q`).
+    - **Personal de Clínica (`/api/usuarios`)**: Mantiene el blindaje por DNI y agrega pre-verificación de correo electrónico (HTTP 409 en lugar de fallo 500 no controlado de PostgreSQL).
+    - **Categorías de Ambientes y Catálogos de Casting (`/api/categorias-ambiente` & `/api/casting/catalogos`)**: Previene la duplicación de nombres para categorías de salas, rangos de edad, especialidades y restricciones clínicas.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `PENDING`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal
+* `a39b48b`: docs: actualizar ultimos commits de sesion remota en PROGRESS.md
 * `902b19b`: feat: unificar terminologia oficial a 'Clinica de Simulacion UCS' en modales, convocatoria ecoe y cabeceras
 * `1aa947f`: feat: rediseño espacioso de tabla Planilla PS (grilla 2 cols, layout 1780px) y navegacion movil Bottom Sheet
 * `85a4480`: feat: actualizar membresias y encabezados oficiales de liquidacion y casting a 'Clinica de simulacion'

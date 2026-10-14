@@ -327,7 +327,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `PENDING`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
+* `012a69b`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
 * `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
 * `94c4041`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal
 * `a39b48b`: docs: actualizar ultimos commits de sesion remota en PROGRESS.md

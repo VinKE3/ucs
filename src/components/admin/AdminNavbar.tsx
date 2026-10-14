@@ -37,7 +37,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
       <header className={styles.navbar}>
         <div className={styles.navBrand}>
           <img
-            src="/logo.png"
+            src="/logoucs.png"
             alt="Universidad Científica del Sur"
             className={styles.brandLogoImg}
           />
@@ -51,19 +51,18 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             </div>
             <span className={styles.userName}>{session.nombres} {session.apellidos}</span>
             <span
-              className={`${styles.roleBadge} ${
-                session.rolSistema === 'super_admin'
+              className={`${styles.roleBadge} ${session.rolSistema === 'super_admin'
                   ? styles.roleSuperAdmin
                   : session.rolSistema === 'administrativo'
-                  ? styles.roleAdministrativo
-                  : styles.roleAdmin
-              }`}
+                    ? styles.roleAdministrativo
+                    : styles.roleAdmin
+                }`}
             >
               {session.rolSistema === 'super_admin'
                 ? 'Super Admin'
                 : session.rolSistema === 'administrativo'
-                ? 'Administrativo'
-                : 'Admin'}
+                  ? 'Administrativo'
+                  : 'Admin'}
             </span>
           </div>
 
@@ -107,7 +106,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
         <div className={styles.drawerHeader}>
           <div className={styles.drawerBrand}>
             <img
-              src="/logo.png"
+              src="/logoucs.png"
               alt="Universidad Científica del Sur"
               className={styles.drawerLogoImg}
             />
@@ -129,19 +128,18 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             <div className={styles.drawerUserName}>{session.nombres} {session.apellidos}</div>
             <div className={styles.drawerUserEmail}>{session.correo || 'admin@cientifica.edu.pe'}</div>
             <span
-              className={`${styles.roleBadge} ${
-                session.rolSistema === 'super_admin'
+              className={`${styles.roleBadge} ${session.rolSistema === 'super_admin'
                   ? styles.roleSuperAdmin
                   : session.rolSistema === 'administrativo'
-                  ? styles.roleAdministrativo
-                  : styles.roleAdmin
-              }`}
+                    ? styles.roleAdministrativo
+                    : styles.roleAdmin
+                }`}
             >
               {session.rolSistema === 'super_admin'
                 ? 'Super Admin'
                 : session.rolSistema === 'administrativo'
-                ? 'Administrativo'
-                : 'Admin'}
+                  ? 'Administrativo'
+                  : 'Admin'}
             </span>
           </div>
         </div>

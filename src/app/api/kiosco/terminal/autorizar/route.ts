@@ -4,9 +4,18 @@ import { db } from '@/db';
 import { usuarios, terminalesKiosco, sedes } from '@/db/schema';
 import { eq, or } from 'drizzle-orm';
 import { verifyPassword } from '@/lib/auth';
+import { terminalAuthRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+    const rateLimitKey = `terminal_auth_${clientIp}`;
+
+    const limitStatus = terminalAuthRateLimiter.peek(rateLimitKey);
+    if (!limitStatus.success) {
+      return createRateLimitResponse(limitStatus);
+    }
+
     const { identificador, password, nombreTerminal, sedeId } = await request.json();
 
     if (!identificador || !password) {
@@ -36,6 +45,8 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (foundUsers.length === 0) {
+      const attempt = terminalAuthRateLimiter.check(rateLimitKey);
+      if (!attempt.success) return createRateLimitResponse(attempt);
       return NextResponse.json(
         { error: 'Credenciales inválidas o usuario no encontrado.' },
         { status: 401 }
@@ -67,11 +78,17 @@ export async function POST(request: Request) {
 
     const isMatch = await verifyPassword(password, adminUser.passwordHash);
     if (!isMatch) {
+      const attempt = terminalAuthRateLimiter.check(rateLimitKey);
+      if (!attempt.success) return createRateLimitResponse(attempt);
+      const restantesTexto = attempt.remaining > 0 ? ` (Te quedan ${attempt.remaining} intentos)` : '';
       return NextResponse.json(
-        { error: 'Contraseña de administrador incorrecta.' },
+        { error: `Contraseña de administrador incorrecta.${restantesTexto}` },
         { status: 401 }
       );
     }
+
+    // Éxito: restablecer intentos
+    terminalAuthRateLimiter.reset(rateLimitKey);
 
     // 2. Extraer información del dispositivo y red
     const userAgent = request.headers.get('user-agent') || 'Desconocido';

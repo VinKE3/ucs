@@ -49,7 +49,7 @@ export default function LoginPage() {
       </div>
       <section className={styles.loginCard}>
         <header className={styles.header}>
-          <img src="/logo.png" alt="Universidad Científica del Sur" className={styles.logoImg} />
+          <img src="/logoucs.png" alt="Universidad Científica del Sur" className={styles.logoImg} />
           <div className={styles.badge}>
             <span>🏥</span> Clínica de Simulación
           </div>

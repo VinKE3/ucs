@@ -3,10 +3,23 @@ import { db } from '@/db';
 import { usuarios } from '@/db/schema';
 import { eq, or } from 'drizzle-orm';
 import { verifyPassword, setSessionCookie } from '@/lib/auth';
+import { loginRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
-    const { identificador, password } = await request.json();
+    const clientIp = getClientIp(request);
+    const body = await request.json();
+    const { identificador, password } = body;
+
+    // Clave de limitación combinada (IP + identificador normalizado)
+    const normalizedId = identificador ? String(identificador).trim().toLowerCase() : '';
+    const rateLimitKey = `login_${clientIp}_${normalizedId}`;
+
+    // 1. Verificar si este cliente/usuario ya excedió los intentos
+    const limitStatus = loginRateLimiter.peek(rateLimitKey);
+    if (!limitStatus.success) {
+      return createRateLimitResponse(limitStatus);
+    }
 
     if (!identificador || !password) {
       return NextResponse.json(
@@ -21,15 +34,21 @@ export async function POST(request: Request) {
       .from(usuarios)
       .where(
         or(
-          eq(usuarios.correo, identificador.trim().toLowerCase()),
+          eq(usuarios.correo, normalizedId),
           eq(usuarios.dni, identificador.trim())
         )
       )
       .limit(1);
 
     if (foundUsers.length === 0) {
+      // Registrar intento fallido
+      const attempt = loginRateLimiter.check(rateLimitKey);
+      if (!attempt.success) {
+        return createRateLimitResponse(attempt);
+      }
+      const restantesTexto = attempt.remaining > 0 ? ` (Te quedan ${attempt.remaining} intentos)` : '';
       return NextResponse.json(
-        { error: 'Credenciales inválidas o usuario no encontrado' },
+        { error: `Credenciales inválidas o usuario no encontrado.${restantesTexto}` },
         { status: 401 }
       );
     }
@@ -59,11 +78,20 @@ export async function POST(request: Request) {
 
     const isMatch = await verifyPassword(password, user.passwordHash);
     if (!isMatch) {
+      // Registrar intento fallido
+      const attempt = loginRateLimiter.check(rateLimitKey);
+      if (!attempt.success) {
+        return createRateLimitResponse(attempt);
+      }
+      const restantesTexto = attempt.remaining > 0 ? ` Te quedan ${attempt.remaining} intento${attempt.remaining > 1 ? 's' : ''} antes del bloqueo temporal.` : '';
       return NextResponse.json(
-        { error: 'Credenciales incorrectas. Verifique su contraseña.' },
+        { error: `Credenciales incorrectas. Verifique su contraseña.${restantesTexto}` },
         { status: 401 }
       );
     }
+
+    // Login exitoso: restablecer intentos fallidos
+    loginRateLimiter.reset(rateLimitKey);
 
     // Crear sesión
     const sessionData = {

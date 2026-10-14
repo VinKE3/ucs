@@ -328,11 +328,23 @@ src/
       - **Técnicos y Administrativos**: Se evalúa contra su `horaSalidaProgramada` (o `horaSalidaEsperada`). Mientras estén en su jornada o en los 30 min de cortesía tras salir, figuran como **`🟢 En Curso`** normal (sin alerta en banner ni botón naranja). Solo si transcurren >30 min tras su hora oficial de salida sin marcar en kiosco, se activa `⚠️ Excedió Horario (+Xm tras {salida})` y el botón `⚠️ Regularizar`.
       - **Docentes y Pacientes Simulados**: Se mantiene el umbral de 5 horas continuas adecuado a escenarios de clase y simulación clínica.
       - **Banner Superior**: Ahora contabiliza únicamente *Salidas Pendientes* legítimas, eliminando falsos positivos.
+32. **Mecanismo de Seguridad Anti-Ataques: Rate Limiting Integral (Sliding Window)**:
+    - **Objetivo**: Proteger los endpoints críticos del sistema contra ataques de fuerza bruta de contraseñas, saturación por spam y raspado automatizado (scraping) de DNIs.
+    - **Módulo Central (`src/lib/rateLimit.ts`)**:
+      - Motor de ventana deslizante en memoria con recolección de basura periódica (limpieza de memoria cada 60s sin memory leaks).
+      - Extracción confiable de IP cliente compatible con proxies reversos (Vercel, Cloudflare, AWS, Nginx: `x-forwarded-for`, `cf-connecting-ip`, `x-real-ip`).
+      - Respuestas HTTP `429 Too Many Requests` estándar con encabezados `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.
+    - **Capas de Protección Activas**:
+      - **Login (`/api/auth/login`)**: Máximo 5 intentos fallidos en 15 minutos por IP/usuario. Auto-reset al autenticar con éxito e indicador de intentos restantes.
+      - **Búsqueda DNI Kiosco (`/api/kiosco/lookup`)**: Máximo 25 consultas por minuto por IP para bloquear enumeración y scraping masivo de personal.
+      - **Marcación Kiosco (`/api/kiosco/marcar`)**: Máximo 15 marcaciones por minuto por dispositivo para mitigar bucles y spam.
+      - **Autorización de Tablets (`/api/kiosco/terminal/autorizar`)**: Máximo 5 intentos de autorización en 15 minutos para blindar el enrolamiento físico.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `PENDING`: feat(security): rate limiting integral contra fuerza bruta, scraping de dni y spam en apis
 * `5ba3988`: feat(asistencias): logica adaptativa de turnos prolongados por rol y horario laboral programado
 * `012a69b`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
 * `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos

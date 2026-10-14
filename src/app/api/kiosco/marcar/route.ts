@@ -3,12 +3,21 @@ import { db } from '@/db';
 import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
+import { kioskMarcarRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
     const body = await request.json();
     const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones } = body;
     const terminalToken = request.headers.get('x-terminal-token') || body.terminalToken;
+
+    // Rate limiting por IP/terminal
+    const rateLimitKey = `kiosk_marcar_${clientIp}_${terminalToken || 'anon'}`;
+    const rateCheck = kioskMarcarRateLimiter.check(rateLimitKey);
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
+    }
 
     // 1. Validar que la petición provenga de una terminal autorizada
     if (!terminalToken) {

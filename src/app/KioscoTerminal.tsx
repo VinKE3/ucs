@@ -488,7 +488,7 @@ export default function KioscoTerminal() {
       <header className={styles.topBar}>
         <div className={styles.brand}>
           <img
-            src="/logo.png"
+            src="/logoucs.png"
             alt="Universidad Científica del Sur"
             className={styles.brandLogoImg}
           />

@@ -2,11 +2,20 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { usuarios, asistencias, ambientes, sedes, cursos } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { kioskLookupRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+    const rateLimitKey = `kiosk_lookup_${clientIp}`;
+    const rateCheck = kioskLookupRateLimiter.check(rateLimitKey);
+
+    if (!rateCheck.success) {
+      return createRateLimitResponse(rateCheck);
+    }
+
     const { searchParams } = new URL(request.url);
     const dni = searchParams.get('dni')?.trim();
 

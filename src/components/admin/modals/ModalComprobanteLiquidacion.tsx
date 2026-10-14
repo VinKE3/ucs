@@ -265,7 +265,7 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                 <img
-                  src="/logo.png"
+                  src="/logoucs.png"
                   alt="Universidad Científica del Sur"
                   style={{ height: '38px', width: 'auto', display: 'block' }}
                 />

@@ -360,7 +360,7 @@ export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                     <img
-                      src="/logo.png"
+                      src="/logoucs.png"
                       alt="Universidad Científica del Sur"
                       style={{ height: '36px', width: 'auto', display: 'block' }}
                     />

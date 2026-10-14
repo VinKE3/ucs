@@ -322,7 +322,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `PENDING`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
+* `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
 * `94c4041`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal
 * `a39b48b`: docs: actualizar ultimos commits de sesion remota en PROGRESS.md
 * `902b19b`: feat: unificar terminologia oficial a 'Clinica de Simulacion UCS' en modales, convocatoria ecoe y cabeceras

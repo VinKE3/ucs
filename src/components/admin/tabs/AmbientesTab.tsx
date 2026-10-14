@@ -238,9 +238,9 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
             {tecnicosEnSede.map((tec) => (
               <div key={tec.asistenciaId} className={styles.tecnicoPillTag}>
                 <span className={styles.tecnicoPillDot}>●</span>
-                <span>{tec.nombres} {tec.apellidos}</span>
+                <span className={styles.tecnicoPillName}>{tec.nombres} {tec.apellidos}</span>
                 <span className={styles.tecnicoPillTime}>
-                  (desde {new Date(tec.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})
+                  desde {new Date(tec.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ))}
@@ -259,15 +259,26 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
             onChange={(e) => setSearchAmbiente(e.target.value)}
             className={styles.searchInput}
           />
+          {searchAmbiente && (
+            <button
+              type="button"
+              onClick={() => setSearchAmbiente('')}
+              className={styles.searchClearBtn}
+              title="Limpiar búsqueda"
+              aria-label="Limpiar búsqueda"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 700 }}>
             <span>🏷️</span>
             <span>Filtrar por categoría de simulación:</span>
           </div>
 
-          <div className={styles.categoryPills}>
+          <div className={styles.ambientesCategoryPills}>
             {categoriasActivas.map((cat) => (
               <button
                 key={cat.id}

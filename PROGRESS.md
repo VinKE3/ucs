@@ -316,12 +316,18 @@ src/
     - **Solución implementada**:
       - `ModalCrearAmbiente` y `ModalCrearSede`: Integran feedback visual inline (`⚠️ {error}`) dentro del formulario con borde rojo en el input duplicado y auto-limpieza en cuanto el usuario vuelve a tipear.
       - Corrección de cabecera en salas: Se reemplazó el texto estático *"Agregar Sala a Campus"* por el nombre contextual del campus (`Agregar Sala a ${selectedSedeObj?.nombre}`).
-      - **Auditoría completa de todas las secciones**: Se verificó que Sedes, Ambientes, Personal, Cursos, Categorías, Catálogos de Casting y Asistencias Manuales cuenten con alertas inline sin pérdida de datos del formulario.
+30. **Optimización Espacial y Ergonomía Visual en Gestión de Ambientes (Técnicos en Turno, Buscador y Categorías)**:
+    - **Problema reportado**: El banner verde de técnicos en turno quedaba pegado directamente al buscador de salas sin separación, y en pantallas móviles las pastillas de los técnicos se apilaban tocándose entre sí.
+    - **Solución implementada**:
+      - **Banner de Técnicos (`.tecnicosBanner`)**: Margen inferior generoso (`margin-bottom: 1.35rem`), contenedor flex con `gap: 0.6rem` y rediseño de pastillas (`.tecnicoPillTag`) con nombres en negrita y hora de ingreso en micro-cápsula independiente mono. En móviles (<768px), las tarjetas se distribuyen limpiamente a lo ancho con espacio vertical entre cada una.
+      - **Buscador de Salas (`.searchBoxWrapper` / `.searchInput`)**: Input más cómodo y espacioso, y botón de limpieza rápida con 1 clic (`✕`) cuando hay texto escrito (`.searchClearBtn`).
+      - **Categorías de Simulación (`.ambientesCategoryPills`)**: Espaciado vertical equilibrado y soporte de scroll horizontal suave en móviles.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `PENDING`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
 * `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
 * `94c4041`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal
 * `a39b48b`: docs: actualizar ultimos commits de sesion remota en PROGRESS.md

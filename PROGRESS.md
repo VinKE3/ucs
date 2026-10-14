@@ -344,7 +344,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `PENDING`: feat(security): rate limiting integral contra fuerza bruta, scraping de dni y spam en apis
+* `a214f82`: feat(security): rate limiting integral contra fuerza bruta, scraping de dni y spam en apis
 * `5ba3988`: feat(asistencias): logica adaptativa de turnos prolongados por rol y horario laboral programado
 * `012a69b`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
 * `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos

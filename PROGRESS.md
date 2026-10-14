@@ -333,7 +333,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
-* `PENDING`: feat(asistencias): logica adaptativa de turnos prolongados por rol y horario laboral programado
+* `5ba3988`: feat(asistencias): logica adaptativa de turnos prolongados por rol y horario laboral programado
 * `012a69b`: style(ambientes): optimizar espaciado de tecnicos en turno, buscador con boton limpiar y categorias
 * `a56b820`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
 * `94c4041`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal

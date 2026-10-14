@@ -311,11 +311,18 @@ src/
     - **Cursos y Asignaturas (`/api/cursos`)**: Bloqueo preventivo en POST y PATCH contra nombres o códigos académicos repetidos (ej. `SIM-Q`).
     - **Personal de Clínica (`/api/usuarios`)**: Mantiene el blindaje por DNI y agrega pre-verificación de correo electrónico (HTTP 409 en lugar de fallo 500 no controlado de PostgreSQL).
     - **Categorías de Ambientes y Catálogos de Casting (`/api/categorias-ambiente` & `/api/casting/catalogos`)**: Previene la duplicación de nombres para categorías de salas, rangos de edad, especialidades y restricciones clínicas.
+29. **Experiencia de Validación Inline en Creación y Edición (Reemplazo de SweetAlert por Alertas Integradas en Formulario)**:
+    - **Problema reportado**: Al intentar crear una sede o ambiente con nombre duplicado, la API retornaba correctamente HTTP 409, pero saltaba un popup SweetAlert2 invasivo a pantalla completa con una gran ❌ roja (`Error al guardar sede` / `Error al guardar sala`), interrumpiendo el flujo con sensación de crash o fallo grave.
+    - **Solución implementada**:
+      - `ModalCrearAmbiente` y `ModalCrearSede`: Integran feedback visual inline (`⚠️ {error}`) dentro del formulario con borde rojo en el input duplicado y auto-limpieza en cuanto el usuario vuelve a tipear.
+      - Corrección de cabecera en salas: Se reemplazó el texto estático *"Agregar Sala a Campus"* por el nombre contextual del campus (`Agregar Sala a ${selectedSedeObj?.nombre}`).
+      - **Auditoría completa de todas las secciones**: Se verificó que Sedes, Ambientes, Personal, Cursos, Categorías, Catálogos de Casting y Asistencias Manuales cuenten con alertas inline sin pérdida de datos del formulario.
 
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `PENDING`: fix(ui): alertas de validacion inline en modales de sede y ambiente reemplazando popups invasivos
 * `94c4041`: feat(validation): sistema integral de blindaje y prevencion de duplicados en salas, sedes, cursos y personal
 * `a39b48b`: docs: actualizar ultimos commits de sesion remota en PROGRESS.md
 * `902b19b`: feat: unificar terminologia oficial a 'Clinica de Simulacion UCS' en modales, convocatoria ecoe y cabeceras

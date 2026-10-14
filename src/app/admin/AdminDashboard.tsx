@@ -151,6 +151,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     isEdit?: boolean;
   }>({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
   const [sedeLoading, setSedeLoading] = useState(false);
+  const [sedeError, setSedeError] = useState<string | null>(null);
 
   const [showAmbienteModal, setShowAmbienteModal] = useState(false);
   const [ambienteForm, setAmbienteForm] = useState<{
@@ -169,6 +170,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     isEdit: false,
   });
   const [ambienteLoading, setAmbienteLoading] = useState(false);
+  const [ambienteError, setAmbienteError] = useState<string | null>(null);
 
   // Categorías de Simulación
   const [categoriasList, setCategoriasList] = useState<CategoriaAmbienteItem[]>([]);
@@ -808,6 +810,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const handleSaveSede = async (e: React.FormEvent) => {
     e.preventDefault();
     setSedeLoading(true);
+    setSedeError(null);
     try {
       if (sedeForm.isEdit && sedeForm.id) {
         // Editar sede existente
@@ -827,6 +830,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setShowSedeModal(false);
         setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
         await loadData();
+        showToast('Sede actualizada con éxito', 'success');
       } else {
         // Crear nueva sede
         const res = await fetch('/api/sedes', {
@@ -845,11 +849,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
         await loadData();
         if (data.sede) setSelectedSedeId(data.sede.id);
-        showToast(sedeForm.isEdit ? 'Sede actualizada con éxito' : 'Sede creada con éxito', 'success');
+        showToast('Sede creada con éxito', 'success');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar sede';
-      showError('Error al guardar sede', msg);
+      setSedeError(msg);
     } finally {
       setSedeLoading(false);
     }
@@ -863,6 +867,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       direccion: sede.direccion || '',
       isEdit: true,
     });
+    setSedeError(null);
     setShowSedeModal(true);
   };
 
@@ -931,6 +936,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     e.preventDefault();
     if (!selectedSedeId) return;
     setAmbienteLoading(true);
+    setAmbienteError(null);
     try {
       if (ambienteForm.isEdit && ambienteForm.id) {
         // Editar ambiente existente
@@ -952,6 +958,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
         loadData();
+        showToast('Sala actualizada con éxito', 'success');
       } else {
         // Crear nuevo ambiente
         const res = await fetch('/api/ambientes', {
@@ -969,11 +976,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
         loadData();
-        showToast(ambienteForm.isEdit ? 'Sala actualizada con éxito' : 'Sala creada con éxito', 'success');
+        showToast('Sala creada con éxito', 'success');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar sala';
-      showError('Error al guardar sala', msg);
+      setAmbienteError(msg);
     } finally {
       setAmbienteLoading(false);
     }
@@ -988,6 +995,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       capacidad: String(amb.capacidad || 10),
       isEdit: true,
     });
+    setAmbienteError(null);
     setShowAmbienteModal(true);
   };
 
@@ -1123,6 +1131,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             session={session}
             onOpenCrearSede={() => {
               setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
+              setSedeError(null);
               setShowSedeModal(true);
             }}
             onOpenEditSede={openEditSedeModal}
@@ -1152,6 +1161,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             setFilterTipo={setFilterTipo}
             onOpenCrearAmbiente={() => {
               setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
+              setAmbienteError(null);
               setShowAmbienteModal(true);
             }}
             onOpenEditAmbiente={openEditAmbienteModal}
@@ -1284,6 +1294,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         sedeForm={sedeForm}
         setSedeForm={setSedeForm}
         loading={sedeLoading}
+        error={sedeError}
+        setError={setSedeError}
         onClose={() => setShowSedeModal(false)}
         onSubmit={handleSaveSede}
       />
@@ -1295,6 +1307,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         ambienteForm={ambienteForm}
         setAmbienteForm={setAmbienteForm}
         loading={ambienteLoading}
+        error={ambienteError}
+        setError={setAmbienteError}
         onClose={() => setShowAmbienteModal(false)}
         onSubmit={handleSaveAmbiente}
       />

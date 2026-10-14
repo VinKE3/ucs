@@ -15,6 +15,8 @@ interface ModalCrearSedeProps {
   isOpen: boolean;
   sedeForm: SedeFormData;
   setSedeForm: React.Dispatch<React.SetStateAction<SedeFormData>>;
+  error?: string | null;
+  setError?: React.Dispatch<React.SetStateAction<string | null>>;
   loading: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -24,6 +26,8 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
   isOpen,
   sedeForm,
   setSedeForm,
+  error,
+  setError,
   loading,
   onClose,
   onSubmit,
@@ -40,6 +44,28 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
           <button onClick={onClose} className={styles.closeBtn}>✕</button>
         </div>
 
+        {error && (
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
+              marginTop: '0.5rem',
+              marginBottom: '0.75rem',
+              lineHeight: 1.4,
+            }}
+          >
+            <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         <form onSubmit={onSubmit}>
           <div className={styles.fieldGroup}>
             <label className={styles.label}>Nombre de la Sede *</label>
@@ -49,8 +75,12 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
               autoFocus
               placeholder="ej: Campus Villa (Chorrillos) o Campus Norte"
               value={sedeForm.nombre}
-              onChange={(e) => setSedeForm({ ...sedeForm, nombre: e.target.value })}
+              onChange={(e) => {
+                setSedeForm({ ...sedeForm, nombre: e.target.value });
+                if (setError) setError(null);
+              }}
               className={styles.inputField}
+              style={error ? { borderColor: '#ef4444' } : undefined}
             />
           </div>
 
@@ -60,7 +90,10 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
               type="text"
               placeholder="ej: VILLA, NORTE, ATE"
               value={sedeForm.codigo}
-              onChange={(e) => setSedeForm({ ...sedeForm, codigo: e.target.value })}
+              onChange={(e) => {
+                setSedeForm({ ...sedeForm, codigo: e.target.value });
+                if (setError) setError(null);
+              }}
               className={styles.inputField}
             />
           </div>
@@ -94,4 +127,3 @@ export const ModalCrearSede: React.FC<ModalCrearSedeProps> = ({
     </div>
   );
 };
-

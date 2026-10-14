@@ -19,6 +19,8 @@ interface ModalCrearAmbienteProps {
   categoriasList?: CategoriaAmbienteItem[];
   ambienteForm: AmbienteFormData;
   setAmbienteForm: React.Dispatch<React.SetStateAction<AmbienteFormData>>;
+  error?: string | null;
+  setError?: React.Dispatch<React.SetStateAction<string | null>>;
   loading: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -30,6 +32,8 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
   categoriasList,
   ambienteForm,
   setAmbienteForm,
+  error,
+  setError,
   loading,
   onClose,
   onSubmit,
@@ -50,6 +54,8 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
         { codigo: 'general', nombre: 'General / Otro', icono: '🏢' },
       ];
 
+  const sedeNombreCompleto = selectedSedeObj?.nombre || 'Sede';
+
   return (
     <div className={styles.modalBackdrop}>
       <div className={styles.modal}>
@@ -57,10 +63,32 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
           <h2 className={styles.modalTitle}>
             {ambienteForm.isEdit
               ? `Editar Sala (${ambienteForm.nombre || 'Simulación'})`
-              : `Agregar Sala a ${selectedSedeObj?.nombre.split(' ')[0] || 'Sede'}`}
+              : `Agregar Sala a ${sedeNombreCompleto}`}
           </h2>
           <button onClick={onClose} className={styles.closeBtn}>✕</button>
         </div>
+
+        {error && (
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
+              marginTop: '0.5rem',
+              marginBottom: '0.75rem',
+              lineHeight: 1.4,
+            }}
+          >
+            <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={onSubmit}>
           <div className={styles.fieldGroup}>
@@ -71,8 +99,12 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
               autoFocus
               placeholder="ej: SALA ALTA FIDELIDAD 6, Consultorio 4"
               value={ambienteForm.nombre}
-              onChange={(e) => setAmbienteForm({ ...ambienteForm, nombre: e.target.value })}
+              onChange={(e) => {
+                setAmbienteForm({ ...ambienteForm, nombre: e.target.value });
+                if (setError) setError(null);
+              }}
               className={styles.inputField}
+              style={error ? { borderColor: '#ef4444' } : undefined}
             />
           </div>
 
@@ -83,7 +115,10 @@ export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
                 type="text"
                 placeholder="ej: L 103, L 114, C-02"
                 value={ambienteForm.codigo}
-                onChange={(e) => setAmbienteForm({ ...ambienteForm, codigo: e.target.value })}
+                onChange={(e) => {
+                  setAmbienteForm({ ...ambienteForm, codigo: e.target.value });
+                  if (setError) setError(null);
+                }}
                 className={styles.inputField}
               />
             </div>

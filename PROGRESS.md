@@ -339,6 +339,24 @@ src/
       - **Búsqueda DNI Kiosco (`/api/kiosco/lookup`)**: Máximo 25 consultas por minuto por IP para bloquear enumeración y scraping masivo de personal.
       - **Marcación Kiosco (`/api/kiosco/marcar`)**: Máximo 15 marcaciones por minuto por dispositivo para mitigar bucles y spam.
       - **Autorización de Tablets (`/api/kiosco/terminal/autorizar`)**: Máximo 5 intentos de autorización en 15 minutos para blindar el enrolamiento físico.
+33. **Bot Autónomo y Sincronización en Tiempo Real con SimClic (`cientifica.simclic.com`)**:
+    - **Objetivo**: Conectar la programación académica de la clínica de simulación directamente desde SimClic sin requerir API oficial ni scraping manual de HTML, solucionando el desafío operativo de que los técnicos mueven ambientes y ajustan horarios frecuentemente durante el día.
+    - **Ingeniería Inversa & Protocolo DDP**: Se descubrió que SimClic opera con **Meteor.js** sobre SockJS WebSockets (`wss://cientifica.simclic.com/sockjs/.../websocket`). La autenticación se realiza de forma directa mediante credenciales institucionales seguras en `.env.local` con hashing SHA-256 de contraseña.
+    - **Tabla de Base de Datos (`sesiones_programadas`)**: Creada en Neon PostgreSQL con `simclicId` (único), `titulo`, `fecha`, `horaInicio`, `horaFin`, `sedeId`, `ambienteId`, `ambienteNombreSimclic`, `ambienteOriginalNombre`, `cursoId`, `docenteId`, `carrera`, `estadoSimclic`, `estadoUcs` ('programada' | 'reubicada').
+    - **Motor de Reconciliación Inteligente (`src/lib/simclicSync.ts`)**:
+      - Mapeo automático de sedes, cursos y docentes por correo institucional `@cientifica.edu.pe` o nombres.
+      - Extracción de códigos de laboratorio (ej: `L 102`, `L 110`, `L 218`, `L 103`) vinculando exactamente con los ambientes físicos de UCS.
+      - **Detección Automática de Reubicación de Salas**: Si un técnico cambia un curso de sala en SimClic, el motor detecta la discrepancia, guarda la sala previa en `ambienteOriginalNombre`, actualiza el aula asignada y activa la bandera `reubicada`.
+      - Optimización con `Map` en memoria para ejecutar ciclos completos de casi 200 clases en segundos.
+    - **API Route (`/api/simclic/sync`)**:
+      - `POST`: Sincronización bajo demanda o disparada por cron externo.
+      - `GET`: Consulta de clases programadas del día y auditoría de reubicaciones.
+    - **Botón en Dashboard (`AmbientesTab.tsx`)**:
+      - Botón `🔄 SimClic` en la barra superior con badge de última sincronización.
+      - Ventana emergente interactiva de SweetAlert2 con resumen cuantitativo y alertas específicas de reubicaciones.
+    - **Comandos de Consola / Daemon**:
+      - `npm run simclic:sync`: Sincronización manual instantánea de prueba o mantenimiento.
+      - `npm run simclic:bot`: Bot autónomo continuo que monitorea y actualiza cada 30 minutos (configurable con `SIMCLIC_SYNC_INTERVAL_MINUTES`).
 
 ---
 

@@ -369,4 +369,73 @@ export const terminalesKioscoRelations = relations(terminalesKiosco, ({ one }) =
 export type TerminalKiosco = typeof terminalesKiosco.$inferSelect;
 export type NewTerminalKiosco = typeof terminalesKiosco.$inferInsert;
 
+// --- 9. TABLA: SESIONES PROGRAMADAS (Sincronización SimClic) ---
+export const sesionesProgramadas = pgTable('sesiones_programadas', {
+  id: serial('id').primaryKey(),
+  simclicId: varchar('simclic_id', { length: 50 }).notNull().unique(), // ID numérico de SimClic (ej: "59160")
+  simclicMongoId: varchar('simclic_mongo_id', { length: 50 }),          // _id de Meteor MongoDB
+  titulo: text('titulo').notNull(),                                      // Nombre actividad / escenario
+  fecha: varchar('fecha', { length: 10 }).notNull(),                     // Formato "YYYY-MM-DD"
+  horaInicio: varchar('hora_inicio', { length: 8 }).notNull(),           // "17:00"
+  horaFin: varchar('hora_fin', { length: 8 }).notNull(),                 // "19:45"
+  
+  // Sede
+  sedeId: integer('sede_id').references(() => sedes.id, { onDelete: 'set null' }),
+  sedeNombreSimclic: varchar('sede_nombre_simclic', { length: 150 }),
+
+  // Ambiente (Detección de traslados/cambios de sala)
+  ambienteId: integer('ambiente_id').references(() => ambientes.id, { onDelete: 'set null' }),
+  ambienteNombreSimclic: varchar('ambiente_nombre_simclic', { length: 150 }),
+  ambienteCodigoSimclic: varchar('ambiente_codigo_simclic', { length: 50 }),
+  ambienteOriginalNombre: varchar('ambiente_original_nombre', { length: 150 }), // Para trazabilidad si se movió de sala
+
+  // Curso
+  cursoId: integer('curso_id').references(() => cursos.id, { onDelete: 'set null' }),
+  cursoNombreSimclic: varchar('curso_nombre_simclic', { length: 200 }),
+  cursoCodigoSimclic: varchar('curso_codigo_simclic', { length: 50 }),
+
+  // Docente
+  docenteId: integer('docente_id').references(() => usuarios.id, { onDelete: 'set null' }),
+  docenteNombreSimclic: varchar('docente_nombre_simclic', { length: 250 }),
+  docenteCorreoSimclic: varchar('docente_correo_simclic', { length: 255 }),
+
+  carrera: varchar('carrera', { length: 150 }),
+  estadoSimclic: varchar('estado_simclic', { length: 50 }), // "Booked", "Cancelled", etc.
+  estadoUcs: varchar('estado_ucs', { length: 50 }).default('programada').notNull(), // "programada", "en_curso", "finalizada", "reubicada", "cancelada"
+
+  // Vínculo con asistencia activa
+  asistenciaId: integer('asistencia_id').references(() => asistencias.id, { onDelete: 'set null' }),
+
+  ultimaSincronizacion: timestamp('ultima_sincronizacion').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const sesionesProgramadasRelations = relations(sesionesProgramadas, ({ one }) => ({
+  sede: one(sedes, {
+    fields: [sesionesProgramadas.sedeId],
+    references: [sedes.id],
+  }),
+  ambiente: one(ambientes, {
+    fields: [sesionesProgramadas.ambienteId],
+    references: [ambientes.id],
+  }),
+  curso: one(cursos, {
+    fields: [sesionesProgramadas.cursoId],
+    references: [cursos.id],
+  }),
+  docente: one(usuarios, {
+    fields: [sesionesProgramadas.docenteId],
+    references: [usuarios.id],
+  }),
+  asistencia: one(asistencias, {
+    fields: [sesionesProgramadas.asistenciaId],
+    references: [asistencias.id],
+  }),
+}));
+
+export type SesionProgramada = typeof sesionesProgramadas.$inferSelect;
+export type NewSesionProgramada = typeof sesionesProgramadas.$inferInsert;
+
+
 

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import Swal from 'sweetalert2';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem, AmbienteAdminItem, TecnicoTurnoItem, OcupanteItem, CategoriaAmbienteItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
@@ -48,6 +49,64 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
   onOpenGestionCategorias,
   onCerrarTurnoPorRelevo,
 }) => {
+  const [syncingSimclic, setSyncingSimclic] = useState(false);
+  const [lastSyncInfo, setLastSyncInfo] = useState<string | null>(null);
+
+  const handleSyncSimclic = async () => {
+    try {
+      setSyncingSimclic(true);
+      const res = await fetch('/api/simclic/sync', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error de Sincronización',
+          text: data.error || 'No se pudo sincronizar con SimClic',
+          confirmButtonColor: '#38bdf8',
+        });
+        return;
+      }
+
+      setLastSyncInfo(
+        `${data.total} clases (${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})`
+      );
+
+      let htmlMsg = `<div style="text-align: left; font-size: 0.92rem; line-height: 1.5;">
+        <p style="margin: 0 0 0.4rem 0;">📊 <b>Total clases recibidas:</b> ${data.total}</p>
+        <p style="margin: 0 0 0.4rem 0;">✨ <b>Nuevas creadas:</b> ${data.creadas}</p>
+        <p style="margin: 0 0 0.4rem 0;">🔄 <b>Actualizadas:</b> ${data.actualizadas}</p>`;
+
+      if (data.reubicadas > 0) {
+        htmlMsg += `<div style="margin-top: 0.6rem; padding: 0.6rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px;">
+          <b style="color: #f59e0b;">⚠️ ${data.reubicadas} Salas Reubicadas por Técnicos:</b><br/>
+          <ul style="margin: 0.4rem 0 0 1.2rem; padding: 0;">`;
+        data.detallesReubicadas?.forEach((d: any) => {
+          htmlMsg += `<li style="margin-bottom: 0.25rem;"><b>${d.titulo}:</b><br/>${d.salaAnterior} ➔ <b style="color: #f59e0b;">${d.salaNueva}</b></li>`;
+        });
+        htmlMsg += `</ul></div>`;
+      } else {
+        htmlMsg += `<p style="color: #22c55e; margin: 0.4rem 0 0 0;">🟢 Sin traslados de ambiente detectados.</p>`;
+      }
+      htmlMsg += `</div>`;
+
+      Swal.fire({
+        icon: data.reubicadas > 0 ? 'warning' : 'success',
+        title: 'Sincronización SimClic',
+        html: htmlMsg,
+        confirmButtonColor: '#38bdf8',
+      });
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de Red',
+        text: err.message || 'No se pudo conectar con el servidor',
+        confirmButtonColor: '#38bdf8',
+      });
+    } finally {
+      setSyncingSimclic(false);
+    }
+  };
+
   const categoriasMap = useMemo(() => {
     const map = new Map<string, CategoriaAmbienteItem>();
     if (categoriasList) {
@@ -205,6 +264,49 @@ export const AmbientesTab: React.FC<AmbientesTabProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* BOTÓN SINCRONIZACIÓN SIMCLIC */}
+          <button
+            type="button"
+            onClick={handleSyncSimclic}
+            disabled={syncingSimclic}
+            className={styles.secondaryActionBtn}
+            title="Sincronizar programación de clases y detectar traslados de ambiente desde SimClic"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              background: syncingSimclic ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.08)',
+              color: '#38bdf8',
+              fontWeight: 600,
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                transition: 'transform 0.5s ease',
+                transform: syncingSimclic ? 'rotate(180deg)' : 'none',
+              }}
+            >
+              🔄
+            </span>
+            <span>{syncingSimclic ? 'Sincronizando...' : 'SimClic'}</span>
+            {lastSyncInfo && (
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  opacity: 0.85,
+                  background: 'rgba(56, 189, 248, 0.2)',
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: '4px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {lastSyncInfo}
+              </span>
+            )}
+          </button>
+
           {onOpenGestionCategorias && (
             <button
               type="button"

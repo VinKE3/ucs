@@ -5,6 +5,102 @@ import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
 import { showAlert } from '@/lib/alerts';
+import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAuditoriaProgramacion';
+
+export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem) {
+  const sesiones = asist.sesionesProgramadasDia || [];
+  if (sesiones.length === 0) {
+    return {
+      tieneProgramacion: false,
+      categoria: 'sin_prog' as const,
+      etiqueta: 'Sin bloque SimClic',
+      color: '#94a3b8',
+      bg: 'rgba(148, 163, 184, 0.1)',
+      primerBloque: null,
+      ultimoBloque: null,
+      bloqueInicio: '',
+      bloqueFin: '',
+      totalSesiones: 0,
+      diffMinutos: 0,
+      discrepanciaSala: false,
+      salasProg: [],
+    };
+  }
+
+  const primerBloque = sesiones[0];
+  const ultimoBloque = sesiones[sesiones.length - 1];
+  let diffMinutos = 0;
+  let esTardanza = false;
+
+  if (primerBloque && asist.horaIngreso) {
+    try {
+      const [hH, hM] = primerBloque.horaInicio.split(':').map(Number);
+      const dIng = new Date(asist.horaIngreso);
+      const ingresoMins = dIng.getHours() * 60 + dIng.getMinutes();
+      const progMins = hH * 60 + hM;
+      diffMinutos = ingresoMins - progMins;
+      esTardanza = diffMinutos > 10;
+    } catch {}
+  }
+
+  const salasProg = Array.from(new Set(sesiones.map((s) => s.ambienteNombreSimclic).filter(Boolean)));
+  const discrepanciaSala =
+    Boolean(asist.ambienteNombre) &&
+    salasProg.length > 0 &&
+    !salasProg.some((s) => s?.toLowerCase().includes(asist.ambienteNombre?.toLowerCase() || ''));
+
+  if (esTardanza) {
+    return {
+      tieneProgramacion: true,
+      categoria: 'tardanza' as const,
+      etiqueta: `🚨 Tardanza (+${diffMinutos}m)`,
+      color: '#ef4444',
+      bg: 'rgba(239, 68, 68, 0.15)',
+      primerBloque,
+      ultimoBloque,
+      bloqueInicio: primerBloque.horaInicio,
+      bloqueFin: ultimoBloque.horaFin,
+      totalSesiones: sesiones.length,
+      diffMinutos,
+      discrepanciaSala,
+      salasProg,
+    };
+  }
+
+  if (discrepanciaSala) {
+    return {
+      tieneProgramacion: true,
+      categoria: 'discrepancia_sala' as const,
+      etiqueta: '🔄 Discrepancia Sala',
+      color: '#f59e0b',
+      bg: 'rgba(245, 158, 11, 0.15)',
+      primerBloque,
+      ultimoBloque,
+      bloqueInicio: primerBloque.horaInicio,
+      bloqueFin: ultimoBloque.horaFin,
+      totalSesiones: sesiones.length,
+      diffMinutos,
+      discrepanciaSala,
+      salasProg,
+    };
+  }
+
+  return {
+    tieneProgramacion: true,
+    categoria: 'alineado' as const,
+    etiqueta: `🟢 Alineado (${primerBloque.horaInicio} - ${ultimoBloque.horaFin})`,
+    color: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.15)',
+    primerBloque,
+    ultimoBloque,
+    bloqueInicio: primerBloque.horaInicio,
+    bloqueFin: ultimoBloque.horaFin,
+    totalSesiones: sesiones.length,
+    diffMinutos,
+    discrepanciaSala: false,
+    salasProg,
+  };
+}
 
 interface AsistenciasTabProps {
   asistenciasList: AsistenciaAdminItem[];
@@ -71,6 +167,20 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   const [paginaResumen, setPaginaResumen] = useState<number>(1);
   const [itemsPorPaginaResumen, setItemsPorPaginaResumen] = useState<number>(15);
 
+  // Estados para Auditoría SimClic y Acordeón
+  const [filtroSimclic, setFiltroSimclic] = useState<'todos' | 'tardanza' | 'discrepancia_sala' | 'alineado' | 'sin_prog'>('todos');
+  const [filasExpandidas, setFilasExpandidas] = useState<Set<number>>(new Set());
+  const [asistenciaParaAuditoriaProg, setAsistenciaParaAuditoriaProg] = useState<AsistenciaAdminItem | null>(null);
+
+  const toggleFilaExpandida = (id: number) => {
+    setFilasExpandidas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   useEffect(() => {
     setPaginaDetalle(1);
     setPaginaResumen(1);
@@ -83,6 +193,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
     asistFiltroFechaDesde,
     asistFiltroFechaHasta,
     modoVista,
+    filtroSimclic,
   ]);
 
   useEffect(() => {
@@ -391,17 +502,45 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
     return asistenciasList.filter((a) => evaluarTurnoProlongado(a).esProlongado);
   }, [asistenciasList, evaluarTurnoProlongado]);
 
+  // Métricas y filtrado rápido por cumplimiento SimClic
+  const metricasSimclic = useMemo(() => {
+    let tardanza = 0;
+    let discrepanciaSala = 0;
+    let alineado = 0;
+    let sinProg = 0;
+
+    for (const a of asistenciasList) {
+      if (a.tipoPersonal !== 'docente' && a.tipoPersonal !== 'paciente_simulado') continue;
+      const evalSim = evaluarCumplimientoSimclic(a);
+      if (evalSim.categoria === 'tardanza') tardanza++;
+      else if (evalSim.categoria === 'discrepancia_sala') discrepanciaSala++;
+      else if (evalSim.categoria === 'alineado') alineado++;
+      else if (evalSim.categoria === 'sin_prog') sinProg++;
+    }
+
+    return { tardanza, discrepanciaSala, alineado, sinProg };
+  }, [asistenciasList]);
+
+  const asistenciasConFiltroSimclic = useMemo(() => {
+    if (filtroSimclic === 'todos') return asistenciasList;
+    return asistenciasList.filter((a) => {
+      if (a.tipoPersonal !== 'docente' && a.tipoPersonal !== 'paciente_simulado') return false;
+      const evalSim = evaluarCumplimientoSimclic(a);
+      return evalSim.categoria === filtroSimclic;
+    });
+  }, [asistenciasList, filtroSimclic]);
+
   // Paginación de Turnos Detallados
-  const totalDetalle = asistenciasList.length;
+  const totalDetalle = asistenciasConFiltroSimclic.length;
   const totalPaginasDetalle = itemsPorPaginaDetalle === -1 ? 1 : Math.max(1, Math.ceil(totalDetalle / itemsPorPaginaDetalle));
   const paginaValidaDetalle = Math.min(Math.max(1, paginaDetalle), totalPaginasDetalle);
   const inicioIndexDetalle = (paginaValidaDetalle - 1) * (itemsPorPaginaDetalle === -1 ? totalDetalle : itemsPorPaginaDetalle);
   const finIndexDetalle = itemsPorPaginaDetalle === -1 ? totalDetalle : Math.min(inicioIndexDetalle + itemsPorPaginaDetalle, totalDetalle);
 
   const asistenciasPaginadas = useMemo(() => {
-    if (itemsPorPaginaDetalle === -1) return asistenciasList;
-    return asistenciasList.slice(inicioIndexDetalle, finIndexDetalle);
-  }, [asistenciasList, inicioIndexDetalle, finIndexDetalle, itemsPorPaginaDetalle]);
+    if (itemsPorPaginaDetalle === -1) return asistenciasConFiltroSimclic;
+    return asistenciasConFiltroSimclic.slice(inicioIndexDetalle, finIndexDetalle);
+  }, [asistenciasConFiltroSimclic, inicioIndexDetalle, finIndexDetalle, itemsPorPaginaDetalle]);
 
   // Paginación de Resumen por Colaborador
   const totalResumen = resumenColaboradores.length;
@@ -1100,19 +1239,67 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
         </>
       ) : (
         <>
+          {/* BARRA DE FILTROS RÁPIDOS SIMCLIC */}
+          <div className={styles.simclicAuditPills}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '0.25rem' }}>
+              🔬 Auditoría SimClic:
+            </span>
+            <button
+              type="button"
+              onClick={() => setFiltroSimclic('todos')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'todos' ? styles.simclicPillBtnActive : ''}`}
+            >
+              Todos ({asistenciasList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroSimclic('tardanza')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'tardanza' ? styles.simclicPillBtnActive : ''}`}
+              style={{ color: '#ef4444' }}
+            >
+              ⚠️ Tardanza vs Programado ({metricasSimclic.tardanza})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroSimclic('discrepancia_sala')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'discrepancia_sala' ? styles.simclicPillBtnActive : ''}`}
+              style={{ color: '#f59e0b' }}
+            >
+              🏢 Cambio / Discrepancia de Sala ({metricasSimclic.discrepanciaSala})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroSimclic('alineado')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'alineado' ? styles.simclicPillBtnActive : ''}`}
+              style={{ color: '#00e699' }}
+            >
+              ✅ Conformes / Alineados ({metricasSimclic.alineado})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroSimclic('sin_prog')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'sin_prog' ? styles.simclicPillBtnActive : ''}`}
+              style={{ color: 'var(--text-muted)' }}
+            >
+              ❓ Sin Bloque SimClic ({metricasSimclic.sinProg})
+            </button>
+          </div>
+
           {/* TABLA DE ASISTENCIAS DETALLADA */}
           <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <thead>
               <tr>
+                <th style={{ width: '38px', textAlign: 'center' }}></th>
                 <th>Fecha</th>
                 <th>Personal</th>
                 <th>Ubicación</th>
                 <th>Curso / Asignatura</th>
-                <th>Horario (Ingreso - Salida)</th>
+                <th>Horario Real</th>
+                <th>Auditoría SimClic</th>
                 <th>Tiempo Total</th>
                 <th>Estado</th>
-                <th>Auditoría / Motivo</th>
+                <th>Observación</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1120,6 +1307,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
               {loadingAsistencias ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={`skeleton-asist-${i}`} className={styles.skeletonTableRow}>
+                    <td><div className={styles.skeletonCell} style={{ width: '20px', height: '20px', borderRadius: '4px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '65px', height: '14px' }} /></td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -1130,15 +1318,16 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                     <td><div className={styles.skeletonCell} style={{ width: '85px', height: '22px', borderRadius: '12px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '120px', height: '14px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '110px', height: '14px' }} /></td>
+                    <td><div className={styles.skeletonCell} style={{ width: '130px', height: '14px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '55px', height: '14px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '55px', height: '14px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '75px', height: '16px' }} /></td>
                     <td><div className={styles.skeletonCell} style={{ width: '60px', height: '26px', borderRadius: '6px' }} /></td>
                   </tr>
                 ))
-              ) : asistenciasList.length === 0 ? (
+              ) : asistenciasConFiltroSimclic.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                     No se encontraron asistencias con los filtros seleccionados.
                   </td>
                 </tr>
@@ -1154,9 +1343,42 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                       : '—';
 
                   const { esProlongado, diffMinsActual, etiquetaAlerta, esTecnicoOAdmin } = evaluarTurnoProlongado(asist);
+                  const evalSim = evaluarCumplimientoSimclic(asist);
+                  const tieneSimclic = Boolean(asist.sesionesProgramadasDia && asist.sesionesProgramadasDia.length > 0);
+                  const isExpanded = filasExpandidas.has(asist.id);
 
                   return (
-                    <tr key={asist.id} style={esProlongado ? { background: 'rgba(245, 158, 11, 0.05)' } : undefined}>
+                    <React.Fragment key={asist.id}>
+                    <tr style={esProlongado ? { background: 'rgba(245, 158, 11, 0.05)' } : undefined}>
+                      <td style={{ textAlign: 'center', padding: '0.5rem 0.25rem' }}>
+                        {tieneSimclic ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleFilaExpandida(asist.id)}
+                            style={{
+                              background: isExpanded ? 'rgba(0, 230, 153, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                              border: isExpanded ? '1px solid #00e699' : '1px solid var(--border-color)',
+                              color: isExpanded ? '#00e699' : 'var(--text-secondary)',
+                              borderRadius: '6px',
+                              width: '24px',
+                              height: '24px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              transition: 'all 0.15s ease',
+                            }}
+                            title={isExpanded ? 'Contraer bloques programados' : `Ver ${asist.sesionesProgramadasDia!.length} bloque(s) programados en SimClic`}
+                          >
+                            {isExpanded ? '▼' : '▶'}
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', opacity: 0.3 }}>•</span>
+                        )}
+                      </td>
+
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                         {asist.fecha}
                       </td>
@@ -1313,6 +1535,66 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                         )}
                       </td>
 
+                      {/* COLUMNA AUDITORÍA SIMCLIC */}
+                      <td>
+                        {(asist.tipoPersonal === 'docente' || asist.tipoPersonal === 'paciente_simulado') ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '155px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  padding: '0.15rem 0.45rem',
+                                  borderRadius: '4px',
+                                  background: evalSim.bg,
+                                  color: evalSim.color,
+                                  border: `1px solid ${evalSim.color}40`,
+                                }}
+                              >
+                                {evalSim.etiqueta}
+                              </span>
+                            </div>
+
+                            {evalSim.bloqueInicio ? (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                                Prog: <strong>{evalSim.bloqueInicio}</strong> - <strong>{evalSim.bloqueFin}</strong>
+                                {evalSim.totalSesiones > 1 && (
+                                  <span style={{ color: '#38bdf8', marginLeft: '0.3rem', fontWeight: 600 }}>
+                                    ({evalSim.totalSesiones} bloques)
+                                  </span>
+                                )}
+                              </div>
+                            ) : null}
+
+                            {tieneSimclic && (
+                              <button
+                                type="button"
+                                onClick={() => setAsistenciaParaAuditoriaProg(asist)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#38bdf8',
+                                  fontSize: '0.72rem',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                  textDecoration: 'underline',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.2rem',
+                                  fontWeight: 600,
+                                  marginTop: '0.1rem',
+                                }}
+                              >
+                                <span>🔍</span> Ficha 360° SimClic
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+
                       <td style={{ fontWeight: 700, color: asist.estado === 'anulado' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                         {asist.estado === 'anulado' ? '0 min' : tiempoFormat}
                       </td>
@@ -1394,6 +1676,117 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                         </div>
                       </td>
                     </tr>
+
+                    {/* ACORDEÓN EXPANDIBLE DE BLOQUES SIMCLIC */}
+                    {isExpanded && tieneSimclic && (
+                      <tr className={styles.accordionExpandedRow} key={`accordion-${asist.id}`}>
+                        <td colSpan={11} style={{ padding: 0 }}>
+                          <div className={styles.accordionContent}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '1.1rem' }}>📋</span>
+                                <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                                  Cronograma Programado SimClic ({asist.sesionesProgramadasDia!.length} Bloque{asist.sesionesProgramadasDia!.length > 1 ? 's' : ''})
+                                </span>
+                                <span style={{
+                                  fontSize: '0.75rem',
+                                  color: 'var(--ucs-blue-sky)',
+                                  fontFamily: 'var(--font-mono)',
+                                  background: 'rgba(56, 189, 248, 0.1)',
+                                  padding: '0.15rem 0.45rem',
+                                  borderRadius: '4px',
+                                }}>
+                                  Total Planificado: {asist.sesionesProgramadasDia!.reduce((acc, s) => {
+                                    try {
+                                      const [hIniH, hIniM] = s.horaInicio.split(':').map(Number);
+                                      const [hFinH, hFinM] = s.horaFin.split(':').map(Number);
+                                      const diff = hFinH * 60 + hFinM - (hIniH * 60 + hIniM);
+                                      return acc + (diff > 0 ? diff : 0);
+                                    } catch {
+                                      return acc;
+                                    }
+                                  }, 0)} min
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setAsistenciaParaAuditoriaProg(asist)}
+                                className={styles.secondaryBtn}
+                                style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                              >
+                                🔍 Abrir Comparativa 360° Completa
+                              </button>
+                            </div>
+
+                            {/* Mini tarjetas de bloques */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.65rem' }}>
+                              {asist.sesionesProgramadasDia!.map((sesion, idx) => {
+                                let duracion = 0;
+                                try {
+                                  const [hIniH, hIniM] = sesion.horaInicio.split(':').map(Number);
+                                  const [hFinH, hFinM] = sesion.horaFin.split(':').map(Number);
+                                  duracion = hFinH * 60 + hFinM - (hIniH * 60 + hIniM);
+                                } catch {}
+
+                                return (
+                                  <div
+                                    key={sesion.id || idx}
+                                    style={{
+                                      background: 'var(--bg-card)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '8px',
+                                      padding: '0.65rem 0.85rem',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '0.3rem',
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                                        ⏰ {sesion.horaInicio} - {sesion.horaFin}
+                                      </span>
+                                      <span style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 600,
+                                        padding: '0.1rem 0.35rem',
+                                        borderRadius: '4px',
+                                        background: 'rgba(56, 189, 248, 0.1)',
+                                        color: '#38bdf8',
+                                        fontFamily: 'var(--font-mono)',
+                                      }}>
+                                        {duracion > 0 ? `${duracion} min` : 'N/A'}
+                                      </span>
+                                    </div>
+
+                                    <div style={{ fontSize: '0.76rem', color: 'var(--ucs-orange)', fontWeight: 600 }}>
+                                      📚 {sesion.cursoNombreSimclic || 'Curso General'}
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                      <span>📍 {sesion.ambienteNombreSimclic || 'Sala no especificada'}</span>
+                                      {sesion.carrera && <span style={{ color: 'var(--text-muted)' }}>🎓 {sesion.carrera}</span>}
+                                    </div>
+
+                                    {sesion.docenteNombreSimclic && (
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        👨‍🏫 Docente: {sesion.docenteNombreSimclic}
+                                      </div>
+                                    )}
+                                    {sesion.pacienteSimuladoNombre && (
+                                      <div style={{ fontSize: '0.7rem', color: '#c084fc' }}>
+                                        🎭 PS: {sesion.pacienteSimuladoNombre}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })
               )}
@@ -1534,6 +1927,15 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
           </div>
         )}
         </>
+      )}
+
+      {/* MODAL AUDITORÍA DE PROGRAMACIÓN 360° */}
+      {asistenciaParaAuditoriaProg && (
+        <ModalAuditoriaProgramacion
+          isOpen={Boolean(asistenciaParaAuditoriaProg)}
+          asistencia={asistenciaParaAuditoriaProg}
+          onClose={() => setAsistenciaParaAuditoriaProg(null)}
+        />
       )}
 
     </section>

@@ -30,6 +30,7 @@ import { PersonalTab } from '@/components/admin/tabs/PersonalTab';
 import { CursosTab } from '@/components/admin/tabs/CursosTab';
 import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
 import { PlanillaTab } from '@/components/admin/tabs/PlanillaTab';
+import { ProgramacionTab } from '@/components/admin/tabs/ProgramacionTab';
 
 // Modales modulares
 import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
@@ -1110,6 +1111,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               🏥 Ambientes ({stats.ambientes})
             </button>
             <button
+              className={`${styles.tabBtn} ${activeTab === 'programacion' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('programacion')}
+            >
+              📅 Programación SimClic
+            </button>
+            <button
               className={`${styles.tabBtn} ${activeTab === 'cursos' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('cursos')}
             >
@@ -1181,6 +1188,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onDeleteAmbiente={handleDeleteAmbiente}
             onOpenGestionCategorias={() => setShowCategoriasModal(true)}
             onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
+          />
+        )}
+
+        {activeTab === 'programacion' && (
+          <ProgramacionTab
+            sedesList={sedesList}
+            onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
           />
         )}
 

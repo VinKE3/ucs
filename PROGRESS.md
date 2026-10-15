@@ -443,6 +443,46 @@ src/
       - **Automatización Nativa en la Nube con Vercel Cron (`vercel.json` y `/api/cron/simclic`)**:
         - Se creó el archivo de configuración [`vercel.json`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/vercel.json) programado a las 05:00 AM Perú (`0 10 * * *` en UTC).
         - Se creó la ruta [`/api/cron/simclic/route.ts`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/api/cron/simclic/route.ts) con soporte HTTP GET nativo de Vercel, tiempo de ejecución extendido `maxDuration = 60s`, y validación opcional de `CRON_SECRET`. Sincroniza en un solo pase tanto las clases de hoy como las de mañana.
+31. **Auditoría y Conciliación Inteligente SimClic en el Historial de Asistencias (`AsistenciasTab.tsx`, `/api/asistencias`, `ModalAuditoriaProgramacion.tsx`)**:
+    - **Requerimiento y Problema Operativo Resuelto**:
+      - Los Pacientes Simulados (PS) y Docentes tienen agendas dinámicas en SimClic con múltiples bloques por jornada (rotaciones entre consultorios, shock trauma, pediatría y pausas no remuneradas).
+      - El Kiosco registra la marcación física real (entrada/salida en sala). Faltaba una conciliación visual y analítica para responder de inmediato: *¿Llegó a tiempo a su primer bloque? ¿Marcó en la sala que le correspondía o en otra? ¿Cuántos bloques dictó y cuál es el desvío?*
+    - **Enriquecimiento del Endpoint de Asistencias (`/api/asistencias`)**:
+      - El endpoint agrupa las fechas del lote consultado (`uniqueFechas`) y consulta eficientemente las `sesionesProgramadas` de ese día para Docentes y Pacientes Simulados, adjuntando `sesionesProgramadasDia` a cada fila de asistencia.
+    - **Píldoras de Filtro Rápido por Discrepancia SimClic**:
+      - Píldoras interactivas en la cabecera de la tabla detallada:
+        1. `Todos`: Universo completo de turnos.
+        2. `⚠️ Tardanza vs Programado`: Colaboradores que marcaron con más de 10 minutos de retraso respecto a su primer bloque oficial de SimClic.
+        3. `🏢 Cambio / Discrepancia de Sala`: Colaboradores que marcaron en una sala diferente a las asignadas en su cronograma de SimClic.
+        4. `✅ Conformes / Alineados`: Registros puntuales y en sala correcta.
+        5. `❓ Sin Bloque SimClic`: Marcaciones sin sesión programada en SimClic ese día (ej. refuerzos de último minuto o actividades no agendadas).
+    - **Acordeón Desplegable por Fila `[ ▶ / ▼ ]`**:
+      - Botón chevron en la primera columna de cada fila. Al hacer clic, despliega una sub-fila animada con la síntesis de todos los bloques programados del día (horario inicio-fin, duración en minutos, asignatura, sala física, docente a cargo y rol de PS).
+    - **Modal de Auditoría y Comparativa 360° (`ModalAuditoriaProgramacion.tsx`)**:
+      - Comparativa visual lado a lado: Marcación Kiosco (hora real de ingreso/salida, sala física y tiempo total) vs. Cronograma Oficial SimClic (horario programado, desfase en minutos, tolerancia y lista de salas).
+      - Desglose exhaustivo bloque por bloque con caso clínico/escenario, matching de sala, y cálculo de honorarios proyectados vs. reales.
+32. **Hub Maestro de Programación SimClic 360° con Esteroides (`ProgramacionTab.tsx`, `/api/programacion`, `ModalDetalleSesionSimclic.tsx`)**:
+    - **Requerimiento**:
+      - Ver la programación completa de SimClic independientemente de si el docente o paciente simulado ya marcaron en el Kiosco.
+      - Superpoderes operativos: detector de salas desocupadas en tiempo real, radar de ausentismo preventivo (clase en curso sin marcación física), triple vista interactiva y filtrado omnicanal por Docente, Curso, Paciente Simulado y Sede.
+    - **Endpoint Especializado (`/api/programacion`)**:
+      - Consulta todas las sesiones del día seleccionado (`sesionesProgramadas`), el padrón de ambientes de la sede, y cruza en tiempo real con las asistencias registradas en el Kiosco.
+      - Retorna métricas en vivo: total de sesiones, docentes programados, pacientes simulados, salas ocupadas ahora vs. libres ahora, y alertas de ausentismo.
+    - **3 Modos de Visualización Dinámicos**:
+      1. **📊 Línea de Tiempo Gantt Diario (07:00 a 22:00)**:
+         - Eje vertical con todas las salas físicas de la sede (sticky a la izquierda).
+         - Eje horizontal en bloques de 30 minutos con línea vertical neón indicando el minuto actual en vivo.
+         - Bloques proporcionales con colores oficiales por carrera SimClic, con hover effects y apertura de ficha completa.
+         - Indicador visual de presencia en cada bloque: `🟢 En Sala (Marcó)`, `⏳ Por Iniciar` o `🚨 Sin Marcación`.
+      2. **📋 Tabla de Clases**:
+         - Grilla filtrable y paginada con ID SimClic, horario, sala, asignatura, escenario, docente y PS.
+      3. **🟢 Radar de Salas Libres y Disponibilidad**:
+         - Detector de disponibilidad de aulas en tiempo real para reasignaciones ágiles y recuperaciones de clases.
+    - **Filtros Avanzados**:
+      - Buscador omnicanal en vivo + selectores independientes por Docente, Curso / Asignatura y Paciente Simulado (Actor).
+      - Píldoras de disponibilidad rápida: `Salas Libres Ahora`, `En Curso Sin Marcación`, `Con Asistencia Marcada`, `Con Paciente Simulado`.
+    - **Modal Detalle de Actividad (`ModalDetalleSesionSimclic.tsx`)**:
+      - Inspirado en la interfaz de SimClic con diseño dark/light mode UCS: código SimClic, título, horario, duración, sala, curso, carrera, escenario clínico, docente, actor PS y estado de marcación física en el Kiosco con acceso a registro manual justificado.
 
 ---
 

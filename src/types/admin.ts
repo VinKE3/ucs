@@ -153,6 +153,36 @@ export interface AsistenciaAdminItem {
   minutosTardanza?: number | null;
   minutosAnticipo?: number | null;
   minutosExtra?: number | null;
+  sesionesProgramadasDia?: SesionProgramadaSimclicItem[];
+}
+
+export interface SesionProgramadaSimclicItem {
+  id: number;
+  simclicId: string;
+  titulo: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  sedeId: number | null;
+  sedeNombreSimclic: string | null;
+  ambienteId: number | null;
+  ambienteNombreSimclic: string | null;
+  ambienteCodigoSimclic: string | null;
+  cursoId: number | null;
+  cursoNombreSimclic: string | null;
+  cursoCodigoSimclic: string | null;
+  docenteId: number | null;
+  docenteNombreSimclic: string | null;
+  docenteCorreoSimclic: string | null;
+  pacienteSimuladoNombre: string | null;
+  pacienteSimuladoCorreo: string | null;
+  carrera: string | null;
+  carreraCodigo: string | null;
+  carreraColor: string | null;
+  escenarioCodigo: string | null;
+  escenarioNombre: string | null;
+  prefijo: string | null;
+  estadoUcs: string;
 }
 
 export interface CarreraAdminItem {
@@ -206,7 +236,44 @@ export interface CategoriaAmbienteItem {
   createdAt?: string;
 }
 
-export type AdminTab = 'sedes' | 'ambientes' | 'cursos' | 'personal' | 'asistencias' | 'planilla';
+export type AdminTab = 'sedes' | 'ambientes' | 'programacion' | 'cursos' | 'personal' | 'asistencias' | 'planilla';
+
+export interface SesionProgramadaTimelineItem extends SesionProgramadaSimclicItem {
+  startMins: number;
+  endMins: number;
+  duracionMinutos: number;
+  estadoEnVivo: 'en_sala' | 'por_llegar' | 'sin_marcar' | 'finalizada' | 'programada';
+  alertaTexto?: string;
+  docentePresente?: boolean;
+  psPresente?: boolean;
+  asistenciaDocenteId?: number | null;
+  asistenciaDocenteHora?: string | null;
+  asistenciaDocenteAmbiente?: string | null;
+}
+
+export interface ProgramacionDocenteOption {
+  id: number | null;
+  nombre: string;
+  correo: string | null;
+}
+
+export interface ProgramacionCursoOption {
+  id: number | null;
+  nombre: string;
+  codigo: string | null;
+  carrera: string | null;
+}
+
+export interface ProgramacionMetricas {
+  totalSesiones: number;
+  totalDocentes: number;
+  totalPs: number;
+  salasTotales: number;
+  salasOcupadasAhora: number;
+  salasLibresAhoraCount: number;
+  salasLibresAhora: Array<{ id: number; nombre: string; codigo: string | null; tipo: string }>;
+  ausentismosCount: number;
+}
 
 export interface AuditoriaItem {
   id: number;

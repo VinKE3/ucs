@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos } from '@/db/schema';
-import { desc, eq, and, gte, lte, or, like } from 'drizzle-orm';
+import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos, sesionesProgramadas } from '@/db/schema';
+import { desc, eq, and, gte, lte, or, like, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { getPeruTimeString } from '@/lib/peruTime';
 
@@ -125,7 +125,83 @@ export async function GET(request: Request) {
     const limitRecords = usuarioId ? 500 : 250;
     const list = await query.orderBy(desc(asistencias.horaIngreso)).limit(limitRecords);
 
-    return NextResponse.json({ asistencias: list });
+    // Enriquecer asistencias con programación oficial de SimClic (para Docentes y Pacientes Simulados)
+    const uniqueFechas = Array.from(new Set(list.map((a) => a.fecha).filter(Boolean)));
+    let sesionesPorFecha: any[] = [];
+
+    if (uniqueFechas.length > 0) {
+      try {
+        sesionesPorFecha = await db
+          .select({
+            id: sesionesProgramadas.id,
+            simclicId: sesionesProgramadas.simclicId,
+            titulo: sesionesProgramadas.titulo,
+            fecha: sesionesProgramadas.fecha,
+            horaInicio: sesionesProgramadas.horaInicio,
+            horaFin: sesionesProgramadas.horaFin,
+            sedeId: sesionesProgramadas.sedeId,
+            sedeNombreSimclic: sesionesProgramadas.sedeNombreSimclic,
+            ambienteId: sesionesProgramadas.ambienteId,
+            ambienteNombreSimclic: sesionesProgramadas.ambienteNombreSimclic,
+            ambienteCodigoSimclic: sesionesProgramadas.ambienteCodigoSimclic,
+            cursoId: sesionesProgramadas.cursoId,
+            cursoNombreSimclic: sesionesProgramadas.cursoNombreSimclic,
+            cursoCodigoSimclic: sesionesProgramadas.cursoCodigoSimclic,
+            docenteId: sesionesProgramadas.docenteId,
+            docenteNombreSimclic: sesionesProgramadas.docenteNombreSimclic,
+            docenteCorreoSimclic: sesionesProgramadas.docenteCorreoSimclic,
+            pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+            pacienteSimuladoCorreo: sesionesProgramadas.pacienteSimuladoCorreo,
+            carrera: sesionesProgramadas.carrera,
+            carreraCodigo: sesionesProgramadas.carreraCodigo,
+            carreraColor: sesionesProgramadas.carreraColor,
+            escenarioCodigo: sesionesProgramadas.escenarioCodigo,
+            escenarioNombre: sesionesProgramadas.escenarioNombre,
+            prefijo: sesionesProgramadas.prefijo,
+            estadoUcs: sesionesProgramadas.estadoUcs,
+          })
+          .from(sesionesProgramadas)
+          .where(inArray(sesionesProgramadas.fecha, uniqueFechas))
+          .orderBy(sesionesProgramadas.horaInicio);
+      } catch (errSes) {
+        console.warn('Advertencia al consultar sesiones programadas para asistencias:', errSes);
+      }
+    }
+
+    const enrichedList = list.map((asist) => {
+      const uEmail = (asist.correo || '').toLowerCase().trim();
+      const uNomCompleto = `${asist.nombres} ${asist.apellidos}`.toLowerCase().trim();
+
+      const sesMatch = sesionesPorFecha.filter((s) => {
+        if (s.fecha !== asist.fecha) return false;
+
+        if (asist.tipoPersonal === 'docente') {
+          if (s.docenteId && s.docenteId === asist.usuarioId) return true;
+          const sDocEmail = (s.docenteCorreoSimclic || '').toLowerCase().trim();
+          if (uEmail && sDocEmail && uEmail === sDocEmail) return true;
+          const sDocNom = (s.docenteNombreSimclic || '').toLowerCase().trim();
+          if (sDocNom && (sDocNom.includes(uNomCompleto) || uNomCompleto.includes(sDocNom))) return true;
+          return false;
+        }
+
+        if (asist.tipoPersonal === 'paciente_simulado') {
+          const sPsEmail = (s.pacienteSimuladoCorreo || '').toLowerCase().trim();
+          if (uEmail && sPsEmail && uEmail === sPsEmail) return true;
+          const sPsNom = (s.pacienteSimuladoNombre || '').toLowerCase().trim();
+          if (sPsNom && (sPsNom.includes(uNomCompleto) || uNomCompleto.includes(sPsNom))) return true;
+          return false;
+        }
+
+        return false;
+      });
+
+      return {
+        ...asist,
+        sesionesProgramadasDia: sesMatch,
+      };
+    });
+
+    return NextResponse.json({ asistencias: enrichedList });
   } catch (error) {
     console.error('Error listando asistencias:', error);
     return NextResponse.json({ error: 'Error al consultar asistencias' }, { status: 500 });

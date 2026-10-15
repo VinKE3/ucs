@@ -359,6 +359,28 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             <span className={styles.bottomSheetItemBadge}>{stats.sedes} sedes</span>
           </button>
 
+          {/* PROGRAMACIÓN SIMCLIC */}
+          <button
+            type="button"
+            className={`${styles.bottomSheetItem} ${activeTab === 'programacion' ? styles.bottomSheetItemActive : ''}`}
+            onClick={() => {
+              setActiveTab('programacion');
+              setMoreSheetOpen(false);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            <div className={styles.bottomSheetItemLeft}>
+              <div className={styles.bottomSheetItemIcon} style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8' }}>
+                <span style={{ fontSize: '1.2rem' }}>📅</span>
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div className={styles.bottomSheetItemTitle}>Programación SimClic</div>
+                <div className={styles.bottomSheetItemDesc}>Línea de tiempo Gantt, radar de aulas y ausentismo</div>
+              </div>
+            </div>
+            <span className={styles.bottomSheetItemBadge}>360°</span>
+          </button>
+
           {/* CURSOS */}
           <button
             type="button"

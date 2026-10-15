@@ -248,18 +248,13 @@ export default function ConsultaPublicaPage() {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.brandArea}>
-            <div className={styles.logoBadge}>UCS</div>
-            <div className={styles.titleArea}>
-              <h1 className={styles.titleMain}>
-                Simulación Clínica UCS
-                <span className={styles.statusIndicator}>
-                  <span className={styles.pulseDot}></span> EN VIVO
-                </span>
-              </h1>
-              <span className={styles.subtitle}>
-                Portal de Consulta Rápida: Ambientes, Cursos y Docentes Espejo
-              </span>
-            </div>
+            <Link href="/" title="Ir al Kiosco de Asistencia" className={styles.brandLink}>
+              <img
+                src="/logoucs.png"
+                alt="Universidad Científica del Sur"
+                className={styles.brandLogoImg}
+              />
+            </Link>
           </div>
 
           <div className={styles.headerControls}>
@@ -304,9 +299,9 @@ export default function ConsultaPublicaPage() {
       {/* HERO SECTION CON BUSCADOR PRINCIPAL */}
       <section className={styles.heroSection}>
         <div className={styles.heroContent}>
-          <h2 className={styles.heroHeading}>
+          <h1 className={styles.heroHeading}>
             ¿Dónde te toca tu clase <span className={styles.heroHeadingHighlight}>hoy</span>?
-          </h2>
+          </h1>
           <p className={styles.heroDescription}>
             Ingresa tu apellido, nombre o DNI para ver tus ambientes asignados, horarios y tus docentes compañeros espejo en simultáneo.
           </p>

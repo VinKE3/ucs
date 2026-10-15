@@ -495,31 +495,6 @@ export default function KioscoTerminal() {
         </div>
 
         <div className={styles.topBarActions}>
-          {terminalAuthorized && terminalInfo && (
-            <div className={styles.terminalBadge} title={`Dispositivo autorizado: ${terminalInfo.nombre}`}>
-              <span className={styles.terminalBadgeDot}></span>
-              <span>{terminalInfo.nombre}</span>
-              {terminalInfo.sedeNombre && (
-                <span style={{ opacity: 0.85, fontSize: '0.72rem' }}>({terminalInfo.sedeNombre})</span>
-              )}
-              <button
-                type="button"
-                onClick={handleDesvincularTerminal}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  padding: '0 0.2rem',
-                  fontSize: '0.75rem',
-                  opacity: 0.7,
-                }}
-                title="Desvincular esta terminal"
-              >
-                ✕
-              </button>
-            </div>
-          )}
           <ThemeToggle />
           <Link
             href="/consulta"
@@ -588,10 +563,29 @@ export default function KioscoTerminal() {
         /* SECCIÓN PRINCIPAL DEL KIOSCO (SOLO VISIBLE EN TERMINALES AUTORIZADAS) */
         <main className={styles.mainSection}>
           <section className={styles.kioscoBox}>
-            {/* BADGE DE ESTADO DEL SISTEMA */}
+            {/* BADGE DE ESTADO DEL SISTEMA Y TERMINAL OFICIAL */}
             <div className={styles.statusBar}>
               <span className={styles.statusDot}></span>
-              <span>Terminal de Asistencia • En tiempo real</span>
+              <span>
+                {terminalAuthorized && terminalInfo ? (
+                  <>
+                    Terminal: <strong>{terminalInfo.nombre}</strong>
+                    {terminalInfo.sedeNombre ? ` (${terminalInfo.sedeNombre})` : ''} • En tiempo real
+                  </>
+                ) : (
+                  'Terminal de Asistencia • En tiempo real'
+                )}
+              </span>
+              {terminalAuthorized && terminalInfo && (
+                <button
+                  type="button"
+                  onClick={handleDesvincularTerminal}
+                  className={styles.statusUnlinkBtn}
+                  title="Desvincular esta terminal"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             <div className={styles.boxHeader}>

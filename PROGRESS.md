@@ -427,9 +427,13 @@ src/
       - Corrección de desborde de insignias de sala (`.mirrorRoomBadge`): configurados `min-width: 0`, `flex: 1` en el contenedor del docente, `word-break: break-word`, límite de ancho flexible y diseño adaptativo que previene que las salas se salgan del recuadro.
       - Visibilidad garantizada del nombre del docente compañero en texto oscuro sobre fondo menta/blanco nítido.
       - **Enfoque Clínico Operativo**: Se retiraron los correos electrónicos y se incorporó directamente el **Caso Clínico / Escenario** asignado a cada docente espejo (ej: `🩺 Caso: [SimQx] - Caso: Dolor fosa iliaca derecha`), permitiendo a los docentes y coordinadores saber exactamente qué temática se trabaja en cada sala paralela.
-    - **Corrección y Visibilidad de Ambientes ECOE y Observación**:
-      - **Alineación de Categoría Oficial (`tipo = 'ecoe'`)**: Las 11 salas oficiales de ECOE (`SALA DE OBS. ECOE` y `ECOE 01` al `ECOE 10`, Campus Villa) estaban registradas con categoría preliminar `consultorio`, por lo que al filtrar por la pastilla `🩹 ECOE` en el Admin Dashboard aparecían como vacías. Se actualizaron en base de datos Neon y en el script de carga a `tipo = 'ecoe'`.
-      - **Inventario Completo en Consulta Rápida (`ambientesInventario`)**: La pestaña *Por Ambiente / Sede* de `/consulta` se conectó al inventario oficial completo, de modo que las 63 salas físicas de la clínica siempre son visibles; si no tienen clase en el día, muestran su indicador de disponibilidad `🟢 Disponible / Sin clases hoy`.
+    - **Rediseño Ergonómico de Cabecera Móvil y Badge de Terminal**:
+      - **Integración Natural de Terminal Oficial**: La pastilla `• test ✕` se retiró de la barra superior y se integró de forma directa y limpia en el encabezado de la tarjeta principal (`🟢 Terminal: test (Villa) • En tiempo real [✕]`), eliminando saturación visual.
+      - **Cabecera Móvil en 2 Niveles**: En smartphones y pantallas estrechas, el logo oficial de la Científica se ubica solo y centrado en la fila superior (con 48px de altura nítida), y los 3 accesos rápidos (`[ ☀️ 🌙 💻 ]`, `[ 🔍 Consultar Aulas ]`, `[ 🔒 Acceso Admin ]`) se organizan en una fila inferior limpia y sin recortes ni desbordes.
+    - **Unificación de Identidad Visual Institucional en `/consulta`**:
+      - Reemplazo del bloque de texto y badge de la cabecera por el logotipo oficial de la Universidad Científica del Sur (`/logoucs.png`), adaptado automáticamente a modo oscuro con filtro invertido de alto brillo.
+      - En vista móvil (<= 640px), la cabecera se organiza verticalmente con el isotipo/logotipo centrado arriba y la fila de controles (`[ 🏢 Kiosco de Asistencia ]`, selector de tema y filtros rápidos de fecha) centrados abajo, previniendo sobrecarga visual.
+      - Se jerarquizó la semántica SEO actualizando el titular principal a `<h1>`.
 
 ---
 

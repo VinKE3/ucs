@@ -76,6 +76,7 @@ export default function ConsultaPublicaPage() {
   const [cursos, setCursos] = useState<CursoItem[]>([]);
   const [sedesList, setSedesList] = useState<string[]>([]);
   const [todasLasSesiones, setTodasLasSesiones] = useState<SesionConsulta[]>([]);
+  const [ambientesInventario, setAmbientesInventario] = useState<any[]>([]);
 
   // Búsqueda y selección
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +108,7 @@ export default function ConsultaPublicaPage() {
             setCursos(data.cursosDelDia || []);
             setSedesList(data.sedesDelDia || []);
             setTodasLasSesiones(data.todasLasSesiones || []);
+            setAmbientesInventario(data.ambientesInventario || []);
           } else {
             setError(data.error || 'No se pudo cargar la programación');
           }
@@ -170,15 +172,31 @@ export default function ConsultaPublicaPage() {
     });
   }, [cursos, selectedSede, searchQuery]);
 
-  // Agrupación por Ambientes
+  // Agrupación por Ambientes (incorporando todo el inventario oficial de la clínica)
   const ambientesMap = useMemo(() => {
     const map = new Map<string, {
       ambienteNombre: string;
       ambienteCodigo: string | null;
       sedeNombre: string | null;
+      tipo: string | null;
       sesiones: SesionConsulta[];
     }>();
 
+    // 1. Inicializar con todos los ambientes oficiales de la sede (incluye SALA DE OBS. ECOE, ECOE 01-10)
+    for (const amb of ambientesInventario) {
+      if (selectedSede !== 'todas' && amb.sedeNombre?.toLowerCase() !== selectedSede.toLowerCase()) {
+        continue;
+      }
+      map.set(amb.nombre, {
+        ambienteNombre: amb.nombre,
+        ambienteCodigo: amb.codigo,
+        sedeNombre: amb.sedeNombre,
+        tipo: amb.tipo,
+        sesiones: [],
+      });
+    }
+
+    // 2. Asociar las sesiones de hoy al ambiente correspondiente
     for (const s of todasLasSesiones) {
       if (selectedSede !== 'todas' && s.sedeNombre?.toLowerCase() !== selectedSede.toLowerCase()) {
         continue;
@@ -189,6 +207,7 @@ export default function ConsultaPublicaPage() {
           ambienteNombre: roomKey,
           ambienteCodigo: s.ambienteCodigo,
           sedeNombre: s.sedeNombre,
+          tipo: 'general',
           sesiones: [],
         });
       }
@@ -198,7 +217,7 @@ export default function ConsultaPublicaPage() {
     const list = Array.from(map.values()).map((item) => ({
       ...item,
       sesiones: item.sesiones.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
-    }));
+    })).sort((a, b) => a.ambienteNombre.localeCompare(b.ambienteNombre));
 
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase().trim();
@@ -206,7 +225,7 @@ export default function ConsultaPublicaPage() {
       a.ambienteNombre.toLowerCase().includes(q) ||
       (a.ambienteCodigo && a.ambienteCodigo.toLowerCase().includes(q))
     );
-  }, [todasLasSesiones, selectedSede, searchQuery]);
+  }, [ambientesInventario, todasLasSesiones, selectedSede, searchQuery]);
 
   // Helpers de fecha rápida
   const setToday = () => {
@@ -726,42 +745,60 @@ export default function ConsultaPublicaPage() {
                       </div>
 
                       <div className={styles.courseAccordionContent}>
-                        <div className={styles.roomsSimultaneousGrid}>
-                          {amb.sesiones.map((s) => (
-                            <div key={s.id} className={styles.simultaneousRoomCard}>
-                              <div className={styles.simultaneousHeader}>
-                                <span className={styles.simultaneousTime}>
-                                  🕒 {s.horaInicio} - {s.horaFin}
-                                </span>
-                                <span
-                                  className={`${styles.statusPill} ${
-                                    s.estadoTiempo === 'en_curso'
-                                      ? styles.statusPillEnCurso
-                                      : s.estadoTiempo === 'proxima'
-                                      ? styles.statusPillProxima
-                                      : styles.statusPillFinalizada
-                                  }`}
-                                >
-                                  {s.estadoTiempo === 'en_curso' ? 'En Curso' : s.estadoTiempo === 'proxima' ? 'Próxima' : 'Fin'}
-                                </span>
-                              </div>
-
-                              <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.95rem' }}>
-                                📚 {s.cursoNombre || s.titulo}
-                              </div>
-
-                              <div className={styles.simultaneousDocente}>
-                                👨‍🏫 {s.docenteNombreCompleto || s.docenteNombre || 'Docente sin asignar'}
-                              </div>
-
-                              {s.pacienteSimuladoNombre && (
-                                <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
-                                  🎭 Actor: {s.pacienteSimuladoNombre}
+                        {amb.sesiones.length === 0 ? (
+                          <div style={{
+                            padding: '0.85rem 1rem',
+                            background: 'rgba(16, 185, 129, 0.08)',
+                            borderRadius: '10px',
+                            border: '1px dashed rgba(16, 185, 129, 0.3)',
+                            color: '#047857',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}>
+                            <span>🟢</span>
+                            <span>Sin clases programadas para esta fecha (Ambiente Disponible)</span>
+                          </div>
+                        ) : (
+                          <div className={styles.roomsSimultaneousGrid}>
+                            {amb.sesiones.map((s) => (
+                              <div key={s.id} className={styles.simultaneousRoomCard}>
+                                <div className={styles.simultaneousHeader}>
+                                  <span className={styles.simultaneousTime}>
+                                    🕒 {s.horaInicio} - {s.horaFin}
+                                  </span>
+                                  <span
+                                    className={`${styles.statusPill} ${
+                                      s.estadoTiempo === 'en_curso'
+                                        ? styles.statusPillEnCurso
+                                        : s.estadoTiempo === 'proxima'
+                                        ? styles.statusPillProxima
+                                        : styles.statusPillFinalizada
+                                    }`}
+                                  >
+                                    {s.estadoTiempo === 'en_curso' ? 'En Curso' : s.estadoTiempo === 'proxima' ? 'Próxima' : 'Fin'}
+                                  </span>
                                 </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+
+                                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                                  📚 {s.cursoNombre || s.titulo}
+                                </div>
+
+                                <div className={styles.simultaneousDocente}>
+                                  👨‍🏫 {s.docenteNombreCompleto || s.docenteNombre || 'Docente sin asignar'}
+                                </div>
+
+                                {s.pacienteSimuladoNombre && (
+                                  <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
+                                    🎭 Actor: {s.pacienteSimuladoNombre}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

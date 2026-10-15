@@ -251,13 +251,27 @@ export async function GET(request: Request) {
       sesiones: c.sesiones.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
     })).sort((a, b) => a.cursoNombre.localeCompare(b.cursoNombre));
 
-    // C) Lista de Sedes con presencia
+    // C) Inventario oficial de todos los ambientes de la clínica
+    const allAmbientesDB = await db
+      .select({
+        id: ambientes.id,
+        nombre: ambientes.nombre,
+        codigo: ambientes.codigo,
+        tipo: ambientes.tipo,
+        sedeId: ambientes.sedeId,
+        sedeNombre: sedes.nombre,
+      })
+      .from(ambientes)
+      .leftJoin(sedes, eq(ambientes.sedeId, sedes.id))
+      .where(eq(ambientes.activo, true))
+      .orderBy(ambientes.nombre);
+
+    // Lista consolidada de sedes oficiales
     const sedesDelDia = Array.from(
-      new Set(
-        rawSessions
-          .map((s) => s.sedeNombre)
-          .filter(Boolean) as string[]
-      )
+      new Set([
+        ...allAmbientesDB.map((a) => a.sedeNombre).filter(Boolean) as string[],
+        ...rawSessions.map((s) => s.sedeNombre).filter(Boolean) as string[],
+      ])
     ).sort();
 
     return NextResponse.json({
@@ -268,6 +282,7 @@ export async function GET(request: Request) {
       docentesDelDia,
       cursosDelDia,
       todasLasSesiones: sesionesConEspejos,
+      ambientesInventario: allAmbientesDB,
     });
   } catch (error: any) {
     console.error('Error en /api/consulta:', error);

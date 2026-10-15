@@ -427,6 +427,9 @@ src/
       - Corrección de desborde de insignias de sala (`.mirrorRoomBadge`): configurados `min-width: 0`, `flex: 1` en el contenedor del docente, `word-break: break-word`, límite de ancho flexible y diseño adaptativo que previene que las salas se salgan del recuadro.
       - Visibilidad garantizada del nombre del docente compañero en texto oscuro sobre fondo menta/blanco nítido.
       - **Enfoque Clínico Operativo**: Se retiraron los correos electrónicos y se incorporó directamente el **Caso Clínico / Escenario** asignado a cada docente espejo (ej: `🩺 Caso: [SimQx] - Caso: Dolor fosa iliaca derecha`), permitiendo a los docentes y coordinadores saber exactamente qué temática se trabaja en cada sala paralela.
+    - **Corrección y Visibilidad de Ambientes ECOE y Observación**:
+      - **Alineación de Categoría Oficial (`tipo = 'ecoe'`)**: Las 11 salas oficiales de ECOE (`SALA DE OBS. ECOE` y `ECOE 01` al `ECOE 10`, Campus Villa) estaban registradas con categoría preliminar `consultorio`, por lo que al filtrar por la pastilla `🩹 ECOE` en el Admin Dashboard aparecían como vacías. Se actualizaron en base de datos Neon y en el script de carga a `tipo = 'ecoe'`.
+      - **Inventario Completo en Consulta Rápida (`ambientesInventario`)**: La pestaña *Por Ambiente / Sede* de `/consulta` se conectó al inventario oficial completo, de modo que las 63 salas físicas de la clínica siempre son visibles; si no tienen clase en el día, muestran su indicador de disponibilidad `🟢 Disponible / Sin clases hoy`.
 
 ---
 

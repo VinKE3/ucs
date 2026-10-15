@@ -1,27 +1,75 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { cursos, asistencias, usuarios } from '@/db/schema';
+import { cursos, carreras, asistencias, usuarios, sesionesProgramadas } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { eq, ne, desc, asc, like, or, sql, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/cursos - Listar cursos con métricas de demanda operativa
+// GET /api/cursos - Listar cursos con sus carreras, escenarios y métricas de demanda operativa
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const soloActivos = searchParams.get('activo') === 'true';
+    const carreraIdParam = searchParams.get('carreraId');
     const q = searchParams.get('q')?.trim();
 
-    let query = db.select().from(cursos).$dynamic();
+    // 1. Obtener todas las carreras con conteo de cursos
+    const allCarrerasRaw = await db
+      .select({
+        id: carreras.id,
+        codigo: carreras.codigo,
+        nombre: carreras.nombre,
+        color: carreras.color,
+        simclicId: carreras.simclicId,
+        activo: carreras.activo,
+        totalCursos: sql<number>`count(${cursos.id})::int`,
+      })
+      .from(carreras)
+      .leftJoin(cursos, eq(carreras.id, cursos.carreraId))
+      .groupBy(carreras.id)
+      .orderBy(asc(carreras.nombre));
+
+    // 2. Consulta de Cursos
+    let query = db
+      .select({
+        id: cursos.id,
+        carreraId: cursos.carreraId,
+        nombre: cursos.nombre,
+        codigo: cursos.codigo,
+        prefijo: cursos.prefijo,
+        descripcion: cursos.descripcion,
+        tarifaHoraPs: cursos.tarifaHoraPs,
+        activo: cursos.activo,
+        simclicId: cursos.simclicId,
+        createdAt: cursos.createdAt,
+        updatedAt: cursos.updatedAt,
+        carreraCodigo: carreras.codigo,
+        carreraNombre: carreras.nombre,
+        carreraColor: carreras.color,
+      })
+      .from(cursos)
+      .leftJoin(carreras, eq(cursos.carreraId, carreras.id))
+      .$dynamic();
 
     const conditions = [];
     if (soloActivos) {
       conditions.push(eq(cursos.activo, true));
     }
+    if (carreraIdParam && carreraIdParam !== 'todas') {
+      conditions.push(eq(cursos.carreraId, Number(carreraIdParam)));
+    }
     if (q) {
       const pattern = `%${q}%`;
-      conditions.push(or(like(cursos.nombre, pattern), like(cursos.codigo, pattern)));
+      conditions.push(
+        or(
+          like(cursos.nombre, pattern),
+          like(cursos.codigo, pattern),
+          like(cursos.prefijo, pattern),
+          like(carreras.nombre, pattern),
+          like(carreras.codigo, pattern)
+        )
+      );
     }
 
     if (conditions.length > 0) {
@@ -31,7 +79,7 @@ export async function GET(request: Request) {
 
     const list = await query.orderBy(asc(cursos.nombre));
 
-    // Métricas de demanda de Pacientes Simulados por curso (horas, sesiones y actores convocados)
+    // 3. Métricas de demanda de Pacientes Simulados por curso
     const statsPs = await db
       .select({
         cursoId: asistencias.cursoId,
@@ -50,7 +98,10 @@ export async function GET(request: Request) {
       )
       .groupBy(asistencias.cursoId);
 
-    const statsMap = new Map<number, { totalSesionesPs: number; totalMinutosPs: number; totalHorasPs: number; totalActoresPs: number }>();
+    const statsMap = new Map<
+      number,
+      { totalSesionesPs: number; totalMinutosPs: number; totalHorasPs: number; totalActoresPs: number }
+    >();
     for (const s of statsPs) {
       if (s.cursoId) {
         const mins = Number(s.totalMinutosPs) || 0;
@@ -63,18 +114,51 @@ export async function GET(request: Request) {
       }
     }
 
+    // 4. Muestra de escenarios registrados en sesiones programadas por curso
+    const escenariosRows = await db
+      .select({
+        cursoId: sesionesProgramadas.cursoId,
+        escenarioCodigo: sesionesProgramadas.escenarioCodigo,
+        escenarioNombre: sesionesProgramadas.escenarioNombre,
+      })
+      .from(sesionesProgramadas)
+      .where(
+        and(
+          sql`${sesionesProgramadas.cursoId} is not null`,
+          sql`(${sesionesProgramadas.escenarioNombre} is not null or ${sesionesProgramadas.escenarioCodigo} is not null)`
+        )
+      );
+
+    const escenariosMap = new Map<number, Set<string>>();
+    for (const row of escenariosRows) {
+      if (!row.cursoId) continue;
+      if (!escenariosMap.has(row.cursoId)) {
+        escenariosMap.set(row.cursoId, new Set<string>());
+      }
+      const label = [row.escenarioCodigo, row.escenarioNombre].filter(Boolean).join(': ');
+      if (label.trim()) {
+        escenariosMap.get(row.cursoId)!.add(label);
+      }
+    }
+
     const cursosWithStats = list.map((c) => {
       const st = statsMap.get(c.id);
+      const scList = Array.from(escenariosMap.get(c.id) || []);
       return {
         ...c,
         totalSesionesPs: st?.totalSesionesPs || 0,
         totalMinutosPs: st?.totalMinutosPs || 0,
         totalHorasPs: st?.totalHorasPs || 0,
         totalActoresPs: st?.totalActoresPs || 0,
+        escenariosMuestra: scList.slice(0, 5),
+        totalEscenarios: scList.length,
       };
     });
 
-    return NextResponse.json({ cursos: cursosWithStats });
+    return NextResponse.json({
+      cursos: cursosWithStats,
+      carreras: allCarrerasRaw,
+    });
   } catch (error) {
     console.error('Error listando cursos:', error);
     return NextResponse.json({ error: 'Error al consultar cursos' }, { status: 500 });
@@ -85,11 +169,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
+    if (
+      !session ||
+      (session.rolSistema !== 'super_admin' &&
+        session.rolSistema !== 'admin' &&
+        session.rolSistema !== 'administrativo')
+    ) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { nombre, codigo, descripcion, tarifaHoraPs } = await request.json();
+    const { nombre, codigo, prefijo, carreraId, descripcion, tarifaHoraPs } = await request.json();
 
     if (!nombre || !nombre.trim()) {
       return NextResponse.json({ error: 'El nombre del curso es obligatorio' }, { status: 400 });
@@ -97,6 +186,7 @@ export async function POST(request: Request) {
 
     const nombreTrim = nombre.trim();
     const codigoTrim = codigo?.trim() || null;
+    const prefijoTrim = prefijo?.trim() || null;
 
     // 1. Validar nombre duplicado (case-insensitive)
     const [nombreDuplicado] = await db
@@ -133,8 +223,13 @@ export async function POST(request: Request) {
       .values({
         nombre: nombreTrim,
         codigo: codigoTrim,
+        prefijo: prefijoTrim,
+        carreraId: carreraId ? Number(carreraId) : null,
         descripcion: descripcion?.trim() || null,
-        tarifaHoraPs: tarifaHoraPs !== undefined && tarifaHoraPs !== null && tarifaHoraPs !== '' ? String(tarifaHoraPs) : null,
+        tarifaHoraPs:
+          tarifaHoraPs !== undefined && tarifaHoraPs !== null && tarifaHoraPs !== ''
+            ? String(tarifaHoraPs)
+            : null,
         activo: true,
       })
       .returning();
@@ -150,11 +245,17 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
+    if (
+      !session ||
+      (session.rolSistema !== 'super_admin' &&
+        session.rolSistema !== 'admin' &&
+        session.rolSistema !== 'administrativo')
+    ) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id, nombre, codigo, descripcion, tarifaHoraPs, activo } = await request.json();
+    const { id, nombre, codigo, prefijo, carreraId, descripcion, tarifaHoraPs, activo } =
+      await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID de curso requerido' }, { status: 400 });
@@ -229,6 +330,14 @@ export async function PATCH(request: Request) {
       updateData.codigo = codigoTrim;
     }
 
+    if (prefijo !== undefined) {
+      updateData.prefijo = prefijo ? prefijo.trim() : null;
+    }
+
+    if (carreraId !== undefined) {
+      updateData.carreraId = carreraId ? Number(carreraId) : null;
+    }
+
     if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null;
     if (tarifaHoraPs !== undefined) {
       updateData.tarifaHoraPs =
@@ -257,7 +366,12 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getSession();
-    if (!session || (session.rolSistema !== 'super_admin' && session.rolSistema !== 'admin' && session.rolSistema !== 'administrativo')) {
+    if (
+      !session ||
+      (session.rolSistema !== 'super_admin' &&
+        session.rolSistema !== 'admin' &&
+        session.rolSistema !== 'administrativo')
+    ) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

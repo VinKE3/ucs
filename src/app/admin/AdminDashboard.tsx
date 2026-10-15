@@ -12,6 +12,7 @@ import type {
   OcupanteItem,
   AsistenciaAdminItem,
   CursoAdminItem,
+  CarreraAdminItem,
   CategoriaAmbienteItem,
   StatsData,
   AdminTab,
@@ -68,8 +69,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [searchAmbiente, setSearchAmbiente] = useState<string>('');
   const [loadingAmbientes, setLoadingAmbientes] = useState(false);
 
-  // Cursos
+  // Cursos y Carreras
   const [cursosList, setCursosList] = useState<CursoAdminItem[]>([]);
+  const [carrerasList, setCarrerasList] = useState<CarreraAdminItem[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
   const [searchCurso, setSearchCurso] = useState('');
   const [filterCursoActivo, setFilterCursoActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
@@ -78,6 +80,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     id: 0,
     nombre: '',
     codigo: '',
+    prefijo: '',
+    carreraId: null,
     descripcion: '',
     tarifaHoraPs: '',
     activo: true,
@@ -219,6 +223,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       if (resCursos.ok) {
         const dataCursos = await resCursos.json();
         setCursosList(dataCursos.cursos || []);
+        if (dataCursos.carreras) setCarrerasList(dataCursos.carreras || []);
       }
 
       if (resCategorias.ok) {
@@ -274,6 +279,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       if (res.ok) {
         const data = await res.json();
         setCursosList(data.cursos || []);
+        if (data.carreras) setCarrerasList(data.carreras || []);
       }
     } catch (err) {
       console.error('Error cargando cursos:', err);
@@ -372,6 +378,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             id: cursoForm.id,
             nombre: cursoForm.nombre.trim(),
             codigo: cursoForm.codigo.trim() || null,
+            prefijo: cursoForm.prefijo?.trim() || null,
+            carreraId: cursoForm.carreraId ? Number(cursoForm.carreraId) : null,
             descripcion: cursoForm.descripcion.trim() || null,
             tarifaHoraPs: cursoForm.tarifaHoraPs ? Number(cursoForm.tarifaHoraPs) : null,
             activo: cursoForm.activo,
@@ -379,6 +387,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         : {
             nombre: cursoForm.nombre.trim(),
             codigo: cursoForm.codigo.trim() || null,
+            prefijo: cursoForm.prefijo?.trim() || null,
+            carreraId: cursoForm.carreraId ? Number(cursoForm.carreraId) : null,
             descripcion: cursoForm.descripcion.trim() || null,
             tarifaHoraPs: cursoForm.tarifaHoraPs ? Number(cursoForm.tarifaHoraPs) : null,
           };
@@ -447,6 +457,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       id: curso.id,
       nombre: curso.nombre,
       codigo: curso.codigo || '',
+      prefijo: curso.prefijo || '',
+      carreraId: curso.carreraId || null,
       descripcion: curso.descripcion || '',
       tarifaHoraPs: curso.tarifaHoraPs !== undefined && curso.tarifaHoraPs !== null ? String(curso.tarifaHoraPs) : '',
       activo: curso.activo,
@@ -1101,7 +1113,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               className={`${styles.tabBtn} ${activeTab === 'cursos' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('cursos')}
             >
-              📚 Cursos ({cursosList.length})
+              📚 Cursos y Carreras ({cursosList.length})
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'personal' ? styles.activeTab : ''}`}
@@ -1220,13 +1232,24 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           <CursosTab
             session={session}
             cursosList={cursosList}
+            carrerasList={carrerasList}
             loadingCursos={loadingCursos}
             searchCurso={searchCurso}
             setSearchCurso={setSearchCurso}
             filterCursoActivo={filterCursoActivo}
             setFilterCursoActivo={setFilterCursoActivo}
             onOpenCrearCurso={() => {
-              setCursoForm({ id: 0, nombre: '', codigo: '', descripcion: '', tarifaHoraPs: '', activo: true, isEdit: false });
+              setCursoForm({
+                id: 0,
+                nombre: '',
+                codigo: '',
+                prefijo: '',
+                carreraId: null,
+                descripcion: '',
+                tarifaHoraPs: '',
+                activo: true,
+                isEdit: false,
+              });
               setCursoError(null);
               setShowCursoModal(true);
             }}
@@ -1382,6 +1405,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         isOpen={showCursoModal}
         cursoForm={cursoForm}
         setCursoForm={setCursoForm}
+        carrerasList={carrerasList}
         cursoLoading={cursoLoading}
         cursoError={cursoError}
         onClose={() => setShowCursoModal(false)}

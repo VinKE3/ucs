@@ -2,11 +2,14 @@
 
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
+import type { CarreraAdminItem } from '@/types/admin';
 
 export interface CursoFormData {
   id: number;
   nombre: string;
   codigo: string;
+  prefijo?: string;
+  carreraId?: number | null;
   descripcion: string;
   tarifaHoraPs?: string;
   activo: boolean;
@@ -17,6 +20,7 @@ interface ModalCursoProps {
   isOpen: boolean;
   cursoForm: CursoFormData;
   setCursoForm: React.Dispatch<React.SetStateAction<CursoFormData>>;
+  carrerasList?: CarreraAdminItem[];
   cursoLoading: boolean;
   cursoError: string | null;
   onClose: () => void;
@@ -27,6 +31,7 @@ export const ModalCurso: React.FC<ModalCursoProps> = ({
   isOpen,
   cursoForm,
   setCursoForm,
+  carrerasList = [],
   cursoLoading,
   cursoError,
   onClose,
@@ -36,7 +41,7 @@ export const ModalCurso: React.FC<ModalCursoProps> = ({
 
   return (
     <div className={styles.modalBackdrop}>
-      <div className={styles.modal} style={{ maxWidth: '520px' }}>
+      <div className={styles.modal} style={{ maxWidth: '540px' }}>
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>
             {cursoForm.isEdit ? '✏️ Editar Curso' : '📚 Nuevo Curso de Simulación'}
@@ -47,40 +52,85 @@ export const ModalCurso: React.FC<ModalCursoProps> = ({
         </div>
 
         {cursoError && (
-          <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+          <div
+            style={{
+              padding: '0.75rem',
+              borderRadius: '8px',
+              background: 'rgba(239,68,68,0.15)',
+              color: '#fca5a5',
+              border: '1px solid rgba(239,68,68,0.3)',
+              fontSize: '0.85rem',
+              marginBottom: '1rem',
+            }}
+          >
             {cursoError}
           </div>
         )}
 
         <form onSubmit={onSubmit}>
+          {/* CARRERA ASIGNADA */}
           <div className={styles.fieldGroup}>
+            <label className={styles.label}>Carrera / Facultad *</label>
+            <select
+              value={cursoForm.carreraId || ''}
+              onChange={(e) =>
+                setCursoForm({
+                  ...cursoForm,
+                  carreraId: e.target.value ? Number(e.target.value) : null,
+                })
+              }
+              className={styles.inputField}
+            >
+              <option value="">-- Seleccionar Carrera --</option>
+              {carrerasList.map((car) => (
+                <option key={car.id} value={car.id}>
+                  {car.nombre} ({car.codigo})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* NOMBRE DEL CURSO */}
+          <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
             <label className={styles.label}>Nombre del Curso / Asignatura *</label>
             <input
               type="text"
               required
-              autoFocus
-              placeholder="ej: Simulación Quirúrgica, SBS, etc."
+              placeholder="ej: Simulación Quirúrgica, Simulación Pediátrica..."
               value={cursoForm.nombre}
               onChange={(e) => setCursoForm({ ...cursoForm, nombre: e.target.value })}
               className={styles.inputField}
             />
           </div>
 
-          <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
-            <label className={styles.label}>Código del Curso (Opcional)</label>
-            <input
-              type="text"
-              placeholder="ej: MED-402 o SCI"
-              value={cursoForm.codigo}
-              onChange={(e) => setCursoForm({ ...cursoForm, codigo: e.target.value })}
-              className={styles.inputField}
-            />
+          {/* CÓDIGO Y PREFIJO EN 2 COLUMNAS */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.85rem' }}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Código SimClic (ej: 815363)</label>
+              <input
+                type="text"
+                placeholder="ej: 815363"
+                value={cursoForm.codigo}
+                onChange={(e) => setCursoForm({ ...cursoForm, codigo: e.target.value })}
+                className={styles.inputField}
+              />
+            </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Prefijo Sesión (ej: SIMPED)</label>
+              <input
+                type="text"
+                placeholder="ej: SIMPED, SimQx"
+                value={cursoForm.prefijo || ''}
+                onChange={(e) => setCursoForm({ ...cursoForm, prefijo: e.target.value })}
+                className={styles.inputField}
+              />
+            </div>
           </div>
 
           <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
             <label className={styles.label}>Descripción / Especialidad (Opcional)</label>
             <textarea
-              rows={3}
+              rows={2}
               placeholder="ej: Prácticas de cirugía y sutura en sala de alta fidelidad..."
               value={cursoForm.descripcion}
               onChange={(e) => setCursoForm({ ...cursoForm, descripcion: e.target.value })}
@@ -91,19 +141,26 @@ export const ModalCurso: React.FC<ModalCursoProps> = ({
 
           <div className={styles.fieldGroup} style={{ marginTop: '0.85rem' }}>
             <label className={styles.label}>
-              🎭 Tarifa por Hora para Paciente Simulado (S/. / hr) (Opcional)
+              🎭 Tarifa por Hora para Paciente Simulado (S/. / hr)
             </label>
             <input
               type="number"
               step="0.50"
               min="0"
-              placeholder="ej: 50.00 para Posgrado, 35.00 para Pregrado, 25.00 para Ecografía"
+              placeholder="ej: 35.00 para Pregrado, 50.00 para Posgrado"
               value={cursoForm.tarifaHoraPs || ''}
               onChange={(e) => setCursoForm({ ...cursoForm, tarifaHoraPs: e.target.value })}
               className={styles.inputField}
             />
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-              Tarifa específica que ganará el paciente simulado al actuar en este curso. Si se deja en blanco, se usará la tarifa base configurada en el perfil del actor.
+            <span
+              style={{
+                fontSize: '0.74rem',
+                color: 'var(--text-muted)',
+                marginTop: '0.25rem',
+                display: 'block',
+              }}
+            >
+              Tarifa específica que ganará el actor al simular en este curso. Si se deja vacío, se usará la tarifa base del perfil.
             </span>
           </div>
 
@@ -116,18 +173,22 @@ export const ModalCurso: React.FC<ModalCursoProps> = ({
                 onChange={(e) => setCursoForm({ ...cursoForm, activo: e.target.checked })}
                 style={{ width: '18px', height: '18px', accentColor: '#ff5a00', cursor: 'pointer' }}
               />
-              <label htmlFor="cursoActivoCheckbox" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}>
+              <label
+                htmlFor="cursoActivoCheckbox"
+                style={{
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
                 Curso Activo (visible en el terminal de marcación Kiosco)
               </label>
             </div>
           )}
 
           <div className={styles.modalFooter} style={{ marginTop: '1.5rem' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className={styles.cancelBtn}
-            >
+            <button type="button" onClick={onClose} className={styles.cancelBtn}>
               Cancelar
             </button>
             <button

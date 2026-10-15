@@ -4,6 +4,7 @@ import {
   sesionesProgramadas,
   sedes,
   ambientes,
+  carreras,
   cursos,
   usuarios,
 } from '@/db/schema';
@@ -50,9 +51,10 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
   }
 
   // 1. Cargar catálogos locales de UCS para mapeo ultra-rápido en memoria
-  const [allSedes, allAmbientes, allCursos, allUsuarios] = await Promise.all([
+  const [allSedes, allAmbientes, allCarreras, allCursos, allUsuarios] = await Promise.all([
     db.select().from(sedes),
     db.select().from(ambientes),
+    db.select().from(carreras),
     db.select().from(cursos),
     db.select().from(usuarios),
   ]);
@@ -105,14 +107,26 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     return foundByText || null;
   }
 
-  function resolveCurso(courseSimclic?: { code?: string; name?: string }) {
-    if (!courseSimclic) return null;
-    const code = (courseSimclic.code || '').trim();
-    const name = (courseSimclic.name || '').toLowerCase().trim();
+  function resolveCarrera(degSimclic?: { code?: string; name?: string }) {
+    if (!degSimclic) return null;
+    const code = (degSimclic.code || '').toLowerCase().trim();
+    const name = (degSimclic.name || '').toLowerCase().trim();
+
+    return allCarreras.find((c) => {
+      const cCode = c.codigo.toLowerCase().trim();
+      const cName = c.nombre.toLowerCase().trim();
+      return (code && cCode === code) || (name && (cName.includes(name) || name.includes(cName)));
+    }) || null;
+  }
+
+  function resolveCurso(courseSimclic?: { code?: string; name?: string }, prefijo?: string | null) {
+    const code = (courseSimclic?.code || '').trim();
+    const name = (courseSimclic?.name || '').toLowerCase().trim();
 
     return allCursos.find((c) => {
+      if (prefijo && c.prefijo && c.prefijo.toLowerCase() === prefijo.toLowerCase()) return true;
       if (code && c.codigo && c.codigo.trim() === code) return true;
-      if (name && c.nombre.toLowerCase().includes(name)) return true;
+      if (name && (c.nombre.toLowerCase().includes(name) || name.includes(c.nombre.toLowerCase()))) return true;
       return false;
     }) || null;
   }
@@ -285,21 +299,37 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
       minute: '2-digit',
     });
 
+    // Extracción de prefijo [SIMPED], escenario clínico y paciente simulado
+    const prefijoMatch = (s.name || '').match(/^\[(.*?)\]/);
+    const prefijo = prefijoMatch ? prefijoMatch[1].trim() : null;
+
     const sedeObj = resolveSede(s.campus);
     const ambienteObj = resolveAmbiente(s.mainRoom, sedeObj?.id);
-    const cursoObj = resolveCurso(s.courses?.[0]);
+    const cursoObj = resolveCurso(s.courses?.[0], prefijo);
     const docenteObj = resolveDocente(s.leadInstructor);
+    const carreraObj = resolveCarrera(s.degrees?.[0]);
 
     const sedeNombreSimclic = s.campus?.name || '';
     const ambienteNombreSimclic = s.mainRoom?.name || 'Sin sala';
     const ambienteCodigoSimclic = s.mainRoom?.code || '';
-    const cursoNombreSimclic = s.courses?.[0]?.name || '';
-    const cursoCodigoSimclic = s.courses?.[0]?.code || '';
+    const cursoNombreSimclic = s.courses?.[0]?.name || cursoObj?.nombre || '';
+    const cursoCodigoSimclic = s.courses?.[0]?.code || cursoObj?.codigo || '';
     const docenteNombreSimclic = [s.leadInstructor?.firstName, s.leadInstructor?.lastName]
       .filter(Boolean)
       .join(' ');
     const docenteCorreoSimclic = s.leadInstructor?.username || '';
-    const carrera = s.degrees?.[0]?.name || '';
+    
+    const carrera = carreraObj?.nombre || s.degrees?.[0]?.name || '';
+    const carreraCodigo = carreraObj?.codigo || s.degrees?.[0]?.code || '';
+    const carreraColor = carreraObj?.color || '#38bdf8';
+
+    const escenarioCodigo = s.scenarios?.[0]?.code || '';
+    const escenarioNombre = s.scenarios?.[0]?.name || '';
+
+    const ps = s.standardizedPatients?.[0];
+    const pacienteSimuladoNombre = ps ? [ps.firstName, ps.lastName].filter(Boolean).join(' ') : null;
+    const pacienteSimuladoCorreo = ps?.username || null;
+
     const estadoSimclic = s.status || 'Booked';
 
     const existente = existingMap.get(simclicId);
@@ -339,7 +369,15 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             docenteId: docenteObj?.id || existente.docenteId,
             docenteNombreSimclic,
             docenteCorreoSimclic,
+            carreraId: carreraObj?.id || existente.carreraId,
             carrera,
+            carreraCodigo,
+            carreraColor,
+            escenarioCodigo,
+            escenarioNombre,
+            prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
+            pacienteSimuladoNombre,
+            pacienteSimuladoCorreo,
             estadoSimclic,
             estadoUcs: 'reubicada',
             ultimaSincronizacion: new Date(),
@@ -366,7 +404,15 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             docenteId: docenteObj?.id || existente.docenteId,
             docenteNombreSimclic,
             docenteCorreoSimclic,
+            carreraId: carreraObj?.id || existente.carreraId,
             carrera,
+            carreraCodigo,
+            carreraColor,
+            escenarioCodigo,
+            escenarioNombre,
+            prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
+            pacienteSimuladoNombre,
+            pacienteSimuladoCorreo,
             estadoSimclic,
             ultimaSincronizacion: new Date(),
             updatedAt: new Date(),
@@ -393,7 +439,15 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
         docenteId: docenteObj?.id || null,
         docenteNombreSimclic,
         docenteCorreoSimclic,
+        carreraId: carreraObj?.id || null,
         carrera,
+        carreraCodigo,
+        carreraColor,
+        escenarioCodigo,
+        escenarioNombre,
+        prefijo: prefijo || cursoObj?.prefijo || null,
+        pacienteSimuladoNombre,
+        pacienteSimuladoCorreo,
         estadoSimclic,
         estadoUcs: 'programada',
         ultimaSincronizacion: new Date(),

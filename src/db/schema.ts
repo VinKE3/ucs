@@ -150,12 +150,27 @@ export const auditoriaAsistencias = pgTable('auditoria_asistencias', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// --- 5.5. TABLA: CARRERAS (Catálogo Oficial de Facultades / Especialidades) ---
+export const carreras = pgTable('carreras', {
+  id: serial('id').primaryKey(),
+  codigo: varchar('codigo', { length: 50 }).notNull().unique(), // "Mhum", "ENF", "OBS", "PSI", etc.
+  nombre: varchar('nombre', { length: 150 }).notNull(),        // "Medicina Humana", "Enfermería", etc.
+  color: varchar('color', { length: 30 }).default('#38bdf8').notNull(), // Color corporativo oficial SimClic (#ffa200, #30c4c4, etc.)
+  simclicId: varchar('simclic_id', { length: 100 }),          // ID original en SimClic
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // --- 6. TABLA: CURSOS ---
 export const cursos = pgTable('cursos', {
   id: serial('id').primaryKey(),
-  nombre: varchar('nombre', { length: 200 }).notNull(), // Ej: "Simulación Quirúrgica", "Simulación Clínica Integrada (SCI)"
-  codigo: varchar('codigo', { length: 50 }),            // Ej: "SCI-101", "SBS"
+  carreraId: integer('carrera_id').references(() => carreras.id, { onDelete: 'set null' }),
+  nombre: varchar('nombre', { length: 200 }).notNull(), // Ej: "Simulación Quirúrgica", "Simulación Pediátrica"
+  codigo: varchar('codigo', { length: 50 }),            // Código numérico o alfanumérico SimClic (ej: "815363")
+  prefijo: varchar('prefijo', { length: 50 }),          // Prefijo en corchetes ej: "SIMPED", "SimQx", "SCI", "MED_SBS"
   descripcion: text('descripcion'),
+  simclicId: varchar('simclic_id', { length: 100 }),    // ID de MongoDB en SimClic
   tarifaHoraPs: numeric('tarifa_hora_ps', { precision: 8, scale: 2 }), // Tarifa por hora en S/. para paciente simulado en este curso
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -163,6 +178,11 @@ export const cursos = pgTable('cursos', {
 });
 
 // --- RELACIONES (Drizzle ORM) ---
+export const carrerasRelations = relations(carreras, ({ many }) => ({
+  cursos: many(cursos),
+  sesionesProgramadas: many(sesionesProgramadas),
+}));
+
 export const sedesRelations = relations(sedes, ({ many }) => ({
   ambientes: many(ambientes),
   asistencias: many(asistencias),
@@ -176,8 +196,13 @@ export const ambientesRelations = relations(ambientes, ({ one, many }) => ({
   asistencias: many(asistencias),
 }));
 
-export const cursosRelations = relations(cursos, ({ many }) => ({
+export const cursosRelations = relations(cursos, ({ one, many }) => ({
+  carrera: one(carreras, {
+    fields: [cursos.carreraId],
+    references: [carreras.id],
+  }),
   asistencias: many(asistencias),
+  sesionesProgramadas: many(sesionesProgramadas),
 }));
 
 export const usuariosRelations = relations(usuarios, ({ many }) => ({
@@ -399,7 +424,21 @@ export const sesionesProgramadas = pgTable('sesiones_programadas', {
   docenteNombreSimclic: varchar('docente_nombre_simclic', { length: 250 }),
   docenteCorreoSimclic: varchar('docente_correo_simclic', { length: 255 }),
 
+  // Carrera
+  carreraId: integer('carrera_id').references(() => carreras.id, { onDelete: 'set null' }),
   carrera: varchar('carrera', { length: 150 }),
+  carreraCodigo: varchar('carrera_codigo', { length: 50 }),
+  carreraColor: varchar('carrera_color', { length: 30 }),
+
+  // Escenario y Prefijo
+  escenarioCodigo: varchar('escenario_codigo', { length: 100 }), // "G-SPed-022"
+  escenarioNombre: varchar('escenario_nombre', { length: 255 }), // "NEUMONIA"
+  prefijo: varchar('prefijo', { length: 50 }),                   // "SIMPED"
+
+  // Paciente Simulado programado en SimClic
+  pacienteSimuladoNombre: varchar('paciente_simulado_nombre', { length: 250 }),
+  pacienteSimuladoCorreo: varchar('paciente_simulado_correo', { length: 255 }),
+
   estadoSimclic: varchar('estado_simclic', { length: 50 }), // "Booked", "Cancelled", etc.
   estadoUcs: varchar('estado_ucs', { length: 50 }).default('programada').notNull(), // "programada", "en_curso", "finalizada", "reubicada", "cancelada"
 
@@ -424,6 +463,10 @@ export const sesionesProgramadasRelations = relations(sesionesProgramadas, ({ on
     fields: [sesionesProgramadas.cursoId],
     references: [cursos.id],
   }),
+  carrera: one(carreras, {
+    fields: [sesionesProgramadas.carreraId],
+    references: [carreras.id],
+  }),
   docente: one(usuarios, {
     fields: [sesionesProgramadas.docenteId],
     references: [usuarios.id],
@@ -434,8 +477,11 @@ export const sesionesProgramadasRelations = relations(sesionesProgramadas, ({ on
   }),
 }));
 
+export type Carrera = typeof carreras.$inferSelect;
+export type NewCarrera = typeof carreras.$inferInsert;
 export type SesionProgramada = typeof sesionesProgramadas.$inferSelect;
 export type NewSesionProgramada = typeof sesionesProgramadas.$inferInsert;
+
 
 
 

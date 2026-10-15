@@ -155,16 +155,32 @@ export interface AsistenciaAdminItem {
   minutosExtra?: number | null;
 }
 
+export interface CarreraAdminItem {
+  id: number;
+  codigo: string;
+  nombre: string;
+  color: string;
+  simclicId?: string | null;
+  totalCursos?: number;
+  activo: boolean;
+}
+
 export interface CursoAdminItem {
   id: number;
   nombre: string;
   codigo: string | null;
+  prefijo?: string | null;
+  carreraId?: number | null;
+  carreraCodigo?: string | null;
+  carreraNombre?: string | null;
+  carreraColor?: string | null;
   descripcion: string | null;
   tarifaHoraPs?: number | string | null;
   totalHorasPs?: number;
   totalMinutosPs?: number;
   totalSesionesPs?: number;
   totalActoresPs?: number;
+  escenariosMuestra?: string[];
   activo: boolean;
   createdAt?: string;
 }

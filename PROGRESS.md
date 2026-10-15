@@ -367,7 +367,24 @@ src/
       - `Campus Ate` (ID 3, `ATE`): Av. Nicolás Ayllón 7208, Ate (14 salas).
     - **Carga de 63 Salas Oficiales**: Insertadas con sus nombres, códigos (`SL02...`, `SL05...`, `ATE01...`), capacidades y categorización inteligente (`alta_fidelidad`, `habilidades`, `consultorio`, `hospitalizacion`, `general`).
     - **Re-Sincronización Inmediata**: El bot sincronizó de nuevo las 188 clases del día mapeándolas al 100% con las nuevas 63 salas oficiales.
-    - **Script de Mantenimiento**: Registrado como comando reutilizable `npm run db:reset-simclic`.
+35. **Catálogo Académico Oficial: 13 Carreras, 64 Cursos Oficiales de SimClic y Extracción Dinámica de Escenarios y Pacientes Simulados**:
+    - **Requerimiento**: Implementar la Opción 1 de catálogo académico unificado: eliminar los 13 cursos antiguos de prueba manual, crear la tabla oficial `carreras`, cargar las 13 carreras y 64 cursos oficiales de SimClic con sus códigos, colores y prefijos, y extraer dinámicamente escenarios clínicos y pacientes simulados programados en `sesiones_programadas`.
+    - **Esquema de Base de Datos**:
+      - Tabla `carreras`: ID, código oficial (`Mhum`, `ENF`, `OBS`, `PSI`, etc.), nombre corporativo, color oficial SimClic (`#ffa200`, `#30c4c4`, etc.), `simclicId`.
+      - Tabla `cursos`: vinculada mediante `carreraId`, añadidos `prefijo` (ej: `SIMPED`, `SimQx`, `SCI`, `MED_SBS`), `codigo` SimClic (`815363`), `simclicId`.
+      - Tabla `sesiones_programadas`: enriquecida con `carreraId`, `carreraCodigo`, `carreraColor`, `escenarioCodigo` (`G-SPed-022`), `escenarioNombre` (`NEUMONIA`), `prefijo` (`SIMPED`), `pacienteSimuladoNombre`, `pacienteSimuladoCorreo`.
+    - **Migración y Sembrado**:
+      - Ejecutado script de migración en Neon PostgreSQL.
+      - Purgados los 13 cursos de prueba (verificados sin asistencias históricas).
+      - Cargadas las 13 Carreras y 64 Cursos oficiales (`npm run db:seed-academic`).
+    - **Motor de Sincronización SimClic**:
+      - Actualizado `src/lib/simclicSync.ts` con mapeo de carreras, detección de prefijos por expresiones regulares, resolución de cursos y captura de pacientes simulados.
+      - Sincronizadas 190 sesiones del día con 100% de match académico en tiempo real.
+    - **UI Unificada en Dashboard (`CursosTab.tsx`)**:
+      - Barra superior de píldoras interactivas con los colores oficiales de SimClic para filtrar por carrera (`Todas`, `Medicina Humana (22)`, `Obstetricia (13)`, `Enfermería (4)`, etc.).
+      - Switch tipo segmento: `[ 📚 Cursos (64) ]` y `[ 🎓 Carreras Oficiales (13) ]`.
+      - Botón `🎬 Escenarios` en cada fila que despliega modal interactivo con los escenarios clínicos reales del curso.
+      - Modal de creación/edición de curso enriquecido con selector de carrera y campo de prefijo.
 
 ---
 

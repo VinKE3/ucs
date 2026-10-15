@@ -377,8 +377,8 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
                 </svg>
               </div>
               <div style={{ textAlign: 'left' }}>
-                <div className={styles.bottomSheetItemTitle}>Cursos y Asignaturas</div>
-                <div className={styles.bottomSheetItemDesc}>Catálogo clínico y tarifas por hora PS</div>
+                <div className={styles.bottomSheetItemTitle}>Cursos y Carreras</div>
+                <div className={styles.bottomSheetItemDesc}>Catálogo oficial SimClic y tarifas por hora PS</div>
               </div>
             </div>
             <span className={styles.bottomSheetItemBadge}>{cursosCount} cursos</span>

@@ -1,0 +1,4367 @@
+{
+  "users": [
+    {
+      "_id": "HBKWoQdtbPh9c5Ys7",
+      "username": "kmunozn@cientifica.edu.pe",
+      "emails": [
+        {
+          "address": "kmunozn@cientifica.edu.pe",
+          "verified": true
+        }
+      ],
+      "profile": {
+        "type": "accountAdmin",
+        "firstName": "Kevin",
+        "lastName": "Muñoz",
+        "locale": "es-ES",
+        "createdOn": {
+          "$date": 1788297327349
+        },
+        "createdBy": "mquispee@cientifica.edu.pe",
+        "scope": {
+          "campusList": [
+            {
+              "_id": "4BKSwXGMLdNrA2Lfp",
+              "code": "Villa",
+              "name": "Campus Villa"
+            },
+            {
+              "_id": "KxadCs4r6HCFPEsBK",
+              "code": "Ate",
+              "name": "Campus Ate"
+            },
+            {
+              "_id": "gH8ie8pi9FkqTgDHp",
+              "code": "Norte",
+              "name": "Campus Norte"
+            }
+          ],
+          "degreeList": [
+            {
+              "_id": "mYiTnF8fHTFDPQrfz",
+              "code": "Mhum",
+              "name": "Medicina Humana"
+            },
+            {
+              "_id": "qazyxpfGybg3wQdB3",
+              "code": "ENF",
+              "name": "Enfermería"
+            },
+            {
+              "_id": "jfqGxDhEaax76NvCE",
+              "code": "FyB",
+              "name": "Farmacia y Bioquímica"
+            },
+            {
+              "_id": "Q7GvpdeRoD8rQwwxs",
+              "code": "NyD",
+              "name": "Nutrición y Dietética"
+            },
+            {
+              "_id": "CxtRe8zdzKWD5uoKb",
+              "code": "OBS",
+              "name": "Obstetricia"
+            },
+            {
+              "_id": "akcAgy75dbPSRcF9v",
+              "code": "PSI",
+              "name": "Psicología"
+            },
+            {
+              "_id": "hs2QbiM7Gk8RvcywK",
+              "code": "SISE",
+              "name": "SISE"
+            },
+            {
+              "_id": "qjRaY7DPEMQX4WeT7",
+              "code": "EC",
+              "name": "Educación Continua"
+            },
+            {
+              "_id": "Rqj4HGxJB3Pntx4yd",
+              "code": "PG",
+              "name": "Posgrado"
+            },
+            {
+              "_id": "CDiqYWFHfiZJpqWj2",
+              "code": "AMK",
+              "name": "ACTIVIDADES DE MARKETING"
+            },
+            {
+              "_id": "e5u4GsNbM25Br5Aoq",
+              "code": "MIG",
+              "name": "Migracíon UCS 2025"
+            },
+            {
+              "_id": "CTH5Pyf5BjfzvYF4d",
+              "code": "VRS",
+              "name": "Vicerrectorado de la Salud"
+            },
+            {
+              "_id": "wSKt5zip9QjwveomK",
+              "code": "IBIO",
+              "name": "Ingeniería Biomédica"
+            }
+          ]
+        },
+        "account": "RTLhAKPntvmT8NCyt",
+        "currentLogin": {
+          "$date": 1792030190671
+        },
+        "lastLogin": {
+          "$date": 1792028787662
+        },
+        "loggedIn": true,
+        "settings": {
+          "menuDrawerPinned": false,
+          "afterFirstLogin": false,
+          "gridStates": {
+            "lastUpdated": {
+              "$date": 1792030674260
+            },
+            "sessionRequestManagementGroupState": [
+              {
+                "colId": "name",
+                "width": 422.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "status",
+                "width": 424,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "startDate",
+                "width": 339,
+                "hide": false,
+                "pinned": null,
+                "sort": "desc",
+                "sortIndex": 0,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "duration",
+                "width": 424,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "recurrent",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "scenarios",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "tags",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "campus",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "rooms",
+                "width": 424,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "degrees.name",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "courses",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "leadInstructor",
+                "width": 424,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "createdBy",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "modifiedBy",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "simulationScenariosGroupState": [
+              {
+                "colId": "code",
+                "width": 198.51999999999998,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "name",
+                "width": 200,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "fidelity",
+                "width": 200,
+                "hide": false,
+                "pinned": null,
+                "sort": "asc",
+                "sortIndex": 0,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "tags",
+                "width": 200,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "historicalActivitiesCount",
+                "width": 200,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "activeActivitiesCount",
+                "width": 200,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "status",
+                "width": 200,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 220,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "vendorsGroupState": [
+              {
+                "colId": "shortName",
+                "width": 308.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "legalName",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "commercialActivity",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "taxIdType",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "taxId",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "address",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "city",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "qualification",
+                "width": 307,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "suppliesGroupState": [
+              {
+                "colId": "sku",
+                "width": 368.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "name",
+                "width": 369,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "type",
+                "width": 369,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "unit",
+                "width": 369,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "disposable",
+                "width": 369,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "availableForBooking",
+                "width": 369,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "attachmentId",
+                "width": 221,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "fixedAssetGroupState": [
+              {
+                "colId": "code",
+                "width": 469.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "name",
+                "width": 468,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "category",
+                "width": 468,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "suggestedBrand",
+                "width": 468,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "suggestedModel",
+                "width": 468,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "attachmentId",
+                "width": 281,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "sessionHistoryGroupState": [
+              {
+                "colId": "0",
+                "width": 407.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "status",
+                "width": 410,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "1",
+                "width": 410,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "2",
+                "width": 410,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "3",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "4",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "campus.name",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "5",
+                "width": 410,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "6",
+                "width": 410,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "7",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "8",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "inventoryLevelGroupState": [
+              {
+                "colId": "documentNumber",
+                "width": 278.52,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "quickActions",
+                "width": 206,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "campusName",
+                "width": 398,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "sku",
+                "width": 358,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "description",
+                "width": 398,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "totalStock",
+                "width": 362,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": "sum",
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "minLevel",
+                "width": 279,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "status",
+                "width": 279,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "degreesGroupState": [
+              {
+                "colId": "code",
+                "width": 295.52,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "name",
+                "width": 294,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "colorCode",
+                "width": 294,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "colorCode_1",
+                "width": 294,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "cursosID",
+                "width": 294,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "maintenanceGroupState": [
+              {
+                "colId": "asset.serialNumber",
+                "width": 186.01999999999998,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "campus.code",
+                "width": 308,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "asset.name",
+                "width": 308,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "assetGroup",
+                "width": 308,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "vendor.legalName",
+                "width": 277,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "startingDateTime",
+                "width": 277,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "duration",
+                "width": 154,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "cost",
+                "width": 185,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "type",
+                "width": 185,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "status",
+                "width": 216,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "assetsManagementGroupState": [
+              {
+                "colId": "item.serialNumber",
+                "width": 294.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "item.description",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "assetGroup",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "item.brand",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "item.model",
+                "width": 200,
+                "hide": true,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "item.cost",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "campus",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "room",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "calculatedStats.numberOfUses",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "calculatedStats.utilizationHours",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "item.maintenanceCost",
+                "width": 291,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "customFieldsGroupState": [
+              {
+                "colId": "name",
+                "width": 615.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "description",
+                "width": 614,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "entityType",
+                "width": 614,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "type",
+                "width": 614,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "interfacesGroupState": [
+              {
+                "colId": "code",
+                "width": 529,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "name",
+                "width": 529,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "notificationList",
+                "width": 529,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "notifyOnError",
+                "width": 529,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "notifyOnEnd",
+                "width": 529,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "usersGroupState": [
+              {
+                "colId": "username",
+                "width": 287.02,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "profile.type",
+                "width": 192,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "profile.firstName",
+                "width": 384,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "profile.lastName",
+                "width": 384,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "profile.scope.campusList",
+                "width": 384,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "profile.lastLogin",
+                "width": 384,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "profile.createdOn",
+                "width": 384,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 182,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "coursesGroupState": [
+              {
+                "colId": "code",
+                "width": 328.52,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "name",
+                "width": 327,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "courseType",
+                "width": 327,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "concatenatedSubCourses",
+                "width": 327,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "degreeId",
+                "width": 327,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "campusTimeBlock": [
+              {
+                "colId": "uniqueName",
+                "width": 247,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "startTime",
+                "width": 247,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "endTime",
+                "width": 247,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "comments",
+                "width": 247,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": 1
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ],
+            "roomsGroupState": [
+              {
+                "colId": "campus",
+                "width": 206.51999999999998,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "code",
+                "width": 207,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "name",
+                "width": 207,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "type",
+                "width": 207,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "location",
+                "width": 207,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "roomOverbooking",
+                "width": 207,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "status",
+                "width": 207,
+                "hide": false,
+                "pinned": null,
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              },
+              {
+                "colId": "actions",
+                "width": 147,
+                "hide": false,
+                "pinned": "right",
+                "sort": null,
+                "sortIndex": null,
+                "aggFunc": null,
+                "rowGroup": false,
+                "rowGroupIndex": null,
+                "pivot": false,
+                "pivotIndex": null,
+                "flex": null
+              }
+            ]
+          }
+        },
+        "lastLogout": {
+          "$date": 1791660312036
+        },
+        "samlLogIn": false,
+        "modifiedOn": {
+          "$date": 1792020295895
+        },
+        "modifiedBy": "mquispee@cientifica.edu.pe"
+      }
+    }
+  ],
+  "degrees": [
+    {
+      "_id": "mYiTnF8fHTFDPQrfz",
+      "code": "Mhum",
+      "name": "Medicina Humana",
+      "colorCode": "#ffa200",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "GO!",
+          "name": "Go! Científica"
+        },
+        {
+          "code": "BLS",
+          "name": "Basic Life Support"
+        },
+        {
+          "code": "001050",
+          "name": "Cirugía  I"
+        },
+        {
+          "code": "001058",
+          "name": "Cirugía II"
+        },
+        {
+          "code": "001070",
+          "name": "Externado en Cirugía"
+        },
+        {
+          "code": "814113",
+          "name": "Ecografía"
+        },
+        {
+          "code": "001072",
+          "name": "Externado en Medicina"
+        },
+        {
+          "code": "001073",
+          "name": "Externado en Pediatria"
+        },
+        {
+          "code": "001071",
+          "name": "Externado en Ginecología y Obstetricia"
+        },
+        {
+          "code": "666909",
+          "name": "Ginecología y Obstetricia"
+        },
+        {
+          "code": "001061",
+          "name": "Medicina Legal"
+        },
+        {
+          "code": "001052",
+          "name": "Pediatria"
+        },
+        {
+          "code": "004750",
+          "name": "Primeros Auxilios (E)"
+        },
+        {
+          "code": "815360",
+          "name": "Semiología basada en la Simulación"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "815361",
+          "name": "Simulacion Clínica Integrada"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "002981",
+          "name": "Puericultura y Semiología Pediátrica"
+        },
+        {
+          "code": "815362",
+          "name": "Simulación Quirúrgica"
+        },
+        {
+          "code": "815363",
+          "name": "Simulación Pediatrica"
+        },
+        {
+          "code": "815364",
+          "name": "Simulación Gineco-Obstétrica"
+        },
+        {
+          "code": "815365",
+          "name": "Aprendizaje Interprofesional"
+        },
+        {
+          "code": "815366",
+          "name": "Educación Basada en Simulación"
+        },
+        {
+          "code": "INTERN_01",
+          "name": "PRE_INTERNADO_MEDICINA"
+        },
+        {
+          "code": "INTERN_03",
+          "name": "PRE_NTERNADO_PEDIATRIA"
+        },
+        {
+          "code": "INTERN_02",
+          "name": "PRE_INTERNADO_GINECOLOGIA"
+        },
+        {
+          "code": "INTERN_04",
+          "name": "PRE_INTERNADO_CIRUGIA"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276423
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "mvillafani@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1786831566193
+      }
+    },
+    {
+      "_id": "qazyxpfGybg3wQdB3",
+      "code": "ENF",
+      "name": "Enfermería",
+      "colorCode": "#30c4c4",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "GO!",
+          "name": "Go! Científica"
+        },
+        {
+          "code": "811594",
+          "name": "El Cuidado en Enfermería"
+        },
+        {
+          "code": "811595",
+          "name": "Enfermería Quirúrgica"
+        },
+        {
+          "code": "810078",
+          "name": "Enfermería en la Salud del Niñ"
+        },
+        {
+          "code": "814865",
+          "name": "Primeros Auxilios en Enfermerí"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "815365",
+          "name": "Aprendizaje Interprofesional"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276446
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1774880962174
+      }
+    },
+    {
+      "_id": "jfqGxDhEaax76NvCE",
+      "code": "FyB",
+      "name": "Farmacia y Bioquímica",
+      "colorCode": "#1e0fd5",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "GO!",
+          "name": "Go! Científica"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276456
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "support@ademsys.com",
+      "modifiedOn": {
+        "$date": 1756150780164
+      }
+    },
+    {
+      "_id": "Q7GvpdeRoD8rQwwxs",
+      "code": "NyD",
+      "name": "Nutrición y Dietética",
+      "colorCode": "#25b84d",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "815365",
+          "name": "Aprendizaje Interprofesional"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276464
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1774880962185
+      }
+    },
+    {
+      "_id": "CxtRe8zdzKWD5uoKb",
+      "code": "OBS",
+      "name": "Obstetricia",
+      "colorCode": "#a12568",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "GO!",
+          "name": "Go! Científica"
+        },
+        {
+          "code": "810098",
+          "name": "Farmacología Aplicada a la Obstetricia"
+        },
+        {
+          "code": "810108",
+          "name": "Ginecología"
+        },
+        {
+          "code": "810099",
+          "name": "Imagenología en Obstetricia"
+        },
+        {
+          "code": "810100",
+          "name": "Semiología General en Obstetricia"
+        },
+        {
+          "code": "813945",
+          "name": "Atención Obstétrica"
+        },
+        {
+          "code": "811582",
+          "name": "Obstetricia Familiar y Comunitaria"
+        },
+        {
+          "code": "810102",
+          "name": "Obstetricia I"
+        },
+        {
+          "code": "810104",
+          "name": "Obstetricia II y Cirugía Menor"
+        },
+        {
+          "code": "810107",
+          "name": "Obstetricia III"
+        },
+        {
+          "code": "810111",
+          "name": "Psicoprofiláxis Obstetrica"
+        },
+        {
+          "code": "810105",
+          "name": "Salud Reproductiva y Planificación Familiar"
+        },
+        {
+          "code": "810103",
+          "name": "Neona. y Ped. en la Atenc. Obs"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "OBS-505",
+          "name": "Semiología Obstetricia"
+        },
+        {
+          "code": "815365",
+          "name": "Aprendizaje Interprofesional"
+        },
+        {
+          "code": "810114",
+          "name": "Internado Hospitalario"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276472
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "dpoma@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1783098062590
+      }
+    },
+    {
+      "_id": "akcAgy75dbPSRcF9v",
+      "code": "PSI",
+      "name": "Psicología",
+      "colorCode": "#6b2eba",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "001195",
+          "name": "Consejo Psicológico"
+        },
+        {
+          "code": "666969",
+          "name": "Entrevista y Observ Psicológic"
+        },
+        {
+          "code": "001167",
+          "name": "Psicopatología I"
+        },
+        {
+          "code": "001175",
+          "name": "Psicopatología II"
+        },
+        {
+          "code": "001193",
+          "name": "Evaluac y Diagnóstic Psicológ"
+        },
+        {
+          "code": "666967",
+          "name": "Modelo Psicoterapéutico Humani"
+        },
+        {
+          "code": "001160",
+          "name": "Motivación y Emoción"
+        },
+        {
+          "code": "001183",
+          "name": "Neuropsicología"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "1752",
+          "name": "Psicología Clínica y de la Sal"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276483
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "xchuquirima@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1788981117013
+      }
+    },
+    {
+      "_id": "hs2QbiM7Gk8RvcywK",
+      "code": "SISE",
+      "name": "SISE",
+      "colorCode": "#5e5253",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276496
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "support@ademsys.com",
+      "modifiedOn": {
+        "$date": 1756150780184
+      }
+    },
+    {
+      "_id": "qjRaY7DPEMQX4WeT7",
+      "code": "EC",
+      "name": "Educación Continua",
+      "colorCode": "#d7ee0a",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "BLS",
+          "name": "Basic Life Support"
+        },
+        {
+          "code": "ACLS",
+          "name": "Advanced Cardiac Life Support"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "RMH",
+          "name": "Curso de Trabajadores Sociales RMH"
+        },
+        {
+          "code": "PALS",
+          "name": "Pediatric Advanced Life Support"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276507
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1768584075820
+      }
+    },
+    {
+      "_id": "Rqj4HGxJB3Pntx4yd",
+      "code": "PG",
+      "name": "Posgrado",
+      "colorCode": "#6900f2",
+      "courses": [
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        },
+        {
+          "code": "PGEco",
+          "name": "Diplomado de Ecografía"
+        },
+        {
+          "code": "BLS",
+          "name": "Basic Life Support"
+        },
+        {
+          "code": "ACLS",
+          "name": "Advanced Cardiac Life Support"
+        },
+        {
+          "code": "PGDocSal",
+          "name": "Diplómado de Docencia en Salud - Modulo Simulación"
+        },
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "ESTC+",
+          "name": "Excellence Stroke Training Center"
+        },
+        {
+          "code": "PG-VM-SAMU",
+          "name": "Curso especializado de Ventilación Mecánica durante transporte"
+        },
+        {
+          "code": "PALS",
+          "name": "Pediatric Advanced Life Support"
+        },
+        {
+          "code": "PG-ME",
+          "name": "Medicina Éstetica"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750280276517
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1772212961076
+      }
+    },
+    {
+      "_id": "CDiqYWFHfiZJpqWj2",
+      "code": "AMK",
+      "name": "ACTIVIDADES DE MARKETING",
+      "courses": [
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        },
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        }
+      ],
+      "colorCode": "#f5f9b1",
+      "createdBy": "mveram@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1754076641669
+      },
+      "modifiedBy": "support@ademsys.com",
+      "modifiedOn": {
+        "$date": 1756146819639
+      }
+    },
+    {
+      "_id": "e5u4GsNbM25Br5Aoq",
+      "code": "MIG",
+      "name": "Migracíon UCS 2025",
+      "description": "Carrera utilizada para la migración de Sesiones Históricas UCS desde antiguo SimClic.",
+      "courses": [
+        {
+          "code": "CURSO.MIG",
+          "name": "Migración Sesiones 2025"
+        },
+        {
+          "code": "ACLS",
+          "name": "Advanced Cardiac Life Support"
+        },
+        {
+          "code": "BLS",
+          "name": "Basic Life Support"
+        },
+        {
+          "code": "GO!",
+          "name": "Go! Científica"
+        },
+        {
+          "code": "CapDoc",
+          "name": "Capacitación Docente"
+        }
+      ],
+      "colorCode": "#000000",
+      "createdBy": "support@ademsys.com",
+      "createdOn": {
+        "$date": 1756146711082
+      },
+      "modifiedBy": "support@ademsys.com",
+      "modifiedOn": {
+        "$date": 1756150780207
+      }
+    },
+    {
+      "_id": "CTH5Pyf5BjfzvYF4d",
+      "code": "VRS",
+      "name": "Vicerrectorado de la Salud",
+      "courses": [
+        {
+          "code": "OAC",
+          "name": "OTROS"
+        }
+      ],
+      "colorCode": "#f22c2c",
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1758146669433
+      },
+      "modifiedBy": "xchuquirima@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1773939187957
+      }
+    },
+    {
+      "_id": "wSKt5zip9QjwveomK",
+      "code": "IBIO",
+      "name": "Ingeniería Biomédica",
+      "courses": [
+        {
+          "code": "TALLER MANT",
+          "name": "TALLER DE MANTENIMIENTO"
+        }
+      ],
+      "colorCode": "#5dbf29",
+      "createdBy": "cdiazsi@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1766516348705
+      },
+      "modifiedBy": "cdiazsi@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1766516416414
+      }
+    }
+  ],
+  "courses": [
+    {
+      "_id": "rrgiyEvX8FnACXWTD",
+      "code": "1752",
+      "name": "Psicología Clínica y de la Sal",
+      "courseType": "undergraduate",
+      "hours": 10,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Psicología Clínica y de la Sal",
+          "hours": 10
+        }
+      ],
+      "createdBy": "xchuquirima@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1788981116980
+      }
+    },
+    {
+      "_id": "xB8agT5d9NGuJ8cQn",
+      "code": "INTERN_04",
+      "name": "PRE_INTERNADO_CIRUGIA",
+      "courseType": "graduate",
+      "hours": 5,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "PRE_INTERNADO_CIRUGIA",
+          "hours": 5
+        }
+      ],
+      "createdBy": "mvillafani@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1786831566178
+      }
+    },
+    {
+      "_id": "FcX5g7YQ6xRqMJJLC",
+      "code": "INTERN_03",
+      "name": "PRE_NTERNADO_PEDIATRIA",
+      "courseType": "graduate",
+      "hours": 5,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "PRE_NTERNADO_PEDIATRIA",
+          "hours": 5
+        }
+      ],
+      "createdBy": "mvillafani@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1786831527485
+      }
+    },
+    {
+      "_id": "g53wzo8uK8F9Py4ek",
+      "code": "INTERN_02",
+      "name": "PRE_INTERNADO_GINECOLOGIA",
+      "courseType": "graduate",
+      "hours": 5,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "PRE_INTERNADO_GINECOLOGIA",
+          "hours": 5
+        }
+      ],
+      "createdBy": "mvillafani@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1786831486259
+      },
+      "modifiedBy": "mvillafani@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1786831537137
+      }
+    },
+    {
+      "_id": "rs7ZdrkN6tFpbR8L6",
+      "code": "INTERN_01",
+      "name": "PRE_INTERNADO_MEDICINA",
+      "courseType": "graduate",
+      "hours": 5,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "PRE_INTERNADO_MEDICINA",
+          "hours": 5
+        }
+      ],
+      "createdBy": "mvillafani@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1786831333331
+      }
+    },
+    {
+      "_id": "P3sHCEGCHcmoD9J6i",
+      "code": "810114",
+      "name": "Internado Hospitalario",
+      "courseType": "graduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Internado Hospitalario",
+          "hours": 1
+        }
+      ],
+      "createdBy": "dpoma@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1783098062555
+      }
+    },
+    {
+      "_id": "uXEi3RwLp4JtP5sGd",
+      "code": "815366",
+      "name": "Educación Basada en Simulación",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Educación Basada en Simulación",
+          "hours": 1
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1774881000121
+      }
+    },
+    {
+      "_id": "999ZmmepkXccntfZQ",
+      "code": "815365",
+      "name": "Aprendizaje Interprofesional",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        },
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        },
+        {
+          "code": "NyD",
+          "name": "Nutrición y Dietética"
+        },
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Aprendizaje Interprofesional",
+          "hours": 1
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1774880962141
+      }
+    },
+    {
+      "_id": "EscaQfTBKvxTrHfDJ",
+      "code": "815364",
+      "name": "Simulación Gineco-Obstétrica",
+      "courseType": "undergraduate",
+      "hours": 4,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "SIMULACIÓN GINECO OBSTÉTRICA",
+          "hours": 4
+        }
+      ],
+      "createdBy": "pjacintog@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1774655043665
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1775240163391
+      }
+    },
+    {
+      "_id": "GXEfuMxY2RrMssABh",
+      "code": "815363",
+      "name": "Simulación Pediatrica",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Simulación Pediatrica",
+          "hours": 1
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1774642497535
+      }
+    },
+    {
+      "_id": "CxTqHyvYFXX9zLqeQ",
+      "code": "815362",
+      "name": "Simulación Quirúrgica",
+      "courseType": "undefined",
+      "hours": 24,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Simulación Quirúrgica",
+          "hours": 24
+        }
+      ],
+      "createdBy": "jcalderoncas@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1774122243801
+      }
+    },
+    {
+      "_id": "637sF5CEGxgYXJswa",
+      "code": "PG-ME",
+      "name": "Medicina Éstetica",
+      "courseType": "postgraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Medicina Éstetica"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1772212961051
+      }
+    },
+    {
+      "_id": "4f9v5S7MmR3P4vA4R",
+      "code": "PALS",
+      "name": "Pediatric Advanced Life Support",
+      "courseType": "postgraduate",
+      "hours": 16,
+      "degree": [
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        },
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Pediatric Advanced Life Support"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1768584075804
+      }
+    },
+    {
+      "_id": "vmbsG6NsbpzkhR2eQ",
+      "code": "TALLER MANT",
+      "name": "TALLER DE MANTENIMIENTO",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "IBIO",
+          "name": "Ingeniería Biomédica"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "TALLER DE MANTENIMIENTO"
+        }
+      ],
+      "createdBy": "cdiazsi@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1766516416387
+      }
+    },
+    {
+      "_id": "GMShFyRaW9HHeaqQ9",
+      "code": "PG-VM-SAMU",
+      "name": "Curso especializado de Ventilación Mecánica durante transporte",
+      "courseType": "postgraduate",
+      "hours": 8,
+      "degree": [
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Curso especializado de Ventilación Mecánica durante transporte"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1762564983581
+      }
+    },
+    {
+      "_id": "QkbWYWGmsmwz5g9fz",
+      "code": "RMH",
+      "name": "Curso de Trabajadores Sociales RMH",
+      "courseType": "undefined",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Curso de Trabajadores Sociales RMH"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1762193126625
+      }
+    },
+    {
+      "_id": "F9kmJxea7jiikeBbq",
+      "code": "ESTC+",
+      "name": "Excellence Stroke Training Center",
+      "courseType": "postgraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Excellence Stroke Training Center"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1761787073353
+      }
+    },
+    {
+      "_id": "M9PYZ44p7ZopudsNv",
+      "code": "002981",
+      "name": "Puericultura y Semiología Pediátrica",
+      "courseType": "undergraduate",
+      "hours": 12,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Puericultura y Semiología Pediátrica"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1757082160419
+      }
+    },
+    {
+      "_id": "J4gHyQqKrWTHrezLi",
+      "code": "OBS-505",
+      "name": "Semiología Obstetricia",
+      "courseType": "undergraduate",
+      "hours": 4,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Semiología Obstetricia"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1756919289005
+      }
+    },
+    {
+      "_id": "xtyKBTEWgpiWfnvqN",
+      "code": "CURSO.MIG",
+      "name": "Migración Sesiones 2025",
+      "notes": "Código Curso utilizado para la migración de Actividades Históricas desde Antiguo SimClic",
+      "courseType": "undefined",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        },
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        },
+        {
+          "code": "FyB",
+          "name": "Farmacia y Bioquímica"
+        },
+        {
+          "code": "NyD",
+          "name": "Nutrición y Dietética"
+        },
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        },
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        },
+        {
+          "code": "SISE",
+          "name": "SISE"
+        },
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        },
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        },
+        {
+          "code": "AMK",
+          "name": "ACTIVIDADES DE MARKETING"
+        },
+        {
+          "code": "MIG",
+          "name": "Migracíon UCS 2025"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Migración Sesiones 2025"
+        }
+      ],
+      "createdBy": "support@ademsys.com",
+      "createdOn": {
+        "$date": 1756146819373
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1761787021724
+      }
+    },
+    {
+      "_id": "5wGMLs7YXKW3Cquck",
+      "code": "815361",
+      "name": "Simulacion Clínica Integrada",
+      "courseType": "undergraduate",
+      "hours": 96,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Simulacion Clínica Integrada"
+        },
+        {
+          "name": "9A"
+        },
+        {
+          "name": "9B"
+        },
+        {
+          "name": "9C"
+        },
+        {
+          "name": "9D"
+        },
+        {
+          "name": "9E"
+        },
+        {
+          "name": "9F"
+        },
+        {
+          "name": "9G"
+        },
+        {
+          "name": "9H"
+        },
+        {
+          "name": "9I"
+        },
+        {
+          "name": "9J"
+        },
+        {
+          "name": "9K"
+        },
+        {
+          "name": "9L"
+        },
+        {
+          "name": "9M"
+        },
+        {
+          "name": "9N"
+        },
+        {
+          "name": "9O"
+        },
+        {
+          "name": "9P"
+        },
+        {
+          "name": "9Q"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1754309988437
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1754310282404
+      }
+    },
+    {
+      "_id": "DEe7LH8FgrG7PwKcD",
+      "code": "OAC",
+      "name": "OTROS",
+      "courseType": "undefined",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "AMK",
+          "name": "ACTIVIDADES DE MARKETING"
+        },
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        },
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        },
+        {
+          "code": "SISE",
+          "name": "SISE"
+        },
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        },
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        },
+        {
+          "code": "NyD",
+          "name": "Nutrición y Dietética"
+        },
+        {
+          "code": "FyB",
+          "name": "Farmacia y Bioquímica"
+        },
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        },
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        },
+        {
+          "code": "VRS",
+          "name": "Vicerrectorado de la Salud"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "OTROS"
+        }
+      ],
+      "createdBy": "cdiazsi@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1754068981615
+      },
+      "modifiedBy": "xchuquirima@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1773939187984
+      }
+    },
+    {
+      "_id": "3LwBTWNujQvKjo6LF",
+      "code": "001183",
+      "name": "Neuropsicología",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Neuropsicología"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866790
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "CrEFcjbtRQnpfKXpu",
+      "code": "001160",
+      "name": "Motivación y Emoción",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Motivación y Emoción"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866753
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "3cee7sHHivwJQxuCb",
+      "code": "666967",
+      "name": "Modelo Psicoterapéutico Humani",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Modelo Psicoterapéutico Humani"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866713
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "iH88NarZ82WNwkY79",
+      "code": "001193",
+      "name": "Evaluac y Diagnóstic Psicológ",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Evaluac y Diagnóstic Psicológ"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866686
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "CJFjXMQ4dPBPvEQhM",
+      "code": "001175",
+      "name": "Psicopatología II",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Psicopatología II"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866654
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "9WonKJCtKTg5GYexc",
+      "code": "001167",
+      "name": "Psicopatología I",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Psicopatología I"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866625
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "TZaEEY9NCtXmWLXfT",
+      "code": "666969",
+      "name": "Entrevista y Observ Psicológic",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Entrevista y Observ Psicológic"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866597
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "JZJTMx4NMQJNxND9L",
+      "code": "001195",
+      "name": "Consejo Psicológico",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Consejo Psicológico"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866567
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "sFGku4Tpnbe52aoby",
+      "code": "810103",
+      "name": "Neona. y Ped. en la Atenc. Obs",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Neona. y Ped. en la Atenc. Obs"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866528
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "9G3q34yuhnNC4n9JM",
+      "code": "810105",
+      "name": "Salud Reproductiva y Planificación Familiar",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Salud Reproductiva y Planificación Familiar"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866477
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "XM2KBTCdYdREdyqPQ",
+      "code": "810111",
+      "name": "Psicoprofiláxis Obstetrica",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Psicoprofiláxis Obstetrica"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866415
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "BhKLmjiJExsEuSaNg",
+      "code": "810107",
+      "name": "Obstetricia III",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Obstetricia III"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866333
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "fk5L3984BHw5LQGy8",
+      "code": "810104",
+      "name": "Obstetricia II y Cirugía Menor",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Obstetricia II y Cirugía Menor"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866276
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "ACYAfFGhP2vi3svAj",
+      "code": "810102",
+      "name": "Obstetricia I",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Obstetricia I"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866250
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "Aed9jrGnZhKeLMJz8",
+      "code": "811582",
+      "name": "Obstetricia Familiar y Comunitaria",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Obstetricia Familiar y Comunitaria"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866217
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "bEbWGvDxsfgsZbSCe",
+      "code": "813945",
+      "name": "Atención Obstétrica",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Atención Obstétrica"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866195
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "TeKKWHJT8JcsGk9hd",
+      "code": "810100",
+      "name": "Semiología General en Obstetricia",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Semiología General en Obstetricia"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866163
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "dts2mkpWGT9MGN4bn",
+      "code": "810099",
+      "name": "Imagenología en Obstetricia",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Imagenología en Obstetricia"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866135
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "YRmHFgwDmxHS83GSF",
+      "code": "810108",
+      "name": "Ginecología",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Ginecología"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866106
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "vvdH8A36E34zo8w3K",
+      "code": "810098",
+      "name": "Farmacología Aplicada a la Obstetricia",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Farmacología Aplicada a la Obstetricia"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866076
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "6zsQcnEt82FkuJ6zt",
+      "code": "815360",
+      "name": "Semiología basada en la Simulación",
+      "courseType": "undergraduate",
+      "hours": 56,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Semiología basada en la simula"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866054
+      },
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1754309662549
+      }
+    },
+    {
+      "_id": "NNMH8C6HKSJAWHnJq",
+      "code": "004750",
+      "name": "Primeros Auxilios (E)",
+      "courseType": "undergraduate",
+      "hours": 28,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Primeros Auxilios (E)"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337866019
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "cF6YMuSo6PaqDWuHb",
+      "code": "001052",
+      "name": "Pediatria",
+      "courseType": "undergraduate",
+      "hours": 21,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Pediatria"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865981
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "SSLSymTsjBEbDPFui",
+      "code": "001061",
+      "name": "Medicina Legal",
+      "courseType": "undergraduate",
+      "hours": 8,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Medicina Legal"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865942
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "gtBLhB6uBRiw3BdB7",
+      "code": "666909",
+      "name": "Ginecología y Obstetricia",
+      "courseType": "undergraduate",
+      "hours": 21,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Ginecología y Obstetricia"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865914
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "fQMiMhZpZHy5b3jLh",
+      "code": "001071",
+      "name": "Externado en Ginecología y Obstetricia",
+      "courseType": "undergraduate",
+      "hours": 42,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Externado en Ginecología y Obstetricia"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865888
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "7JNKf8hSMjzbHzghH",
+      "code": "001073",
+      "name": "Externado en Pediatria",
+      "courseType": "undergraduate",
+      "hours": 42,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Externado en Pediatria"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865854
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "pSFhKwP3uxb8i2L4g",
+      "code": "001072",
+      "name": "Externado en Medicina",
+      "courseType": "undergraduate",
+      "hours": 42,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Externado en Medicina"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865828
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "Z6TCWmi6bKNXqJJW7",
+      "code": "814113",
+      "name": "Ecografía",
+      "courseType": "undergraduate",
+      "hours": 42,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Ecografía"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865804
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "RNT7TC2K6ijw333Gz",
+      "code": "001070",
+      "name": "Externado en Cirugía",
+      "courseType": "undergraduate",
+      "hours": 42,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Externado en Cirugía"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865776
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "wY5BmfQ7FYZFYomav",
+      "code": "001058",
+      "name": "Cirugía II",
+      "courseType": "undergraduate",
+      "hours": 21,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Cirugía II"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865752
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "cJAeE22uLuHbzjvQ7",
+      "code": "001050",
+      "name": "Cirugía  I",
+      "courseType": "undergraduate",
+      "hours": 28,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Cirugía  I"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865732
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "syi2TcPbLABswyDJg",
+      "code": "814865",
+      "name": "Primeros Auxilios en Enfermerí",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Primeros Auxilios en Enfermerí"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865686
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "5f56gW9gz72j9a4f2",
+      "code": "810078",
+      "name": "Enfermería en la Salud del Niñ",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Enfermería en la Salud del Niñ"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865662
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "vrb6rWL5hi3c6mxE5",
+      "code": "811595",
+      "name": "Enfermería Quirúrgica",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Enfermería Quirúrgica"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865633
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "jrL2bdG76ffPudLCW",
+      "code": "811594",
+      "name": "El Cuidado en Enfermería",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "El Cuidado en Enfermería"
+        }
+      ],
+      "createdOn": {
+        "$date": 1750337865604
+      },
+      "createdBy": "jsalass@cientifica.edu.pe"
+    },
+    {
+      "_id": "Rk9xYwdkkq7XF8EoL",
+      "code": "PGDocSal",
+      "name": "Diplómado de Docencia en Salud - Modulo Simulación",
+      "courseType": "postgraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Diplómado de Docencia en Salud - Modulo Simulación"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1750282215611
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1761787021713
+      }
+    },
+    {
+      "_id": "mfpgLtv9Nyfm9GCzc",
+      "code": "ACLS",
+      "name": "Advanced Cardiac Life Support",
+      "courseType": "undefined",
+      "hours": 14,
+      "degree": [
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        },
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        },
+        {
+          "code": "MIG",
+          "name": "Migracíon UCS 2025"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Advanced Cardiac Life Support"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1750282151173
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1761787021708
+      }
+    },
+    {
+      "_id": "xiQnFBHL9LpjMw8Qw",
+      "code": "BLS",
+      "name": "Basic Life Support",
+      "courseType": "undefined",
+      "hours": 6,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        },
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        },
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        },
+        {
+          "code": "MIG",
+          "name": "Migracíon UCS 2025"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Basic Life Support"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1750282119747
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1761787021702
+      }
+    },
+    {
+      "_id": "3ykZ8WavvjQn5p79K",
+      "code": "GO!",
+      "name": "Go! Científica",
+      "courseType": "undergraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        },
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        },
+        {
+          "code": "FyB",
+          "name": "Farmacia y Bioquímica"
+        },
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        },
+        {
+          "code": "MIG",
+          "name": "Migracíon UCS 2025"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Go! Científica"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1750281881716
+      },
+      "modifiedBy": "support@ademsys.com",
+      "modifiedOn": {
+        "$date": 1756150774038
+      }
+    },
+    {
+      "_id": "7YmkjPXeRpXnvmhXt",
+      "code": "PGEco",
+      "name": "Diplomado de Ecografía",
+      "courseType": "postgraduate",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Diplomado de Ecografía"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1750281605335
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1761787021693
+      }
+    },
+    {
+      "_id": "LD4RuvAQbAP6ooDLr",
+      "code": "CapDoc",
+      "name": "Capacitación Docente",
+      "courseType": "undefined",
+      "hours": 1,
+      "degree": [
+        {
+          "code": "Mhum",
+          "name": "Medicina Humana"
+        },
+        {
+          "code": "ENF",
+          "name": "Enfermería"
+        },
+        {
+          "code": "FyB",
+          "name": "Farmacia y Bioquímica"
+        },
+        {
+          "code": "NyD",
+          "name": "Nutrición y Dietética"
+        },
+        {
+          "code": "OBS",
+          "name": "Obstetricia"
+        },
+        {
+          "code": "PSI",
+          "name": "Psicología"
+        },
+        {
+          "code": "SISE",
+          "name": "SISE"
+        },
+        {
+          "code": "EC",
+          "name": "Educación Continua"
+        },
+        {
+          "code": "PG",
+          "name": "Posgrado"
+        },
+        {
+          "code": "MIG",
+          "name": "Migracíon UCS 2025"
+        }
+      ],
+      "subCourses": [
+        {
+          "name": "Capacitación Docente"
+        }
+      ],
+      "createdBy": "jsalass@cientifica.edu.pe",
+      "createdOn": {
+        "$date": 1750281544431
+      },
+      "modifiedBy": "jsalass@cientifica.edu.pe",
+      "modifiedOn": {
+        "$date": 1761787021684
+      }
+    }
+  ]
+}

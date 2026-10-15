@@ -386,10 +386,32 @@ src/
       - Botón `🎬 Escenarios` en cada fila que despliega modal interactivo con los escenarios clínicos reales del curso.
       - Modal de creación/edición de curso enriquecido con selector de carrera y campo de prefijo.
 
+28. **Importación Focalizada de Docentes Activos 2026 de SimClic (`importSimclicTeachers.ts`)**:
+    - **Filtro Inteligente de Actividad (2026)**:
+      - En lugar de saturar la base de datos con los 774 registros históricos (donde más de 500 cuentas nunca iniciaron sesión ni dictan actualmente), se filtraron con precisión quirúrgica los **211 Docentes activos en 2026** (aquellos con login en SimClic durante 2026 o con sesiones clínicas programadas en las salas este año).
+    - **Asignación de DNI Provisional Serie 99 (8 Dígitos)**:
+      - Dado que SimClic no gestiona DNIs sino correos institucionales `@cientifica.edu.pe`, se asignaron DNIs provisionales correlativos de 8 dígitos en la serie reservada `99000001` a `99000211`.
+      - Al tener exactamente 8 dígitos numéricos, son 100% compatibles con el teclado táctil del Kiosco y no colisionan con ninguna serie de DNI real emitida por RENIEC en el Perú.
+    - **Registro en Base de Datos Postgres Neon**:
+      - Insertados los 211 docentes activos con sus nombres y apellidos oficiales, correos `@cientifica.edu.pe`, teléfonos registrados y rol `docente`.
+      - Ahora la pestaña **Docentes** en el Directorio de Personal (`PersonalTab.tsx`) muestra una lista limpia, ágil y relevante, lista para búsqueda por nombre, carrera o correo, y actualización al DNI físico.
+
+29. **Importación Oficial de los 41 Pacientes Simulados de SimClic (`importSimclicPatients.ts`)**:
+    - **Extracción de Actores Reales de la Clínica**:
+      - Identificados y extraídos los **41 Pacientes Simulados** registrados en SimClic (`profile.type === 'standardizedPatient'`).
+      - De ellos, **40 han estado 100% activos en octubre 2026** (con accesos recientes entre el 12 y 14 de octubre).
+    - **Asignación de DNI Provisional Serie 98 (8 Dígitos)**:
+      - Para evitar cualquier colisión con los docentes (serie 99) y con DNIs de RENIEC, se les asignaron DNIs provisionales correlativos de 8 dígitos del **`98000001` al `98000041`**.
+    - **Enlace Automático con Fichas de Casting (`casting_perfiles`)**:
+      - Simultáneamente se insertaron sus registros vinculados en `casting_perfiles`, calculando automáticamente su edad real a partir de su fecha de nacimiento (`birthdate`), registrando su género, notas de experiencia clínica y teléfono de contacto.
+      - Ahora la pestaña **Pacientes Simulados** en el Directorio de Personal (`PersonalTab.tsx`) y las convocatorias ECOE cuentan con el padrón oficial listo para programar turnos y generar planillas.
+
 ---
 
 ## 📝 4. Últimos Commits Registrados
 
+* `feat(ps)`: importar 41 pacientes simulados oficiales de SimClic con DNIs provisionales serie 98 y perfiles de casting
+* `feat(docentes)`: depurar padrón e importar únicamente 211 docentes activos en 2026 con DNIs serie 99000001 a 99000211
 * `fix(build)`: tipar `Set<string>` en `findChunks.ts` resolviendo error TS18046 en el chequeo de tipos de Next.js build
 * `ac398d3`: feat(academic): catalogo unificado opcion 1 con 13 carreras, 64 cursos oficiales simclic, prefijos y escenarios dinamicos
 * `147e906`: feat(seed): purgado quirurgico y carga oficial de 3 sedes y 63 salas de simclic preservando tecnicos

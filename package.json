@@ -17,7 +17,9 @@
     "simclic:sync": "tsx src/scripts/simclicSyncNow.ts",
     "simclic:bot": "tsx src/scripts/simclicCron.ts",
     "db:reset-simclic": "tsx src/scripts/reloadOfficialSimclicData.ts",
-    "db:seed-academic": "tsx src/scripts/seedOfficialCarrerasCursos.ts"
+    "db:seed-academic": "tsx src/scripts/seedOfficialCarrerasCursos.ts",
+    "db:import-teachers": "tsx src/scripts/importSimclicTeachers.ts",
+    "db:import-patients": "tsx src/scripts/importSimclicPatients.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

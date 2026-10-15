@@ -404,7 +404,29 @@ src/
       - Para evitar cualquier colisión con los docentes (serie 99) y con DNIs de RENIEC, se les asignaron DNIs provisionales correlativos de 8 dígitos del **`98000001` al `98000041`**.
     - **Enlace Automático con Fichas de Casting (`casting_perfiles`)**:
       - Simultáneamente se insertaron sus registros vinculados en `casting_perfiles`, calculando automáticamente su edad real a partir de su fecha de nacimiento (`birthdate`), registrando su género, notas de experiencia clínica y teléfono de contacto.
-      - Ahora la pestaña **Pacientes Simulados** en el Directorio de Personal (`PersonalTab.tsx`) y las convocatorias ECOE cuentan con el padrón oficial listo para programar turnos y generar planillas.
+30. **Portal Público de Consulta Rápida: Ambientes, Cursos y Docentes Espejo (`/consulta` y `/api/consulta`)**:
+    - **Requerimiento y Necesidad Operativa**:
+      - Todos los días, docentes y personal acuden a recepción o ingresan con su celular preguntando dónde les toca su clase, si tienen un «docente espejo» dictando a la par y qué cursos se están impartiendo en simultáneo (ej. *Externado en Cirugía*, *Simulación Quirúrgica*, *Semiología*).
+      - Módulo 100% público, responsive para smartphones y tablets de recepción, sin barreras de autenticación.
+    - **Restricción Estricta**:
+      - Cero fotografías de docentes; se emplean monogramas con iniciales de alto contraste e iconos institucionales (`UCS`, `🚪`, `🕒`, `🤝`).
+    - **Búsqueda Instantánea Omnicanal**:
+      - Búsqueda en tiempo real por DNI, Nombres o Apellidos con filtrado instantáneo.
+    - **Detección Algorítmica de Docentes Espejo en Paralelo**:
+      - El backend identifica automáticamente qué docentes dictan la misma materia al mismo intervalo horario (`max(startA, startB) < min(endA, endB)`) y en qué ambiente físico se encuentran (ej. Sala de Habilidades 2, Alta Fidelidad 4, etc.).
+    - **Navegación por Pestañas Especializadas**:
+      - 👨‍🏫 **Por Docente**: Ficha del docente con DNI, correo, horas programadas, tarjetas de sesiones con salas destacadas en tipografía gigante y sección dedicada de «Docentes Espejo».
+      - 📚 **Por Asignatura / Salas en Simultáneo**: Agrupa por curso mostrando todas las salas y grupos paralelos corriendo en vivo.
+      - 🏥 **Por Ambiente / Sede**: Listado por salas físicas y su ocupación por franja horaria.
+    - **Navegación Fluida e Integración de ThemeToggle**:
+      - Botón `🔍 Consultar Aulas` añadido en la barra superior del Kiosco Terminal (`KioscoTerminal.tsx`), enlace directo de retorno y control de alternancia de tema institucional `<ThemeToggle />` integrado en la cabecera.
+    - **Optimización de Alto Contraste en Tema Claro (WCAG AAA)**:
+      - Eliminación de colores `#ffffff` quemados en fondos claros: títulos, nombres de docentes, nombres de cursos, horas y monogramas ahora utilizan contraste óptimo (`#06152d` marino institucional sobre blanco/gris claro).
+      - Resaltado de ambiente en tema claro con gradiente sutil celeste/marino (`rgba(56, 189, 248, 0.12)`) y tipografía oscura nítida legible a metros de distancia.
+    - **Blindaje Estructural de Tarjetas de Docente Espejo (`.mirrorCard`)**:
+      - Corrección de desborde de insignias de sala (`.mirrorRoomBadge`): configurados `min-width: 0`, `flex: 1` en el contenedor del docente, `word-break: break-word`, límite de ancho flexible y diseño adaptativo que previene que las salas se salgan del recuadro.
+      - Visibilidad garantizada del nombre del docente compañero en texto oscuro sobre fondo menta/blanco nítido.
+      - **Enfoque Clínico Operativo**: Se retiraron los correos electrónicos y se incorporó directamente el **Caso Clínico / Escenario** asignado a cada docente espejo (ej: `🩺 Caso: [SimQx] - Caso: Dolor fosa iliaca derecha`), permitiendo a los docentes y coordinadores saber exactamente qué temática se trabaja en cada sala paralela.
 
 ---
 

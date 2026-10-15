@@ -27,23 +27,34 @@ async function ejecutarCicloSincronizacion(iteracion: number) {
 
   try {
     const { syncSimclicSessions } = await import('../lib/simclicSync');
-    const res = await syncSimclicSessions();
 
-    if (res.success) {
-      console.log(`✅ Sincronización exitosa en ${(res.duracionMs / 1000).toFixed(1)}s`);
-      console.log(`📅 Fecha: ${res.fecha} | Total Clases: ${res.total}`);
-      console.log(`✨ Nuevas: ${res.creadas} | 🔄 Actualizadas: ${res.actualizadas}`);
+    // 1. Sincronizar Hoy
+    console.log(`📡 Sincronizando clases de HOY...`);
+    const resHoy = await syncSimclicSessions(new Date());
 
-      if (res.reubicadas > 0) {
-        console.log(`\n⚠️ ATENCIÓN: Se detectaron ${res.reubicadas} cambios de sala por técnicos:`);
-        res.detallesReubicadas?.forEach((r) => {
+    if (resHoy.success) {
+      console.log(`✅ [Hoy ${resHoy.fecha}] Clases: ${resHoy.total} en ${(resHoy.duracionMs / 1000).toFixed(1)}s (Nuevas: ${resHoy.creadas}, Act: ${resHoy.actualizadas})`);
+      if (resHoy.reubicadas > 0) {
+        console.log(`\n⚠️ ATENCIÓN: Se detectaron ${resHoy.reubicadas} cambios de sala por técnicos:`);
+        resHoy.detallesReubicadas?.forEach((r) => {
           console.log(`  • [${r.simclicId}] ${r.titulo}: "${r.salaAnterior}" ➔ "${r.salaNueva}"`);
         });
       } else {
         console.log(`🟢 Sin traslados de ambiente detectados en este ciclo.`);
       }
     } else {
-      console.error(`⚠️ Advertencia en sincronización:`, res.error);
+      console.error(`⚠️ Advertencia en sincronización de hoy:`, resHoy.error);
+    }
+
+    // 2. Sincronizar Mañana para consulta anticipada de docentes
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    console.log(`📡 Sincronizando clases de MAÑANA para consulta anticipada...`);
+    const resManana = await syncSimclicSessions(manana);
+    if (resManana.success) {
+      console.log(`✅ [Mañana ${resManana.fecha}] Clases: ${resManana.total} en ${(resManana.duracionMs / 1000).toFixed(1)}s (Nuevas: ${resManana.creadas})`);
+    } else {
+      console.warn(`⚠️ Advertencia en sincronización de mañana:`, resManana.error);
     }
   } catch (err: any) {
     console.error(`❌ Error en ciclo #${iteracion}:`, err.message || err);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import styles from './consulta.module.css';
@@ -93,40 +93,56 @@ export default function ConsultaPublicaPage() {
     return name.slice(0, 2).toUpperCase();
   };
 
-  // Cargar datos al cambiar de fecha
-  useEffect(() => {
-    let isCancelled = false;
-    async function loadData() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/consulta?fecha=${fecha}`);
-        const data = await res.json();
-        if (!isCancelled) {
-          if (data.success) {
-            setDocentes(data.docentesDelDia || []);
-            setCursos(data.cursosDelDia || []);
-            setSedesList(data.sedesDelDia || []);
-            setTodasLasSesiones(data.todasLasSesiones || []);
-            setAmbientesInventario(data.ambientesInventario || []);
-          } else {
-            setError(data.error || 'No se pudo cargar la programación');
-          }
-        }
-      } catch (err: any) {
-        if (!isCancelled) {
-          setError(err?.message || 'Error de conexión con el servidor');
-        }
-      } finally {
-        if (!isCancelled) setLoading(false);
-      }
-    }
+  const [syncing, setSyncing] = useState(false);
 
-    loadData();
-    return () => {
-      isCancelled = true;
-    };
+  // Cargar datos al cambiar de fecha
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/consulta?fecha=${fecha}`);
+      const data = await res.json();
+      if (data.success) {
+        setDocentes(data.docentesDelDia || []);
+        setCursos(data.cursosDelDia || []);
+        setSedesList(data.sedesDelDia || []);
+        setTodasLasSesiones(data.todasLasSesiones || []);
+        setAmbientesInventario(data.ambientesInventario || []);
+      } else {
+        setError(data.error || 'No se pudo cargar la programación');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
+    }
   }, [fecha]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Sincronizar bajo demanda desde SimClic
+  const handleSyncFromSimclic = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/simclic/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadData();
+      } else {
+        alert(data.error || 'No se pudo sincronizar la programación desde SimClic');
+      }
+    } catch {
+      alert('Error de conexión al sincronizar con SimClic');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Filtrado de Docentes según Sede y Query
   const filteredDocentes = useMemo(() => {
@@ -242,6 +258,20 @@ export default function ConsultaPublicaPage() {
     return fecha === new Date().toISOString().slice(0, 10);
   }, [fecha]);
 
+  const isTomorrow = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return fecha === d.toISOString().slice(0, 10);
+  }, [fecha]);
+
+  const fechaLabel = useMemo(() => {
+    if (isToday) return 'hoy';
+    if (isTomorrow) return 'mañana';
+    const parts = fecha.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return fecha;
+  }, [isToday, isTomorrow, fecha]);
+
   return (
     <div className={styles.container}>
       {/* CABECERA INSTITUCIONAL */}
@@ -277,7 +307,7 @@ export default function ConsultaPublicaPage() {
             </button>
             <button
               onClick={setTomorrow}
-              className={styles.dateQuickBtn}
+              className={`${styles.dateQuickBtn} ${isTomorrow ? styles.dateQuickBtnActive : ''}`}
             >
               Mañana
             </button>
@@ -300,7 +330,7 @@ export default function ConsultaPublicaPage() {
       <section className={styles.heroSection}>
         <div className={styles.heroContent}>
           <h1 className={styles.heroHeading}>
-            ¿Dónde te toca tu clase <span className={styles.heroHeadingHighlight}>hoy</span>?
+            ¿Dónde te toca tu clase <span className={styles.heroHeadingHighlight}>{fechaLabel}</span>?
           </h1>
           <p className={styles.heroDescription}>
             Ingresa tu apellido, nombre o DNI para ver tus ambientes asignados, horarios y tus docentes compañeros espejo en simultáneo.
@@ -598,14 +628,29 @@ export default function ConsultaPublicaPage() {
                   <div className={styles.directorySection}>
                     <div className={styles.directoryHeader}>
                       <h2 className={styles.directoryTitle}>
-                        Docentes con programación para hoy ({filteredDocentes.length})
+                        Docentes con programación para {fechaLabel} ({filteredDocentes.length})
                       </h2>
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                         Selecciona un docente para ver sus ambientes y espejos
                       </span>
                     </div>
 
-                    {filteredDocentes.length === 0 ? (
+                    {todasLasSesiones.length === 0 ? (
+                      <div className={styles.emptyState}>
+                        <div className={styles.emptyIcon}>📅</div>
+                        <h3 className={styles.emptyTitle}>Sin programación registrada para {fechaLabel}</h3>
+                        <p className={styles.emptyText}>
+                          Aún no se ha sincronizado la programación de SimClic para la fecha {fecha}.
+                        </p>
+                        <button
+                          onClick={handleSyncFromSimclic}
+                          disabled={syncing}
+                          className={styles.syncBtn}
+                        >
+                          {syncing ? '⏳ Sincronizando con SimClic...' : '🔄 Sincronizar desde SimClic'}
+                        </button>
+                      </div>
+                    ) : filteredDocentes.length === 0 ? (
                       <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>🔍</div>
                         <h3 className={styles.emptyTitle}>No se encontraron docentes</h3>

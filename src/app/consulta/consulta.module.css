@@ -1240,6 +1240,32 @@
   background: var(--ucs-orange-hover);
 }
 
+.syncBtn {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.75rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+}
+
+.syncBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.4);
+}
+
+.syncBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .loadingSpinner {
   display: flex;
   flex-direction: column;

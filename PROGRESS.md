@@ -434,6 +434,15 @@ src/
       - Reemplazo del bloque de texto y badge de la cabecera por el logotipo oficial de la Universidad Científica del Sur (`/logoucs.png`), adaptado automáticamente a modo oscuro con filtro invertido de alto brillo.
       - En vista móvil (<= 640px), la cabecera se organiza verticalmente con el isotipo/logotipo centrado arriba y la fila de controles (`[ 🏢 Kiosco de Asistencia ]`, selector de tema y filtros rápidos de fecha) centrados abajo, previniendo sobrecarga visual.
       - Se jerarquizó la semántica SEO actualizando el titular principal a `<h1>`.
+    - **Sincronización por Fecha y Adaptabilidad Dinámica (`Hoy` / `Mañana`)**:
+      - La base de datos almacena las clases programadas por fecha específica (`sesiones_programadas.fecha`). Previamente solo se habían sincronizado el 14 y 15 de octubre.
+      - Se ejecutó la sincronización oficial con SimClic para mañana (`2026-10-16`), trayendo **241 clases programadas** en simultáneo entre Campus Villa, Campus Norte y Campus Ate.
+      - Se implementó en el cliente un botón de acción reactiva `🔄 Sincronizar desde SimClic` para cuando se consulte una fecha aún no sincronizada, permitiendo disparar la carga bajo demanda vía `POST /api/simclic/sync`.
+      - Se adaptaron dinámicamente los textos de la interfaz (`¿Dónde te toca tu clase mañana / hoy?` y `Docentes con programación para mañana / hoy`) y el estado activo del botón rápido `Mañana`.
+      - Se actualizó el daemon `simclicCron.ts` (`npm run simclic:bot`) para que en cada ciclo sincronice tanto **Hoy** como **Mañana**, asegurando que las clases del día siguiente siempre estén listas anticipadamente.
+      - **Automatización Nativa en la Nube con Vercel Cron (`vercel.json` y `/api/cron/simclic`)**:
+        - Se creó el archivo de configuración [`vercel.json`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/vercel.json) programado a las 05:00 AM Perú (`0 10 * * *` en UTC).
+        - Se creó la ruta [`/api/cron/simclic/route.ts`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/api/cron/simclic/route.ts) con soporte HTTP GET nativo de Vercel, tiempo de ejecución extendido `maxDuration = 60s`, y validación opcional de `CRON_SECRET`. Sincroniza en un solo pase tanto las clases de hoy como las de mañana.
 
 ---
 

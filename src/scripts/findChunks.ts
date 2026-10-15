@@ -4,7 +4,7 @@ async function findChunks() {
   const text = await res.text();
 
   const chunkRegex = /["']\/vite\/entry-client\/([^"']+\.js)["']/g;
-  const chunks = new Set();
+  const chunks = new Set<string>();
   let m;
   while ((m = chunkRegex.exec(text)) !== null) {
     chunks.add(m[1]);

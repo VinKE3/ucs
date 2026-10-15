@@ -390,6 +390,7 @@ src/
 
 ## 📝 4. Últimos Commits Registrados
 
+* `fix(build)`: tipar `Set<string>` en `findChunks.ts` resolviendo error TS18046 en el chequeo de tipos de Next.js build
 * `ac398d3`: feat(academic): catalogo unificado opcion 1 con 13 carreras, 64 cursos oficiales simclic, prefijos y escenarios dinamicos
 * `147e906`: feat(seed): purgado quirurgico y carga oficial de 3 sedes y 63 salas de simclic preservando tecnicos
 * `75383fd`: docs: registrar commit 3a8c69d en PROGRESS.md

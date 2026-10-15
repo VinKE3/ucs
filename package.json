@@ -15,7 +15,8 @@
     "demo:ps:seed": "tsx src/db/seed_demo_ps.ts",
     "demo:ps:cleanup": "tsx src/db/cleanup_demo_ps.ts",
     "simclic:sync": "tsx src/scripts/simclicSyncNow.ts",
-    "simclic:bot": "tsx src/scripts/simclicCron.ts"
+    "simclic:bot": "tsx src/scripts/simclicCron.ts",
+    "db:reset-simclic": "tsx src/scripts/reloadOfficialSimclicData.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

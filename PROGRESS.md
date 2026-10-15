@@ -357,6 +357,17 @@ src/
     - **Comandos de Consola / Daemon**:
       - `npm run simclic:sync`: Sincronización manual instantánea de prueba o mantenimiento.
       - `npm run simclic:bot`: Bot autónomo continuo que monitorea y actualiza cada 30 minutos (configurable con `SIMCLIC_SYNC_INTERVAL_MINUTES`).
+34. **Alineación Oficial Estricta: Purgado Quirúrgico y Carga de las 3 Sedes y 63 Salas de SimClic**:
+    - **Requerimiento**: Reiniciar los catálogos de sedes y ambientes para reflejar exactamente la infraestructura física oficial de SimClic, eliminando datos de prueba antiguos y preservando 100% intacta la información de los técnicos y administradoras.
+    - **Auditoría y Blindaje de Personal**: Se protegieron los 13 usuarios críticos: los 11 técnicos operativos (Miguel Quispe, Maykol Palacios, German Flores, Jose Calderon, Hugo Cruz, David Poma, Juan Torvisco, Jean Pinchi, Sebastián Puma, Kevin Muñoz y Super Admin 00000001) con sus horarios configurados y las 2 administradoras (Lizbeth Arriaran y Martha Villafani).
+    - **Limpieza Ejecutada**: Se purgaron perfiles de casting ficticios, asistencias demo desfasadas y los 39 ambientes preliminares.
+    - **Configuración de Sedes Oficiales**:
+      - `Campus Villa` (ID 1, `VILLA`): Antigua Panamericana Sur 19, Villa El Salvador (38 salas).
+      - `Campus Norte` (ID 2, `NORTE`): Av. Alfredo Mendiola & Av. 2 de Octubre, Los Olivos (11 salas).
+      - `Campus Ate` (ID 3, `ATE`): Av. Nicolás Ayllón 7208, Ate (14 salas).
+    - **Carga de 63 Salas Oficiales**: Insertadas con sus nombres, códigos (`SL02...`, `SL05...`, `ATE01...`), capacidades y categorización inteligente (`alta_fidelidad`, `habilidades`, `consultorio`, `hospitalizacion`, `general`).
+    - **Re-Sincronización Inmediata**: El bot sincronizó de nuevo las 188 clases del día mapeándolas al 100% con las nuevas 63 salas oficiales.
+    - **Script de Mantenimiento**: Registrado como comando reutilizable `npm run db:reset-simclic`.
 
 ---
 

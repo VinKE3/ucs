@@ -168,6 +168,31 @@ export async function GET(request: Request) {
       }
     }
 
+    // Agrupar asistencias por usuario y fecha para resolución contextual de múltiples turnos
+    const asistenciasPorUsuarioFecha = new Map<string, typeof list>();
+    for (const a of list) {
+      const key = `${a.usuarioId}_${a.fecha}`;
+      if (!asistenciasPorUsuarioFecha.has(key)) asistenciasPorUsuarioFecha.set(key, []);
+      asistenciasPorUsuarioFecha.get(key)!.push(a);
+    }
+
+    const parseMinutosLima = (val: Date | string) => {
+      try {
+        const d = typeof val === 'string' ? new Date(val) : val;
+        const parts = new Intl.DateTimeFormat('es-PE', {
+          timeZone: 'America/Lima',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: false,
+        }).formatToParts(d);
+        const h = Number(parts.find((p) => p.type === 'hour')?.value ?? d.getHours());
+        const m = Number(parts.find((p) => p.type === 'minute')?.value ?? d.getMinutes());
+        return h * 60 + m;
+      } catch {
+        return 0;
+      }
+    };
+
     const enrichedList = list.map((asist) => {
       const uEmail = (asist.correo || '').toLowerCase().trim();
       const uNomCompleto = `${asist.nombres} ${asist.apellidos}`.toLowerCase().trim();
@@ -195,9 +220,43 @@ export async function GET(request: Request) {
         return false;
       });
 
+      // Si el colaborador tiene múltiples marcaciones en el mismo día,
+      // asociamos cada bloque a la marcación más relevante por proximidad horaria o vinculación
+      let sesAsignadas = sesMatch;
+      const key = `${asist.usuarioId}_${asist.fecha}`;
+      const asistenciasMismoDia = asistenciasPorUsuarioFecha.get(key) || [asist];
+
+      if (asistenciasMismoDia.length > 1) {
+        const aIng = parseMinutosLima(asist.horaIngreso);
+        const aSal = asist.horaSalida ? parseMinutosLima(asist.horaSalida) : aIng + (asist.minutosTotales || 240);
+        const aMid = (aIng + aSal) / 2;
+
+        sesAsignadas = sesMatch.filter((s) => {
+          if (s.asistenciaId && s.asistenciaId === asist.id) return true;
+          if (s.asistenciaId && s.asistenciaId !== asist.id) return false;
+
+          try {
+            const [sIniH, sIniM] = s.horaInicio.split(':').map(Number);
+            const [sFinH, sFinM] = s.horaFin.split(':').map(Number);
+            const sMid = (sIniH * 60 + sIniM + sFinH * 60 + sFinM) / 2;
+            const distActual = Math.abs(sMid - aMid);
+
+            return asistenciasMismoDia.every((otra) => {
+              if (otra.id === asist.id) return true;
+              const oIng = parseMinutosLima(otra.horaIngreso);
+              const oSal = otra.horaSalida ? parseMinutosLima(otra.horaSalida) : oIng + (otra.minutosTotales || 240);
+              const oMid = (oIng + oSal) / 2;
+              return distActual <= Math.abs(sMid - oMid);
+            });
+          } catch {
+            return true;
+          }
+        });
+      }
+
       return {
         ...asist,
-        sesionesProgramadasDia: sesMatch,
+        sesionesProgramadasDia: sesAsignadas,
       };
     });
 

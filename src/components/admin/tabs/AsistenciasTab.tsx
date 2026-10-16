@@ -7,100 +7,8 @@ import { DateRangePicker } from '@/app/admin/DateRangePicker';
 import { showAlert } from '@/lib/alerts';
 import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAuditoriaProgramacion';
 
-export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem) {
-  const sesiones = asist.sesionesProgramadasDia || [];
-  if (sesiones.length === 0) {
-    return {
-      tieneProgramacion: false,
-      categoria: 'sin_prog' as const,
-      etiqueta: 'Sin bloque SimClic',
-      color: '#94a3b8',
-      bg: 'rgba(148, 163, 184, 0.1)',
-      primerBloque: null,
-      ultimoBloque: null,
-      bloqueInicio: '',
-      bloqueFin: '',
-      totalSesiones: 0,
-      diffMinutos: 0,
-      discrepanciaSala: false,
-      salasProg: [],
-    };
-  }
-
-  const primerBloque = sesiones[0];
-  const ultimoBloque = sesiones[sesiones.length - 1];
-  let diffMinutos = 0;
-  let esTardanza = false;
-
-  if (primerBloque && asist.horaIngreso) {
-    try {
-      const [hH, hM] = primerBloque.horaInicio.split(':').map(Number);
-      const dIng = new Date(asist.horaIngreso);
-      const ingresoMins = dIng.getHours() * 60 + dIng.getMinutes();
-      const progMins = hH * 60 + hM;
-      diffMinutos = ingresoMins - progMins;
-      esTardanza = diffMinutos > 10;
-    } catch {}
-  }
-
-  const salasProg = Array.from(new Set(sesiones.map((s) => s.ambienteNombreSimclic).filter(Boolean)));
-  const discrepanciaSala =
-    Boolean(asist.ambienteNombre) &&
-    salasProg.length > 0 &&
-    !salasProg.some((s) => s?.toLowerCase().includes(asist.ambienteNombre?.toLowerCase() || ''));
-
-  if (esTardanza) {
-    return {
-      tieneProgramacion: true,
-      categoria: 'tardanza' as const,
-      etiqueta: `🚨 Tardanza (+${diffMinutos}m)`,
-      color: '#ef4444',
-      bg: 'rgba(239, 68, 68, 0.15)',
-      primerBloque,
-      ultimoBloque,
-      bloqueInicio: primerBloque.horaInicio,
-      bloqueFin: ultimoBloque.horaFin,
-      totalSesiones: sesiones.length,
-      diffMinutos,
-      discrepanciaSala,
-      salasProg,
-    };
-  }
-
-  if (discrepanciaSala) {
-    return {
-      tieneProgramacion: true,
-      categoria: 'discrepancia_sala' as const,
-      etiqueta: '🔄 Discrepancia Sala',
-      color: '#f59e0b',
-      bg: 'rgba(245, 158, 11, 0.15)',
-      primerBloque,
-      ultimoBloque,
-      bloqueInicio: primerBloque.horaInicio,
-      bloqueFin: ultimoBloque.horaFin,
-      totalSesiones: sesiones.length,
-      diffMinutos,
-      discrepanciaSala,
-      salasProg,
-    };
-  }
-
-  return {
-    tieneProgramacion: true,
-    categoria: 'alineado' as const,
-    etiqueta: `🟢 Alineado (${primerBloque.horaInicio} - ${ultimoBloque.horaFin})`,
-    color: '#10b981',
-    bg: 'rgba(16, 185, 129, 0.15)',
-    primerBloque,
-    ultimoBloque,
-    bloqueInicio: primerBloque.horaInicio,
-    bloqueFin: ultimoBloque.horaFin,
-    totalSesiones: sesiones.length,
-    diffMinutos,
-    discrepanciaSala: false,
-    salasProg,
-  };
-}
+import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion } from '@/lib/simclicAudit';
+export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion };
 
 interface AsistenciasTabProps {
   asistenciasList: AsistenciaAdminItem[];
@@ -168,7 +76,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
   const [itemsPorPaginaResumen, setItemsPorPaginaResumen] = useState<number>(15);
 
   // Estados para Auditoría SimClic y Acordeón
-  const [filtroSimclic, setFiltroSimclic] = useState<'todos' | 'tardanza' | 'discrepancia_sala' | 'alineado' | 'sin_prog'>('todos');
+  const [filtroSimclic, setFiltroSimclic] = useState<'todos' | 'cobertura_parcial' | 'tardanza' | 'discrepancia_sala' | 'alineado' | 'sin_prog'>('todos');
   const [filasExpandidas, setFilasExpandidas] = useState<Set<number>>(new Set());
   const [asistenciaParaAuditoriaProg, setAsistenciaParaAuditoriaProg] = useState<AsistenciaAdminItem | null>(null);
 
@@ -504,6 +412,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
 
   // Métricas y filtrado rápido por cumplimiento SimClic
   const metricasSimclic = useMemo(() => {
+    let coberturaParcial = 0;
     let tardanza = 0;
     let discrepanciaSala = 0;
     let alineado = 0;
@@ -512,13 +421,14 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
     for (const a of asistenciasList) {
       if (a.tipoPersonal !== 'docente' && a.tipoPersonal !== 'paciente_simulado') continue;
       const evalSim = evaluarCumplimientoSimclic(a);
-      if (evalSim.categoria === 'tardanza') tardanza++;
+      if (evalSim.categoria === 'cobertura_parcial') coberturaParcial++;
+      else if (evalSim.categoria === 'tardanza') tardanza++;
       else if (evalSim.categoria === 'discrepancia_sala') discrepanciaSala++;
       else if (evalSim.categoria === 'alineado') alineado++;
       else if (evalSim.categoria === 'sin_prog') sinProg++;
     }
 
-    return { tardanza, discrepanciaSala, alineado, sinProg };
+    return { coberturaParcial, tardanza, discrepanciaSala, alineado, sinProg };
   }, [asistenciasList]);
 
   const asistenciasConFiltroSimclic = useMemo(() => {
@@ -610,6 +520,95 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
     link.setAttribute(
       'download',
       `Resumen_Horas_UCS_${asistFiltroFechaDesde || 'inicio'}_${asistFiltroFechaHasta || 'fin'}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportDetalleAuditadoCsv = () => {
+    if (asistenciasConFiltroSimclic.length === 0) {
+      showAlert('Sin asistencias', 'No hay registros de asistencia con los filtros seleccionados.', 'info');
+      return;
+    }
+
+    const headers = [
+      'Fecha',
+      'DNI',
+      'Apellidos',
+      'Nombres',
+      'Rol',
+      'Sede',
+      'Sala / Ambiente',
+      'Curso / Asignatura',
+      'Hora Ingreso Real',
+      'Hora Salida Real',
+      'Minutos Totales',
+      'Horas (Decimal)',
+      'Estado Turno',
+      'Diagnóstico SimClic',
+      'Cobertura Bloques',
+      'Bloques Programados',
+      'Bloques Cubiertos',
+      'Bloques Desatendidos',
+      'Desfase Ingreso (min)',
+      'Retiro Anticipado (min)',
+      'Cambio de Sala',
+      'Detalle Bloques SimClic',
+      'Observaciones / Auditoría',
+    ];
+
+    const escapeCsv = (str: string | number | null | undefined) => {
+      if (str === null || str === undefined) return '""';
+      const clean = String(str).replace(/"/g, '""');
+      return `"${clean}"`;
+    };
+
+    const rows = asistenciasConFiltroSimclic.map((a) => {
+      const evalSim = evaluarCumplimientoSimclic(a);
+      const dIng = new Date(a.horaIngreso);
+      const hIngStr = dIng.toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
+      const hSalStr = a.horaSalida ? new Date(a.horaSalida).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' }) : 'Pendiente';
+
+      const bloquesTexto = evalSim.bloquesEvaluados.map(b => 
+        `[B${b.idx + 1}: ${b.sesion.horaInicio}-${b.sesion.horaFin} ${b.estado.toUpperCase()} (${b.porcentajeCobertura}%) ${b.sesion.ambienteNombreSimclic || ''}]`
+      ).join('; ');
+
+      return [
+        escapeCsv(a.fecha),
+        escapeCsv(a.dni),
+        escapeCsv(a.apellidos),
+        escapeCsv(a.nombres),
+        escapeCsv(a.tipoPersonal),
+        escapeCsv(a.sedeNombre),
+        escapeCsv(a.ambienteNombre || 'Clínica General (Soporte)'),
+        escapeCsv(a.cursoNombre || '—'),
+        escapeCsv(hIngStr),
+        escapeCsv(hSalStr),
+        a.minutosTotales || 0,
+        ((a.minutosTotales || 0) / 60).toFixed(2),
+        escapeCsv(a.estado),
+        escapeCsv(evalSim.etiqueta.replace(/[^\w\s\(\)\:\-\+\/\,\.]/gi, '').trim()),
+        escapeCsv(evalSim.totalSesiones > 0 ? `${evalSim.bloquesCubiertos}/${evalSim.totalSesiones} (${evalSim.porcentajeTotal}%)` : 'N/A'),
+        evalSim.totalSesiones,
+        evalSim.bloquesCubiertos,
+        evalSim.bloquesDesatendidos,
+        evalSim.diffMinutos,
+        evalSim.retiroAnticipadoMinutos,
+        escapeCsv(evalSim.discrepanciaSala ? 'SI' : 'NO'),
+        escapeCsv(bloquesTexto),
+        escapeCsv(a.motivoModificacion || a.observaciones || ''),
+      ].join(';');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `Auditoria_Asistencias_SimClic_${asistFiltroFechaDesde || 'inicio'}_${asistFiltroFechaHasta || 'fin'}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -731,8 +730,9 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             )}
 
             <button
-              onClick={modoVista === 'resumen' ? handleExportResumenCsv : onExportCsv}
+              onClick={modoVista === 'resumen' ? handleExportResumenCsv : handleExportDetalleAuditadoCsv}
               className={styles.exportBtn}
+              title="Descargar reporte completo en Excel (CSV UTF-8 con diagnóstico SimClic)"
             >
               <span>📥</span> {modoVista === 'resumen' ? 'Exportar Resumen (CSV)' : 'Descargar Excel (CSV)'}
             </button>
@@ -1253,6 +1253,14 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setFiltroSimclic('cobertura_parcial')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'cobertura_parcial' ? styles.simclicPillBtnActive : ''}`}
+              style={{ color: '#f59e0b', borderColor: filtroSimclic === 'cobertura_parcial' ? '#f59e0b' : undefined }}
+            >
+              ⚠️ Cobertura Parcial / Retiro Anticipado ({metricasSimclic.coberturaParcial})
+            </button>
+            <button
+              type="button"
               onClick={() => setFiltroSimclic('tardanza')}
               className={`${styles.simclicPillBtn} ${filtroSimclic === 'tardanza' ? styles.simclicPillBtnActive : ''}`}
               style={{ color: '#ef4444' }}
@@ -1263,7 +1271,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
               type="button"
               onClick={() => setFiltroSimclic('discrepancia_sala')}
               className={`${styles.simclicPillBtn} ${filtroSimclic === 'discrepancia_sala' ? styles.simclicPillBtnActive : ''}`}
-              style={{ color: '#f59e0b' }}
+              style={{ color: '#38bdf8' }}
             >
               🏢 Cambio / Discrepancia de Sala ({metricasSimclic.discrepanciaSala})
             </button>
@@ -1538,22 +1546,31 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                       {/* COLUMNA AUDITORÍA SIMCLIC */}
                       <td>
                         {(asist.tipoPersonal === 'docente' || asist.tipoPersonal === 'paciente_simulado') ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '155px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '175px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                               <span
                                 style={{
-                                  fontSize: '0.7rem',
+                                  fontSize: '0.72rem',
                                   fontWeight: 700,
-                                  padding: '0.15rem 0.45rem',
-                                  borderRadius: '4px',
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '5px',
                                   background: evalSim.bg,
                                   color: evalSim.color,
                                   border: `1px solid ${evalSim.color}40`,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
                                 }}
                               >
                                 {evalSim.etiqueta}
                               </span>
                             </div>
+
+                            {evalSim.subetiqueta && (
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.25 }}>
+                                {evalSim.subetiqueta}
+                              </div>
+                            )}
 
                             {evalSim.bloqueInicio ? (
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
@@ -1719,51 +1736,91 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                               </button>
                             </div>
 
-                            {/* Mini tarjetas de bloques */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.65rem' }}>
-                              {asist.sesionesProgramadasDia!.map((sesion, idx) => {
-                                let duracion = 0;
-                                try {
-                                  const [hIniH, hIniM] = sesion.horaInicio.split(':').map(Number);
-                                  const [hFinH, hFinM] = sesion.horaFin.split(':').map(Number);
-                                  duracion = hFinH * 60 + hFinM - (hIniH * 60 + hIniM);
-                                } catch {}
-
+                            {/* Mini tarjetas de bloques con Auditoría Bloque a Bloque */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '0.75rem' }}>
+                              {evalSim.bloquesEvaluados.map((bloque) => {
+                                const { sesion } = bloque;
                                 return (
                                   <div
-                                    key={sesion.id || idx}
+                                    key={sesion.id || bloque.idx}
                                     style={{
                                       background: 'var(--bg-card)',
-                                      border: '1px solid var(--border-color)',
-                                      borderRadius: '8px',
-                                      padding: '0.65rem 0.85rem',
+                                      border: `1.5px solid ${bloque.estado === 'desatendido' ? 'rgba(239, 68, 68, 0.4)' : bloque.estado === 'parcial' ? 'rgba(245, 158, 11, 0.4)' : 'var(--border-color)'}`,
+                                      borderRadius: '10px',
+                                      padding: '0.75rem 0.95rem',
                                       display: 'flex',
                                       flexDirection: 'column',
-                                      gap: '0.3rem',
+                                      gap: '0.35rem',
+                                      boxShadow: bloque.estado !== 'cubierto' ? '0 2px 6px rgba(0, 0, 0, 0.15)' : 'none',
                                     }}
                                   >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                                        ⏰ {sesion.horaInicio} - {sesion.horaFin}
+                                    {/* Cabecera del Bloque */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem' }}>
+                                      <span style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                                        ⏰ Bloque {bloque.idx + 1}: {sesion.horaInicio} - {sesion.horaFin}
                                       </span>
-                                      <span style={{
-                                        fontSize: '0.68rem',
-                                        fontWeight: 600,
-                                        padding: '0.1rem 0.35rem',
-                                        borderRadius: '4px',
-                                        background: 'rgba(56, 189, 248, 0.1)',
-                                        color: '#38bdf8',
-                                        fontFamily: 'var(--font-mono)',
-                                      }}>
-                                        {duracion > 0 ? `${duracion} min` : 'N/A'}
-                                      </span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <span
+                                          style={{
+                                            fontSize: '0.68rem',
+                                            fontWeight: 800,
+                                            padding: '0.12rem 0.45rem',
+                                            borderRadius: '4px',
+                                            background: bloque.bg,
+                                            color: bloque.color,
+                                            border: `1px solid ${bloque.color}50`,
+                                          }}
+                                        >
+                                          {bloque.etiqueta}
+                                        </span>
+                                        <span
+                                          style={{
+                                            fontSize: '0.68rem',
+                                            fontWeight: 700,
+                                            padding: '0.1rem 0.35rem',
+                                            borderRadius: '4px',
+                                            background: 'rgba(255, 255, 255, 0.06)',
+                                            color: 'var(--text-secondary)',
+                                            fontFamily: 'var(--font-mono)',
+                                          }}
+                                        >
+                                          {bloque.porcentajeCobertura}%
+                                        </span>
+                                      </div>
                                     </div>
 
-                                    <div style={{ fontSize: '0.76rem', color: 'var(--ucs-orange)', fontWeight: 600 }}>
+                                    {/* Micro barra de progreso visual */}
+                                    <div
+                                      style={{
+                                        height: '4px',
+                                        width: '100%',
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        borderRadius: '2px',
+                                        overflow: 'hidden',
+                                        margin: '0.1rem 0',
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          height: '100%',
+                                          width: `${bloque.porcentajeCobertura}%`,
+                                          background: bloque.color,
+                                          borderRadius: '2px',
+                                          transition: 'width 0.3s ease',
+                                        }}
+                                      />
+                                    </div>
+
+                                    {/* Diagnóstico de Presencia */}
+                                    <div style={{ fontSize: '0.72rem', color: bloque.estado === 'desatendido' ? '#ef4444' : bloque.estado === 'parcial' ? '#f59e0b' : 'var(--text-muted)', fontWeight: 600 }}>
+                                      ⏱️ {bloque.motivoDetalle}
+                                    </div>
+
+                                    <div style={{ fontSize: '0.76rem', color: 'var(--ucs-orange)', fontWeight: 700 }}>
                                       📚 {sesion.cursoNombreSimclic || 'Curso General'}
                                     </div>
 
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '0.2rem' }}>
                                       <span>📍 {sesion.ambienteNombreSimclic || 'Sala no especificada'}</span>
                                       {sesion.carrera && <span style={{ color: 'var(--text-muted)' }}>🎓 {sesion.carrera}</span>}
                                     </div>

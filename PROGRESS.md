@@ -563,8 +563,24 @@ src/
       - `🚨 Alertas Rojas Sin Marcar` (19 clases de SimClic sin registro de asistencia).
     - **Técnicos de Simulación (106 asistencias)**:
       - Cobertura de los 10 técnicos de Sede Villa en turnos Mañana, Tarde, Jornada, guardias feriado Angamos, sábados, tardanzas (+15m a +35m), sobretiempos (+45m a +65m) y 1 cierre forzado justificado con `auditoria_asistencias`.
-* `fix(modals-portal)`: Centrado Universal con React Portal (`createPortal`) para Todos los Modales de Pestañas:
-  - Se integró `createPortal(..., document.body)` en [ModalAuditoriaProgramacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalAuditoriaProgramacion.tsx), [ModalDetalleSesionSimclic.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalDetalleSesionSimclic.tsx), [ModalFichaPacienteSimulado.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalFichaPacienteSimulado.tsx), [ModalComprobanteLiquidacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalComprobanteLiquidacion.tsx) y [ModalGestionTerminales.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalGestionTerminales.tsx) para resolver el issue de `backdrop-filter: blur(12px)` en `.cardPanel` y garantizar centrado perfecto en viewport.
+* `feat(audit-blocks)`: **Motor de Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`simclicAudit.ts`, `AsistenciasTab.tsx`, `ModalAuditoriaProgramacion.tsx`, `/api/asistencias`)**:
+  - **Módulo de Auditoría Desacoplado (`src/lib/simclicAudit.ts`)**:
+    - Motor de cálculo de intervalos temporales entre la presencia real en Kiosco (`horaIngreso`, `horaSalida`) y cada sesión oficial agendada en SimClic (`horaInicio`, `horaFin`).
+    - Detección algorítmica de tres estados por bloque: `🟢 Cubierto` (>= 80% o en horario), `⚠️ Parcial` (25% a 79% o salida previa) y `🔴 Desatendido` (< 25% o inasistencia completa).
+    - Cálculo de retiros anticipados con desfase horario exacto (`-${X}h ${Y}m antes del cierre`) y evaluación de puntualidad de ingreso.
+  - **Quinta Pastilla de Auditoría en `AsistenciasTab.tsx`**:
+    - Botón de filtro rápido `⚠️ Cobertura Parcial / Retiro Anticipado (X)` con contador en vivo.
+    - Columna de Auditoría SimClic enriquecida con badges adaptativos, conteo de bloques cubiertos vs planificados (`1/2 bloques`), horas reales de salida y advertencias claras.
+  - **Acordeón Expandible de Bloques (`▶`) en Tabla Detallada**:
+    - Cada mini-tarjeta de bloque ahora cuenta con insignia de estado individual (`🟢 Cubierto`, `⚠️ Parcial`, `🔴 Desatendido`), porcentaje de cobertura (`X%`), micro barra de progreso visual de 4px y texto diagnóstico (`Presencia total`, `Salió a las 13:00 antes de iniciar el bloque`, etc.).
+  - **Ficha 360° en `ModalAuditoriaProgramacion.tsx`**:
+    - Nuevo KPI superior de **Cobertura de Bloques** (`1 de 2 bloques (50%)`).
+    - Banner de alerta prominente de **Retiro Anticipado Detectado** con detalle de horas abandonadas y sesiones desatendidas.
+    - Tarjetas de sesión enriquecidas con progreso visual de cobertura y diagnóstico en sala.
+  - **Asignación Contextual de Sesiones en `/api/asistencias/route.ts`**:
+    - Desambiguación contextual de múltiples turnos en una misma fecha, asociando cada sesión al turno de Kiosco correspondiente por proximidad temporal y preservando la veracidad de la auditoría.
+  - **Exportación en 1-Clic a Excel (CSV UTF-8)**:
+    - Generador client-side respetando los filtros activos y exportando `Diagnóstico SimClic`, `Cobertura Bloques`, `Desfase Ingreso`, `Retiro Anticipado`, `Cambio de Sala` y detalle cronológico de cada bloque.
 
 ---
 
@@ -576,13 +592,7 @@ src/
    - Integración con lector USB en el kiosco para marcación instantánea sin digitar DNI.
 3. **Integración con Programación de SimClic**:
    - Programación 360° en tiempo real con línea de tiempo Gantt, cruce con marcación de docentes y pacientes simulados, y auditoría preventiva de ausentismo (Completado).
-4. **Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`AsistenciasTab.tsx` & `ModalAuditoriaProgramacion.tsx`)**:
-   - **Problema detectado**: Cuando un Paciente Simulado o Docente tiene múltiples bloques programados en un mismo día (ej. Dina Cáceres el sábado 10/10 con Bloque 1 de `07:00 - 12:50` y Bloque 2 de `12:50 - 18:00`), y el usuario solo registra marcación de mañana (`06:40 - 13:00`), el evaluador actual agrupa todo el día y muestra falsamente `🟢 Alineado (07:00 - 18:00)` sin validar la hora de salida real (`13:00`).
-   - **Mejoras a implementar**:
-     - **Cruce Bloque a Bloque**: Asociar la marcación con el bloque exacto que cubre según horario de entrada y salida real (ej. `🟢 Alineado Bloque 1: 07:00 - 12:50`).
-     - **Detección de Retiro Anticipado / Cobertura Parcial**: Si el colaborador se retira antes de los bloques de la tarde, alertar con insignia distintiva `⚠️ Cobertura Parcial (1/2 bloques)` o `🚨 Bloque 2 Sin Marcar`.
-     - **Desglose en Modal de Auditoría**: Marcar individualmente cada bloque programado de SimClic con insignia de estado: `[🟢 Asistido / En Sala]` para el bloque cubierto vs `[🔴 Sin Marcación / Desatendido]` para el bloque no cubierto.
-     - **Multi-turno en Semilla de Simulación**: Generar los 2 registros de asistencia independientes cuando un actor deba cubrir ambos bloques (mañana y tarde) de forma realista.
+4. **Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`AsistenciasTab.tsx` & `ModalAuditoriaProgramacion.tsx`)** (Completado - Hito 36).
 
 
 

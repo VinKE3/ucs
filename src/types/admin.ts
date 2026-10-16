@@ -348,3 +348,46 @@ export interface CastingPerfilItem {
   createdAt?: string;
 }
 
+export interface EvaluacionSimclicBloque {
+  sesion: SesionProgramadaSimclicItem;
+  idx: number;
+  estado: 'cubierto' | 'parcial' | 'desatendido';
+  etiqueta: string;
+  color: string;
+  bg: string;
+  bIniMins: number;
+  bFinMins: number;
+  minutosPresencia: number;
+  duracionBloque: number;
+  porcentajeCobertura: number;
+  motivoDetalle: string;
+}
+
+export interface EvaluacionSimclicResult {
+  tieneProgramacion: boolean;
+  categoria: 'todos' | 'tardanza' | 'cobertura_parcial' | 'discrepancia_sala' | 'alineado' | 'sin_prog';
+  etiqueta: string;
+  subetiqueta?: string;
+  color: string;
+  bg: string;
+  primerBloque: SesionProgramadaSimclicItem | null;
+  ultimoBloque: SesionProgramadaSimclicItem | null;
+  bloqueInicio: string;
+  bloqueFin: string;
+  totalSesiones: number;
+  bloquesCubiertos: number;
+  bloquesParciales: number;
+  bloquesDesatendidos: number;
+  porcentajeTotal: number;
+  diffMinutos: number;
+  esTardanza: boolean;
+  retiroAnticipadoMinutos: number;
+  esRetiroAnticipado: boolean;
+  horaSalidaRealStr: string;
+  horaIngresoRealStr: string;
+  discrepanciaSala: boolean;
+  salasProg: string[];
+  bloquesEvaluados: EvaluacionSimclicBloque[];
+  resumenTexto: string;
+}
+

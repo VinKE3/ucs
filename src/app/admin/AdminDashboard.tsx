@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
@@ -272,6 +272,65 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   useEffect(() => {
     loadData();
   }, []);
+
+  // Sincronización Global en Segundo Plano con SimClic (Multi-tab)
+  const isGlobalSyncingRef = useRef(false);
+  const [lastGlobalSyncTime, setLastGlobalSyncTime] = useState<Date | null>(null);
+  const [simclicSyncCount, setSimclicSyncCount] = useState<number>(0);
+
+  const triggerGlobalSyncSimclic = useCallback(async (isSilent = true) => {
+    if (isGlobalSyncingRef.current) return;
+    isGlobalSyncingRef.current = true;
+
+    try {
+      const nowPeru = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const hoyLima = `${nowPeru.getFullYear()}-${pad(nowPeru.getMonth() + 1)}-${pad(nowPeru.getDate())}`;
+
+      const res = await fetch('/api/simclic/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha: hoyLima }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLastGlobalSyncTime(new Date());
+        setSimclicSyncCount((prev) => prev + 1);
+
+        if (data.reubicadas > 0) {
+          showToast(`🔄 SimClic: Se detectaron ${data.reubicadas} sesiones trasladadas de sala`, 'info');
+        } else if (!isSilent) {
+          showToast(`Sincronización exitosa: ${data.total || 0} sesiones procesadas`, 'success');
+        }
+      }
+    } catch (err) {
+      console.error('Error en sincronización global con SimClic:', err);
+    } finally {
+      isGlobalSyncingRef.current = false;
+    }
+  }, []);
+
+  // Auto-sync global en segundo plano cada 3 minutos y al reenfocar el navegador
+  useEffect(() => {
+    const initialTimer = setTimeout(() => {
+      triggerGlobalSyncSimclic(true);
+    }, 2500);
+
+    const interval = setInterval(() => {
+      triggerGlobalSyncSimclic(true);
+    }, 180000); // 3 minutos
+
+    const handleFocus = () => {
+      triggerGlobalSyncSimclic(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [triggerGlobalSyncSimclic]);
 
   const loadCursos = useCallback(async () => {
     try {
@@ -1196,6 +1255,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             sedesList={sedesList}
             usuariosList={usuariosList}
             onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
+            simclicSyncCount={simclicSyncCount}
+            lastGlobalSyncTime={lastGlobalSyncTime}
+            onTriggerSync={() => triggerGlobalSyncSimclic(false)}
           />
         )}
 

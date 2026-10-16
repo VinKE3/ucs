@@ -18,6 +18,9 @@ interface ProgramacionTabProps {
   sedesList: SedeAdminItem[];
   usuariosList?: UsuarioItem[];
   onOpenCrearAsistenciaManual?: () => void;
+  simclicSyncCount?: number;
+  lastGlobalSyncTime?: Date | null;
+  onTriggerSync?: () => void;
 }
 
 // Clasificación y ordenamiento idéntico al SimClic por pisos (Primer Piso / Segundo Piso)
@@ -119,6 +122,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   sedesList,
   usuariosList = [],
   onOpenCrearAsistenciaManual,
+  simclicSyncCount = 0,
+  lastGlobalSyncTime = null,
+  onTriggerSync,
 }) => {
   // Fecha en zona horaria Lima
   const getHoyLima = () => {
@@ -378,6 +384,13 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   useEffect(() => {
     loadProgramacion();
   }, [loadProgramacion]);
+
+  // Recargar programación automáticamente cuando el auto-sync global termine en background
+  useEffect(() => {
+    if (simclicSyncCount > 0) {
+      loadProgramacion();
+    }
+  }, [simclicSyncCount, loadProgramacion]);
 
   // Actualizar el minuto actual cada 60 segundos
   useEffect(() => {
@@ -800,9 +813,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             <span style={{ fontWeight: 600 }}>
               {autoSyncEnabled ? 'Auto-sync activo (3m)' : 'Auto-sync pausado'}
             </span>
-            {lastSyncTime && (
+            {(lastGlobalSyncTime || lastSyncTime) && (
               <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
-                • {lastSyncTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                • {(lastGlobalSyncTime || lastSyncTime)?.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
@@ -832,7 +845,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           {/* BOTÓN SINCRONIZAR SIMCLIC */}
           <button
             type="button"
-            onClick={() => runSyncSimclic(true)}
+            onClick={() => (onTriggerSync ? onTriggerSync() : runSyncSimclic(true))}
             disabled={syncing}
             className={styles.actionBtn}
             style={{

@@ -135,9 +135,42 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   };
 
   const [fecha, setFecha] = useState<string>(getHoyLima);
-  const [selectedSedeId, setSelectedSedeId] = useState<number | null>(() => {
-    return sedesList.length > 0 ? sedesList[0].id : 1;
-  });
+
+  // Sede inicial: priorizar Campus Villa (donde ocurre la mayor actividad de simulación)
+  const getInitialSedeId = () => {
+    if (!sedesList || sedesList.length === 0) return 1;
+    const villa = sedesList.find(
+      (s) => s.codigo?.toUpperCase() === 'VILLA' || s.nombre.toLowerCase().includes('villa')
+    );
+    return villa ? villa.id : sedesList[0].id;
+  };
+
+  const [selectedSedeId, setSelectedSedeId] = useState<number | null>(getInitialSedeId);
+
+  // Referencias mutables para evitar stale closure en peticiones asíncronas de fondo (auto-sync)
+  const selectedSedeIdRef = useRef<number | null>(selectedSedeId);
+  selectedSedeIdRef.current = selectedSedeId;
+
+  const fechaRef = useRef<string>(fecha);
+  fechaRef.current = fecha;
+
+  // Lista de sedes priorizando Campus Villa en el orden de botones
+  const sortedSedes = useMemo(() => {
+    return [...sedesList].sort((a, b) => {
+      const isVillaA = a.codigo?.toUpperCase() === 'VILLA' || a.nombre.toLowerCase().includes('villa');
+      const isVillaB = b.codigo?.toUpperCase() === 'VILLA' || b.nombre.toLowerCase().includes('villa');
+      if (isVillaA && !isVillaB) return -1;
+      if (!isVillaA && isVillaB) return 1;
+      return a.nombre.localeCompare(b.nombre);
+    });
+  }, [sedesList]);
+
+  // Si sedesList se carga posteriormente y no había sede seleccionada válida
+  useEffect(() => {
+    if (sedesList.length > 0 && selectedSedeId === null) {
+      setSelectedSedeId(getInitialSedeId());
+    }
+  }, [sedesList, selectedSedeId]);
 
   // Filtros
   const [search, setSearch] = useState<string>('');
@@ -367,11 +400,12 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       isSyncingRef.current = true;
       if (isManual) setSyncing(true);
 
+      const targetFecha = fechaRef.current;
       try {
         const res = await fetch('/api/simclic/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fecha }),
+          body: JSON.stringify({ fecha: targetFecha }),
         });
         const data = await res.json();
         if (res.ok && data.success) {
@@ -382,22 +416,28 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             showToast(`🔄 SimClic: Se detectaron ${data.reubicadas} sesiones trasladadas de sala`, 'info');
           }
 
-          // Recargar datos suavemente en segundo plano
+          // Recargar datos en segundo plano usando SIEMPRE la sede y fecha activas en los refs
+          const currentSedeId = selectedSedeIdRef.current;
+          const currentFecha = fechaRef.current;
+
           const params = new URLSearchParams();
-          if (fecha) params.set('fecha', fecha);
-          if (selectedSedeId) params.set('sedeId', String(selectedSedeId));
+          if (currentFecha) params.set('fecha', currentFecha);
+          if (currentSedeId) params.set('sedeId', String(currentSedeId));
 
           const resProg = await fetch(`/api/programacion?${params.toString()}`);
           const dataProg = await resProg.json();
           if (resProg.ok && dataProg.success) {
-            setAmbientes(dataProg.ambientesList || []);
-            setSesiones(dataProg.sesiones || []);
-            setDocentesList(dataProg.docentesList || []);
-            setCursosList(dataProg.cursosList || []);
-            setPsList(dataProg.psList || []);
-            setMetricas(dataProg.metricas || null);
-            setNowMinutes(dataProg.nowMinutes || 0);
-            setEsHoy(dataProg.esHoy);
+            // Protección contra race condition: verificar que el usuario siga en la misma sede
+            if (selectedSedeIdRef.current === currentSedeId) {
+              setAmbientes(dataProg.ambientesList || []);
+              setSesiones(dataProg.sesiones || []);
+              setDocentesList(dataProg.docentesList || []);
+              setCursosList(dataProg.cursosList || []);
+              setPsList(dataProg.psList || []);
+              setMetricas(dataProg.metricas || null);
+              setNowMinutes(dataProg.nowMinutes || 0);
+              setEsHoy(dataProg.esHoy);
+            }
           }
         } else if (isManual) {
           showAlert('Atención', data.error || 'No se pudo sincronizar con SimClic', 'warning');
@@ -409,7 +449,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         if (isManual) setSyncing(false);
       }
     },
-    [fecha, selectedSedeId]
+    []
   );
 
   // Disparar sincronización silenciosa inicial al entrar si es hoy
@@ -420,7 +460,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [esHoy, fecha, autoSyncEnabled, runSyncSimclic]);
+  }, [esHoy, autoSyncEnabled, runSyncSimclic]);
 
   // Polling automático cada 3 minutos si la pestaña sigue abierta
   useEffect(() => {
@@ -661,7 +701,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           
           {/* SELECTOR DE SEDE */}
           <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            {sedesList.map((s) => (
+            {sortedSedes.map((s) => (
               <button
                 key={s.id}
                 type="button"

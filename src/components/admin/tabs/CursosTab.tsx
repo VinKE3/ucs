@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { CursoAdminItem, CarreraAdminItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
@@ -34,10 +35,15 @@ export const CursosTab: React.FC<CursosTabProps> = ({
   onToggleCursoActivo,
   onDeleteCurso,
 }) => {
+  const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'cursos' | 'carreras'>('cursos');
   const [selectedCarreraId, setSelectedCarreraId] = useState<number | 'todas'>('todas');
   const [sortBy, setSortBy] = useState<'demanda' | 'tarifa' | 'nombre' | 'carrera'>('carrera');
   const [escenariosModalCurso, setEscenariosModalCurso] = useState<CursoAdminItem | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Cursos con actividad de Pacientes Simulados ordenados por demanda
   const rankingDemanda = useMemo(() => {
@@ -195,11 +201,11 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                 style={{
                   padding: '0.35rem 0.85rem',
                   borderRadius: '20px',
-                  border: selectedCarreraId === 'todas' ? '2px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.12)',
-                  background: selectedCarreraId === 'todas' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                  color: selectedCarreraId === 'todas' ? '#ffffff' : 'var(--text-secondary)',
+                  border: selectedCarreraId === 'todas' ? '2px solid #0284c7' : '1px solid var(--border-color, rgba(255, 255, 255, 0.12))',
+                  background: selectedCarreraId === 'todas' ? 'rgba(56, 189, 248, 0.28)' : 'var(--bg-input, rgba(255, 255, 255, 0.04))',
+                  color: selectedCarreraId === 'todas' ? '#000000' : 'var(--text-primary)',
                   fontSize: '0.8rem',
-                  fontWeight: 700,
+                  fontWeight: selectedCarreraId === 'todas' ? 800 : 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s',
                   display: 'inline-flex',
@@ -224,9 +230,9 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                     style={{
                       padding: '0.35rem 0.85rem',
                       borderRadius: '20px',
-                      border: isSelected ? `2px solid ${color}` : '1px solid rgba(255, 255, 255, 0.12)',
-                      background: isSelected ? `${color}28` : 'rgba(255, 255, 255, 0.04)',
-                      color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                      border: isSelected ? `2px solid ${color}` : '1px solid var(--border-color, rgba(255, 255, 255, 0.12))',
+                      background: isSelected ? `${color}35` : 'var(--bg-input, rgba(255, 255, 255, 0.04))',
+                      color: isSelected ? '#000000' : 'var(--text-primary)',
                       fontSize: '0.8rem',
                       fontWeight: isSelected ? 800 : 600,
                       cursor: 'pointer',
@@ -248,12 +254,12 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                     <span>{car.nombre}</span>
                     <span
                       style={{
-                        fontSize: '0.7rem',
-                        padding: '0.1rem 0.35rem',
+                        fontSize: '0.72rem',
+                        padding: '0.1rem 0.4rem',
                         borderRadius: '10px',
-                        background: isSelected ? color : 'rgba(255, 255, 255, 0.1)',
+                        background: isSelected ? color : 'var(--bg-card, rgba(255, 255, 255, 0.1))',
                         color: isSelected ? '#000000' : 'var(--text-muted)',
-                        fontWeight: 700,
+                        fontWeight: 800,
                       }}
                     >
                       {count}
@@ -353,21 +359,21 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '0.4rem',
-                                padding: '0.2rem 0.55rem',
+                                padding: '0.22rem 0.6rem',
                                 borderRadius: '6px',
                                 fontSize: '0.75rem',
-                                fontWeight: 700,
-                                background: `${carColor}20`,
-                                color: carColor,
-                                border: `1px solid ${carColor}40`,
+                                fontWeight: 800,
+                                background: `${carColor}24`,
+                                color: 'var(--text-primary)',
+                                border: `1.5px solid ${carColor}`,
                                 whiteSpace: 'nowrap',
                               }}
                               title={curso.carreraNombre}
                             >
                               <span
                                 style={{
-                                  width: '6px',
-                                  height: '6px',
+                                  width: '7px',
+                                  height: '7px',
                                   borderRadius: '50%',
                                   backgroundColor: carColor,
                                 }}
@@ -399,11 +405,11 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                                 style={{
                                   fontSize: '0.72rem',
                                   fontFamily: 'var(--font-mono)',
-                                  color: '#38bdf8',
-                                  background: 'rgba(56, 189, 248, 0.12)',
+                                  color: '#0284c7',
+                                  background: 'rgba(2, 132, 199, 0.12)',
                                   padding: '0.15rem 0.4rem',
                                   borderRadius: '4px',
-                                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                                  border: '1px solid rgba(2, 132, 199, 0.3)',
                                 }}
                                 title="Código oficial en SimClic"
                               >
@@ -416,11 +422,11 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                                   fontSize: '0.72rem',
                                   fontWeight: 800,
                                   fontFamily: 'var(--font-mono)',
-                                  color: '#ffb800',
-                                  background: 'rgba(255, 184, 0, 0.15)',
+                                  color: '#b45309',
+                                  background: 'rgba(245, 158, 11, 0.18)',
                                   padding: '0.15rem 0.45rem',
                                   borderRadius: '4px',
-                                  border: '1px solid rgba(255, 184, 0, 0.3)',
+                                  border: '1px solid rgba(245, 158, 11, 0.38)',
                                 }}
                                 title="Prefijo identificado en títulos de sesiones SimClic"
                               >
@@ -442,7 +448,7 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                               style={{
                                 background: 'rgba(99, 102, 241, 0.15)',
                                 border: '1px solid rgba(99, 102, 241, 0.35)',
-                                color: '#a5b4fc',
+                                color: 'var(--accent-primary, #4f46e5)',
                                 padding: '0.2rem 0.6rem',
                                 borderRadius: '6px',
                                 fontSize: '0.75rem',
@@ -599,14 +605,14 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                       </span>
                     </div>
 
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff', margin: '0 0 0.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>
                       {car.nombre}
                     </h3>
 
-                    <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Cursos Oficiales</span>
-                        <strong style={{ fontSize: '1.2rem', color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                        <strong style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                           {cursosCount}
                         </strong>
                       </div>
@@ -620,7 +626,7 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                         style={{
                           background: `${color}20`,
                           border: `1px solid ${color}50`,
-                          color: color,
+                          color: 'var(--text-primary)',
                           padding: '0.4rem 0.85rem',
                           borderRadius: '8px',
                           fontSize: '0.8rem',
@@ -639,17 +645,43 @@ export const CursosTab: React.FC<CursosTabProps> = ({
         </div>
       )}
 
-      {/* MODAL DE ESCENARIOS CLÍNICOS DEL CURSO */}
-      {escenariosModalCurso && (
-        <div className={styles.modalBackdrop}>
-          <div className={styles.modal} style={{ maxWidth: '560px' }}>
+      {/* MODAL DE ESCENARIOS CLÍNICOS DEL CURSO RENDERIZADO EN EL BODY VIA PORTAL */}
+      {escenariosModalCurso && mounted && createPortal(
+        <div
+          className={styles.modalBackdrop}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEscenariosModalCurso(null);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}
+        >
+          <div
+            className={styles.modal}
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              margin: 'auto',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6)',
+              position: 'relative',
+            }}
+          >
             <div className={styles.modalHeader}>
               <div>
                 <span
                   style={{
                     fontSize: '0.75rem',
                     fontWeight: 700,
-                    color: escenariosModalCurso.carreraColor || '#38bdf8',
+                    color: escenariosModalCurso.carreraColor || '#0284c7',
                     textTransform: 'uppercase',
                   }}
                 >
@@ -659,7 +691,11 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                   🎬 Escenarios: {escenariosModalCurso.nombre}
                 </h2>
               </div>
-              <button onClick={() => setEscenariosModalCurso(null)} className={styles.closeBtn}>
+              <button
+                type="button"
+                onClick={() => setEscenariosModalCurso(null)}
+                className={styles.closeBtn}
+              >
                 ✕
               </button>
             </div>
@@ -674,8 +710,8 @@ export const CursosTab: React.FC<CursosTabProps> = ({
                   <div
                     key={i}
                     style={{
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'var(--bg-input, rgba(255, 255, 255, 0.04))',
+                      border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
                       borderRadius: '8px',
                       padding: '0.75rem 1rem',
                       display: 'flex',
@@ -702,7 +738,8 @@ export const CursosTab: React.FC<CursosTabProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

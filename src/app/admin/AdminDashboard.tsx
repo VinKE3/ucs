@@ -1194,6 +1194,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {activeTab === 'programacion' && (
           <ProgramacionTab
             sedesList={sedesList}
+            usuariosList={usuariosList}
             onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
           />
         )}

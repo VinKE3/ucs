@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type {
   SedeAdminItem,
@@ -9,12 +9,14 @@ import type {
   ProgramacionDocenteOption,
   ProgramacionCursoOption,
   ProgramacionMetricas,
+  UsuarioItem,
 } from '@/types/admin';
 import { ModalDetalleSesionSimclic } from '@/components/admin/modals/ModalDetalleSesionSimclic';
-import { showToast, showAlert } from '@/lib/alerts';
+import { showToast, showAlert, showError } from '@/lib/alerts';
 
 interface ProgramacionTabProps {
   sedesList: SedeAdminItem[];
+  usuariosList?: UsuarioItem[];
   onOpenCrearAsistenciaManual?: () => void;
 }
 
@@ -115,6 +117,7 @@ function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | null }): 
 
 export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   sedesList,
+  usuariosList = [],
   onOpenCrearAsistenciaManual,
 }) => {
   // Fecha en zona horaria Lima
@@ -144,6 +147,12 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps'>('todos');
   const [vistaModo, setVistaModo] = useState<'gantt' | 'tabla' | 'libres'>('gantt');
 
+  // Filtro de visualización: Ocultar salas sin actividad hoy
+  const [soloConActividadHoy, setSoloConActividadHoy] = useState<boolean>(false);
+
+  // Referencia al contenedor de scroll horizontal del Gantt
+  const ganttScrollRef = useRef<HTMLDivElement>(null);
+
   // Estados de datos
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
@@ -171,6 +180,136 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       [piso]: !prev[piso],
     }));
   };
+
+  // Función para desplazar suavemente el Gantt horizontal hasta la hora actual
+  const scrollToHoraActual = useCallback(() => {
+    if (!ganttScrollRef.current) return;
+    const container = ganttScrollRef.current;
+    const inner = container.firstElementChild as HTMLElement;
+    if (!inner) return;
+
+    const totalMins = 15 * 60; // 07:00 a 22:00 = 900 minutos
+    const clampedMins = Math.max(7 * 60, Math.min(22 * 60, nowMinutes));
+    const fraction = (clampedMins - 7 * 60) / totalMins;
+
+    const innerWidth = inner.scrollWidth;
+    const targetX = 240 + fraction * (innerWidth - 240);
+    const scrollLeft = Math.max(0, targetX - container.clientWidth / 2);
+
+    container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+  }, [nowMinutes]);
+
+  // Auto-scroll a la hora actual al cargar la pestaña si es hoy
+  useEffect(() => {
+    if (esHoy && vistaModo === 'gantt' && !loading) {
+      const timer = setTimeout(() => {
+        scrollToHoraActual();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [esHoy, vistaModo, loading, scrollToHoraActual]);
+
+  // Exportar el cronograma del día en formato CSV (Excel)
+  const handleExportarCronogramaCSV = () => {
+    if (sesionesFiltradas.length === 0) {
+      showError('Sin datos', 'No hay sesiones programadas para exportar con los filtros seleccionados.');
+      return;
+    }
+
+    const headers = [
+      'ID SimClic',
+      'Fecha',
+      'Hora Inicio',
+      'Hora Fin',
+      'Duracion (Min)',
+      'Sala Programada',
+      'Codigo de Sala',
+      'Carrera',
+      'Curso / Asignatura',
+      'Codigo Curso',
+      'Escenario Clinico',
+      'Docente Programado',
+      'Correo Docente',
+      'Paciente Simulado',
+      'Estado Asistencia Kiosco',
+      'Reubicada / Trasladada',
+      'Sala Original',
+    ];
+
+    const rows = sesionesFiltradas.map((s) => {
+      const estadoKiosco = s.docentePresente
+        ? 'En Sala (Marco)'
+        : s.estadoEnVivo === 'sin_marcar'
+        ? 'Sin Marcacion'
+        : 'Programada';
+
+      const reubicada = Boolean(s.ambienteOriginalNombre || s.estadoUcs === 'reubicada') ? 'Si' : 'No';
+
+      return [
+        s.simclicId,
+        `"${s.fecha}"`,
+        `"${s.horaInicio}"`,
+        `"${s.horaFin}"`,
+        s.duracionMinutos,
+        `"${s.ambienteNombreSimclic || ''}"`,
+        `"${s.ambienteCodigoSimclic || ''}"`,
+        `"${s.carrera || ''}"`,
+        `"${s.cursoNombreSimclic || s.titulo}"`,
+        `"${s.cursoCodigoSimclic || ''}"`,
+        `"${s.escenarioNombre || s.escenarioCodigo || ''}"`,
+        `"${s.docenteNombreSimclic || ''}"`,
+        `"${s.docenteCorreoSimclic || ''}"`,
+        `"${s.pacienteSimuladoNombre || ''}"`,
+        `"${estadoKiosco}"`,
+        `"${reubicada}"`,
+        `"${s.ambienteOriginalNombre || ''}"`,
+      ].join(';');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `Cronograma_SimClic_${fecha}_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Cronograma exportado en CSV correctamente', 'success');
+  };
+
+  // Búsqueda del teléfono del docente seleccionado para contacto directo
+  const selectedDocentePhone = useMemo(() => {
+    if (!sesionSeleccionada?.docenteNombreSimclic || !usuariosList) return null;
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const docNorm = norm(sesionSeleccionada.docenteNombreSimclic);
+    const found = usuariosList.find((u) => {
+      const userAp = norm(u.apellidos);
+      return userAp && docNorm.includes(userAp);
+    });
+    if (!found?.telefono) return null;
+    const digits = found.telefono.replace(/\D/g, '');
+    if (!digits || digits.length < 7) return null;
+    return digits.length === 9 && digits.startsWith('9') ? `51${digits}` : digits;
+  }, [sesionSeleccionada, usuariosList]);
+
+  // Búsqueda del teléfono del paciente simulado seleccionado
+  const selectedPsPhone = useMemo(() => {
+    if (!sesionSeleccionada?.pacienteSimuladoNombre || !usuariosList) return null;
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const psNorm = norm(sesionSeleccionada.pacienteSimuladoNombre);
+    const found = usuariosList.find((u) => {
+      const userAp = norm(u.apellidos);
+      return userAp && psNorm.includes(userAp);
+    });
+    if (!found?.telefono) return null;
+    const digits = found.telefono.replace(/\D/g, '');
+    if (!digits || digits.length < 7) return null;
+    return digits.length === 9 && digits.startsWith('9') ? `51${digits}` : digits;
+  }, [sesionSeleccionada, usuariosList]);
 
   // Cargar datos desde la API
   const loadProgramacion = useCallback(async () => {
@@ -424,14 +563,18 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return map;
   }, [ambientes, sesionesFiltradas]);
 
-  // Lista de salas filtradas (si se selecciona 'libres', solo las que no tienen sesiones ahora)
+  // Lista de salas filtradas (si se selecciona 'libres', o el toggle 'soloConActividadHoy')
   const ambientesFiltrados = useMemo(() => {
+    let result = ambientes;
     if (filtroEstado === 'libres' && esHoy) {
       const idsLibres = new Set((metricas?.salasLibresAhora || []).map((s) => s.id));
-      return ambientes.filter((a) => idsLibres.has(a.id));
+      result = result.filter((a) => idsLibres.has(a.id));
     }
-    return ambientes;
-  }, [ambientes, filtroEstado, esHoy, metricas]);
+    if (soloConActividadHoy) {
+      result = result.filter((a) => (sesionesPorAmbienteMap.get(a.id) || []).length > 0);
+    }
+    return result;
+  }, [ambientes, filtroEstado, esHoy, metricas, soloConActividadHoy, sesionesPorAmbienteMap]);
 
   // Agrupación y ordenamiento idéntico a SimClic por piso (Primer Piso / Segundo Piso)
   const gruposPiso = useMemo(() => {
@@ -623,6 +766,28 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               </span>
             )}
           </div>
+
+          {/* BOTÓN EXPORTAR CRONOGRAMA */}
+          <button
+            type="button"
+            onClick={handleExportarCronogramaCSV}
+            className={styles.secondaryActionBtn}
+            style={{
+              padding: '0.45rem 0.85rem',
+              fontSize: '0.82rem',
+              borderColor: 'rgba(16, 185, 129, 0.4)',
+              color: '#34d399',
+              background: 'rgba(16, 185, 129, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              whiteSpace: 'nowrap',
+            }}
+            title="Descargar cronograma completo en formato CSV para Microsoft Excel"
+          >
+            <span>📥</span>
+            <span>Exportar ({sesionesFiltradas.length})</span>
+          </button>
 
           {/* BOTÓN SINCRONIZAR SIMCLIC */}
           <button
@@ -879,50 +1044,104 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         )}
       </div>
 
-      {/* PÍLDORAS DE ESTADO OPERATIVO */}
-      <div className={styles.simclicAuditPills} style={{ marginBottom: '1.25rem' }}>
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-          Filtro Operativo:
-        </span>
-        <button
-          type="button"
-          onClick={() => setFiltroEstado('todos')}
-          className={`${styles.simclicPillBtn} ${filtroEstado === 'todos' ? styles.simclicPillBtnActive : ''}`}
-        >
-          Todas las Clases ({sesiones.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFiltroEstado('libres')}
-          className={`${styles.simclicPillBtn} ${filtroEstado === 'libres' ? styles.simclicPillBtnActive : ''}`}
-          style={{ color: '#00e699' }}
-        >
-          🟢 Salas Libres Ahora ({metricas?.salasLibresAhoraCount || 0})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFiltroEstado('sin_marcar')}
-          className={`${styles.simclicPillBtn} ${filtroEstado === 'sin_marcar' ? styles.simclicPillBtnActive : ''}`}
-          style={{ color: '#ef4444' }}
-        >
-          🚨 En Curso Sin Marcación ({metricas?.ausentismosCount || 0})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFiltroEstado('con_asistencia')}
-          className={`${styles.simclicPillBtn} ${filtroEstado === 'con_asistencia' ? styles.simclicPillBtnActive : ''}`}
-          style={{ color: '#38bdf8' }}
-        >
-          ✓ Con Asistencia Marcada
-        </button>
-        <button
-          type="button"
-          onClick={() => setFiltroEstado('con_ps')}
-          className={`${styles.simclicPillBtn} ${filtroEstado === 'con_ps' ? styles.simclicPillBtnActive : ''}`}
-          style={{ color: '#c084fc' }}
-        >
-          🎭 Con Paciente Simulado ({metricas?.totalPs || 0})
-        </button>
+      {/* PÍLDORAS DE ESTADO OPERATIVO Y CONTROLES DE VISTA */}
+      <div className={styles.simclicAuditPills} style={{ marginBottom: '1.25rem', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            Filtro Operativo:
+          </span>
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('todos')}
+            className={`${styles.simclicPillBtn} ${filtroEstado === 'todos' ? styles.simclicPillBtnActive : ''}`}
+          >
+            Todas las Clases ({sesiones.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('libres')}
+            className={`${styles.simclicPillBtn} ${filtroEstado === 'libres' ? styles.simclicPillBtnActive : ''}`}
+            style={{ color: '#00e699' }}
+          >
+            🟢 Salas Libres Ahora ({metricas?.salasLibresAhoraCount || 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('sin_marcar')}
+            className={`${styles.simclicPillBtn} ${filtroEstado === 'sin_marcar' ? styles.simclicPillBtnActive : ''}`}
+            style={{ color: '#ef4444' }}
+          >
+            🚨 En Curso Sin Marcación ({metricas?.ausentismosCount || 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('con_asistencia')}
+            className={`${styles.simclicPillBtn} ${filtroEstado === 'con_asistencia' ? styles.simclicPillBtnActive : ''}`}
+            style={{ color: '#38bdf8' }}
+          >
+            ✓ Con Asistencia Marcada
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('con_ps')}
+            className={`${styles.simclicPillBtn} ${filtroEstado === 'con_ps' ? styles.simclicPillBtnActive : ''}`}
+            style={{ color: '#c084fc' }}
+          >
+            🎭 Con Paciente Simulado ({metricas?.totalPs || 0})
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* BOTÓN TOGGLE: OCULTAR SALAS VACÍAS HOY */}
+          <button
+            type="button"
+            onClick={() => setSoloConActividadHoy((prev) => !prev)}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '7px',
+              border: '1px solid ' + (soloConActividadHoy ? '#38bdf8' : 'var(--border-color)'),
+              background: soloConActividadHoy ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: soloConActividadHoy ? '#38bdf8' : 'var(--text-secondary)',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.15s ease',
+            }}
+            title="Ocultar las salas que no tienen ninguna clase programada en todo el día"
+          >
+            <span>{soloConActividadHoy ? '👁️' : '👁️‍🗨️'}</span>
+            <span>{soloConActividadHoy ? 'Solo salas con clases' : 'Todas las salas'}</span>
+          </button>
+
+          {/* BOTÓN IR A LA HORA ACTUAL EN VIVO */}
+          {esHoy && vistaModo === 'gantt' && (
+            <button
+              type="button"
+              onClick={scrollToHoraActual}
+              style={{
+                padding: '0.35rem 0.75rem',
+                borderRadius: '7px',
+                border: '1px solid rgba(56, 189, 248, 0.5)',
+                background: 'rgba(2, 132, 199, 0.18)',
+                color: '#38bdf8',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)',
+              }}
+              title="Desplazar la línea de tiempo hasta la hora actual en vivo"
+            >
+              <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#00e699', boxShadow: '0 0 6px #00e699' }} />
+              <span>📍 Ir a la Hora ({new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 4. CONTENIDO PRINCIPAL SEGÚN EL MODO SELECCIONADO */}
@@ -962,7 +1181,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           }}
         >
           {/* Scroll horizontal del Gantt */}
-          <div style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
+          <div ref={ganttScrollRef} style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
             <div style={{ minWidth: '1650px', display: 'flex', flexDirection: 'column' }}>
               
               {/* HEADER DE HORAS */}
@@ -1020,6 +1239,35 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                       {slot.label}
                     </div>
                   ))}
+
+                  {/* Pin de tiempo actual en vivo en el header del Gantt */}
+                  {esHoy && nowMinutes >= 7 * 60 && nowMinutes <= 22 * 60 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${((nowMinutes - 7 * 60) / (15 * 60)) * 100}%`,
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                        border: '1px solid rgba(255, 255, 255, 0.4)',
+                        color: '#ffffff',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '999px',
+                        boxShadow: '0 0 12px rgba(56, 189, 248, 0.8)',
+                        zIndex: 40,
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e699', boxShadow: '0 0 6px #00e699' }} />
+                      <span>{new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1196,6 +1444,22 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                   const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
                                   const colorBg = ses.carreraColor || '#ffa200';
 
+                                  const esEnCurso = esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
+                                  const esSinMarcar = esEnCurso && !ses.docentePresente;
+                                  const esEnSala = esEnCurso && ses.docentePresente;
+
+                                  const borderStyle = esSinMarcar
+                                    ? '2px solid #ef4444'
+                                    : esEnSala
+                                    ? '2px solid #10b981'
+                                    : '1px solid rgba(255, 255, 255, 0.3)';
+
+                                  const boxShadowStyle = esSinMarcar
+                                    ? '0 0 0 2px rgba(239, 68, 68, 0.5), 0 4px 14px rgba(239, 68, 68, 0.55)'
+                                    : esEnSala
+                                    ? '0 0 0 2px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(16, 185, 129, 0.5)'
+                                    : '0 3px 8px rgba(0, 0, 0, 0.25)';
+
                                   return (
                                     <div
                                       key={ses.id}
@@ -1206,8 +1470,10 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         width: `${widthPercent}%`,
                                         top: '6px',
                                         bottom: '6px',
-                                        background: `linear-gradient(135deg, ${colorBg}e6, ${colorBg}cc)`,
-                                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                                        background: esSinMarcar
+                                          ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.9))'
+                                          : `linear-gradient(135deg, ${colorBg}e6, ${colorBg}cc)`,
+                                        border: borderStyle,
                                         borderRadius: '7px',
                                         padding: '0.35rem 0.6rem',
                                         color: '#ffffff',
@@ -1216,9 +1482,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         display: 'flex',
                                         flexDirection: 'column',
                                         justifyContent: 'center',
-                                        boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)',
+                                        boxShadow: boxShadowStyle,
                                         transition: 'all 0.15s ease',
-                                        zIndex: 10,
+                                        zIndex: esSinMarcar || esEnSala ? 18 : 10,
                                       }}
                                       title={`[${ses.simclicId}] ${ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}\nPS: ${ses.pacienteSimuladoNombre || 'Sin PS'}`}
                                       onMouseEnter={(e) => {
@@ -1228,15 +1494,48 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                       }}
                                       onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'none';
-                                        e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.25)';
-                                        e.currentTarget.style.zIndex = '10';
+                                        e.currentTarget.style.boxShadow = boxShadowStyle;
+                                        e.currentTarget.style.zIndex = esSinMarcar || esEnSala ? '18' : '10';
                                       }}
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
-                                        <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          #{ses.simclicId} {ses.prefijo ? `[${ses.prefijo}]` : ''} {ses.cursoNombreSimclic || ses.titulo}
-                                        </span>
-                                        <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', fontWeight: 700, opacity: 0.9 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0, overflow: 'hidden' }}>
+                                          {esSinMarcar && (
+                                            <span
+                                              style={{
+                                                background: '#ef4444',
+                                                color: '#ffffff',
+                                                padding: '0.05rem 0.3rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.58rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap',
+                                                letterSpacing: '0.02em',
+                                              }}
+                                            >
+                                              🚨 SIN MARCAR
+                                            </span>
+                                          )}
+                                          {esEnSala && (
+                                            <span
+                                              style={{
+                                                background: '#10b981',
+                                                color: '#ffffff',
+                                                padding: '0.05rem 0.3rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.58rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap',
+                                              }}
+                                            >
+                                              🟢 EN SALA
+                                            </span>
+                                          )}
+                                          <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            #{ses.simclicId} {ses.prefijo ? `[${ses.prefijo}]` : ''} {ses.cursoNombreSimclic || ses.titulo}
+                                          </span>
+                                        </div>
+                                        <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', fontWeight: 700, opacity: 0.9, flexShrink: 0 }}>
                                           {ses.horaInicio}-{ses.horaFin}
                                         </span>
                                       </div>
@@ -1514,11 +1813,36 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
-            {ambientes.map((amb) => {
+            {ambientesFiltrados.map((amb) => {
               const sesionesDeSala = sesionesPorAmbienteMap.get(amb.id) || [];
-              const estaLibreAhora = !sesionesDeSala.some(
+              const sesionActual = sesionesDeSala.find(
                 (s) => nowMinutes >= s.startMins && nowMinutes < s.endMins
               );
+              const estaLibreAhora = !sesionActual;
+
+              const proximas = sesionesDeSala
+                .filter((s) => s.startMins > nowMinutes)
+                .sort((a, b) => a.startMins - b.startMins);
+              const proximaSesion = proximas.length > 0 ? proximas[0] : null;
+
+              let tiempoDisponibleTexto = '';
+              let badgeTexto = '';
+              if (estaLibreAhora) {
+                if (proximaSesion) {
+                  const minsRestantes = proximaSesion.startMins - nowMinutes;
+                  const horas = Math.floor(minsRestantes / 60);
+                  const mins = minsRestantes % 60;
+                  const durStr = horas > 0 ? (mins > 0 ? `${horas}h ${mins}m` : `${horas}h`) : `${mins} min`;
+                  badgeTexto = `🟢 Libre por ${durStr}`;
+                  tiempoDisponibleTexto = `Libre hasta las ${proximaSesion.horaInicio} (en ${durStr} inicia: ${proximaSesion.cursoNombreSimclic || proximaSesion.titulo})`;
+                } else {
+                  badgeTexto = '🟢 Libre todo el día';
+                  tiempoDisponibleTexto = 'Sin más sesiones programadas hoy (disponible hasta las 22:00)';
+                }
+              } else {
+                badgeTexto = `🔴 Ocupada hasta las ${sesionActual.horaFin}`;
+                tiempoDisponibleTexto = `En clase: ${sesionActual.cursoNombreSimclic || sesionActual.titulo} • Docente: ${sesionActual.docenteNombreSimclic || 'Asignado'}`;
+              }
 
               return (
                 <div
@@ -1553,10 +1877,30 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                         borderRadius: '6px',
                         fontSize: '0.72rem',
                         fontWeight: 700,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {estaLibreAhora ? '🟢 Disponible Ahora' : '🔴 Ocupada'}
+                      {badgeTexto}
                     </span>
+                  </div>
+
+                  {/* Indicador destacado de tiempo disponible restante */}
+                  <div
+                    style={{
+                      background: estaLibreAhora ? 'rgba(0, 230, 153, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid ' + (estaLibreAhora ? 'rgba(0, 230, 153, 0.25)' : 'rgba(239, 68, 68, 0.25)'),
+                      borderRadius: '8px',
+                      padding: '0.45rem 0.65rem',
+                      fontSize: '0.75rem',
+                      color: estaLibreAhora ? '#00e699' : '#f87171',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <span>{estaLibreAhora ? '⏱️' : '🔒'}</span>
+                    <span>{tiempoDisponibleTexto}</span>
                   </div>
 
                   {/* Cronograma resumido del día para esta sala */}
@@ -1610,6 +1954,8 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         <ModalDetalleSesionSimclic
           isOpen={Boolean(sesionSeleccionada)}
           sesion={sesionSeleccionada}
+          docenteTelefono={selectedDocentePhone}
+          pacienteSimuladoTelefono={selectedPsPhone}
           onClose={() => setSesionSeleccionada(null)}
           onOpenCrearAsistenciaManual={onOpenCrearAsistenciaManual}
         />

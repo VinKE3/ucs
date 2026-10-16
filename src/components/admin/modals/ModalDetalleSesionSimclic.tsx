@@ -7,6 +7,8 @@ import type { SesionProgramadaTimelineItem } from '@/types/admin';
 interface ModalDetalleSesionSimclicProps {
   isOpen: boolean;
   sesion: SesionProgramadaTimelineItem | null;
+  docenteTelefono?: string | null;
+  pacienteSimuladoTelefono?: string | null;
   onClose: () => void;
   onOpenCrearAsistenciaManual?: () => void;
 }
@@ -14,6 +16,8 @@ interface ModalDetalleSesionSimclicProps {
 export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps> = ({
   isOpen,
   sesion,
+  docenteTelefono,
+  pacienteSimuladoTelefono,
   onClose,
   onOpenCrearAsistenciaManual,
 }) => {
@@ -344,6 +348,61 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
                   {sesion.asistenciaDocenteAmbiente && ` en ${sesion.asistenciaDocenteAmbiente}`}
                 </div>
               )}
+
+              {!sesion.docentePresente && (
+                <div style={{ marginTop: '0.65rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {docenteTelefono && (
+                    <a
+                      href={`https://wa.me/${docenteTelefono}?text=${encodeURIComponent(
+                        `Estimado(a) ${sesion.docenteNombreSimclic || 'Docente'}, le saludamos de la Clínica de Simulación UCS. Le recordamos que su sesión programada en ${sesion.ambienteNombreSimclic || 'la sala'} (${sesion.horaInicio} - ${sesion.horaFin}) se encuentra próxima o en curso. Por favor no olvide registrar su presencia en el Kiosco.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(37, 211, 102, 0.15)',
+                        border: '1px solid rgba(37, 211, 102, 0.4)',
+                        color: '#25d366',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                      }}
+                      title="Enviar recordatorio por WhatsApp al docente"
+                    >
+                      <span>💬</span> WhatsApp Docente
+                    </a>
+                  )}
+                  {sesion.docenteCorreoSimclic && (
+                    <a
+                      href={`mailto:${sesion.docenteCorreoSimclic}?subject=${encodeURIComponent(
+                        `Recordatorio: Sesión Simulación UCS - ${sesion.ambienteNombreSimclic || ''}`
+                      )}&body=${encodeURIComponent(
+                        `Estimado(a) ${sesion.docenteNombreSimclic || 'Docente'},\n\nLe recordamos registrar su asistencia en el Kiosco de la Clínica de Simulación para su sesión de hoy:\n- Horario: ${sesion.horaInicio} - ${sesion.horaFin}\n- Sala: ${sesion.ambienteNombreSimclic || ''}\n- Curso: ${sesion.cursoNombreSimclic || sesion.titulo}\n\nAtentamente,\nCoordinación de Simulación UCS`
+                      )}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                        color: '#38bdf8',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                      }}
+                      title="Enviar correo institucional al docente"
+                    >
+                      <span>✉️</span> Enviar Correo
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Paciente Simulado */}
@@ -382,6 +441,34 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
               {sesion.pacienteSimuladoCorreo && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                   ✉️ {sesion.pacienteSimuladoCorreo}
+                </div>
+              )}
+
+              {sesion.pacienteSimuladoNombre && !sesion.psPresente && pacienteSimuladoTelefono && (
+                <div style={{ marginTop: '0.65rem' }}>
+                  <a
+                    href={`https://wa.me/${pacienteSimuladoTelefono}?text=${encodeURIComponent(
+                      `Hola ${sesion.pacienteSimuladoNombre}, te saludamos de la Clínica de Simulación UCS. Te recordamos tu participación en el escenario clínico de hoy en ${sesion.ambienteNombreSimclic || 'sala'} (${sesion.horaInicio} - ${sesion.horaFin}).`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      padding: '0.3rem 0.65rem',
+                      borderRadius: '6px',
+                      background: 'rgba(37, 211, 102, 0.15)',
+                      border: '1px solid rgba(37, 211, 102, 0.4)',
+                      color: '#25d366',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                    }}
+                    title="Enviar WhatsApp al paciente simulado"
+                  >
+                    <span>💬</span> WhatsApp Paciente Simulado
+                  </a>
                 </div>
               )}
             </div>

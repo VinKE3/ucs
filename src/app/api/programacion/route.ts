@@ -201,8 +201,32 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Resolver ambiente con máxima prioridad por código SimClic exacto
+      let resolvedAmbienteId = ses.ambienteId;
+      if (ses.ambienteCodigoSimclic) {
+        const ambByCode = ambientesList.find(
+          (a) => a.codigo && a.codigo.trim().toLowerCase() === ses.ambienteCodigoSimclic!.trim().toLowerCase()
+        );
+        if (ambByCode) {
+          resolvedAmbienteId = ambByCode.id;
+        }
+      }
+      if (!resolvedAmbienteId) {
+        const ambMatch = ambientesList.find((a) => {
+          if (ses.ambienteNombreSimclic && a.nombre && ses.ambienteNombreSimclic.trim().toLowerCase() === a.nombre.trim().toLowerCase()) return true;
+          const sesCons = ses.ambienteNombreSimclic?.match(/consultorio\s*0?(\d+)/i);
+          const ambCons = a.nombre?.match(/consultorio\s*0?(\d+)/i);
+          if (sesCons && ambCons && sesCons[1] === ambCons[1]) return true;
+          return false;
+        });
+        if (ambMatch) {
+          resolvedAmbienteId = ambMatch.id;
+        }
+      }
+
       return {
         ...ses,
+        ambienteId: resolvedAmbienteId,
         startMins,
         endMins,
         duracionMinutos,

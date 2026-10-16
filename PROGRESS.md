@@ -530,26 +530,8 @@ src/
 * `d22c0ba`: feat(ux): integrar sweetalert2 institucional reemplazando modales nativos de confirmacion y alertas
 * `abb46a2`: style(theme): alto contraste y legibilidad para banner de tecnicos y acentos verdes en tema claro
 * `222be76`: feat(security): modo oculto e interruptor secreto para cuenta maestra de super admin 00000001
-
-* `4f183db`: style: aumentar dimension y visibilidad del logo en version de escritorio
-* `d97b0a8`: style(branding): simplificar cabecera dejando exclusivamente el logo oficial limpio y estilizado
-* `ec72217`: feat(branding): incorporar logo oficial de la Cientifica en Kiosco, AdminNavbar, Login y Ficha ECOE
-* `eb5c223`: feat(pagination): paginacion dinamica y controles de navegacion en Directorio de Personal y Asistencias
-* `f645ec8`: fix(estilos): definir clases completas para closeBtn, submitBtn y secondaryBtn en modales
-* `f79e4ca`: fix(modales): corregir modal de auditoria y asegurar overlay global centrado z-index 1200
-* `b41982c`: fix(casting): corregir modales flotantes, ocultar cobros en kiosco y alinear presets de casting
-* `fb6c08c`: feat(casting): crud completo de catalogos, ficha de actor, convocatoria ecoe y ficha imprimible
-* `7f5d396`: feat(cursos): tarifas diferenciadas de pacientes simulados, tope de horas opcional y ranking de demanda operativa
-* `d811528`: implenetando tarifa hora
-* `9d24d92`: feat(kiosco): soporte inteligente de sesiones conjuntas Docente + Paciente Simulado y auto-seleccion de curso
-* `bbc3ae2`: docs: agregar PROGRESS.md y configurar directiva de sincronizacion multi-pc en AGENTS.md
-* `2ed46f2`: feat: implement kiosk terminal and admin dashboard for attendance tracking
-* `2852792`: feat: safe course deletion and manual justified attendance registration
-* `2733d7d`: Fase 1: Edicion, inactivacion y eliminacion segura de personal
-* `0efdcfe`: Implementacion gestion dinamica de categorias de salas
-* `670a937`: Implementacion editar, mantenimiento y eliminacion de ambientes
-* `09b05d3`: Implementacion editar sedes
-* `2cbbddc`: Puliendo kardex-asistencia-personaltab
+* `feat(gantt)`: Agrupación y ordenamiento idéntico a SimClic por pisos ("Primer Piso", "Segundo Piso", etc.) con secciones colapsables y barra de acento azul.
+* `fix(simclic-sync)`: Resolución y cruce de ambientes por código SimClic (`SL02TA20` para Consultorio 4, `SL02TA24` para Consultorio 5). Corrección de ambigüedad en SimClic donde sesiones de Consultorio 5 venían erróneamente rotuladas como `CONSULTORIO 5 - L 213`, causando que se asignaran erróneamente a Consultorio 8 (`L 213`). Priorización estricta por código SimClic.
 
 ---
 
@@ -560,5 +542,5 @@ src/
 2. **Marcación con Fotocheck UCS (Código de Barras / QR)**:
    - Integración con lector USB en el kiosco para marcación instantánea sin digitar DNI.
 3. **Integración con Programación de SimClic**:
-   - Importación de la sábana de programación de SimClic (`cientifica.simclic.com`) para sugerir salas y estaciones ECOE automáticamente al pasar el DNI.
+   - Programación 360° en tiempo real con línea de tiempo Gantt, cruce con marcación de docentes y pacientes simulados, y auditoría preventiva de ausentismo (Completado).
 

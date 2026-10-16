@@ -18,6 +18,101 @@ interface ProgramacionTabProps {
   onOpenCrearAsistenciaManual?: () => void;
 }
 
+// Clasificación y ordenamiento idéntico al SimClic por pisos (Primer Piso / Segundo Piso)
+function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | null }): {
+  piso: string;
+  ordenPiso: number;
+  ordenSala: number;
+} {
+  const nom = (amb.nombre || '').toUpperCase();
+  const cod = (amb.codigo || '').toUpperCase();
+
+  // Ambientes Virtuales
+  if (nom.includes('VIRTUAL') || cod.includes('VIRT')) {
+    return { piso: 'Ambientes Virtuales', ordenPiso: 90, ordenSala: 1 };
+  }
+
+  // Almacén / Administrativo
+  if (nom.includes('ALMACÉN') || nom.includes('ALMACEN') || cod.startsWith('AG')) {
+    return { piso: 'Almacén / Administrativo', ordenPiso: 85, ordenSala: 1 };
+  }
+
+  // 1. Detectar Primer Piso (L 1xx, Consultorio 1-4, Microbiología, Habilidades 4, Alta Fidelidad 1-5, etc.)
+  const isPrimerPiso =
+    /\bL\s*[-]?\s*1\d{2}\b/i.test(nom) ||
+    /\bL\s*[-]?\s*1\d{2}\b/i.test(cod) ||
+    nom.includes('PRIMER PISO') ||
+    nom.includes('1ER PISO') ||
+    /CONSULTORIO\s*(0?[1-4])\b/i.test(nom);
+
+  if (isPrimerPiso) {
+    let ordenSala = 50;
+    if (nom.includes('MICROBIOLOGIA')) ordenSala = 1;
+    else if (nom.includes('TECNOLOGÍA MÉDICA') || nom.includes('TECNOLOGIA MEDICA')) ordenSala = 2;
+    else if (nom.includes('HABILIDADES 4')) ordenSala = 3;
+    else if (nom.includes('ALTA FIDELIDAD 4')) ordenSala = 4;
+    else if (nom.includes('HOSPITALIZACIÓN 2') || nom.includes('HOSPITALIZACION 2')) ordenSala = 5;
+    else if (nom.includes('ALTA FIDELIDAD 3')) ordenSala = 6;
+    else if (nom.includes('ALTA FIDELIDAD 2')) ordenSala = 7;
+    else if (nom.includes('HOSPITALIZACIÓN 1') || nom.includes('HOSPITALIZACION 1')) ordenSala = 8;
+    else if (nom.includes('ALTA FIDELIDAD 1')) ordenSala = 9;
+    else if (nom.includes('ALTA FIDELIDAD 5')) ordenSala = 10;
+    else if (nom.includes('CONSULTORIO 4')) ordenSala = 11;
+    else if (nom.includes('CONSULTORIO 1')) ordenSala = 12;
+    else if (nom.includes('CONSULTORIO 3')) ordenSala = 13;
+    else if (nom.includes('CONSULTORIO 2')) ordenSala = 14;
+    else {
+      const matchL = nom.match(/\bL\s*[-]?\s*1(\d{2})\b/i);
+      if (matchL) ordenSala = 20 + parseInt(matchL[1], 10);
+    }
+    return { piso: 'Primer Piso', ordenPiso: 1, ordenSala };
+  }
+
+  // 2. Detectar Segundo Piso (L 2xx, Auditorio, Consultorio 5-8, ECOE, Habilidades 1, 2, 3, 5, etc.)
+  const isSegundoPiso =
+    /\bL\s*[-]?\s*2\d{2}\b/i.test(nom) ||
+    /\bL\s*[-]?\s*2\d{2}\b/i.test(cod) ||
+    nom.includes('SEGUNDO PISO') ||
+    nom.includes('2DO PISO') ||
+    nom.includes('AUDITORIO') ||
+    nom.includes('ECOE') ||
+    /CONSULTORIO\s*(0?[5-8])\b/i.test(nom);
+
+  if (isSegundoPiso) {
+    let ordenSala = 50;
+    if (nom.includes('AUDITORIO')) ordenSala = 1;
+    else if (nom.includes('HABILIDADES 5')) ordenSala = 2;
+    else if (nom.includes('ECOGRAFÍAS') || nom.includes('ECOGRAFIAS')) ordenSala = 3;
+    else if (nom.includes('IMÁGENES') || nom.includes('IMAGENES')) ordenSala = 4;
+    else if (nom.includes('HABILIDADES 1')) ordenSala = 5;
+    else if (nom.includes('HABILIDADES 2')) ordenSala = 6;
+    else if (nom.includes('HABILIDADES 3')) ordenSala = 7;
+    else if (nom.includes('CONSULTORIO 5')) ordenSala = 8;
+    else if (nom.includes('CONSULTORIO 6')) ordenSala = 9;
+    else if (nom.includes('CONSULTORIO 7')) ordenSala = 10;
+    else if (nom.includes('CONSULTORIO 8')) ordenSala = 11;
+    else if (nom.includes('OBS. ECOE')) ordenSala = 12;
+    else if (nom.includes('ECOE')) {
+      const matchEcoe = nom.match(/ECOE\s*0?(\d+)/i);
+      ordenSala = 20 + (matchEcoe ? parseInt(matchEcoe[1], 10) : 0);
+    }
+    return { piso: 'Segundo Piso', ordenPiso: 2, ordenSala };
+  }
+
+  // 3. Pisos de otras sedes (Ate, Norte)
+  if (nom.includes('PISO 4') || nom.includes('CUARTO PISO') || /\bB-?4\d{2}\b/i.test(nom) || /\bB4\d{2}\b/i.test(cod)) {
+    return { piso: 'Cuarto Piso', ordenPiso: 4, ordenSala: 1 };
+  }
+  if (nom.includes('PISO 8') || nom.includes('OCTAVO PISO') || /\bC-?8\d{2}\b/i.test(nom) || /\bC8\d{2}\b/i.test(cod)) {
+    return { piso: 'Piso 8', ordenPiso: 8, ordenSala: 1 };
+  }
+  if (nom.includes('PISO 9') || nom.includes('NOVENO PISO') || /\bC-?9\d{2}\b/i.test(nom) || /\bC9\d{2}\b/i.test(cod)) {
+    return { piso: 'Piso 9', ordenPiso: 9, ordenSala: 1 };
+  }
+
+  return { piso: 'Ambientes Generales', ordenPiso: 50, ordenSala: 99 };
+}
+
 export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   sedesList,
   onOpenCrearAsistenciaManual,
@@ -66,6 +161,16 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
   // Modal de detalle
   const [sesionSeleccionada, setSesionSeleccionada] = useState<SesionProgramadaTimelineItem | null>(null);
+
+  // Pisos colapsados en la vista Gantt
+  const [pisosColapsados, setPisosColapsados] = useState<Record<string, boolean>>({});
+
+  const toggleColapsarPiso = (piso: string) => {
+    setPisosColapsados((prev) => ({
+      ...prev,
+      [piso]: !prev[piso],
+    }));
+  };
 
   // Cargar datos desde la API
   const loadProgramacion = useCallback(async () => {
@@ -206,7 +311,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     });
   }, [sesiones, filtroDocente, filtroCurso, filtroPs, filtroEstado, search]);
 
-  // Mapa de sesiones por sala
+  // Mapa de sesiones por sala con cruce inteligente por ID, código Simclic y normalización de número
   const sesionesPorAmbienteMap = useMemo(() => {
     const map = new Map<number, SesionProgramadaTimelineItem[]>();
     for (const amb of ambientes) {
@@ -214,17 +319,43 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     }
 
     for (const ses of sesionesFiltradas) {
-      if (ses.ambienteId && map.has(ses.ambienteId)) {
-        map.get(ses.ambienteId)!.push(ses);
-      } else {
-        // Coincidencia por nombre si el ID no vino resuelto
-        const found = ambientes.find(
-          (a) => a.nombre.toLowerCase().trim() === (ses.ambienteNombreSimclic || '').toLowerCase().trim()
+      let targetAmbId: number | null = null;
+
+      // 1. Prioridad máxima: Código de sala de SimClic (ej: SL02TA24 -> siempre Consultorio 5)
+      if (ses.ambienteCodigoSimclic) {
+        const foundByCode = ambientes.find(
+          (a) => a.codigo && a.codigo.trim().toLowerCase() === ses.ambienteCodigoSimclic!.trim().toLowerCase()
         );
-        if (found) {
-          if (!map.has(found.id)) map.set(found.id, []);
-          map.get(found.id)!.push(ses);
+        if (foundByCode) {
+          targetAmbId = foundByCode.id;
         }
+      }
+
+      // 2. Si no hubo coincidencia por código, usar ambienteId si existe en el mapa
+      if (!targetAmbId && ses.ambienteId && map.has(ses.ambienteId)) {
+        targetAmbId = ses.ambienteId;
+      }
+
+      // 3. Coincidencia difusa por nombre o número de consultorio
+      if (!targetAmbId) {
+        const found = ambientes.find((a) => {
+          if (a.nombre.toLowerCase().trim() === (ses.ambienteNombreSimclic || '').toLowerCase().trim()) {
+            return true;
+          }
+          const sesCons = ses.ambienteNombreSimclic?.match(/consultorio\s*0?(\d+)/i);
+          const ambCons = a.nombre?.match(/consultorio\s*0?(\d+)/i);
+          if (sesCons && ambCons && sesCons[1] === ambCons[1]) {
+            return true;
+          }
+          return false;
+        });
+        if (found) {
+          targetAmbId = found.id;
+        }
+      }
+
+      if (targetAmbId && map.has(targetAmbId)) {
+        map.get(targetAmbId)!.push(ses);
       }
     }
     return map;
@@ -238,6 +369,30 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     }
     return ambientes;
   }, [ambientes, filtroEstado, esHoy, metricas]);
+
+  // Agrupación y ordenamiento idéntico a SimClic por piso (Primer Piso / Segundo Piso)
+  const gruposPiso = useMemo(() => {
+    const gruposMap = new Map<
+      string,
+      { piso: string; ordenPiso: number; ambientes: Array<AmbienteAdminItem & { ordenSala: number }> }
+    >();
+
+    for (const amb of ambientesFiltrados) {
+      const { piso, ordenPiso, ordenSala } = clasificarPisoYOrden(amb);
+      if (!gruposMap.has(piso)) {
+        gruposMap.set(piso, { piso, ordenPiso, ambientes: [] });
+      }
+      gruposMap.get(piso)!.ambientes.push({ ...amb, ordenSala });
+    }
+
+    const gruposArray = Array.from(gruposMap.values()).map((g) => {
+      g.ambientes.sort((a, b) => a.ordenSala - b.ordenSala);
+      return g;
+    });
+
+    gruposArray.sort((a, b) => a.ordenPiso - b.ordenPiso);
+    return gruposArray;
+  }, [ambientesFiltrados]);
 
   // Posición de la línea de tiempo del momento actual (07:00 = 420m, 22:00 = 1320m -> Total 900m)
   const lineaActualPercent = useMemo(() => {
@@ -754,180 +909,265 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                 </div>
               </div>
 
-              {/* FILAS DE CADA SALA */}
+              {/* FILAS DE CADA SALA AGRUPADAS POR PISO (PRIMER PISO, SEGUNDO PISO, ETC.) */}
               {ambientesFiltrados.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                   No se encontraron salas con los filtros seleccionados.
                 </div>
               ) : (
-                ambientesFiltrados.map((amb, ambIdx) => {
-                  const sesionesDeSala = sesionesPorAmbienteMap.get(amb.id) || [];
-                  const estaLibreAhora = !sesionesDeSala.some(
-                    (s) => nowMinutes >= s.startMins && nowMinutes < s.endMins
-                  );
+                gruposPiso.map((grupo) => {
+                  const isColapsado = Boolean(pisosColapsados[grupo.piso]);
 
                   return (
-                    <div
-                      key={amb.id}
-                      style={{
-                        display: 'flex',
-                        borderBottom: '1px solid var(--border-color)',
-                        background: ambIdx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)',
-                        minHeight: '64px',
-                        position: 'relative',
-                      }}
-                    >
-                      {/* COLUMNA LATERAL FIJA DE LA SALA */}
+                    <React.Fragment key={grupo.piso}>
+                      {/* ENCABEZADO DE SECCIÓN DEL PISO (ESTILO SIMCLIC) */}
                       <div
+                        onClick={() => toggleColapsarPiso(grupo.piso)}
                         style={{
-                          width: '240px',
-                          minWidth: '240px',
-                          padding: '0.65rem 1rem',
-                          borderRight: '2px solid var(--border-color)',
-                          background: 'var(--bg-elevated)',
-                          position: 'sticky',
-                          left: 0,
-                          zIndex: 20,
                           display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          gap: '0.2rem',
-                          boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
+                          borderBottom: '1px solid var(--border-color)',
+                          background: 'rgba(59, 130, 246, 0.08)',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          position: 'sticky',
+                          zIndex: 22,
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {/* Columna lateral fija del piso */}
+                        <div
+                          style={{
+                            width: '240px',
+                            minWidth: '240px',
+                            padding: '0.45rem 1rem',
+                            borderRight: '2px solid var(--border-color)',
+                            borderLeft: '4px solid #3b82f6',
+                            background: 'var(--bg-card)',
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 25,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            boxShadow: '4px 0 10px rgba(0, 0, 0, 0.05)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                color: '#3b82f6',
+                                transition: 'transform 0.2s',
+                                display: 'inline-block',
+                                transform: isColapsado ? 'rotate(-90deg)' : 'rotate(0deg)',
+                              }}
+                            >
+                              ▼
+                            </span>
+                            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)', letterSpacing: '0.02em' }}>
+                              {grupo.piso}
+                            </span>
+                          </div>
                           <span
                             style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              background: esHoy ? (estaLibreAhora ? '#00e699' : '#ff5a00') : '#38bdf8',
-                              boxShadow: esHoy && estaLibreAhora ? '0 0 8px #00e699' : 'none',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              background: 'rgba(59, 130, 246, 0.12)',
+                              color: '#3b82f6',
+                              padding: '0.1rem 0.45rem',
+                              borderRadius: '10px',
                             }}
-                            title={estaLibreAhora ? 'Sala desocupada ahora' : 'Sala en uso ahora'}
-                          />
-                          <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                            {amb.nombre}
+                          >
+                            {grupo.ambientes.length} {grupo.ambientes.length === 1 ? 'sala' : 'salas'}
                           </span>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          <span>{amb.codigo || amb.tipo}</span>
-                          {esHoy && (
-                            <span style={{ color: estaLibreAhora ? '#00e699' : '#ff5a00', fontWeight: 600 }}>
-                              {estaLibreAhora ? 'Disponible' : 'En Clase'}
-                            </span>
-                          )}
+                        {/* Barra horizontal en el timeline del piso */}
+                        <div
+                          style={{
+                            flex: 1,
+                            background: 'rgba(59, 130, 246, 0.03)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            paddingLeft: '1rem',
+                            fontSize: '0.72rem',
+                            color: 'var(--text-muted)',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          {isColapsado && <span>(Sección colapsada — clic para desplegar salas)</span>}
                         </div>
                       </div>
 
-                      {/* LÍNEA DE TIEMPO HORIZONTAL DE LA SALA */}
-                      <div style={{ flex: 1, position: 'relative', minHeight: '64px' }}>
-                        
-                        {/* GUÍAS DE FONDO DE CADA HORA */}
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
-                          {slotsHorarios.map((slot, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                flex: 1,
-                                borderRight: slot.esHoraEnPunto ? '1px solid rgba(255, 255, 255, 0.05)' : '1px dashed rgba(255, 255, 255, 0.02)',
-                              }}
-                            />
-                          ))}
-                        </div>
-
-                        {/* BLOQUES DE CLASES / SESIONES */}
-                        {sesionesDeSala.map((ses) => {
-                          // startMins 420 (07:00) a 1320 (22:00)
-                          const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
-                          const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
-
-                          const colorBg = ses.carreraColor || '#ffa200';
+                      {/* SALAS DEL PISO */}
+                      {!isColapsado &&
+                        grupo.ambientes.map((amb, ambIdx) => {
+                          const sesionesDeSala = sesionesPorAmbienteMap.get(amb.id) || [];
+                          const estaLibreAhora = !sesionesDeSala.some(
+                            (s) => nowMinutes >= s.startMins && nowMinutes < s.endMins
+                          );
 
                           return (
                             <div
-                              key={ses.id}
-                              onClick={() => setSesionSeleccionada(ses)}
+                              key={amb.id}
                               style={{
-                                position: 'absolute',
-                                left: `${leftPercent}%`,
-                                width: `${widthPercent}%`,
-                                top: '6px',
-                                bottom: '6px',
-                                background: `linear-gradient(135deg, ${colorBg}e6, ${colorBg}cc)`,
-                                border: '1px solid rgba(255, 255, 255, 0.3)',
-                                borderRadius: '7px',
-                                padding: '0.35rem 0.6rem',
-                                color: '#ffffff',
-                                cursor: 'pointer',
-                                overflow: 'hidden',
                                 display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'center',
-                                boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)',
-                                transition: 'all 0.15s ease',
-                                zIndex: 10,
-                              }}
-                              title={`[${ses.simclicId}] ${ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}\nPS: ${ses.pacienteSimuladoNombre || 'Sin PS'}`}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
-                                e.currentTarget.style.zIndex = '25';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'none';
-                                e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.25)';
-                                e.currentTarget.style.zIndex = '10';
+                                borderBottom: '1px solid var(--border-color)',
+                                background: ambIdx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)',
+                                minHeight: '64px',
+                                position: 'relative',
                               }}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
-                                <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  #{ses.simclicId} {ses.prefijo ? `[${ses.prefijo}]` : ''} {ses.cursoNombreSimclic || ses.titulo}
-                                </span>
-                                <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', fontWeight: 700, opacity: 0.9 }}>
-                                  {ses.horaInicio}-{ses.horaFin}
-                                </span>
+                              {/* COLUMNA LATERAL FIJA DE LA SALA */}
+                              <div
+                                style={{
+                                  width: '240px',
+                                  minWidth: '240px',
+                                  padding: '0.65rem 1rem',
+                                  borderRight: '2px solid var(--border-color)',
+                                  background: 'var(--bg-elevated)',
+                                  position: 'sticky',
+                                  left: 0,
+                                  zIndex: 20,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'center',
+                                  gap: '0.2rem',
+                                  boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <span
+                                    style={{
+                                      width: '8px',
+                                      height: '8px',
+                                      borderRadius: '50%',
+                                      background: esHoy ? (estaLibreAhora ? '#00e699' : '#ff5a00') : '#38bdf8',
+                                      boxShadow: esHoy && estaLibreAhora ? '0 0 8px #00e699' : 'none',
+                                    }}
+                                    title={estaLibreAhora ? 'Sala desocupada ahora' : 'Sala en uso ahora'}
+                                  />
+                                  <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                                    {amb.nombre}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                  <span>{amb.codigo || amb.tipo}</span>
+                                  {esHoy && (
+                                    <span style={{ color: estaLibreAhora ? '#00e699' : '#ff5a00', fontWeight: 600 }}>
+                                      {estaLibreAhora ? 'Disponible' : 'En Clase'}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.65rem', marginTop: '0.15rem', opacity: 0.95 }}>
-                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  👨‍🏫 {ses.docenteNombreSimclic ? ses.docenteNombreSimclic.split(',')[0] : 'Docente'}
-                                </span>
-                                {ses.pacienteSimuladoNombre && (
-                                  <span style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '0.05rem 0.3rem', borderRadius: '4px', fontSize: '0.62rem' }}>
-                                    🎭 PS
-                                  </span>
+                              {/* LÍNEA DE TIEMPO HORIZONTAL DE LA SALA */}
+                              <div style={{ flex: 1, position: 'relative', minHeight: '64px' }}>
+                                {/* GUÍAS DE FONDO DE CADA HORA */}
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+                                  {slotsHorarios.map((slot, i) => (
+                                    <div
+                                      key={i}
+                                      style={{
+                                        flex: 1,
+                                        borderRight: slot.esHoraEnPunto ? '1px solid rgba(255, 255, 255, 0.05)' : '1px dashed rgba(255, 255, 255, 0.02)',
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+
+                                {/* BLOQUES DE CLASES / SESIONES */}
+                                {sesionesDeSala.map((ses) => {
+                                  const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
+                                  const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
+                                  const colorBg = ses.carreraColor || '#ffa200';
+
+                                  return (
+                                    <div
+                                      key={ses.id}
+                                      onClick={() => setSesionSeleccionada(ses)}
+                                      style={{
+                                        position: 'absolute',
+                                        left: `${leftPercent}%`,
+                                        width: `${widthPercent}%`,
+                                        top: '6px',
+                                        bottom: '6px',
+                                        background: `linear-gradient(135deg, ${colorBg}e6, ${colorBg}cc)`,
+                                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                                        borderRadius: '7px',
+                                        padding: '0.35rem 0.6rem',
+                                        color: '#ffffff',
+                                        cursor: 'pointer',
+                                        overflow: 'hidden',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)',
+                                        transition: 'all 0.15s ease',
+                                        zIndex: 10,
+                                      }}
+                                      title={`[${ses.simclicId}] ${ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}\nPS: ${ses.pacienteSimuladoNombre || 'Sin PS'}`}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+                                        e.currentTarget.style.zIndex = '25';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'none';
+                                        e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.25)';
+                                        e.currentTarget.style.zIndex = '10';
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
+                                        <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          #{ses.simclicId} {ses.prefijo ? `[${ses.prefijo}]` : ''} {ses.cursoNombreSimclic || ses.titulo}
+                                        </span>
+                                        <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', fontWeight: 700, opacity: 0.9 }}>
+                                          {ses.horaInicio}-{ses.horaFin}
+                                        </span>
+                                      </div>
+
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.65rem', marginTop: '0.15rem', opacity: 0.95 }}>
+                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          👨‍🏫 {ses.docenteNombreSimclic ? ses.docenteNombreSimclic.split(',')[0] : 'Docente'}
+                                        </span>
+                                        {ses.pacienteSimuladoNombre && (
+                                          <span style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '0.05rem 0.3rem', borderRadius: '4px', fontSize: '0.62rem' }}>
+                                            🎭 PS
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {ses.estadoEnVivo === 'sin_marcar' && (
+                                        <div style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.75rem' }}>
+                                          🚨
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {/* LÍNEA INDICADORA DE HORA ACTUAL (AZUL NEÓN EN VIVO) */}
+                                {lineaActualPercent !== null && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      left: `${lineaActualPercent}%`,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: '2px',
+                                      background: '#38bdf8',
+                                      boxShadow: '0 0 10px #38bdf8',
+                                      zIndex: 15,
+                                      pointerEvents: 'none',
+                                    }}
+                                  />
                                 )}
                               </div>
-
-                              {ses.estadoEnVivo === 'sin_marcar' && (
-                                <div style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.75rem' }}>
-                                  🚨
-                                </div>
-                              )}
                             </div>
                           );
                         })}
-
-                        {/* LÍNEA INDICADORA DE HORA ACTUAL (AZUL NEÓN EN VIVO) */}
-                        {lineaActualPercent !== null && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${lineaActualPercent}%`,
-                              top: 0,
-                              bottom: 0,
-                              width: '2px',
-                              background: '#38bdf8',
-                              boxShadow: '0 0 10px #38bdf8',
-                              zIndex: 15,
-                              pointerEvents: 'none',
-                            }}
-                          />
-                        )}
-                      </div>
-                    </div>
+                    </React.Fragment>
                   );
                 })
               )}

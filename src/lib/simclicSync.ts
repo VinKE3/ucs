@@ -77,10 +77,21 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
   }
 
   function resolveAmbiente(roomSimclic?: { code?: string; name?: string }, sedeId?: number | null) {
-    if (!roomSimclic?.name) return null;
-    const roomName = roomSimclic.name;
+    if (!roomSimclic?.name && !roomSimclic?.code) return null;
+    const roomName = (roomSimclic.name || '').trim();
+    const roomCode = (roomSimclic.code || '').trim().toLowerCase();
 
-    // Regla de oro 1: Extraer código de laboratorio e.g. "L 102", "L 110", "L 218", "L102", "L-102"
+    // Regla de oro 1: Coincidencia exacta por código de ambiente de SimClic (ej: SL02TA20)
+    if (roomCode) {
+      const foundByCode = allAmbientes.find((a) => {
+        const matchesSede = !sedeId || a.sedeId === sedeId;
+        const aCode = (a.codigo || '').trim().toLowerCase();
+        return matchesSede && aCode && aCode === roomCode;
+      });
+      if (foundByCode) return foundByCode;
+    }
+
+    // Regla de oro 2: Extraer código de laboratorio e.g. "L 102", "L 110", "L 218", "L102", "L-102"
     const labCodeMatch = roomName.match(/\bL\s*[-]?\s*(\d{3})\b/i);
     if (labCodeMatch) {
       const numCode = labCodeMatch[1]; // ej: "102"
@@ -96,7 +107,19 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
       if (foundByLabNum) return foundByLabNum;
     }
 
-    // Regla de oro 2: Búsqueda difusa por nombre
+    // Regla de oro 3: Coincidencia por Consultorio / Sala con número normalizado (ej: "CONSULTORIO 04" vs "CONSULTORIO 4")
+    const consultorioMatch = roomName.match(/consultorio\s*0?(\d+)/i);
+    if (consultorioMatch) {
+      const consNum = consultorioMatch[1]; // ej: "4"
+      const foundCons = allAmbientes.find((a) => {
+        const matchesSede = !sedeId || a.sedeId === sedeId;
+        const aNom = a.nombre.toLowerCase();
+        return matchesSede && new RegExp(`consultorio\\s*0?${consNum}\\b`, 'i').test(aNom);
+      });
+      if (foundCons) return foundCons;
+    }
+
+    // Regla de oro 4: Búsqueda difusa por nombre
     const cleanRoom = roomName.toLowerCase().trim();
     const foundByText = allAmbientes.find((a) => {
       const matchesSede = !sedeId || a.sedeId === sedeId;

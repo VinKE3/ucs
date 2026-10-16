@@ -544,6 +544,9 @@ src/
   - Ahora se sincroniza automáticamente cada 3 minutos y al reenfocar el navegador, **sin importar en qué pestaña se encuentre el usuario** (Historial de Asistencias, Personal, Cursos, Planilla, etc.).
   - Si un colega traslada o reubica una sala en SimClic mientras estás en otra pestaña, el sistema lo detecta en background y lanza una alerta toast con el número de traslados.
   - La pestaña de **Programación SimClic** se actualiza de manera reactiva mediante `simclicSyncCount` para reflejar instantáneamente cualquier cambio sin requerir recargar la página.
+* `feat(consulta-autosync)`: Sincronización en tiempo real para la pantalla pública de Horarios (`/consulta`):
+  - Se implementó auto-sync silencioso en segundo plano cada 3 minutos y al reenfocar la ventana para la fecha actual en [consulta/page.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/consulta/page.tsx).
+  - Se integró pastilla luminosa con la última hora de sincronización (`SimClic en vivo • HH:MM`) y botón manual de actualización rápida.
 
 ---
 

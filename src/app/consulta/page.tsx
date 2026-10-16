@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import styles from './consulta.module.css';
@@ -62,9 +62,13 @@ interface CursoItem {
 }
 
 export default function ConsultaPublicaPage() {
-  const [fecha, setFecha] = useState(() => {
-    return new Date().toISOString().slice(0, 10);
-  });
+  const getHoyLima = () => {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const [fecha, setFecha] = useState<string>(getHoyLima);
   const [selectedSede, setSelectedSede] = useState<string>('todas');
   const [activeTab, setActiveTab] = useState<'docente' | 'curso' | 'ambiente'>('docente');
 
@@ -94,6 +98,8 @@ export default function ConsultaPublicaPage() {
   };
 
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const isSyncingRef = useRef(false);
 
   // Cargar datos al cambiar de fecha
   const loadData = useCallback(async () => {
@@ -122,27 +128,65 @@ export default function ConsultaPublicaPage() {
     loadData();
   }, [loadData]);
 
-  // Sincronizar bajo demanda desde SimClic
-  const handleSyncFromSimclic = async () => {
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/simclic/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fecha }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        await loadData();
-      } else {
-        alert(data.error || 'No se pudo sincronizar la programación desde SimClic');
+  // Sincronización en segundo plano con SimClic
+  const runBackgroundSync = useCallback(
+    async (isSilent = true) => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      if (!isSilent) setSyncing(true);
+
+      try {
+        const res = await fetch('/api/simclic/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fecha }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setLastSyncTime(new Date());
+          await loadData();
+        } else if (!isSilent) {
+          alert(data.error || 'No se pudo sincronizar la programación desde SimClic');
+        }
+      } catch {
+        if (!isSilent) alert('Error de conexión al sincronizar con SimClic');
+      } finally {
+        isSyncingRef.current = false;
+        if (!isSilent) setSyncing(false);
       }
-    } catch {
-      alert('Error de conexión al sincronizar con SimClic');
-    } finally {
-      setSyncing(false);
-    }
+    },
+    [fecha, loadData]
+  );
+
+  // Sincronizar bajo demanda desde SimClic
+  const handleSyncFromSimclic = () => {
+    runBackgroundSync(false);
   };
+
+  // Auto-sync silencioso cada 3 minutos y al reenfocar la ventana cuando es la fecha de hoy
+  useEffect(() => {
+    const hoy = getHoyLima();
+    if (fecha !== hoy) return;
+
+    const initialTimer = setTimeout(() => {
+      runBackgroundSync(true);
+    }, 2500);
+
+    const interval = setInterval(() => {
+      runBackgroundSync(true);
+    }, 180000); // 3 minutos
+
+    const handleFocus = () => {
+      runBackgroundSync(true);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fecha, runBackgroundSync]);
 
   // Filtrado de Docentes según Sede y Query
   const filteredDocentes = useMemo(() => {
@@ -322,6 +366,64 @@ export default function ConsultaPublicaPage() {
                 className={styles.dateInput}
               />
             </div>
+
+            {/* Indicador de Auto-sync y botón de refresco */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                fontSize: '0.74rem',
+                color: 'var(--text-secondary, #94a3b8)',
+                background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '8px',
+              }}
+              title="Sincronización automática activa con SimClic"
+            >
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#00e699',
+                  boxShadow: '0 0 6px #00e699',
+                  display: 'inline-block',
+                }}
+              />
+              <span style={{ fontWeight: 600 }}>SimClic en vivo</span>
+              {lastSyncTime && (
+                <span style={{ opacity: 0.7 }}>
+                  • {lastSyncTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSyncFromSimclic}
+              disabled={syncing}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.35rem 0.7rem',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                background: 'transparent',
+                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.12))',
+                borderRadius: '8px',
+                cursor: syncing ? 'not-allowed' : 'pointer',
+              }}
+              title="Sincronizar ahora con SimClic"
+            >
+              <span style={{ display: 'inline-block', transform: syncing ? 'rotate(360deg)' : 'none', transition: 'transform 0.8s ease' }}>
+                🔄
+              </span>
+              <span>{syncing ? 'Sincronizando...' : 'Actualizar'}</span>
+            </button>
           </div>
         </div>
       </header>

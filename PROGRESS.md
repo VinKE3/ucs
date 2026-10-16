@@ -492,6 +492,7 @@ src/
 * `feat(docentes)`: depurar padrón e importar únicamente 211 docentes activos en 2026 con DNIs serie 99000001 a 99000211
 * `fix(build)`: tipar `Set<string>` en `findChunks.ts` resolviendo error TS18046 en el chequeo de tipos de Next.js build
 * `ac398d3`: feat(academic): catalogo unificado opcion 1 con 13 carreras, 64 cursos oficiales simclic, prefijos y escenarios dinamicos
+* `21bf44a`: feat(audit-blocks): motor de auditoria bloque a bloque, deteccion de retiro anticipado y cobertura parcial en asistencias y modal 360
 * `147e906`: feat(seed): purgado quirurgico y carga oficial de 3 sedes y 63 salas de simclic preservando tecnicos
 * `75383fd`: docs: registrar commit 3a8c69d en PROGRESS.md
 * `3a8c69d`: feat(simclic): bot autonomo por websocket sockjs, sincronizacion de clases y deteccion de cambios de sala

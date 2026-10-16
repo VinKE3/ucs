@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { SesionProgramadaTimelineItem } from '@/types/admin';
 
@@ -21,9 +22,14 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
   onClose,
   onOpenCrearAsistenciaManual,
 }) => {
-  if (!isOpen || !sesion) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  if (!isOpen || !sesion || !mounted) return null;
+
+  return createPortal(
     <div
       className={styles.modalBackdrop}
       style={{
@@ -518,6 +524,7 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

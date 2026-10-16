@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type {
   CastingRangoEdadItem,
@@ -29,8 +30,12 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
   restriccionesList = [],
 }) => {
   const [tabActiva, setTabActiva] = useState<'honorarios' | 'casting'>('honorarios');
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  if (!isOpen || !actor) return null;
+  if (!isOpen || !actor || !mounted) return null;
 
   const u = actor.usuarioObj;
   const p = u?.castingPerfil;
@@ -52,7 +57,7 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
     .map((id) => restriccionesList.find((r) => r.id === id))
     .filter(Boolean) as CastingRestriccionItem[];
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -743,6 +748,7 @@ export const ModalFichaPacienteSimulado: React.FC<ModalFichaPacienteSimuladoProp
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

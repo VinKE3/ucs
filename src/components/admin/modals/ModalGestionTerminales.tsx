@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import { confirmModal, showToast } from '@/lib/alerts';
 import type { SedeAdminItem } from '@/types/admin';
@@ -32,6 +33,11 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
   onClose,
   sedesList,
 }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [terminales, setTerminales] = useState<TerminalItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -57,7 +63,7 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const handleToggleActivo = async (term: TerminalItem) => {
     setTogglingId(term.id);
@@ -110,7 +116,7 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div className={styles.modalBackdrop} onClick={onClose}>
       <div
         className={styles.modalContent}
@@ -295,6 +301,7 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

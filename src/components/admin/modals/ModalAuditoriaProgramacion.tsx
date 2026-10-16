@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SesionProgramadaSimclicItem } from '@/types/admin';
 
@@ -15,7 +16,12 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
   asistencia,
   onClose,
 }) => {
-  if (!isOpen || !asistencia) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !asistencia || !mounted) return null;
 
   const sesiones: SesionProgramadaSimclicItem[] = asistencia.sesionesProgramadasDia || [];
 
@@ -90,7 +96,7 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
       sala?.toLowerCase().includes(asistencia.ambienteNombre?.toLowerCase() || '')
     );
 
-  return (
+  return createPortal(
     <div
       className={styles.modalBackdrop}
       style={{
@@ -364,6 +370,7 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

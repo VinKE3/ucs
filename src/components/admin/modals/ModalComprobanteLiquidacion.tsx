@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { UsuarioItem, AsistenciaAdminItem } from '@/types/admin';
 
@@ -40,7 +41,12 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
   totalSesiones,
   asistencias,
 }) => {
-  if (!isOpen || !usuario) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !usuario || !mounted) return null;
 
   const fechaHoy = new Date().toLocaleDateString('es-PE', {
     day: '2-digit',
@@ -127,7 +133,7 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
     document.body.removeChild(link);
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -523,6 +529,7 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

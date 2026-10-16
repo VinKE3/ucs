@@ -19,7 +19,9 @@
     "db:reset-simclic": "tsx src/scripts/reloadOfficialSimclicData.ts",
     "db:seed-academic": "tsx src/scripts/seedOfficialCarrerasCursos.ts",
     "db:import-teachers": "tsx src/scripts/importSimclicTeachers.ts",
-    "db:import-patients": "tsx src/scripts/importSimclicPatients.ts"
+    "db:import-patients": "tsx src/scripts/importSimclicPatients.ts",
+    "demo:oct:seed": "tsx src/db/seed_simulacion_octubre.ts",
+    "demo:oct:cleanup": "tsx src/db/cleanup_simulacion_octubre.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

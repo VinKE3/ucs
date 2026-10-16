@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
         pacienteSimuladoCorreo: sesionesProgramadas.pacienteSimuladoCorreo,
         estadoSimclic: sesionesProgramadas.estadoSimclic,
         estadoUcs: sesionesProgramadas.estadoUcs,
+        ambienteOriginalNombre: sesionesProgramadas.ambienteOriginalNombre,
+        ultimaSincronizacion: sesionesProgramadas.ultimaSincronizacion,
       })
       .from(sesionesProgramadas)
       .where(and(...condicionesSesiones))
@@ -282,6 +284,14 @@ export async function GET(request: NextRequest) {
       (s) => s.estadoEnVivo === 'sin_marcar'
     );
 
+    const reubicadasAlerta = sesionesEnriquecidas.filter(
+      (s) => s.estadoUcs === 'reubicada' || Boolean(s.ambienteOriginalNombre)
+    );
+
+    const sinSalaAlerta = sesionesEnriquecidas.filter((s) => !s.ambienteId);
+
+    const ultimaSinc = sesionesRaw.find((s) => s.ultimaSincronizacion)?.ultimaSincronizacion || null;
+
     return NextResponse.json({
       success: true,
       fecha,
@@ -304,6 +314,9 @@ export async function GET(request: NextRequest) {
         salasLibresAhoraCount: salasLibresAhora.length,
         salasLibresAhora: salasLibresAhora.map((a) => ({ id: a.id, nombre: a.nombre, codigo: a.codigo, tipo: a.tipo })),
         ausentismosCount: ausentismosAlerta.length,
+        reubicadasCount: reubicadasAlerta.length,
+        sinSalaCount: sinSalaAlerta.length,
+        ultimaSincronizacion: ultimaSinc ? new Date(ultimaSinc).toISOString() : null,
       },
     });
   } catch (error: unknown) {

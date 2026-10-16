@@ -360,9 +360,12 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     if (existente) {
       // Detección de traslados/cambios de sala hechos por los técnicos en SimClic
       const cambioSala =
-        ambienteNombreSimclic &&
-        existente.ambienteNombreSimclic &&
-        ambienteNombreSimclic !== existente.ambienteNombreSimclic;
+        (ambienteNombreSimclic &&
+          existente.ambienteNombreSimclic &&
+          ambienteNombreSimclic !== existente.ambienteNombreSimclic) ||
+        (ambienteCodigoSimclic &&
+          existente.ambienteCodigoSimclic &&
+          ambienteCodigoSimclic.trim().toLowerCase() !== existente.ambienteCodigoSimclic.trim().toLowerCase());
 
       if (cambioSala) {
         reubicadas++;

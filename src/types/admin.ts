@@ -183,6 +183,8 @@ export interface SesionProgramadaSimclicItem {
   escenarioNombre: string | null;
   prefijo: string | null;
   estadoUcs: string;
+  ambienteOriginalNombre?: string | null;
+  ultimaSincronizacion?: string | null;
 }
 
 export interface CarreraAdminItem {
@@ -273,6 +275,9 @@ export interface ProgramacionMetricas {
   salasLibresAhoraCount: number;
   salasLibresAhora: Array<{ id: number; nombre: string; codigo: string | null; tipo: string }>;
   ausentismosCount: number;
+  reubicadasCount?: number;
+  sinSalaCount?: number;
+  ultimaSincronizacion?: string | null;
 }
 
 export interface AuditoriaItem {

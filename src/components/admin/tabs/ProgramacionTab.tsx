@@ -216,28 +216,91 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Disparar sincronización manual con SimClic
-  const handleSyncSimclic = async () => {
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/simclic/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fecha }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(`Sincronización exitosa: ${data.totalClasesHoy || 0} sesiones cargadas`, 'success');
-        await loadProgramacion();
-      } else {
-        showAlert('Atención', data.error || 'No se pudo sincronizar con SimClic', 'warning');
+  // Estados para Auto-Sync en vivo en segundo plano
+  const [autoSyncEnabled] = useState<boolean>(true);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const isSyncingRef = React.useRef<boolean>(false);
+
+  // Sincronización con SimClic (Manual o en background silencioso)
+  const runSyncSimclic = useCallback(
+    async (isManual: boolean = false) => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      if (isManual) setSyncing(true);
+
+      try {
+        const res = await fetch('/api/simclic/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fecha }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setLastSyncTime(new Date());
+          if (isManual) {
+            showToast(`Sincronización exitosa: ${data.total || 0} sesiones procesadas`, 'success');
+          } else if (data.reubicadas > 0) {
+            showToast(`🔄 SimClic: Se detectaron ${data.reubicadas} sesiones trasladadas de sala`, 'info');
+          }
+
+          // Recargar datos suavemente en segundo plano
+          const params = new URLSearchParams();
+          if (fecha) params.set('fecha', fecha);
+          if (selectedSedeId) params.set('sedeId', String(selectedSedeId));
+
+          const resProg = await fetch(`/api/programacion?${params.toString()}`);
+          const dataProg = await resProg.json();
+          if (resProg.ok && dataProg.success) {
+            setAmbientes(dataProg.ambientesList || []);
+            setSesiones(dataProg.sesiones || []);
+            setDocentesList(dataProg.docentesList || []);
+            setCursosList(dataProg.cursosList || []);
+            setPsList(dataProg.psList || []);
+            setMetricas(dataProg.metricas || null);
+            setNowMinutes(dataProg.nowMinutes || 0);
+            setEsHoy(dataProg.esHoy);
+          }
+        } else if (isManual) {
+          showAlert('Atención', data.error || 'No se pudo sincronizar con SimClic', 'warning');
+        }
+      } catch {
+        if (isManual) showToast('Error al conectar con SimClic', 'error');
+      } finally {
+        isSyncingRef.current = false;
+        if (isManual) setSyncing(false);
       }
-    } catch {
-      showToast('Error al conectar con SimClic', 'error');
-    } finally {
-      setSyncing(false);
+    },
+    [fecha, selectedSedeId]
+  );
+
+  // Disparar sincronización silenciosa inicial al entrar si es hoy
+  useEffect(() => {
+    if (esHoy && autoSyncEnabled) {
+      const timer = setTimeout(() => {
+        runSyncSimclic(false);
+      }, 1200);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [esHoy, fecha, autoSyncEnabled, runSyncSimclic]);
+
+  // Polling automático cada 3 minutos si la pestaña sigue abierta
+  useEffect(() => {
+    if (!esHoy || !autoSyncEnabled) return;
+    const interval = setInterval(() => {
+      runSyncSimclic(false);
+    }, 180000); // 3 minutos
+    return () => clearInterval(interval);
+  }, [esHoy, autoSyncEnabled, runSyncSimclic]);
+
+  // Sincronización automática al reenfocar la ventana del navegador (ej. si estaban en SimClic)
+  useEffect(() => {
+    if (!esHoy || !autoSyncEnabled) return;
+    const handleFocus = () => {
+      runSyncSimclic(false);
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [esHoy, autoSyncEnabled, runSyncSimclic]);
 
   // Franjas horarias del Gantt (07:00 a 22:00 en saltos de 30 min)
   const slotsHorarios = useMemo(() => {
@@ -528,10 +591,43 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             />
           </div>
 
+          {/* INDICADOR AUTO-SYNC EN VIVO */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              padding: '0.35rem 0.65rem',
+              borderRadius: '8px',
+              fontSize: '0.74rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: autoSyncEnabled ? '#00e699' : '#94a3b8',
+                boxShadow: autoSyncEnabled ? '0 0 6px #00e699' : 'none',
+              }}
+            />
+            <span style={{ fontWeight: 600 }}>
+              {autoSyncEnabled ? 'Auto-sync activo (3m)' : 'Auto-sync pausado'}
+            </span>
+            {lastSyncTime && (
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                • {lastSyncTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+
           {/* BOTÓN SINCRONIZAR SIMCLIC */}
           <button
             type="button"
-            onClick={handleSyncSimclic}
+            onClick={() => runSyncSimclic(true)}
             disabled={syncing}
             className={styles.actionBtn}
             style={{
@@ -587,6 +683,24 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                   {metricas.ausentismosCount}
                 </span>
                 <span className={styles.metricLbl}>🚨 Sesión en Curso Sin Marcar</span>
+              </div>
+            )}
+
+            {Boolean(metricas.reubicadasCount && metricas.reubicadasCount > 0) && (
+              <div className={styles.metricItem} style={{ borderLeft: '2px solid #f97316', paddingLeft: '1rem' }}>
+                <span className={styles.metricVal} style={{ color: '#f97316' }}>
+                  {metricas.reubicadasCount}
+                </span>
+                <span className={styles.metricLbl}>🔄 Salas Reubicadas</span>
+              </div>
+            )}
+
+            {Boolean(metricas.sinSalaCount && metricas.sinSalaCount > 0) && (
+              <div className={styles.metricItem} style={{ borderLeft: '2px solid #eab308', paddingLeft: '1rem' }}>
+                <span className={styles.metricVal} style={{ color: '#eab308' }}>
+                  {metricas.sinSalaCount}
+                </span>
+                <span className={styles.metricLbl}>⚠️ Salas No Identificadas</span>
               </div>
             )}
           </div>
@@ -1131,11 +1245,28 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                           👨‍🏫 {ses.docenteNombreSimclic ? ses.docenteNombreSimclic.split(',')[0] : 'Docente'}
                                         </span>
-                                        {ses.pacienteSimuladoNombre && (
-                                          <span style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '0.05rem 0.3rem', borderRadius: '4px', fontSize: '0.62rem' }}>
-                                            🎭 PS
-                                          </span>
-                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                          {Boolean(ses.ambienteOriginalNombre || ses.estadoUcs === 'reubicada') && (
+                                            <span
+                                              style={{
+                                                background: 'rgba(239, 68, 68, 0.45)',
+                                                border: '1px solid rgba(255, 255, 255, 0.4)',
+                                                padding: '0.05rem 0.25rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.58rem',
+                                                fontWeight: 700,
+                                              }}
+                                              title={`Trasladada de: ${ses.ambienteOriginalNombre || 'Otra sala'}`}
+                                            >
+                                              🔄 Trasladada
+                                            </span>
+                                          )}
+                                          {ses.pacienteSimuladoNombre && (
+                                            <span style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '0.05rem 0.3rem', borderRadius: '4px', fontSize: '0.62rem' }}>
+                                              🎭 PS
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
 
                                       {ses.estadoEnVivo === 'sin_marcar' && (

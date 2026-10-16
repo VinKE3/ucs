@@ -167,6 +167,38 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
         {/* CUERPO CON INFORMACIÓN EN SECCIONES */}
         <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
+          {/* BANNER DE TRASLADO / REUBICACIÓN EN SIMCLIC */}
+          {Boolean(sesion.ambienteOriginalNombre || sesion.estadoUcs === 'reubicada') && (
+            <div
+              style={{
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: '12px',
+                padding: '0.85rem 1.15rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.85rem',
+              }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>🔄</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#f87171' }}>
+                  Traslado de Sala Detectado en SimClic
+                </div>
+                <div style={{ fontSize: '0.8rem', marginTop: '0.15rem', color: 'var(--text-primary)' }}>
+                  Esta clase fue movida de su sala original{' '}
+                  <strong style={{ color: '#fb923c' }}>
+                    {sesion.ambienteOriginalNombre || 'Sala previa'}
+                  </strong>{' '}
+                  hacia la sala actual{' '}
+                  <strong style={{ color: '#00e699' }}>
+                    {sesion.ambienteNombreSimclic || 'Sala actual'}
+                  </strong>.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* SECCIÓN 1: HORARIO Y UBICACIÓN FÍSICA */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.9rem' }}>
             {/* Horario */}

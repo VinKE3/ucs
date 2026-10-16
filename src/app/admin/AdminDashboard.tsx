@@ -1111,12 +1111,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               🏥 Ambientes ({stats.ambientes})
             </button>
             <button
-              className={`${styles.tabBtn} ${activeTab === 'programacion' ? styles.activeTab : ''}`}
-              onClick={() => setActiveTab('programacion')}
-            >
-              📅 Programación SimClic
-            </button>
-            <button
               className={`${styles.tabBtn} ${activeTab === 'cursos' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('cursos')}
             >
@@ -1127,6 +1121,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               onClick={() => setActiveTab('personal')}
             >
               👥 Personal de Clínica ({usuariosList.filter((u) => u.dni !== '00000001').length})
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === 'programacion' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('programacion')}
+            >
+              📅 Programación SimClic
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'asistencias' ? styles.activeTab : ''}`}

@@ -532,7 +532,8 @@ src/
 * `222be76`: feat(security): modo oculto e interruptor secreto para cuenta maestra de super admin 00000001
 * `feat(gantt)`: Agrupación y ordenamiento idéntico a SimClic por pisos ("Primer Piso", "Segundo Piso", etc.) con secciones colapsables y barra de acento azul.
 * `fix(simclic-sync)`: Resolución y cruce de ambientes por código SimClic (`SL02TA20` para Consultorio 4, `SL02TA24` para Consultorio 5). Corrección de ambigüedad en SimClic donde sesiones de Consultorio 5 venían erróneamente rotuladas como `CONSULTORIO 5 - L 213`, causando que se asignaran erróneamente a Consultorio 8 (`L 213`). Priorización estricta por código SimClic.
-* `feat(auto-sync)`: Auto-sincronización inteligente en segundo plano sin intervención manual (al cargar la pestaña, sondeo en vivo cada 3 minutos y al reenfocar la ventana del navegador `window.onfocus`). Detección y badges visuales para traslados de sala (`🔄 Trasladada`), alertas preventivas de salas no identificadas y banner detallado en modal de sesión.
+* `feat(layout)`: Ampliación de la interfaz a pantalla completa (100% full width) eliminando restricción de 1780px y reduciendo el padding lateral a 1.25rem (20px) para maximizar espacio de datos sin alterar padding vertical.
+* `feat(tabs)`: Reordenamiento oficial de pestañas del panel administrativo: Sedes, Ambientes, Cursos y Carreras, Personal de la Clínica, Programación SimClic, Historial de Asistencias, Planilla Mensual PS.
 
 ---
 

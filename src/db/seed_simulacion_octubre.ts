@@ -56,10 +56,10 @@ function minDiff(horaInicio: string, horaFin: string): number {
   return (h2 * 60 + m2) - (h1 * 60 + m1);
 }
 
-async function simularReal() {
+async function simularMaster() {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
-    console.error('DATABASE_URL no encontrada en .env.local');
+    console.error('DATABASE_URL no configurada');
     process.exit(1);
   }
   const sql = neon(dbUrl);
@@ -81,26 +81,31 @@ async function simularReal() {
   `;
   console.log('✅ Base de datos limpia de simulaciones anteriores.\n');
 
+  // Catálogo de ambientes para simular reubicaciones realistas
+  const ambientesVilla = await sql`
+    SELECT id, nombre, sede_id FROM ambientes WHERE activo = true ORDER BY id;
+  ` as any[];
+
   let totalAsistencias = 0;
 
   // =========================================================================
-  // 1. SIMULACIÓN DE TÉCNICOS DE SIMULACIÓN (CONTROL DE TURNOS Y AUDITORÍA)
+  // 1. TÉCNICOS DE SIMULACIÓN (10 colaboradores de Sede Villa)
   // =========================================================================
-  console.log('👷 Generando asistencias de TÉCNICOS (10 colaboradores)...');
+  console.log('👷 1. Generando asistencias de TÉCNICOS (10 colaboradores)...');
   let tecCount = 0;
 
   for (const dia of DIAS_QUINCENA) {
     const { fecha, tipo } = dia;
 
-    // A) En días feriados (08 de octubre), solo guardia de 2 técnicos
+    // A) Feriado 08 de octubre: 2 técnicos de guardia reducida
     if (tipo === 'feriado') {
       const guardias = [
         { tec: TECNICOS[0], entrada: '06:00', salida: '15:00', obs: 'Guardia feriado Angamos - Turno Mañana' },
         { tec: TECNICOS[6], entrada: '13:00', salida: '22:00', obs: 'Guardia feriado Angamos - Turno Tarde' },
       ];
       for (const g of guardias) {
-        const hIngreso = toIsoLima(fecha, g.entrada, -3);
-        const hSalida = toIsoLima(fecha, g.salida, 5);
+        const hIngreso = toIsoLima(fecha, g.entrada, -4);
+        const hSalida = toIsoLima(fecha, g.salida, 6);
         await sql`
           INSERT INTO asistencias (
             usuario_id, sede_id, ambiente_id, curso_id, fecha,
@@ -110,9 +115,9 @@ async function simularReal() {
             estado_asistencia, tipo_registro, observaciones
           ) VALUES (
             ${g.tec.id}, ${SEDE_VILLA}, NULL, NULL, ${fecha},
-            ${hIngreso}, ${hSalida}, 548,
+            ${hIngreso}, ${hSalida}, 550,
             ${g.entrada}, ${g.salida},
-            NULL, NULL, 5,
+            NULL, NULL, 6,
             'finalizado', 'kiosco_autoservicio',
             ${`${SEED_TAG} ${g.obs}`}
           );
@@ -123,12 +128,12 @@ async function simularReal() {
       continue;
     }
 
-    // B) En Sábados, guardia reducida de 3 técnicos de mañana
+    // B) Sábados (03/10 y 10/10): 3 técnicos de soporte matutino
     if (tipo === 'sabado') {
       const sabadoTecs = [TECNICOS[1], TECNICOS[4], TECNICOS[9]]; // Palacios, Puma, Quispe
       for (const tec of sabadoTecs) {
-        const hIngreso = toIsoLima(fecha, '07:00', -4);
-        const hSalida = toIsoLima(fecha, '13:00', 8);
+        const hIngreso = toIsoLima(fecha, '07:00', -5);
+        const hSalida = toIsoLima(fecha, '13:00', 10);
         await sql`
           INSERT INTO asistencias (
             usuario_id, sede_id, ambiente_id, curso_id, fecha,
@@ -138,9 +143,9 @@ async function simularReal() {
             estado_asistencia, tipo_registro, observaciones
           ) VALUES (
             ${tec.id}, ${SEDE_VILLA}, NULL, NULL, ${fecha},
-            ${hIngreso}, ${hSalida}, 372,
+            ${hIngreso}, ${hSalida}, 375,
             '07:00', '13:00',
-            NULL, NULL, 8,
+            NULL, NULL, 10,
             'finalizado', 'kiosco_autoservicio',
             ${`${SEED_TAG} Guardia sábado soporte académico`}
           );
@@ -151,24 +156,18 @@ async function simularReal() {
       continue;
     }
 
-    // C) Días hábiles regulares (Lunes a Viernes)
+    // C) Días hábiles regulares
     for (let i = 0; i < TECNICOS.length; i++) {
       const tec = TECNICOS[i];
 
-      // Casos específicos de ausentismo justificado
-      if (fecha === '2026-10-06' && tec.id === 7) {
-        // Jose Calderon permiso institucional
-        continue;
-      }
-      if (fecha === '2026-10-12' && tec.id === 8) {
-        // Maykol Palacios día compensatorio
-        continue;
-      }
+      // Casos de ausencia justificada
+      if (fecha === '2026-10-06' && tec.id === 7) continue; // Jose Calderon permiso
+      if (fecha === '2026-10-12' && tec.id === 8) continue; // Maykol Palacios compensatorio
 
-      // Caso especial: Olvido de salida cerrado administrativamente (Jean Pinchi el 07/10)
+      // Caso de cierre forzado con auditoría (Jean Pinchi el 07/10)
       if (fecha === '2026-10-07' && tec.id === 13) {
         const hIngreso = toIsoLima(fecha, tec.entrada, -2);
-        const hSalida = toIsoLima(fecha, tec.salida, 0); // Cerrado a las 15:00
+        const hSalida = toIsoLima(fecha, tec.salida, 0);
         const inserted = await sql`
           INSERT INTO asistencias (
             usuario_id, sede_id, ambiente_id, curso_id, fecha,
@@ -187,14 +186,12 @@ async function simularReal() {
             1, 'Cierre administrativo forzado por omisión involuntaria de marcación de salida'
           ) RETURNING id;
         `;
-        const asisId = inserted[0].id;
-        // Insertar auditoría oficial de la modificación
         await sql`
           INSERT INTO auditoria_asistencias (
             asistencia_id, usuario_admin_id, accion, motivo, datos_anteriores, datos_nuevos
           ) VALUES (
-            ${asisId}, 1, 'CIERRE_FORZADO',
-            'Colaborador omitió marcación en terminal al culminar guardia. Se valida presencia por cámaras.',
+            ${inserted[0].id}, 1, 'CIERRE_FORZADO',
+            'Colaborador omitió marcación en terminal al culminar turno. Se valida presencia por cámaras.',
             ${JSON.stringify({ hora_salida: null, estado: 'en_curso' })},
             ${JSON.stringify({ hora_salida: hSalida, estado: 'finalizado' })}
           );
@@ -204,7 +201,7 @@ async function simularReal() {
         continue;
       }
 
-      // Casos de tardanzas realistas
+      // Variaciones realistas
       let desfaseEntrada = 0;
       let desfaseSalida = 0;
       let minTardanza: number | null = null;
@@ -213,43 +210,21 @@ async function simularReal() {
       let detalleObs = 'Marcación puntual en terminal Kiosco';
 
       if (fecha === '2026-10-06' && tec.id === 10) {
-        // Hugo Cruz tardanza 22m por congestión
-        desfaseEntrada = 22;
-        minTardanza = 22;
-        detalleObs = 'Tardanza +22m por congestión en Panamericana Sur';
+        desfaseEntrada = 22; minTardanza = 22; detalleObs = 'Tardanza +22m por congestión en Panamericana Sur';
       } else if (fecha === '2026-10-09' && tec.id === 9) {
-        // German Flores tardanza 35m
-        desfaseEntrada = 35;
-        minTardanza = 35;
-        detalleObs = 'Tardanza +35m por demora en transporte público';
+        desfaseEntrada = 35; minTardanza = 35; detalleObs = 'Tardanza +35m por demora en transporte público';
       } else if (fecha === '2026-10-13' && tec.id === 13) {
-        // Jean Pinchi tardanza 15m
-        desfaseEntrada = 15;
-        minTardanza = 15;
-        detalleObs = 'Tardanza +15m registrada en Kiosco';
+        desfaseEntrada = 15; minTardanza = 15; detalleObs = 'Tardanza +15m registrada en Kiosco';
       } else if (fecha === '2026-10-02' && tec.id === 12) {
-        // Juan Torvisco tardanza 18m
-        desfaseEntrada = 18;
-        minTardanza = 18;
-        detalleObs = 'Tardanza +18m registrada en Kiosco';
+        desfaseEntrada = 18; minTardanza = 18; detalleObs = 'Tardanza +18m registrada en Kiosco';
       } else if (fecha === '2026-10-05' && tec.id === 11) {
-        // David Poma salida anticipada 40m por cita médica
-        desfaseSalida = -40;
-        minAnticipo = 40;
-        detalleObs = 'Retiro anticipado 40m justificado por cita médica';
+        desfaseSalida = -40; minAnticipo = 40; detalleObs = 'Retiro anticipado 40m justificado por cita médica';
       } else if (fecha === '2026-10-07' && tec.id === 14) {
-        // Sebastián Puma sobretiempo 65m por calibración de simuladores
-        desfaseSalida = 65;
-        minExtra = 65;
-        detalleObs = 'Sobretiempo +65m por calibración y mantenimiento de maniquíes SimMan';
+        desfaseSalida = 65; minExtra = 65; detalleObs = 'Sobretiempo +65m por calibración de maniquíes SimMan';
       } else if (fecha === '2026-10-14' && tec.id === 5) {
-        // Kevin Muñoz sobretiempo 45m por cierre de examen
-        desfaseSalida = 45;
-        minExtra = 45;
-        detalleObs = 'Sobretiempo +45m por apoyo en cierre de estación ECOE';
+        desfaseSalida = 45; minExtra = 45; detalleObs = 'Sobretiempo +45m por apoyo en cierre de estación ECOE';
       } else {
-        // Puntual normal (fluctuación de -4 a +3 min)
-        desfaseEntrada = ((i + fecha.charCodeAt(9)) % 7) - 3;
+        desfaseEntrada = ((i + fecha.charCodeAt(9)) % 7) - 3; // -3 a +3
         desfaseSalida = ((i * 2 + fecha.charCodeAt(9)) % 8) - 2;
         if (desfaseSalida > 5) minExtra = desfaseSalida;
       }
@@ -278,18 +253,215 @@ async function simularReal() {
       totalAsistencias++;
     }
   }
-  console.log(`✅ ${tecCount} asistencias de técnicos insertadas con patrones reales de puntualidad.\n`);
+  console.log(`   ✅ ${tecCount} asistencias de técnicos generadas.`);
 
   // =========================================================================
-  // 2. SIMULACIÓN DE DOCENTES CRUZADOS CON SESIONES REALES DE SIMCLIC
+  // 2. PACIENTES SIMULADOS (PS) — CON TODAS LAS PASTILLAS ACTIVAS
   // =========================================================================
-  console.log('👨‍🏫 Vinculando asistencias de DOCENTES a sesiones reales de SimClic...');
+  console.log('\n🎭 2. Generando asistencias de PACIENTES SIMULADOS con distribución de auditoría...');
 
-  // Traer sesiones que tienen docente asignado en la BD
+  // Traer lista de usuarios PS
+  const psUsers = await sql`
+    SELECT id, dni, nombres, apellidos, correo, tarifa_hora
+    FROM usuarios
+    WHERE tipo_personal = 'paciente_simulado'
+    ORDER BY id;
+  ` as any[];
+
+  // Traer sesiones reales de SimClic que tienen un PS programado por nombre
+  const sesionesConPs = await sql`
+    SELECT 
+      sp.id, sp.fecha, sp.hora_inicio, sp.hora_fin, sp.sede_id, sp.ambiente_id,
+      sp.ambiente_nombre_simclic, sp.curso_id, sp.curso_nombre_simclic,
+      sp.paciente_simulado_nombre, sp.paciente_simulado_correo, sp.titulo
+    FROM sesiones_programadas sp
+    WHERE sp.fecha >= '2026-10-01' AND sp.fecha <= '2026-10-15'
+      AND sp.paciente_simulado_nombre IS NOT NULL 
+      AND sp.paciente_simulado_nombre != ''
+      AND sp.ambiente_id IS NOT NULL
+    ORDER BY sp.fecha, sp.hora_inicio;
+  ` as any[];
+
+  console.log(`   Total de sesiones con PS oficial en SimClic: ${sesionesConPs.length}`);
+
+  let psAlineados = 0;
+  let psTardanzas = 0;
+  let psDiscrepanciaSala = 0;
+  let psSinBloque = 0;
+
+  // Agrupar sesiones por PS y por fecha
+  const psSesionesMap = new Map<number, any[]>();
+  for (const s of sesionesConPs) {
+    const sNom = s.paciente_simulado_nombre.toLowerCase().trim();
+    const matchedUser = psUsers.find((u: any) => {
+      const uNom = `${u.nombres} ${u.apellidos}`.toLowerCase().trim();
+      return sNom.includes(uNom) || uNom.includes(sNom);
+    });
+    if (matchedUser) {
+      if (!psSesionesMap.has(matchedUser.id)) psSesionesMap.set(matchedUser.id, []);
+      psSesionesMap.get(matchedUser.id)!.push({ ...s, user: matchedUser });
+    }
+  }
+
+  // Generar turnos para los pacientes simulados
+  // Queremos:
+  // A) ~45 Conformes / Alineados (Puntual + Misma Sala)
+  // B) ~18 Tardanza vs Programado (Llega 15-30 min tarde)
+  // C) ~20 Discrepancia de Sala (Puntual + Sala Distinta)
+  // D) ~12 Sin Bloque SimClic (Asistencia registrada en día libre / sin clase en SimClic)
+
+  const psEntries = Array.from(psSesionesMap.entries());
+  let targetTotal = 85;
+  let generated = 0;
+
+  for (let idx = 0; idx < psEntries.length; idx++) {
+    const [userId, userSessions] = psEntries[idx];
+    const user = userSessions[0].user;
+
+    // Tomar 2 o 3 sesiones de este usuario en distintas fechas de la quincena
+    const uniqueDates = Array.from(new Set(userSessions.map((s: any) => s.fecha)));
+    const sampleDates = uniqueDates.slice(0, 3);
+
+    for (let di = 0; di < sampleDates.length; di++) {
+      const f = sampleDates[di];
+      const sesion = userSessions.find((s: any) => s.fecha === f);
+      if (!sesion) continue;
+
+      const modulo = (userId * 7 + di * 13) % 100;
+
+      // 1. TARDANZA VS PROGRAMADO (~20%): Llega 15 a 28 minutos tarde respecto al inicio de clase
+      if (modulo < 22 && psTardanzas < 16) {
+        const tardanzaMin = ((userId + di) % 15) + 15; // 15 a 29 min tarde (> 10 min)
+        const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, tardanzaMin);
+        const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, 10);
+        const duracion = minDiff(sesion.hora_inicio, sesion.hora_fin) - tardanzaMin + 10;
+
+        await sql`
+          INSERT INTO asistencias (
+            usuario_id, sede_id, ambiente_id, curso_id, fecha,
+            hora_ingreso, hora_salida, minutos_totales,
+            minutos_tardanza,
+            estado_asistencia, tipo_registro, observaciones
+          ) VALUES (
+            ${user.id}, ${sesion.sede_id || SEDE_VILLA}, ${sesion.ambiente_id}, ${sesion.curso_id}, ${sesion.fecha},
+            ${hIngreso}, ${hSalida}, ${duracion},
+            ${tardanzaMin},
+            'finalizado', 'kiosco_autoservicio',
+            ${`${SEED_TAG} Marcación PS con retraso (+${tardanzaMin}m) por tráfico vehicular`}
+          );
+        `;
+        psTardanzas++;
+        totalAsistencias++;
+        generated++;
+        continue;
+      }
+
+      // 2. DISCREPANCIA / CAMBIO DE SALA (~25%): Llega puntual pero en otra sala diferente
+      if (modulo < 48 && psDiscrepanciaSala < 20) {
+        // Elegir una sala alternativa de la misma sede o de la lista
+        const otraSala = ambientesVilla.find((a: any) => a.id !== sesion.ambiente_id) || ambientesVilla[0];
+        const briefingMin = 20;
+        const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, -briefingMin);
+        const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, 10);
+        const duracion = minDiff(sesion.hora_inicio, sesion.hora_fin) + briefingMin + 10;
+
+        await sql`
+          INSERT INTO asistencias (
+            usuario_id, sede_id, ambiente_id, curso_id, fecha,
+            hora_ingreso, hora_salida, minutos_totales,
+            estado_asistencia, tipo_registro, observaciones
+          ) VALUES (
+            ${user.id}, ${sesion.sede_id || SEDE_VILLA}, ${otraSala.id}, ${sesion.curso_id}, ${sesion.fecha},
+            ${hIngreso}, ${hSalida}, ${duracion},
+            'finalizado', 'kiosco_autoservicio',
+            ${`${SEED_TAG} Reubicación operativa de sala: Traslado a ${otraSala.nombre}`}
+          );
+        `;
+        psDiscrepanciaSala++;
+        totalAsistencias++;
+        generated++;
+        continue;
+      }
+
+      // 3. CONFORME / ALINEADO (~55%): Llega puntual (-15 min) y en la sala exacta de SimClic
+      const briefingMin = 20;
+      const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, -briefingMin);
+      const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, 10);
+      const duracion = minDiff(sesion.hora_inicio, sesion.hora_fin) + briefingMin + 10;
+
+      await sql`
+        INSERT INTO asistencias (
+          usuario_id, sede_id, ambiente_id, curso_id, fecha,
+          hora_ingreso, hora_salida, minutos_totales,
+          estado_asistencia, tipo_registro, observaciones
+        ) VALUES (
+          ${user.id}, ${sesion.sede_id || SEDE_VILLA}, ${sesion.ambiente_id}, ${sesion.curso_id}, ${sesion.fecha},
+          ${hIngreso}, ${hSalida}, ${duracion},
+          'finalizado', 'kiosco_autoservicio',
+          ${`${SEED_TAG} Actuación PS puntual: ${sesion.curso_nombre_simclic || 'Simulación Clínica'} (Briefing incluido)`}
+        );
+      `;
+      psAlineados++;
+      totalAsistencias++;
+      generated++;
+    }
+  }
+
+  // 4. SIN BLOQUE SIMCLIC (~12 casos): Asistencias registradas en días donde el PS no tenía clase agendada en SimClic
+  // Usamos actores como Yesennia Berrocal (ID 1022) o fechas donde no tenían programación
+  const fechasHabiles = ['2026-10-01', '2026-10-02', '2026-10-05', '2026-10-07', '2026-10-09', '2026-10-14'];
+  const psParaSinBloque = psUsers.slice(0, 12);
+
+  for (let si = 0; si < psParaSinBloque.length; si++) {
+    const ps = psParaSinBloque[si];
+    const fecha = fechasHabiles[si % fechasHabiles.length];
+
+    // Verificar que realmente no tenga sesión ese día
+    const sesCheck = await sql`
+      SELECT count(*)::int as count
+      FROM sesiones_programadas
+      WHERE fecha = ${fecha} AND LOWER(paciente_simulado_nombre) LIKE ${'%' + ps.apellidos.toLowerCase() + '%'};
+    `;
+
+    // Si tiene sesión, cambiamos la fecha a un sábado o día libre
+    const fechaSinSesion = sesCheck[0].count === 0 ? fecha : '2026-10-03';
+
+    const hIngreso = toIsoLima(fechaSinSesion, '08:00', 0);
+    const hSalida = toIsoLima(fechaSinSesion, '11:30', 0);
+    const sala = ambientesVilla[si % ambientesVilla.length];
+
+    await sql`
+      INSERT INTO asistencias (
+        usuario_id, sede_id, ambiente_id, curso_id, fecha,
+        hora_ingreso, hora_salida, minutos_totales,
+        estado_asistencia, tipo_registro, observaciones
+      ) VALUES (
+        ${ps.id}, ${SEDE_VILLA}, ${sala.id}, NULL, ${fechaSinSesion},
+        ${hIngreso}, ${hSalida}, 210,
+        'finalizado', 'kiosco_autoservicio',
+        ${`${SEED_TAG} Cobertura extemporánea / Guardia de refuerzo no agendada en SimClic`}
+      );
+    `;
+    psSinBloque++;
+    totalAsistencias++;
+  }
+
+  console.log(`   ✅ Pacientes Simulados generados:`);
+  console.log(`      • Conformes / Alineados: ${psAlineados}`);
+  console.log(`      • Tardanza vs Programado: ${psTardanzas}`);
+  console.log(`      • Discrepancia / Cambio de Sala: ${psDiscrepanciaSala}`);
+  console.log(`      • Sin Bloque SimClic: ${psSinBloque}`);
+
+  // =========================================================================
+  // 3. DOCENTES — CON TODAS LAS PASTILLAS ACTIVAS + ALERTAS SIN MARCAR
+  // =========================================================================
+  console.log('\n👨‍🏫 3. Generando asistencias de DOCENTES con distribución de auditoría...');
+
   const sesionesDocentes = await sql`
     SELECT 
       sp.id, sp.fecha, sp.hora_inicio, sp.hora_fin, sp.sede_id, sp.ambiente_id,
-      sp.curso_id, sp.docente_id, sp.titulo, sp.docente_nombre_simclic
+      sp.ambiente_nombre_simclic, sp.curso_id, sp.curso_nombre_simclic,
+      sp.docente_id, sp.docente_nombre_simclic, sp.titulo
     FROM sesiones_programadas sp
     WHERE sp.fecha >= '2026-10-01' AND sp.fecha <= '2026-10-15'
       AND sp.docente_id IS NOT NULL
@@ -297,47 +469,31 @@ async function simularReal() {
     ORDER BY sp.fecha, sp.hora_inicio;
   ` as any[];
 
-  console.log(`   Total de sesiones con docente identificado: ${sesionesDocentes.length}`);
+  let docAlineados = 0;
+  let docTardanzas = 0;
+  let docDiscrepanciaSala = 0;
+  let docSinMarcar = 0;
 
-  let docentesMarcados = 0;
-  let docentesSinMarcar = 0;
+  // Tomar una muestra representativa de 150 sesiones docentes
+  const sesionesDocMuestra = sesionesDocentes.slice(0, 160);
 
-  // Seleccionar una muestra representativa de ~160 sesiones para la quincena (12-16 por día)
-  // para balancear volumen y detalle
-  const sesionesPorFecha: { [key: string]: any[] } = {};
-  for (const s of sesionesDocentes) {
-    if (!sesionesPorFecha[s.fecha]) sesionesPorFecha[s.fecha] = [];
-    sesionesPorFecha[s.fecha].push(s);
-  }
+  for (let di = 0; di < sesionesDocMuestra.length; di++) {
+    const sesion = sesionesDocMuestra[di];
+    const modulo = (di * 11 + sesion.id) % 100;
 
-  for (const f of Object.keys(sesionesPorFecha)) {
-    const list = sesionesPorFecha[f];
-    // Tomar entre 10 y 16 sesiones por día
-    const cupoDia = Math.min(list.length, 14);
-    const seleccionadas = list.slice(0, cupoDia);
+    // A) ~12% Docente ausente o no marcó en Kiosco (🚨 Sin Marcar)
+    if (modulo < 12) {
+      docSinMarcar++;
+      // No creamos asistencia, se mantiene estado_ucs = 'programada'
+      continue;
+    }
 
-    for (let si = 0; si < seleccionadas.length; si++) {
-      const sesion = seleccionadas[si];
-
-      // 10% Sin Marcar (Ausentismo o no registró en Kiosco)
-      if ((si + f.charCodeAt(9)) % 9 === 0) {
-        docentesSinMarcar++;
-        // No se inserta asistencia, queda en estado 'programada' para alertar "Sin marcar"
-        continue;
-      }
-
-      // 15% Tardanza de docente (llega 8 a 22 min tarde)
-      const esTardanza = (si + f.charCodeAt(8)) % 6 === 0;
-      const desfaseInicio = esTardanza ? ((si * 7) % 15) + 8 : -Math.floor(Math.random() * 8 + 3); // Llega 3-10m antes si es puntual
-      const desfaseFin = Math.floor(Math.random() * 8); // Se retira 0-8m después de fin
-
-      const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, desfaseInicio);
-      const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, desfaseFin);
-      const duracionClase = minDiff(sesion.hora_inicio, sesion.hora_fin) - desfaseInicio + desfaseFin;
-      const minTardanza = esTardanza ? desfaseInicio : null;
-
-      const tardanzaTexto = esTardanza ? ` (Tardanza +${desfaseInicio}m)` : '';
-      const obs = `${SEED_TAG} Docente en sala: ${sesion.titulo}${tardanzaTexto}`;
+    // B) ~18% Tardanza vs Programado (llega 12-25 min tarde)
+    if (modulo < 30) {
+      const tardanzaMin = (di % 14) + 12; // 12 a 25 min tarde
+      const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, tardanzaMin);
+      const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, 5);
+      const duracion = minDiff(sesion.hora_inicio, sesion.hora_fin) - tardanzaMin + 5;
 
       const inserted = await sql`
         INSERT INTO asistencias (
@@ -347,122 +503,88 @@ async function simularReal() {
           estado_asistencia, tipo_registro, observaciones
         ) VALUES (
           ${sesion.docente_id}, ${sesion.sede_id || SEDE_VILLA}, ${sesion.ambiente_id}, ${sesion.curso_id}, ${sesion.fecha},
-          ${hIngreso}, ${hSalida}, ${duracionClase},
-          ${minTardanza},
-          'finalizado', 'kiosco_autoservicio', ${obs}
+          ${hIngreso}, ${hSalida}, ${duracion},
+          ${tardanzaMin},
+          'finalizado', 'kiosco_autoservicio',
+          ${`${SEED_TAG} Docente con retraso (+${tardanzaMin}m): ${sesion.titulo}`}
         ) RETURNING id;
       `;
-
-      // Vincular sesión de SimClic con la asistencia generada
       await sql`
-        UPDATE sesiones_programadas 
-        SET asistencia_id = ${inserted[0].id}, estado_ucs = 'finalizada'
-        WHERE id = ${sesion.id};
+        UPDATE sesiones_programadas SET asistencia_id = ${inserted[0].id}, estado_ucs = 'finalizada' WHERE id = ${sesion.id};
       `;
-
-      docentesMarcados++;
+      docTardanzas++;
       totalAsistencias++;
+      continue;
     }
-  }
 
-  console.log(`✅ ${docentesMarcados} asistencias docentes registradas y vinculadas.`);
-  console.log(`🚨 ${docentesSinMarcar} sesiones programadas marcadas como "Sin marcar" para auditoría preventiva.\n`);
+    // C) ~15% Discrepancia de Sala (Puntual pero se trasladó de ambiente)
+    if (modulo < 45) {
+      const otraSala = ambientesVilla.find((a: any) => a.id !== sesion.ambiente_id) || ambientesVilla[0];
+      const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, -5);
+      const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, 5);
+      const duracion = minDiff(sesion.hora_inicio, sesion.hora_fin) + 10;
 
-  // =========================================================================
-  // 3. SIMULACIÓN DE PACIENTES SIMULADOS (PS) (PLANILLA MENSUAL Y FINANZAS)
-  // =========================================================================
-  console.log('🎭 Generando asistencias de PACIENTES SIMULADOS para la 1ra Quincena...');
-
-  // Traer los 41 Pacientes Simulados de la BD
-  const psList = await sql`
-    SELECT id, dni, nombres, apellidos, tarifa_hora 
-    FROM usuarios 
-    WHERE tipo_personal = 'paciente_simulado'
-    ORDER BY id;
-  ` as any[];
-
-  // Traer sesiones de cursos clínicos que requieren actuación de paciente simulado
-  const sesionesParaPs = await sql`
-    SELECT 
-      sp.id, sp.fecha, sp.hora_inicio, sp.hora_fin, sp.sede_id, sp.ambiente_id,
-      sp.curso_id, sp.titulo, c.nombre as curso_nombre, c.tarifa_hora_ps
-    FROM sesiones_programadas sp
-    JOIN cursos c ON sp.curso_id = c.id
-    WHERE sp.fecha >= '2026-10-01' AND sp.fecha <= '2026-10-15'
-      AND sp.ambiente_id IS NOT NULL
-      AND (
-        c.prefijo IN ('SIMPED', 'SimQx', 'MED_SBS', 'SCI', 'SimGO', 'Ext Med')
-        OR LOWER(c.nombre) LIKE '%pediat%'
-        OR LOWER(c.nombre) LIKE '%semiolog%'
-        OR LOWER(c.nombre) LIKE '%ginecolog%'
-        OR LOWER(c.nombre) LIKE '%clínica integrada%'
-      )
-    ORDER BY sp.fecha, sp.hora_inicio;
-  ` as any[];
-
-  console.log(`   Total de sesiones clínicas disponibles para PS: ${sesionesParaPs.length}`);
-
-  // Usar un pool rotativo de 24 Pacientes Simulados para darles carga quincenal realista
-  const psActivos = psList.slice(0, 24);
-  let psAsistenciasCount = 0;
-
-  // Distribuir entre 4 y 7 actuaciones de PS por día hábil
-  const sesionesPsPorFecha: { [key: string]: any[] } = {};
-  for (const s of sesionesParaPs) {
-    if (!sesionesPsPorFecha[s.fecha]) sesionesPsPorFecha[s.fecha] = [];
-    sesionesPsPorFecha[s.fecha].push(s);
-  }
-
-  let psIndex = 0;
-
-  for (const f of Object.keys(sesionesPsPorFecha)) {
-    const list = sesionesPsPorFecha[f];
-    const cupoDia = Math.min(list.length, 6); // 5-6 sesiones de PS por día
-
-    for (let si = 0; si < cupoDia; si++) {
-      const sesion = list[si];
-      const ps = psActivos[psIndex % psActivos.length];
-      psIndex++;
-
-      // PS llega 20-30 min antes para briefing / caracterización
-      const briefingMin = 25;
-      // PS sale 10 min después por debriefing
-      const debriefingMin = 10;
-
-      const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, -briefingMin);
-      const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, debriefingMin);
-      const minutosTotales = minDiff(sesion.hora_inicio, sesion.hora_fin) + briefingMin + debriefingMin;
-
-      const obs = `${SEED_TAG} Actuación PS: ${sesion.curso_nombre} - ${sesion.titulo} (Inc. Briefing y Debriefing)`;
-
-      await sql`
+      const inserted = await sql`
         INSERT INTO asistencias (
           usuario_id, sede_id, ambiente_id, curso_id, fecha,
           hora_ingreso, hora_salida, minutos_totales,
           estado_asistencia, tipo_registro, observaciones
         ) VALUES (
-          ${ps.id}, ${sesion.sede_id || SEDE_VILLA}, ${sesion.ambiente_id}, ${sesion.curso_id}, ${sesion.fecha},
-          ${hIngreso}, ${hSalida}, ${minutosTotales},
-          'finalizado', 'kiosco_autoservicio', ${obs}
-        );
+          ${sesion.docente_id}, ${sesion.sede_id || SEDE_VILLA}, ${otraSala.id}, ${sesion.curso_id}, ${sesion.fecha},
+          ${hIngreso}, ${hSalida}, ${duracion},
+          'finalizado', 'kiosco_autoservicio',
+          ${`${SEED_TAG} Traslado de aula a ${otraSala.nombre}: ${sesion.titulo}`}
+        ) RETURNING id;
       `;
-      psAsistenciasCount++;
+      await sql`
+        UPDATE sesiones_programadas SET asistencia_id = ${inserted[0].id}, estado_ucs = 'finalizada' WHERE id = ${sesion.id};
+      `;
+      docDiscrepanciaSala++;
       totalAsistencias++;
+      continue;
     }
+
+    // D) ~55% Conforme / Alineado (Puntual en la misma sala)
+    const hIngreso = toIsoLima(sesion.fecha, sesion.hora_inicio, -8);
+    const hSalida = toIsoLima(sesion.fecha, sesion.hora_fin, 5);
+    const duracion = minDiff(sesion.hora_inicio, sesion.hora_fin) + 13;
+
+    const inserted = await sql`
+      INSERT INTO asistencias (
+        usuario_id, sede_id, ambiente_id, curso_id, fecha,
+        hora_ingreso, hora_salida, minutos_totales,
+        estado_asistencia, tipo_registro, observaciones
+      ) VALUES (
+        ${sesion.docente_id}, ${sesion.sede_id || SEDE_VILLA}, ${sesion.ambiente_id}, ${sesion.curso_id}, ${sesion.fecha},
+        ${hIngreso}, ${hSalida}, ${duracion},
+        'finalizado', 'kiosco_autoservicio',
+        ${`${SEED_TAG} Clase regular conforme en sala: ${sesion.titulo}`}
+      ) RETURNING id;
+    `;
+    await sql`
+      UPDATE sesiones_programadas SET asistencia_id = ${inserted[0].id}, estado_ucs = 'finalizada' WHERE id = ${sesion.id};
+    `;
+    docAlineados++;
+    totalAsistencias++;
   }
 
-  console.log(`✅ ${psAsistenciasCount} asistencias de Pacientes Simulados generadas.\n`);
+  console.log(`   ✅ Docentes generados:`);
+  console.log(`      • Conformes / Alineados: ${docAlineados}`);
+  console.log(`      • Tardanza vs Programado: ${docTardanzas}`);
+  console.log(`      • Discrepancia de Sala: ${docDiscrepanciaSala}`);
+  console.log(`      • Sin Marcar (Alertas Rojas): ${docSinMarcar}`);
 
-  console.log('====================================================');
-  console.log(`🎉 SIMULACIÓN COMPLETADA CON ÉXITO: ${totalAsistencias} registros generados.`);
-  console.log(`   • Técnicos: ${tecCount} asistencias (con tardanzas, anticipos, sobretiempos y auditoría forzada)`);
-  console.log(`   • Docentes: ${docentesMarcados} asistencias reales cruzadas con SimClic (${docentesSinMarcar} alertas sin marcar)`);
-  console.log(`   • Pacientes Simulados: ${psAsistenciasCount} sesiones para liquidación quincenal`);
-  console.log('====================================================');
+  console.log('\n====================================================');
+  console.log(`🎉 SIMULACIÓN ULTRA-REALISTA COMPLETADA: ${totalAsistencias} asistencias.`);
+  console.log(`   • Técnicos: ${tecCount}`);
+  console.log(`   • Pacientes Simulados: ${psAlineados + psTardanzas + psDiscrepanciaSala + psSinBloque}`);
+  console.log(`   • Docentes: ${docAlineados + docTardanzas + docDiscrepanciaSala}`);
+  console.log('====================================================\n');
+
   process.exit(0);
 }
 
-simularReal().catch((err) => {
-  console.error('❌ Error fatal en simulación:', err);
+simularMaster().catch((err) => {
+  console.error('❌ Error fatal:', err);
   process.exit(1);
 });

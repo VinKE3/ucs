@@ -547,16 +547,24 @@ src/
 * `feat(consulta-autosync)`: Sincronización en tiempo real para la pantalla pública de Horarios (`/consulta`):
   - Se implementó auto-sync silencioso en segundo plano cada 3 minutos y al reenfocar la ventana para la fecha actual en [consulta/page.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/consulta/page.tsx).
   - Se integró pastilla luminosa con la última hora de sincronización (`SimClic en vivo • HH:MM`) y botón manual de actualización rápida.
-* `feat(simulation-oct-2026)`: Simulación Integral Ultra-Realista de la 1ra Quincena de Octubre (01 al 15 de Octubre 2026):
-  - **Sincronización Total de SimClic**: Se extrajeron y cargaron en `sesiones_programadas` **2,257 sesiones oficiales reales** directamente vía WebSocket DDP de SimClic para todos los días hábiles, sábados y feriado (Angamos).
-  - **Técnicos de Simulación (106 asistencias)**: Respeto estricto de turnos (Mañana 06:00-15:00, Tarde 13:00-22:00, Intermedio 09:00-18:00), guardias de sábado (07:00-13:00) y feriado del 08/10, tardanzas reales con minutos calculados (Hugo Cruz +22m, German Flores +35m, Jean Pinchi +15m, Juan Torvisco +18m), salidas anticipadas justificadas (David Poma -40m), sobretiempos por soporte ECOE y calibración de simuladores (Sebastián Puma +65m, Kevin Muñoz +45m), y trazabilidad de omisión de salida con cierre forzado y registro en `auditoria_asistencias`.
-  - **Docentes Vinculados (138 asistencias reales + 18 alertas Sin Marcar)**: Cruzados directamente con las clases reales de SimClic, asignando `sesiones_programadas.asistencia_id` (marcando `🟢 En Sala` en el Gantt) y dejando sesiones desatendidas para evidenciar alertas rojas de auditoría preventiva (`🚨 Sin Marcar`) y advertencias en el directorio de personal.
-  - **Pacientes Simulados (78 sesiones clínicas, 24 actores)**: Asignación a escenarios de alta fidelidad (Pediatría, Quirúrgica, Semiología, Ginecología, ACLS), incorporando 25 min de briefing/caracterización y 10 min de debriefing, cerrando la liquidación de la **1ra Quincena Oficial** con horas acumuladas y honorarios en Soles (S/.) listos para exportar a Finanzas.
-  - **Reversibilidad y Mantenibilidad**: Comandos rápidos `npm run demo:oct:seed` y `npm run demo:oct:cleanup` (borrado seguro con etiqueta `[SIM_OCT2026]`).
+* `feat(simulation-oct-realistic)`: Regeneración de Simulación Ultra-Realista de Octubre (01 al 15 de Octubre 2026):
+  - **Reinicio y Limpieza**: Purgado total previo de datos demo anteriores mediante `npm run demo:oct:cleanup`.
+  - **Generación Ultra-Realista (`npm run demo:oct:seed`)**: Cruzado directo contra las 1,268 sesiones reales de SimClic con nombres de los 41 Pacientes Simulados oficiales y programación docente.
+  - **Activación Integral de las 4 Pastillas de Auditoría SimClic**:
+    - **Pacientes Simulados (130 asistencias)**:
+      - `✅ Conformes / Alineados` (46 sesiones puntuales en la sala agendada con 20 min de briefing).
+      - `⚠️ Tardanza vs Programado` (20 sesiones con llegada tardía de +15m a +29m por tráfico).
+      - `🏢 Cambio / Discrepancia de Sala` (56 sesiones reubicadas por necesidades operativas a salas distintas de la programada).
+      - `❓ Sin Bloque SimClic` (8 asistencias extemporáneas y coberturas de emergencia en días no programados).
+    - **Docentes (141 asistencias + 19 alertas rojas)**:
+      - `✅ Conformes / Alineados` (22 clases puntuales en su aula).
+      - `⚠️ Tardanza vs Programado` (98 clases con inicio desfasado +12m a +25m).
+      - `🏢 Discrepancia de Sala` (21 clases trasladadas a otras salas de simulación).
+      - `🚨 Alertas Rojas Sin Marcar` (19 clases de SimClic sin registro de asistencia).
+    - **Técnicos de Simulación (106 asistencias)**:
+      - Cobertura de los 10 técnicos de Sede Villa en turnos Mañana, Tarde, Jornada, guardias feriado Angamos, sábados, tardanzas (+15m a +35m), sobretiempos (+45m a +65m) y 1 cierre forzado justificado con `auditoria_asistencias`.
 * `fix(modals-portal)`: Centrado Universal con React Portal (`createPortal`) para Todos los Modales de Pestañas:
-  - **Problema de posicionamiento**: Cuando los modales se renderizaban dentro de pestañas (`AsistenciasTab`, `PlanillaTab`, `ProgramacionTab`, `SedesTab`), el contenedor `.cardPanel` con `backdrop-filter: blur(12px)` rompía el `position: fixed; inset: 0`, causando que el modal quedara anclado a la tabla interna y se fuera al fondo de la pantalla.
-  - **Solución con Portal**: Se integró `createPortal(..., document.body)` en [ModalAuditoriaProgramacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalAuditoriaProgramacion.tsx), [ModalDetalleSesionSimclic.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalDetalleSesionSimclic.tsx), [ModalFichaPacienteSimulado.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalFichaPacienteSimulado.tsx), [ModalComprobanteLiquidacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalComprobanteLiquidacion.tsx) y [ModalGestionTerminales.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalGestionTerminales.tsx).
-  - Ahora todos los modales se renderizan directamente en `document.body`, apareciendo siempre en el centro exacto de la pantalla del usuario con fondo oscuro difuminado uniforme, idénticos a Crear Sede y Crear Ambiente.
+  - Se integró `createPortal(..., document.body)` en [ModalAuditoriaProgramacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalAuditoriaProgramacion.tsx), [ModalDetalleSesionSimclic.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalDetalleSesionSimclic.tsx), [ModalFichaPacienteSimulado.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalFichaPacienteSimulado.tsx), [ModalComprobanteLiquidacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalComprobanteLiquidacion.tsx) y [ModalGestionTerminales.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalGestionTerminales.tsx) para resolver el issue de `backdrop-filter: blur(12px)` en `.cardPanel` y garantizar centrado perfecto en viewport.
 
 ---
 
@@ -568,4 +576,6 @@ src/
    - Integración con lector USB en el kiosco para marcación instantánea sin digitar DNI.
 3. **Integración con Programación de SimClic**:
    - Programación 360° en tiempo real con línea de tiempo Gantt, cruce con marcación de docentes y pacientes simulados, y auditoría preventiva de ausentismo (Completado).
+
+
 

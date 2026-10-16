@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type {
   UsuarioItem,
   CastingRangoEdadItem,
   CastingEspecialidadItem,
   CastingRestriccionItem,
+  SesionProgramadaTimelineItem,
 } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
 import { showAlert, showError, showToast } from '@/lib/alerts';
@@ -55,6 +56,39 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
   const [filtroEspecialidadId, setFiltroEspecialidadId] = useState<string>('todas');
   const [filtroRestriccionExcluirId, setFiltroRestriccionExcluirId] = useState<string>('ninguna');
   const [copiadoExito, setCopiadoExito] = useState(false);
+
+  // Cruce en tiempo real con la programación SimClic del día
+  const [sesionesHoy, setSesionesHoy] = useState<SesionProgramadaTimelineItem[]>([]);
+  const [loadingSimclic, setLoadingSimclic] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSimclicHoy = async () => {
+      try {
+        setLoadingSimclic(true);
+        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const hoyLima = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const res = await fetch(`/api/programacion?fecha=${hoyLima}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data.sesiones) {
+          setSesionesHoy(data.sesiones);
+        }
+      } catch (e) {
+        console.error('Error cargando sesiones simclic para personal:', e);
+      } finally {
+        if (isMounted) setLoadingSimclic(false);
+      }
+    };
+
+    fetchSimclicHoy();
+    const interval = setInterval(fetchSimclicHoy, 3 * 60 * 1000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Paginación dinámica
   const [paginaActual, setPaginaActual] = useState(1);
@@ -282,6 +316,157 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     setFiltroRestriccionExcluirId('ninguna');
   };
 
+  // Exportar el directorio general de colaboradores a CSV (Excel)
+  const handleExportarDirectorioCSV = () => {
+    if (usuariosFiltrados.length === 0) {
+      showError('Sin datos', 'No hay colaboradores en el listado para exportar.');
+      return;
+    }
+
+    const headers = [
+      'DNI',
+      'Apellidos',
+      'Nombres',
+      'Tipo de Personal',
+      'Rol en Sistema',
+      'Teléfono',
+      'Correo Institucional',
+      'Estado',
+      'Presencia Actual',
+      'Sede Actual',
+      'Sala Actual',
+      'Tope Horas Semanales',
+      'Tarifa Base Hora (S/.)',
+    ];
+
+    const rows = usuariosFiltrados.map((u) => {
+      const estado = u.activo ? 'Activo' : 'Inactivo';
+      const presencia = u.turnoActivoId ? 'En clínica' : 'Fuera de clínica';
+      const sede = u.sedeActualNombre || '';
+      const sala = u.ambienteActualNombre || '';
+      const tope = u.horasSemanalesMax || '';
+      const tarifa = u.tarifaHora ? Number(u.tarifaHora).toFixed(2) : '';
+
+      return [
+        u.dni,
+        `"${u.apellidos}"`,
+        `"${u.nombres}"`,
+        `"${u.tipoPersonal}"`,
+        `"${u.rolSistema}"`,
+        `"${u.telefono || ''}"`,
+        `"${u.correo || ''}"`,
+        `"${estado}"`,
+        `"${presencia}"`,
+        `"${sede}"`,
+        `"${sala}"`,
+        `"${tope}"`,
+        `"${tarifa}"`,
+      ].join(';');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `Directorio_Personal_UCS_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Directorio exportado en CSV correctamente', 'success');
+  };
+
+  // Generador de enlace directo de WhatsApp con mensaje institucional predefinido
+  const getWhatsappUrl = (telefono: string | null | undefined, nombres: string) => {
+    if (!telefono) return null;
+    const digits = telefono.replace(/\D/g, '');
+    if (!digits || digits.length < 7) return null;
+    const fullNumber = digits.length === 9 && digits.startsWith('9') ? `51${digits}` : digits;
+    const msg = encodeURIComponent(
+      `Hola ${nombres}, te saludamos desde la Clínica de Simulación UCS.`
+    );
+    return `https://wa.me/${fullNumber}?text=${msg}`;
+  };
+
+  // Cruce de actividad programada en SimClic para el colaborador hoy
+  const getSimclicInfoParaUsuario = useCallback(
+    (u: UsuarioItem) => {
+      if (!sesionesHoy || sesionesHoy.length === 0) return null;
+
+      const norm = (str: string) =>
+        (str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      const userApellidos = norm(u.apellidos);
+      const userNombres = norm(u.nombres);
+      const userTokens = `${userApellidos} ${userNombres}`.split(/\s+/).filter((t) => t.length > 2);
+
+      const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+      const nowMins = d.getHours() * 60 + d.getMinutes();
+
+      // Buscar sesiones donde este usuario participa como docente o paciente simulado
+      const matches = sesionesHoy.filter((s) => {
+        if (u.tipoPersonal === 'docente') {
+          const docNorm = norm(s.docenteNombreSimclic || '');
+          if (userApellidos && docNorm.includes(userApellidos)) return true;
+          if (userTokens.length >= 2 && userTokens.filter((tok) => docNorm.includes(tok)).length >= 2) return true;
+          return false;
+        }
+
+        if (u.tipoPersonal === 'paciente_simulado' && s.pacienteSimuladoNombre) {
+          const psNorm = norm(s.pacienteSimuladoNombre);
+          if (userApellidos && psNorm.includes(userApellidos)) return true;
+          if (userTokens.length >= 2 && userTokens.filter((tok) => psNorm.includes(tok)).length >= 2) return true;
+          return false;
+        }
+
+        return false;
+      });
+
+      if (matches.length === 0) return null;
+
+      // 1. Sesión en curso en este momento
+      const enCurso = matches.find((s) => s.startMins <= nowMins && nowMins <= s.endMins);
+      if (enCurso) {
+        return {
+          tipo: 'en_curso' as const,
+          sesion: enCurso,
+        };
+      }
+
+      // 2. Próxima sesión hoy
+      const proximas = matches
+        .filter((s) => s.startMins > nowMins)
+        .sort((a, b) => a.startMins - b.startMins);
+      if (proximas.length > 0) {
+        return {
+          tipo: 'proxima' as const,
+          sesion: proximas[0],
+        };
+      }
+
+      // 3. Ya concluyó sus sesiones hoy
+      const pasadas = matches
+        .filter((s) => s.endMins < nowMins)
+        .sort((a, b) => b.endMins - a.endMins);
+      if (pasadas.length > 0) {
+        return {
+          tipo: 'pasada' as const,
+          sesion: pasadas[0],
+        };
+      }
+
+      return null;
+    },
+    [sesionesHoy]
+  );
+
   const getTipoBadge = (tipo: string) => {
     switch (tipo) {
       case 'docente':
@@ -392,6 +577,23 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
 
         {/* BOTONES DE ACCIÓN: REGISTRO Y CASTING */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleExportarDirectorioCSV}
+            className={styles.secondaryActionBtn}
+            style={{
+              borderColor: 'rgba(16, 185, 129, 0.4)',
+              color: '#34d399',
+              background: 'rgba(16, 185, 129, 0.1)',
+              whiteSpace: 'nowrap',
+              fontSize: '0.84rem',
+              padding: '0.5rem 0.85rem',
+            }}
+            title="Descargar directorio del personal en formato CSV para Excel"
+          >
+            <span>📥</span> Exportar Directorio ({usuariosFiltrados.length})
+          </button>
+
           {onOpenCastingCatalogos && (
             <button
               type="button"
@@ -637,26 +839,89 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                 <tr key={u.id} style={!u.activo ? { opacity: 0.65 } : undefined}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{u.dni}</td>
                   <td>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                        <strong style={{ color: 'var(--text-primary)' }}>
-                          {u.nombres} {u.apellidos}
-                        </strong>
-                        {!u.activo && (
-                          <span
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
+                      {/* Avatar con iniciales con color distintivo por rol y click a Kardex */}
+                      <button
+                        type="button"
+                        onClick={() => onOpenKardex(u)}
+                        style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          cursor: 'pointer',
+                          background:
+                            u.tipoPersonal === 'docente'
+                              ? 'rgba(59, 130, 246, 0.15)'
+                              : u.tipoPersonal === 'tecnico'
+                              ? 'rgba(245, 158, 11, 0.15)'
+                              : u.tipoPersonal === 'paciente_simulado'
+                              ? 'rgba(168, 85, 247, 0.15)'
+                              : 'rgba(16, 185, 129, 0.15)',
+                          color:
+                            u.tipoPersonal === 'docente'
+                              ? '#60a5fa'
+                              : u.tipoPersonal === 'tecnico'
+                              ? '#fbbf24'
+                              : u.tipoPersonal === 'paciente_simulado'
+                              ? '#c084fc'
+                              : '#34d399',
+                          border: `1px solid ${
+                            u.tipoPersonal === 'docente'
+                              ? 'rgba(59, 130, 246, 0.3)'
+                              : u.tipoPersonal === 'tecnico'
+                              ? 'rgba(245, 158, 11, 0.3)'
+                              : u.tipoPersonal === 'paciente_simulado'
+                              ? 'rgba(168, 85, 247, 0.3)'
+                              : 'rgba(16, 185, 129, 0.3)'
+                          }`,
+                        }}
+                        title={`Ver Kardex 360° de ${u.nombres} ${u.apellidos}`}
+                      >
+                        {((u.nombres?.[0] || '') + (u.apellidos?.[0] || '')).toUpperCase()}
+                      </button>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => onOpenKardex(u)}
                             style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 700,
-                              color: '#ef4444',
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              padding: '0.12rem 0.4rem',
-                              borderRadius: '4px',
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              margin: 0,
+                              font: 'inherit',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              color: 'inherit',
                             }}
+                            title="Click para ver Kardex 360°"
                           >
-                            Inactivo
-                          </span>
-                        )}
-                      </div>
+                            <strong style={{ color: 'var(--text-primary)' }}>
+                              {u.nombres} {u.apellidos}
+                            </strong>
+                          </button>
+                          {!u.activo && (
+                            <span
+                              style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#ef4444',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                padding: '0.12rem 0.4rem',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              Inactivo
+                            </span>
+                          )}
+                        </div>
 
                       {/* DISTINTIVOS DE CASTING PARA PACIENTES SIMULADOS */}
                       {u.tipoPersonal === 'paciente_simulado' && (
@@ -715,6 +980,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                           ) : null}
                         </div>
                       )}
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -778,33 +1044,119 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                     )}
                   </td>
                   <td>
-                    {u.turnoActivoId ? (
-                      <div className={styles.presenceBadgeActive}>
-                        <span className={styles.presenceStatusActive}>
-                          <span className={styles.liveDot} />
-                          <span>{u.sedeActualNombre || 'En Sede'}</span>
-                        </span>
-                        <div className={styles.presenceLocationDetail}>
-                          {u.ambienteActualNombre ? (
-                            <span>
-                              Sala: <span className={styles.presenceRoomHighlight}>{u.ambienteActualNombre}</span>
-                              {u.ambienteActualCodigo && ` (${u.ambienteActualCodigo})`}
+                    {(() => {
+                      const simclicInfo = getSimclicInfoParaUsuario(u);
+
+                      if (u.turnoActivoId) {
+                        return (
+                          <div className={styles.presenceBadgeActive}>
+                            <span className={styles.presenceStatusActive}>
+                              <span className={styles.liveDot} />
+                              <span>{u.sedeActualNombre || 'En Sede'}</span>
                             </span>
-                          ) : (
-                            <span>Clínica General (Soporte)</span>
-                          )}
-                        </div>
-                        {u.horaIngreso && (
-                          <span className={styles.presenceTimeMuted}>
-                            Desde {new Date(u.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className={styles.presenceInactive}>
-                        <span>⚪</span> Fuera de clínica
-                      </span>
-                    )}
+                            <div className={styles.presenceLocationDetail}>
+                              {u.ambienteActualNombre ? (
+                                <span>
+                                  Sala: <span className={styles.presenceRoomHighlight}>{u.ambienteActualNombre}</span>
+                                  {u.ambienteActualCodigo && ` (${u.ambienteActualCodigo})`}
+                                </span>
+                              ) : (
+                                <span>Clínica General (Soporte)</span>
+                              )}
+                            </div>
+                            {u.horaIngreso && (
+                              <span className={styles.presenceTimeMuted}>
+                                Desde {new Date(u.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                            {simclicInfo?.tipo === 'en_curso' && (
+                              <div
+                                style={{
+                                  fontSize: '0.68rem',
+                                  color: '#38bdf8',
+                                  marginTop: '0.2rem',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                🗓️ SimClic: {simclicInfo.sesion.cursoCodigoSimclic || simclicInfo.sesion.cursoNombreSimclic}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      // Fuera de clínica: Cruce con SimClic
+                      if (simclicInfo?.tipo === 'en_curso') {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            <span
+                              className={styles.presenceInactive}
+                              style={{
+                                color: '#ef4444',
+                                borderColor: 'rgba(239, 68, 68, 0.35)',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                fontWeight: 700,
+                              }}
+                              title="El docente/actor tiene clase programada en este horario en SimClic pero no ha registrado presencia en el Kiosco"
+                            >
+                              <span>⚠️</span> En clase - ¡Sin marcar!
+                            </span>
+                            <span style={{ fontSize: '0.73rem', color: '#f87171', fontWeight: 600 }}>
+                              {simclicInfo.sesion.horaInicio}-{simclicInfo.sesion.horaFin} • {simclicInfo.sesion.ambienteNombreSimclic || 'Sala'}
+                            </span>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                              {simclicInfo.sesion.cursoCodigoSimclic ? `[${simclicInfo.sesion.cursoCodigoSimclic}] ` : ''}
+                              {simclicInfo.sesion.cursoNombreSimclic || ''}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      if (simclicInfo?.tipo === 'proxima') {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            <span className={styles.presenceInactive}>
+                              <span>⚪</span> Fuera de clínica
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.74rem',
+                                color: '#38bdf8',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                              }}
+                              title={`Tiene sesión programada hoy a las ${simclicInfo.sesion.horaInicio}`}
+                            >
+                              <span>📅</span> Hoy a las {simclicInfo.sesion.horaInicio}
+                            </span>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                              {simclicInfo.sesion.ambienteNombreSimclic || 'Sala'} • {simclicInfo.sesion.cursoCodigoSimclic || simclicInfo.sesion.cursoNombreSimclic || ''}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      if (simclicInfo?.tipo === 'pasada') {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            <span className={styles.presenceInactive}>
+                              <span>⚪</span> Fuera de clínica
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              ✔️ Tuvo clase {simclicInfo.sesion.horaInicio}-{simclicInfo.sesion.horaFin}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <span className={styles.presenceInactive}>
+                          <span>⚪</span> Fuera de clínica
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>
                     {u.rolSistema === 'super_admin' ? (
@@ -818,11 +1170,88 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                     )}
                   </td>
                   <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <div>{u.correo || '—'}</div>
-                    <div>{u.telefono || '—'}</div>
+                    {u.correo ? (
+                      <a
+                        href={`mailto:${u.correo}`}
+                        style={{
+                          color: 'var(--text-secondary)',
+                          textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          marginBottom: '0.25rem',
+                          wordBreak: 'break-all',
+                        }}
+                        title={`Enviar correo a ${u.correo}`}
+                      >
+                        <span style={{ fontSize: '0.85rem' }}>✉️</span>
+                        <span>{u.correo}</span>
+                      </a>
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>—</div>
+                    )}
+
+                    {u.telefono ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <a
+                          href={`tel:${u.telefono.replace(/\s+/g, '')}`}
+                          style={{
+                            color: 'var(--text-primary)',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                          }}
+                          title="Llamar por teléfono"
+                        >
+                          📞 {u.telefono}
+                        </a>
+                        {getWhatsappUrl(u.telefono, u.nombres) && (
+                          <a
+                            href={getWhatsappUrl(u.telefono, u.nombres)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              background: 'rgba(37, 211, 102, 0.15)',
+                              border: '1px solid rgba(37, 211, 102, 0.4)',
+                              color: '#25d366',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              textDecoration: 'none',
+                              lineHeight: 1.2,
+                              transition: 'all 0.15s ease',
+                            }}
+                            title="Abrir chat de WhatsApp directamente"
+                          >
+                            <span>💬</span> WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)' }}>—</div>
+                    )}
                   </td>
                   <td>
                     <div className={styles.actionRow}>
+                      <button
+                        type="button"
+                        onClick={() => onOpenKardex(u)}
+                        className={styles.iconBtn}
+                        style={{
+                          borderColor: 'rgba(56, 189, 248, 0.4)',
+                          color: '#38bdf8',
+                          background: 'rgba(56, 189, 248, 0.1)',
+                        }}
+                        title="Ver Ficha 360° y Kardex de Horas"
+                      >
+                        <span>📊</span> Kardex
+                      </button>
+
                       {u.tipoPersonal === 'paciente_simulado' && onOpenFichaCasting && (
                         <button
                           type="button"

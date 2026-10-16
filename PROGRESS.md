@@ -534,6 +534,7 @@ src/
 * `fix(simclic-sync)`: Resolución y cruce de ambientes por código SimClic (`SL02TA20` para Consultorio 4, `SL02TA24` para Consultorio 5). Corrección de ambigüedad en SimClic donde sesiones de Consultorio 5 venían erróneamente rotuladas como `CONSULTORIO 5 - L 213`, causando que se asignaran erróneamente a Consultorio 8 (`L 213`). Priorización estricta por código SimClic.
 * `feat(layout)`: Ampliación de la interfaz a pantalla completa (100% full width) eliminando restricción de 1780px y reduciendo el padding lateral a 1.25rem (20px) para maximizar espacio de datos sin alterar padding vertical.
 * `feat(tabs)`: Reordenamiento oficial de pestañas del panel administrativo: Sedes, Ambientes, Cursos y Carreras, Personal de la Clínica, Programación SimClic, Historial de Asistencias, Planilla Mensual PS.
+* `feat(personal)`: Potenciación integral del TAB Personal de Clínica: (1) Enlace 1-click directo a WhatsApp (`wa.me/51...`) y correo (`mailto:`); (2) Botón y acceso directo a Kardex 360° individual; (3) Cruce en vivo con SimClic (alerta roja "En clase - ¡Sin marcar!", sesiones programadas hoy y concluidas); (4) Avatar con iniciales y color distintivo por rol; (5) Exportación instantánea del directorio en CSV/Excel.
 
 ---
 

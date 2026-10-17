@@ -42,8 +42,23 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   onVerDetalleSesion,
   onIrAGantt,
 }) => {
-  // Sub-pestañas del Hub
-  const [subTab, setSubTab] = useState<'transiciones' | 'continuidad' | 'guia'>('transiciones');
+  // Sub-pestañas del Hub (con persistencia en sessionStorage para no perder la vista seleccionada)
+  const [subTab, setSubTabState] = useState<'transiciones' | 'continuidad' | 'guia'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('ucs_hub_logistica_subtab');
+      if (saved === 'transiciones' || saved === 'continuidad' || saved === 'guia') {
+        return saved;
+      }
+    }
+    return 'transiciones';
+  });
+
+  const setSubTab = (newTab: 'transiciones' | 'continuidad' | 'guia') => {
+    setSubTabState(newTab);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('ucs_hub_logistica_subtab', newTab);
+    }
+  };
 
   // Filtros en Sub-pestaña 1 (Intra-Día)
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'swap_mayor' | 'reset_caso' | 'estable' | 'criticas'>('todos');

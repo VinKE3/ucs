@@ -603,6 +603,10 @@ src/
     - Píldora de acceso rápido en la cabecera superior de métricas del Gantt: `🔄 X Salas Rotan Hoy (Y swaps)`.
     - 3 sub-pestañas: `🔁 Transiciones de Hoy (Reset Intra-Día)`, `📅 Continuidad & Ahorro de Acarreo (Hoy vs Mañana)` y `📘 Guía & Protocolo de Reset`.
     - Selector dinámico de fecha de comparación (+1 día, +2 días, +3 días / próximo lunes o fecha personalizada).
+* `fix(autosync-persistence)`: **Optimización del Auto-Sync y Persistencia de Sub-Pestañas en Hub Logístico**:
+  - **Recarga Silenciosa en Background (`ProgramacionTab.tsx`)**: `loadProgramacion` ahora admite actualización transparente (`isSilentBackground`) al dispararse el auto-sync global, actualizando datos en memoria sin desmontar los componentes ni mostrar el spinner de carga destructivo.
+  - **Persistencia de Sub-Pestañas (`HubLogisticaSimulacion.tsx`)**: Guardado en `sessionStorage` (`ucs_hub_logistica_subtab`) para que el usuario nunca sea expulsado de *Continuidad & Acarreo* o de cualquier sub-pestaña al refrescarse los datos.
+  - **Eliminación de Timers Duplicados y Cooldown de Focus (`AdminDashboard.tsx` & `ProgramacionTab.tsx`)**: Se removieron los intervalos y listeners redundantes de `ProgramacionTab`, unificando el auto-sync en `AdminDashboard` con un cooldown de 2.5 minutos en el evento `window.onfocus` para evitar ejecuciones innecesarias al alternar ventanas.
 
 ---
 

@@ -364,9 +364,11 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return digits.length === 9 && digits.startsWith('9') ? `51${digits}` : digits;
   }, [sesionSeleccionada, usuariosList]);
 
-  // Cargar datos desde la API
-  const loadProgramacion = useCallback(async () => {
-    setLoading(true);
+  // Cargar datos desde la API (con soporte de recarga silenciosa en segundo plano)
+  const loadProgramacion = useCallback(async (isSilentBackground: boolean = false) => {
+    if (!isSilentBackground) {
+      setLoading(true);
+    }
     try {
       const params = new URLSearchParams();
       if (fecha) params.set('fecha', fecha);
@@ -384,25 +386,29 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         setMetricas(data.metricas || null);
         setNowMinutes(data.nowMinutes || 0);
         setEsHoy(data.esHoy);
-      } else {
+      } else if (!isSilentBackground) {
         showToast(data.error || 'Error al cargar programación', 'error');
       }
     } catch (err: unknown) {
       console.error('Error fetching programacion:', err);
-      showToast('Error de conexión al cargar programación', 'error');
+      if (!isSilentBackground) {
+        showToast('Error de conexión al cargar programación', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilentBackground) {
+        setLoading(false);
+      }
     }
   }, [fecha, selectedSedeId]);
 
   useEffect(() => {
-    loadProgramacion();
+    loadProgramacion(false);
   }, [loadProgramacion]);
 
-  // Recargar programación automáticamente cuando el auto-sync global termine en background
+  // Recargar programación automáticamente cuando el auto-sync global termine en background (SIN desmonatar la UI)
   useEffect(() => {
     if (simclicSyncCount > 0) {
-      loadProgramacion();
+      loadProgramacion(true);
     }
   }, [simclicSyncCount, loadProgramacion]);
 
@@ -479,34 +485,8 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     []
   );
 
-  // Disparar sincronización silenciosa inicial al entrar si es hoy
-  useEffect(() => {
-    if (esHoy && autoSyncEnabled) {
-      const timer = setTimeout(() => {
-        runSyncSimclic(false);
-      }, 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [esHoy, autoSyncEnabled, runSyncSimclic]);
-
-  // Polling automático cada 3 minutos si la pestaña sigue abierta
-  useEffect(() => {
-    if (!esHoy || !autoSyncEnabled) return;
-    const interval = setInterval(() => {
-      runSyncSimclic(false);
-    }, 180000); // 3 minutos
-    return () => clearInterval(interval);
-  }, [esHoy, autoSyncEnabled, runSyncSimclic]);
-
-  // Sincronización automática al reenfocar la ventana del navegador (ej. si estaban en SimClic)
-  useEffect(() => {
-    if (!esHoy || !autoSyncEnabled) return;
-    const handleFocus = () => {
-      runSyncSimclic(false);
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [esHoy, autoSyncEnabled, runSyncSimclic]);
+  // Nota: La sincronización periódica en segundo plano y al reenfocar está centralizada en AdminDashboard.tsx
+  // lo cual dispara simclicSyncCount y actualiza los datos silenciosamente sin duplicar timers ni peticiones.
 
   // Franjas horarias del Gantt (07:00 a 22:00 en saltos de 30 min)
   const slotsHorarios = useMemo(() => {

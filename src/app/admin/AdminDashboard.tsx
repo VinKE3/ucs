@@ -311,7 +311,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   }, []);
 
-  // Auto-sync global en segundo plano cada 3 minutos y al reenfocar el navegador
+  // Auto-sync global en segundo plano cada 3 minutos y al reenfocar el navegador (con cooldown)
+  const lastFocusSyncTimestampRef = useRef<number>(0);
+
   useEffect(() => {
     const initialTimer = setTimeout(() => {
       triggerGlobalSyncSimclic(true);
@@ -322,6 +324,10 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }, 180000); // 3 minutos
 
     const handleFocus = () => {
+      // Cooldown de 2.5 minutos (150,000 ms) para evitar sincronizaciones constantes si el usuario alterna entre ventanas
+      const now = Date.now();
+      if (now - lastFocusSyncTimestampRef.current < 150000) return;
+      lastFocusSyncTimestampRef.current = now;
       triggerGlobalSyncSimclic(true);
     };
     window.addEventListener('focus', handleFocus);

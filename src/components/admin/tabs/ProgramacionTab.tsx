@@ -12,6 +12,8 @@ import type {
   UsuarioItem,
 } from '@/types/admin';
 import { ModalDetalleSesionSimclic } from '@/components/admin/modals/ModalDetalleSesionSimclic';
+import { HubLogisticaSimulacion } from '@/components/admin/tabs/HubLogisticaSimulacion';
+import { analizarLogisticaIntraDia } from '@/lib/logisticaSimulacion';
 import { showToast, showAlert, showError } from '@/lib/alerts';
 
 interface ProgramacionTabProps {
@@ -184,7 +186,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [filtroCurso, setFiltroCurso] = useState<string>('todos');
   const [filtroPs, setFiltroPs] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps'>('todos');
-  const [vistaModo, setVistaModo] = useState<'gantt' | 'tabla' | 'libres'>('gantt');
+  const [vistaModo, setVistaModo] = useState<'gantt' | 'tabla' | 'libres' | 'logistica'>('gantt');
 
   // Filtro de visualización: Ocultar salas sin actividad hoy
   const [soloConActividadHoy, setSoloConActividadHoy] = useState<boolean>(false);
@@ -197,6 +199,18 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [syncing, setSyncing] = useState<boolean>(false);
   const [ambientes, setAmbientes] = useState<AmbienteAdminItem[]>([]);
   const [sesiones, setSesiones] = useState<SesionProgramadaTimelineItem[]>([]);
+
+  // Sede seleccionada actual como objeto
+  const selectedSede = useMemo(() => {
+    return sedesList.find((s) => s.id === selectedSedeId) || null;
+  }, [sedesList, selectedSedeId]);
+
+  // Análisis Logístico de Transiciones Intra-Día en vivo
+  const resumenLogisticaIntra = useMemo(() => {
+    return analizarLogisticaIntraDia(ambientes, sesiones);
+  }, [ambientes, sesiones]);
+
+  const rotacionesCount = resumenLogisticaIntra.salasConSwapMayor + resumenLogisticaIntra.salasConResetCaso;
   const [docentesList, setDocentesList] = useState<ProgramacionDocenteOption[]>([]);
   const [cursosList, setCursosList] = useState<ProgramacionCursoOption[]>([]);
   const [psList, setPsList] = useState<string[]>([]);
@@ -921,10 +935,30 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                 <span className={styles.metricLbl}>⚠️ Salas No Identificadas</span>
               </div>
             )}
+
+            {rotacionesCount > 0 && (
+              <div
+                onClick={() => setVistaModo('logistica')}
+                className={styles.metricItem}
+                style={{
+                  borderLeft: '2px solid #f59e0b',
+                  paddingLeft: '1rem',
+                  cursor: 'pointer',
+                }}
+                title="Hacer clic para abrir el Hub Logístico y ver las salas que rotan hoy"
+              >
+                <span className={styles.metricVal} style={{ color: '#f59e0b' }}>
+                  {rotacionesCount}
+                </span>
+                <span className={styles.metricLbl}>
+                  🔄 Salas Rotan Hoy ({resumenLogisticaIntra.salasConSwapMayor} swaps)
+                </span>
+              </div>
+            )}
           </div>
 
           {/* SWITCH DE MODOS DE VISTA */}
-          <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setVistaModo('gantt')}
@@ -984,24 +1018,47 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             >
               <span>🟢</span> Radar de Salas Libres
             </button>
+
+            <button
+              type="button"
+              onClick={() => setVistaModo('logistica')}
+              style={{
+                padding: '0.4rem 0.85rem',
+                borderRadius: '7px',
+                border: 'none',
+                background: vistaModo === 'logistica' ? '#f59e0b' : 'transparent',
+                color: vistaModo === 'logistica' ? '#06152d' : 'var(--text-secondary)',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title="Hub de transiciones intra-día y optimización inter-días para técnicos"
+            >
+              <span>🛠️</span> Hub Logístico ({rotacionesCount} rotan)
+            </button>
           </div>
         </div>
       )}
 
       {/* 3. BARRA DE FILTROS AVANZADOS (DOCENTE, CURSO, PS, DISPONIBILIDAD, BUSCADOR) */}
-      <div
-        style={{
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          padding: '1rem 1.25rem',
-          marginBottom: '1.25rem',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '0.75rem',
-          alignItems: 'center',
-        }}
-      >
+      {vistaModo !== 'logistica' && (
+        <>
+          <div
+            style={{
+              background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.25rem',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '0.75rem',
+            alignItems: 'center',
+          }}
+        >
         {/* BUSCADOR OMNICANAL */}
         <div style={{ position: 'relative' }}>
           <input
@@ -1196,6 +1253,8 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* 4. CONTENIDO PRINCIPAL SEGÚN EL MODO SELECCIONADO */}
       {loading ? (
@@ -1833,7 +1892,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : vistaModo === 'libres' ? (
 
         /* =========================================================================
            MODO 3: RADAR DE SALAS LIBRES Y DISPONIBILIDAD
@@ -2000,6 +2059,22 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             })}
           </div>
         </div>
+      ) : (
+
+        /* =========================================================================
+           MODO 4: HUB LOGÍSTICO DE TÉCNICOS & RESET DE SALAS
+           ========================================================================= */
+        <HubLogisticaSimulacion
+          ambientes={ambientes}
+          sesiones={sesiones}
+          fecha={fecha}
+          selectedSedeId={selectedSedeId}
+          nombreSede={selectedSede?.nombre || 'Campus Villa'}
+          nowMinutes={nowMinutes}
+          esHoy={esHoy}
+          onVerDetalleSesion={(ses) => setSesionSeleccionada(ses)}
+          onIrAGantt={() => setVistaModo('gantt')}
+        />
       )}
 
       {/* MODAL DETALLE DE SESIÓN SIMCLIC */}

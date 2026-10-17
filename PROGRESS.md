@@ -582,6 +582,27 @@ src/
     - Desambiguación contextual de múltiples turnos en una misma fecha, asociando cada sesión al turno de Kiosco correspondiente por proximidad temporal y preservando la veracidad de la auditoría.
   - **Exportación en 1-Clic a Excel (CSV UTF-8)**:
     - Generador client-side respetando los filtros activos y exportando `Diagnóstico SimClic`, `Cobertura Bloques`, `Desfase Ingreso`, `Retiro Anticipado`, `Cambio de Sala` y detalle cronológico de cada bloque.
+* `feat(logistica-hub)`: **Hub Logístico de Simulación, Radar de Reset de Salas y Optimizador de Continuidad/Acarreo Inter-Días (Hito 37)**:
+  - **Módulo de Cálculo Logístico Desacoplado (`src/lib/logisticaSimulacion.ts`)**:
+    - Motor algorítmico que analiza transiciones intra-día y continuidad inter-días entre cualquier par de fechas seleccionadas.
+    - **Clasificación Intra-Día en 1 Clic**:
+      - `🔴 Swaps Mayores (Cambio de Curso)`: Detecta salas que cambian de especialidad médica (ej. Cirugía ➡️ Pediatría), requiriendo desmontaje mayor de simuladores (SimMan/SimBaby) o torres.
+      - `🟡 Resets de Caso (Mismo Curso)`: Detecta salas donde el curso se mantiene pero el escenario clínico rota (ej. Paro Cardíaco ➡️ Shock Séptico), indicando que los equipos pesados se quedan y solo se cambian guías y consumibles.
+      - `🟢 Salas Fijas / Estables`: Detecta salas con el mismo curso y tema durante toda la jornada (cero esfuerzo logístico requerido).
+      - `⏱️ Ventana de Transición y Detección de Brechas Críticas (≤ 15 min)`: Calcula los minutos libres entre el fin de una clase y el inicio de la siguiente (`startMins - endMins`), alertando con badge luminoso y nivel de urgencia si la brecha es estrecha.
+  - **Análisis de Continuidad Nocturna (Cierre 22:00 ➡️ Apertura 07:00)**:
+    - Cruza el último bloque del día activo con el primer bloque del día siguiente:
+    - Identifica salas con **Continuidad Total** (`🌟 ¡NO DESMONTAR a las 22:00!`), ahorrando hasta 45 minutos de montaje pesado al turno de apertura a las 06:30 am.
+    - Categoriza salas con cambio de curso, desmontaje total (quedan libres mañana) y montaje nuevo.
+  - **Optimizador de Permutas Inteligentes (Ahorro de Acarreo Pesado)**:
+    - Detección algorítmica de asignaciones cruzadas/inversas en SimClic (ej. Sala A hoy tuvo Cirugía y mañana tiene Pediatría, mientras Sala B hoy tuvo Pediatría y mañana tiene Cirugía).
+    - Sugiere formalmente a coordinación permutar las salas en el sistema para mantener los simuladores y torres fijos en su lugar, evitando acarrear maniquíes de 50 kg por los pasillos.
+    - Botón de 1 Clic: `📋 Copiar Propuesta para Coordinación` (genera un texto formal y ordenado listo para enviar por WhatsApp o correo).
+  - **Integración UI Modular (`HubLogisticaSimulacion.tsx` & `ProgramacionTab.tsx`)**:
+    - 4to modo de vista en la pestaña de Programación: `🛠️ Hub Logístico de Técnicos` con contador reactivo de salas que rotan.
+    - Píldora de acceso rápido en la cabecera superior de métricas del Gantt: `🔄 X Salas Rotan Hoy (Y swaps)`.
+    - 3 sub-pestañas: `🔁 Transiciones de Hoy (Reset Intra-Día)`, `📅 Continuidad & Ahorro de Acarreo (Hoy vs Mañana)` y `📘 Guía & Protocolo de Reset`.
+    - Selector dinámico de fecha de comparación (+1 día, +2 días, +3 días / próximo lunes o fecha personalizada).
 
 ---
 
@@ -594,6 +615,8 @@ src/
 3. **Integración con Programación de SimClic**:
    - Programación 360° en tiempo real con línea de tiempo Gantt, cruce con marcación de docentes y pacientes simulados, y auditoría preventiva de ausentismo (Completado).
 4. **Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`AsistenciasTab.tsx` & `ModalAuditoriaProgramacion.tsx`)** (Completado - Hito 36).
+5. **Hub Logístico de Simulación, Radar de Reset de Salas y Optimizador de Continuidad/Acarreo Inter-Días** (Completado - Hito 37).
+
 
 
 

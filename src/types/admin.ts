@@ -111,6 +111,10 @@ export interface AmbienteAdminItem {
   tipo: string;
   capacidad: number | null;
   activo: boolean;
+  categoriaId?: number | null;
+  categoriaNombre?: string | null;
+  categoriaColor?: string | null;
+  categoriaIcono?: string | null;
   sedeNombre?: string;
   ocupada?: boolean;
   cursoActivo?: string | null;
@@ -390,4 +394,125 @@ export interface EvaluacionSimclicResult {
   bloquesEvaluados: EvaluacionSimclicBloque[];
   resumenTexto: string;
 }
+
+// =========================================================================
+// LOGÍSTICA DE SIMULACIÓN Y TRANSICIÓN DE SALAS
+// =========================================================================
+
+export type TipoTransicionBloque = 'swap_curso' | 'reset_caso' | 'bloque_continuo';
+export type UrgenciaTransicion = 'critica' | 'moderada' | 'normal' | 'holgada';
+
+export interface TransicionBloqueItem {
+  id: string;
+  ambienteId: number;
+  ambienteNombre: string;
+  tipo: TipoTransicionBloque;
+  cursoAnterior: string;
+  casoAnterior: string;
+  docenteAnterior: string | null;
+  horaFinAnterior: string;
+  cursoSiguiente: string;
+  casoSiguiente: string;
+  docenteSiguiente: string | null;
+  horaInicioSiguiente: string;
+  ventanaMinutos: number;
+  urgencia: UrgenciaTransicion;
+  requiereMateriales: boolean;
+  descripcionAccion: string;
+}
+
+export type EstadoSalaDia = 'swap_mayor' | 'reset_caso' | 'estable' | 'sin_actividad';
+
+export interface SalaTransicionResumen {
+  ambienteId: number;
+  ambienteNombre: string;
+  ambienteCodigo: string | null;
+  categoriaNombre: string | null;
+  categoriaColor: string | null;
+  totalBloques: number;
+  estadoDia: EstadoSalaDia;
+  transiciones: TransicionBloqueItem[];
+  cursosDelDia: string[];
+  casosDelDia: string[];
+  docentesDelDia: string[];
+  primerHorario: string | null;
+  ultimoHorario: string | null;
+}
+
+export interface ResumenLogisticaIntraDia {
+  totalSalas: number;
+  salasConSwapMayor: number;
+  salasConResetCaso: number;
+  salasEstables: number;
+  salasSinActividad: number;
+  totalTransicionesCriticas: number;
+  salas: SalaTransicionResumen[];
+}
+
+export type TipoContinuidadSala =
+  | 'continuidad_total'
+  | 'continuidad_equipos'
+  | 'cambio_curso'
+  | 'desmontaje'
+  | 'montaje_nuevo'
+  | 'sin_actividad';
+
+export interface ContinuidadSalaItem {
+  ambienteId: number;
+  ambienteNombre: string;
+  ambienteCodigo: string | null;
+  categoriaNombre?: string | null;
+  categoriaColor?: string | null;
+  tipoContinuidad: TipoContinuidadSala;
+  cursoHoy: string | null;
+  casoHoy: string | null;
+  horaFinHoy: string | null;
+  cursoManana: string | null;
+  casoManana: string | null;
+  horaInicioManana: string | null;
+  accionSugerida: string;
+  etiquetaBadge: string;
+  colorBadge: string;
+  bgBadge: string;
+}
+
+export interface PermutaSugeridaItem {
+  id: string;
+  tipo: 'permuta_cruzada' | 'aprovechamiento_sala';
+  titulo: string;
+  explicacion: string;
+  ahorroEstimado: string;
+  salaA: {
+    id: number;
+    nombre: string;
+    cursoHoy: string;
+    casoHoy?: string;
+    cursoMananaOriginal: string;
+    casoMananaOriginal?: string;
+    cursoPropuesto: string;
+  };
+  salaB: {
+    id: number;
+    nombre: string;
+    cursoHoy: string;
+    casoHoy?: string;
+    cursoMananaOriginal: string;
+    casoMananaOriginal?: string;
+    cursoPropuesto: string;
+  };
+  impactoDocentes: string[];
+}
+
+export interface ResumenContinuidadInterDias {
+  fechaOrigen: string;
+  fechaDestino: string;
+  totalSalas: number;
+  salasConContinuidad: number;
+  salasConCambio: number;
+  salasDesmontar: number;
+  salasMontar: number;
+  salasContinuidad: ContinuidadSalaItem[];
+  permutasSugeridas: PermutaSugeridaItem[];
+}
+
 

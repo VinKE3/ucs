@@ -61,6 +61,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   const [fechaComparacion, setFechaComparacion] = useState<string>(() => getNextDateStr(fecha, 1));
   const [sesionesComparacion, setSesionesComparacion] = useState<SesionProgramadaTimelineItem[]>([]);
   const [loadingComparacion, setLoadingComparacion] = useState<boolean>(false);
+  const [syncingComparacion, setSyncingComparacion] = useState<boolean>(false);
   const [filtroContinuidad, setFiltroContinuidad] = useState<string>('todos');
   const [copiadoPropuesta, setCopiadoPropuesta] = useState<boolean>(false);
 
@@ -92,6 +93,30 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       setLoadingComparacion(false);
     }
   }, [fechaComparacion, selectedSedeId]);
+
+  // Sincronizar directamente con SimClic para la fecha de comparación
+  const handleSyncComparacion = async () => {
+    if (!fechaComparacion || syncingComparacion) return;
+    setSyncingComparacion(true);
+    try {
+      const res = await fetch('/api/simclic/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha: fechaComparacion }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`SimClic actualizado: ${data.total || 0} sesiones para el ${fechaComparacion}`, 'success');
+        await loadComparacion();
+      } else {
+        showToast(data.error || 'Error al sincronizar con SimClic', 'error');
+      }
+    } catch {
+      showToast('Error de conexión con SimClic', 'error');
+    } finally {
+      setSyncingComparacion(false);
+    }
+  };
 
   useEffect(() => {
     if (subTab === 'continuidad') {
@@ -946,6 +971,28 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                   style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
                 >
                   +3 Días (Lunes)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSyncComparacion}
+                  disabled={syncingComparacion}
+                  className={styles.secondaryActionBtn}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.75rem',
+                    borderColor: 'rgba(249, 115, 22, 0.4)',
+                    color: '#f97316',
+                    background: 'rgba(249, 115, 22, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                  }}
+                  title="Sincronizar directamente con SimClic las clases de la fecha a comparar"
+                >
+                  <span style={{ display: 'inline-block', transform: syncingComparacion ? 'rotate(360deg)' : 'none', transition: 'transform 0.8s ease' }}>
+                    🔄
+                  </span>
+                  <span>{syncingComparacion ? 'Sincronizando...' : 'Actualizar SimClic'}</span>
                 </button>
               </div>
             </div>

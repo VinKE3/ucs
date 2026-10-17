@@ -22,7 +22,7 @@ interface ProgramacionTabProps {
   onOpenCrearAsistenciaManual?: () => void;
   simclicSyncCount?: number;
   lastGlobalSyncTime?: Date | null;
-  onTriggerSync?: () => void;
+  onTriggerSync?: (targetFecha?: string) => void;
 }
 
 // Clasificación y ordenamiento idéntico al SimClic por pisos (Primer Piso / Segundo Piso)
@@ -859,7 +859,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           {/* BOTÓN SINCRONIZAR SIMCLIC */}
           <button
             type="button"
-            onClick={() => (onTriggerSync ? onTriggerSync() : runSyncSimclic(true))}
+            onClick={() => runSyncSimclic(true)}
             disabled={syncing}
             className={styles.actionBtn}
             style={{

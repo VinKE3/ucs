@@ -278,7 +278,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [lastGlobalSyncTime, setLastGlobalSyncTime] = useState<Date | null>(null);
   const [simclicSyncCount, setSimclicSyncCount] = useState<number>(0);
 
-  const triggerGlobalSyncSimclic = useCallback(async (isSilent = true) => {
+  const triggerGlobalSyncSimclic = useCallback(async (isSilent = true, targetFechaParam?: string) => {
     if (isGlobalSyncingRef.current) return;
     isGlobalSyncingRef.current = true;
 
@@ -286,11 +286,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       const nowPeru = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
       const pad = (n: number) => n.toString().padStart(2, '0');
       const hoyLima = `${nowPeru.getFullYear()}-${pad(nowPeru.getMonth() + 1)}-${pad(nowPeru.getDate())}`;
+      const targetFecha = targetFechaParam || hoyLima;
 
       const res = await fetch('/api/simclic/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fecha: hoyLima }),
+        body: JSON.stringify({ fecha: targetFecha }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -1257,7 +1258,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
             simclicSyncCount={simclicSyncCount}
             lastGlobalSyncTime={lastGlobalSyncTime}
-            onTriggerSync={() => triggerGlobalSyncSimclic(false)}
+            onTriggerSync={(targetFecha?: string) => triggerGlobalSyncSimclic(false, targetFecha)}
           />
         )}
 

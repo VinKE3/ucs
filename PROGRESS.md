@@ -666,6 +666,21 @@ src/
     - **Píldoras de Filtro**: Clases temáticas de alto contraste (`.pillSwap`, `.pillReset`, `.pillRecorrido`, `.pillDesarmar`, `.pillArmar`, `.pillAction`) con tonos 700 de saturación sobre fondos sutiles.
     - **Cabecera del Bridge**: `.bridgeHeaderGrid` con fondo `#f1f5f9` y bordes nítidos.
 
+* `feat(consulta-silent-sync)`: **Hito 41: Sincronización Silenciosa en Segundo Plano en Consulta Pública (`/consulta`)**:
+  - **Carga de Datos Silenciosa (`loadData(isSilent)`)**:
+    - Se parametrizó `loadData` para aceptar un flag `isSilent`.
+    - Solo en la carga inicial o al cambiar manualmente de fecha se activa `setLoading(true)` con el spinner a pantalla completa.
+    - Durante las sincronizaciones periódicas (cada 3 minutos) o al reenfocar la pestaña del navegador, los datos se recargan silenciosamente en segundo plano sin desmontar la interfaz (`<main className={styles.mainContent}>`).
+  - **Preservación Total del Estado del Usuario**:
+    - El docente o curso que el usuario esté consultando (`currentDocente`, `selectedDocenteId`) permanece seleccionado y visible sin parpadeos ni recargas abruptas.
+    - Se preserva la posición de scroll y la navegación activa.
+  - **Throttle de Foco Inteligente**:
+    - En el evento `window.onfocus`, se incorporó una ventana de enfriamiento (cooldown) de 60 segundos para evitar saturación de peticiones innecesarias al alternar repetidamente de pestañas.
+  - **Indicador Sutil en el Encabezado**:
+    - La píldora superior de estado cambia suavemente a un tono cian sutil con animación de pulso (*"Sincronizando..."*) durante la actualización en segundo plano, volviendo a *"SimClic en vivo • HH:MM"* al finalizar con la hora actualizada.
+  - **Actualización Manual sin Pérdida de Contexto**:
+    - Al presionar el botón "Actualizar", la animación de giro se muestra en el propio botón y la data se refresca en sitio sin pantalla de carga en blanco.
+
 ---
 
 ## 🎯 5. Próximas Mejoras Planificadas (Backlog)

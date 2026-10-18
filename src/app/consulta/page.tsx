@@ -98,13 +98,16 @@ export default function ConsultaPublicaPage() {
   };
 
   const [syncing, setSyncing] = useState(false);
+  const [isSilentSyncing, setIsSilentSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const isSyncingRef = useRef(false);
 
-  // Cargar datos al cambiar de fecha
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Cargar datos (con soporte de recarga silenciosa en segundo plano)
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const res = await fetch(`/api/consulta?fecha=${fecha}`);
       const data = await res.json();
@@ -114,26 +117,35 @@ export default function ConsultaPublicaPage() {
         setSedesList(data.sedesDelDia || []);
         setTodasLasSesiones(data.todasLasSesiones || []);
         setAmbientesInventario(data.ambientesInventario || []);
-      } else {
+        setError(null);
+      } else if (!isSilent) {
         setError(data.error || 'No se pudo cargar la programación');
       }
     } catch (err: any) {
-      setError(err?.message || 'Error de conexión con el servidor');
+      if (!isSilent) {
+        setError(err?.message || 'Error de conexión con el servidor');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   }, [fecha]);
 
   useEffect(() => {
-    loadData();
+    loadData(false);
   }, [loadData]);
 
-  // Sincronización en segundo plano con SimClic
+  // Sincronización en segundo plano con SimClic (completamente silenciosa para no interrumpir al usuario)
   const runBackgroundSync = useCallback(
     async (isSilent = true) => {
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
-      if (!isSilent) setSyncing(true);
+      if (!isSilent) {
+        setSyncing(true);
+      } else {
+        setIsSilentSyncing(true);
+      }
 
       try {
         const res = await fetch('/api/simclic/sync', {
@@ -144,7 +156,8 @@ export default function ConsultaPublicaPage() {
         const data = await res.json();
         if (data.success) {
           setLastSyncTime(new Date());
-          await loadData();
+          // Recargamos los datos sin desmontar la UI ni mostrar spinner a pantalla completa
+          await loadData(true);
         } else if (!isSilent) {
           alert(data.error || 'No se pudo sincronizar la programación desde SimClic');
         }
@@ -153,6 +166,7 @@ export default function ConsultaPublicaPage() {
       } finally {
         isSyncingRef.current = false;
         if (!isSilent) setSyncing(false);
+        setIsSilentSyncing(false);
       }
     },
     [fecha, loadData]
@@ -168,6 +182,8 @@ export default function ConsultaPublicaPage() {
     const hoy = getHoyLima();
     if (fecha !== hoy) return;
 
+    let lastFocusSync = Date.now();
+
     const initialTimer = setTimeout(() => {
       runBackgroundSync(true);
     }, 2500);
@@ -177,7 +193,12 @@ export default function ConsultaPublicaPage() {
     }, 180000); // 3 minutos
 
     const handleFocus = () => {
-      runBackgroundSync(true);
+      const now = Date.now();
+      // Throttle de al menos 60 segundos entre re-enfoques para evitar sobrecargar al cambiar de pestañas
+      if (now - lastFocusSync > 60000) {
+        lastFocusSync = now;
+        runBackgroundSync(true);
+      }
     };
     window.addEventListener('focus', handleFocus);
 
@@ -374,26 +395,30 @@ export default function ConsultaPublicaPage() {
                 alignItems: 'center',
                 gap: '0.45rem',
                 fontSize: '0.74rem',
-                color: 'var(--text-secondary, #94a3b8)',
-                background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
-                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                color: isSilentSyncing ? 'var(--ucs-blue-sky, #00b4d8)' : 'var(--text-secondary, #94a3b8)',
+                background: isSilentSyncing ? 'rgba(0, 180, 216, 0.1)' : 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                border: `1px solid ${isSilentSyncing ? 'rgba(0, 180, 216, 0.35)' : 'var(--border-color, rgba(255, 255, 255, 0.1))'}`,
                 padding: '0.35rem 0.65rem',
                 borderRadius: '8px',
+                transition: 'all 0.3s ease',
               }}
-              title="Sincronización automática activa con SimClic"
+              title={isSilentSyncing ? 'Sincronizando silenciosamente en segundo plano...' : 'Sincronización automática activa con SimClic'}
             >
               <span
                 style={{
                   width: '7px',
                   height: '7px',
                   borderRadius: '50%',
-                  background: '#00e699',
-                  boxShadow: '0 0 6px #00e699',
+                  background: isSilentSyncing ? '#00b4d8' : '#00e699',
+                  boxShadow: isSilentSyncing ? '0 0 6px #00b4d8' : '0 0 6px #00e699',
                   display: 'inline-block',
+                  transition: 'background 0.3s ease',
                 }}
               />
-              <span style={{ fontWeight: 600 }}>SimClic en vivo</span>
-              {lastSyncTime && (
+              <span style={{ fontWeight: 600 }}>
+                {isSilentSyncing ? 'Sincronizando...' : 'SimClic en vivo'}
+              </span>
+              {lastSyncTime && !isSilentSyncing && (
                 <span style={{ opacity: 0.7 }}>
                   • {lastSyncTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                 </span>

@@ -617,7 +617,7 @@ src/
     - **Filtro por Defecto: `⚡ Cambios Pendientes`**: Muestra únicamente las salas que de acuerdo a la programación aún tienen cambios futuros en el día.
     - **Comportamiento Temporal Dinámico**: Si una sala tuvo un cambio a las 12:30 y luego sigue de largo hasta las 22:00 con el mismo curso, la sala es visible antes y durante las 12:30. A la 1:30 PM o 2:00 PM, dado que ya no tiene más cambios por delante, desaparece automáticamente de la vista de pendientes, manteniendo limpio y enfocado el radar del equipo técnico.
     - Filtros complementarios disponibles: `🔄 Todas las que Rotan Hoy`, `🔴 Solo Swaps`, `🟡 Solo Resets`, `⏱️ Brechas Cortas`, `🟢 Fijas/Estables` y `👁️ Todas las Salas`.
-    - Conmutador flexible entre `📊 Vista Gantt` (por defecto) y `📋 Tarjetas Detalladas` (con persistencia en `sessionStorage`).
+    - Eliminación de tarjetas KPI superiores y lista de tarjetas detalladas por solicitud operativa: Sub-Pestaña 1 se consolidó 100% en la **Línea de Gantt Logística Horizontal**, maximizando el espacio vertical y permitiendo al equipo técnico trabajar de forma ágil y visual.
 
 ---
 
@@ -632,6 +632,7 @@ src/
 4. **Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`AsistenciasTab.tsx` & `ModalAuditoriaProgramacion.tsx`)** (Completado - Hito 36).
 5. **Hub Logístico de Simulación, Radar de Reset de Salas y Optimizador de Continuidad/Acarreo Inter-Días** (Completado - Hito 37).
 6. **Línea de Gantt Logística y Radar Temporal de Cambios Pendientes** (Completado - Hito 38).
+7. **Simplificación y Enfoque Visual en Hub Logístico**: Eliminación de tarjetas KPI superiores y lista de tarjetas detalladas para consolidar la sub-pestaña `Transiciones de Hoy` exclusivamente en la Línea de Gantt interactiva con selector de filtros y salto a la hora actual (Completado).
 
 
 

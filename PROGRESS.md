@@ -708,6 +708,16 @@ src/
   - **Corrección de Zona Horaria en Backend (`/api/consulta/route.ts`)**:
     - Se sincronizó `getTodayPeru` y `calcularEstadoHorario` con `America/Lima` para garantizar que la hora no se desfase en entornos de servidor UTC.
 
+* `feat(consulta-hide-virtual-classes)`: **Hito 44: Exclusión y Ocultamiento Total de Clases y Ambientes Virtuales en `/consulta`**:
+  - **Filtro Integral en Backend (`/api/consulta/route.ts`)**:
+    - Se incorporó la función detectora `isVirtual` que identifica sesiones y aulas remotas por nombre de ambiente (`*VIRTUAL*`), código (`*VIRT*`, ej. `VIRT`, `VIRT-N`, `VIRT-A`), título o nombre del curso.
+    - Se depuran automáticamente las sesiones virtuales de la consulta física de simulación (p. ej., se excluyeron 21 sesiones virtuales del día, dejando exclusivamente las 52 sesiones presenciales de laboratorio clínico).
+    - El inventario oficial de salas (`allAmbientesDB`) excluye ambientes artificiales como *«VIRTUAL - VILLA»*, *«Virtual - Norte»* y *«Virtual - Ate»*, manteniendo solo salas clínicas reales.
+  - **Doble Capa de Protección en Frontend (`src/app/consulta/page.tsx`)**:
+    - En `loadData`, se filtran defensivamente sesiones, docentes, cursos y salas virtuales antes de actualizar el estado, recalculando `totalClases` y `totalGrupos`.
+    - Los docentes con clases 100% virtuales que no pisan campus físico no inflan el directorio de salas.
+    - Se eliminaron las asignaciones virtuales de la pestaña *«Por Ambiente / Sede»*, de las salas en simultáneo y de los docentes espejo.
+
 ---
 
 ## 🎯 5. Próximas Mejoras Planificadas (Backlog)

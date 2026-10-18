@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       conditions.push(eq(sesionesProgramadas.sedeId, Number(sedeIdParam)));
     }
 
-    const rawSessions = await db
+    const rawSessionsAll = await db
       .select({
         id: sesionesProgramadas.id,
         simclicId: sesionesProgramadas.simclicId,
@@ -80,6 +80,20 @@ export async function GET(request: Request) {
       .from(sesionesProgramadas)
       .where(and(...conditions))
       .orderBy(sesionesProgramadas.horaInicio, sesionesProgramadas.ambienteNombreSimclic);
+
+    // Helper para detectar clases virtuales o salas virtuales
+    const isVirtual = (nom?: string | null, cod?: string | null, tit?: string | null, cur?: string | null) => {
+      const n = (nom || '').toUpperCase();
+      const c = (cod || '').toUpperCase();
+      const t = (tit || '').toUpperCase();
+      const curStr = (cur || '').toUpperCase();
+      return n.includes('VIRTUAL') || c.includes('VIRT') || t.includes('VIRTUAL') || curStr.includes('VIRTUAL');
+    };
+
+    // Ocultar sesiones virtuales: la clínica física solo gestiona y consulta aulas físicas de simulación
+    const rawSessions = rawSessionsAll.filter(
+      (s) => !isVirtual(s.ambienteNombre, s.ambienteCodigo, s.titulo, s.cursoNombre)
+    );
 
     // 2. Obtener usuarios docentes para enriquecer con DNI y teléfono cuando aplique
     const allDocentes = await db
@@ -250,8 +264,8 @@ export async function GET(request: Request) {
       sesiones: c.sesiones.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
     })).sort((a, b) => a.cursoNombre.localeCompare(b.cursoNombre));
 
-    // C) Inventario oficial de todos los ambientes de la clínica
-    const allAmbientesDB = await db
+    // C) Inventario oficial de todos los ambientes de la clínica (excluyendo salas virtuales)
+    const allAmbientesDBRaw = await db
       .select({
         id: ambientes.id,
         nombre: ambientes.nombre,
@@ -264,6 +278,8 @@ export async function GET(request: Request) {
       .leftJoin(sedes, eq(ambientes.sedeId, sedes.id))
       .where(eq(ambientes.activo, true))
       .orderBy(ambientes.nombre);
+
+    const allAmbientesDB = allAmbientesDBRaw.filter((a) => !isVirtual(a.nombre, a.codigo));
 
     // Lista consolidada de sedes oficiales
     const sedesDelDia = Array.from(

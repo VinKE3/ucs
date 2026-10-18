@@ -132,11 +132,54 @@ export default function ConsultaPublicaPage() {
       const res = await fetch(`/api/consulta?fecha=${fecha}`);
       const data = await res.json();
       if (data.success) {
-        setDocentes(data.docentesDelDia || []);
-        setCursos(data.cursosDelDia || []);
+        // Filtrar defensivamente clases y ambientes virtuales
+        const isVirtual = (nom?: string | null, cod?: string | null, tit?: string | null, cur?: string | null) => {
+          const n = (nom || '').toUpperCase();
+          const c = (cod || '').toUpperCase();
+          const t = (tit || '').toUpperCase();
+          const curStr = (cur || '').toUpperCase();
+          return n.includes('VIRTUAL') || c.includes('VIRT') || t.includes('VIRTUAL') || curStr.includes('VIRTUAL');
+        };
+
+        const cleanedDocentes = (data.docentesDelDia || [])
+          .map((d: DocenteItem) => {
+            const fisicas = d.sesiones.filter(
+              (s) => !isVirtual(s.ambienteNombre, s.ambienteCodigo, s.titulo, s.cursoNombre)
+            );
+            return {
+              ...d,
+              sesiones: fisicas,
+              totalClases: fisicas.length,
+            };
+          })
+          .filter((d: DocenteItem) => d.sesiones.length > 0);
+
+        const cleanedCursos = (data.cursosDelDia || [])
+          .map((c: CursoItem) => {
+            const fisicas = c.sesiones.filter(
+              (s) => !isVirtual(s.ambienteNombre, s.ambienteCodigo, s.titulo, s.cursoNombre)
+            );
+            return {
+              ...c,
+              sesiones: fisicas,
+              totalGrupos: fisicas.length,
+            };
+          })
+          .filter((c: CursoItem) => c.sesiones.length > 0);
+
+        const cleanedSesiones = (data.todasLasSesiones || []).filter(
+          (s: SesionConsulta) => !isVirtual(s.ambienteNombre, s.ambienteCodigo, s.titulo, s.cursoNombre)
+        );
+
+        const cleanedAmbientes = (data.ambientesInventario || []).filter(
+          (a: any) => !isVirtual(a.nombre, a.codigo)
+        );
+
+        setDocentes(cleanedDocentes);
+        setCursos(cleanedCursos);
         setSedesList(data.sedesDelDia || []);
-        setTodasLasSesiones(data.todasLasSesiones || []);
-        setAmbientesInventario(data.ambientesInventario || []);
+        setTodasLasSesiones(cleanedSesiones);
+        setAmbientesInventario(cleanedAmbientes);
         setError(null);
       } else if (!isSilent) {
         setError(data.error || 'No se pudo cargar la programación');

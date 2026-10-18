@@ -87,6 +87,26 @@ export default function ConsultaPublicaPage() {
   const [selectedDocenteId, setSelectedDocenteId] = useState<string | null>(null);
   const [selectedCursoNombre, setSelectedCursoNombre] = useState<string | null>(null);
 
+  // Modo de visualización del directorio de docentes: 'cards' o 'table'
+  const [docenteViewMode, setDocenteViewMode] = useState<'cards' | 'table'>('cards');
+
+  // Cargar preferencia persistida del usuario
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ucs_consulta_docente_view');
+      if (saved === 'cards' || saved === 'table') {
+        setDocenteViewMode(saved);
+      }
+    }
+  }, []);
+
+  const handleDocenteViewModeChange = (mode: 'cards' | 'table') => {
+    setDocenteViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ucs_consulta_docente_view', mode);
+    }
+  };
+
   // Helper para iniciales de monograma sin usar fotos
   const getInitials = (name: string) => {
     if (!name) return 'DC';
@@ -239,6 +259,56 @@ export default function ConsultaPublicaPage() {
     }
     return null;
   }, [selectedDocenteId, docentes, searchQuery, filteredDocentes]);
+
+  // Encontrar la sesión más relevante según la hora actual en Lima, Perú
+  const getSesionMasCercana = useCallback((sesiones: SesionConsulta[]): SesionConsulta | null => {
+    if (!sesiones || sesiones.length === 0) return null;
+
+    const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+    const nowMins = limaDate.getHours() * 60 + limaDate.getMinutes();
+
+    const getMins = (hStr: string) => {
+      const [h, m] = (hStr || '00:00').split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    // 1. Si hay alguna clase en curso en este momento (horaInicio <= now < horaFin)
+    const enCurso = sesiones.find((s) => {
+      const ini = getMins(s.horaInicio);
+      const fin = getMins(s.horaFin);
+      return nowMins >= ini && nowMins < fin;
+    });
+    if (enCurso) return enCurso;
+
+    // 2. Si no hay en curso, la clase más próxima hacia adelante (que comience después de nowMins)
+    const futuras = sesiones
+      .filter((s) => getMins(s.horaInicio) >= nowMins)
+      .sort((a, b) => getMins(a.horaInicio) - getMins(b.horaInicio));
+    if (futuras.length > 0) return futuras[0];
+
+    // 3. Si ya concluyeron todas las clases del día, la última que terminó (más cercana en retrospectiva)
+    const pasadas = [...sesiones].sort((a, b) => getMins(b.horaFin) - getMins(a.horaFin));
+    return pasadas[0] || sesiones[0];
+  }, []);
+
+  // Sesión objetivo (más cercana en el tiempo) del docente actualmente seleccionado
+  const sesionObjetivo = useMemo(() => {
+    if (!currentDocente) return null;
+    return getSesionMasCercana(currentDocente.sesiones);
+  }, [currentDocente, getSesionMasCercana]);
+
+  // Auto-scroll suave directo a la clase más cercana en el tiempo al seleccionar un docente
+  useEffect(() => {
+    if (currentDocente && sesionObjetivo) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`sesion-card-${sesionObjetivo.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [currentDocente?.identificador, sesionObjetivo?.id]);
 
   // Filtrado de Cursos
   const filteredCursos = useMemo(() => {
@@ -619,48 +689,93 @@ export default function ConsultaPublicaPage() {
                           <div className={styles.statLabel}>Carga Horaria</div>
                         </div>
                       </div>
+
+                      {/* Barra de Acceso Rápido a Clases por Horario */}
+                      {currentDocente.sesiones.length > 1 && (
+                        <div className={styles.quickClassBar} style={{ width: '100%' }}>
+                          <span className={styles.quickClassLabel}>⚡ Salto rápido por horario:</span>
+                          <div className={styles.quickClassButtons}>
+                            {currentDocente.sesiones.map((s) => {
+                              const esTarget = sesionObjetivo?.id === s.id;
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const el = document.getElementById(`sesion-card-${s.id}`);
+                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  }}
+                                  className={`${styles.quickClassChip} ${esTarget ? styles.quickClassChipTarget : ''}`}
+                                  title={`Ir a ${s.cursoNombre || s.titulo} (${s.horaInicio} - ${s.horaFin})`}
+                                >
+                                  <span>{s.estadoTiempo === 'en_curso' ? '🔴' : esTarget ? '⚡' : '🕒'}</span>
+                                  <span>{s.horaInicio} - {s.horaFin}</span>
+                                  <span className={styles.quickClassRoom}>({s.ambienteNombre || 'Sala'})</span>
+                                  {esTarget && (
+                                    <span className={styles.quickClassTag}>
+                                      {s.estadoTiempo === 'en_curso' ? 'En curso' : 'Próxima'}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Tarjetas de Clases del Docente */}
                     <div className={styles.sessionGrid}>
-                      {currentDocente.sesiones.map((sesion) => (
-                        <div
-                          key={sesion.id}
-                          className={`${styles.sessionCard} ${
-                            sesion.estadoTiempo === 'en_curso'
-                              ? styles.sessionCardEnCurso
-                              : sesion.estadoTiempo === 'proxima'
-                              ? styles.sessionCardProxima
-                              : styles.sessionCardFinalizada
-                          }`}
-                        >
-                          <div className={styles.sessionMain}>
-                            {/* Cabecera de Horario y Estado */}
-                            <div className={styles.sessionHeader}>
-                              <div className={styles.timeBadgeGroup}>
-                                <span className={styles.timeBadge}>
-                                  🕒 {sesion.horaInicio} - {sesion.horaFin}
-                                </span>
-                                <span
-                                  className={`${styles.statusPill} ${
-                                    sesion.estadoTiempo === 'en_curso'
-                                      ? styles.statusPillEnCurso
+                      {currentDocente.sesiones.map((sesion) => {
+                        const esTarget = sesionObjetivo?.id === sesion.id;
+                        return (
+                          <div
+                            key={sesion.id}
+                            id={`sesion-card-${sesion.id}`}
+                            className={`${styles.sessionCard} ${
+                              esTarget ? styles.sessionCardHighlight : ''
+                            } ${
+                              sesion.estadoTiempo === 'en_curso'
+                                ? styles.sessionCardEnCurso
+                                : sesion.estadoTiempo === 'proxima'
+                                ? styles.sessionCardProxima
+                                : styles.sessionCardFinalizada
+                            }`}
+                          >
+                            <div className={styles.sessionMain}>
+                              {/* Cabecera de Horario y Estado */}
+                              <div className={styles.sessionHeader}>
+                                <div className={styles.timeBadgeGroup}>
+                                  <span className={styles.timeBadge}>
+                                    🕒 {sesion.horaInicio} - {sesion.horaFin}
+                                  </span>
+                                  {esTarget && (
+                                    <span className={styles.targetSessionBadge}>
+                                      {sesion.estadoTiempo === 'en_curso'
+                                        ? '🔴 EN CURSO AHORA'
+                                        : '⚡ CLASE MÁS CERCANA'}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`${styles.statusPill} ${
+                                      sesion.estadoTiempo === 'en_curso'
+                                        ? styles.statusPillEnCurso
+                                        : sesion.estadoTiempo === 'proxima'
+                                        ? styles.statusPillProxima
+                                        : styles.statusPillFinalizada
+                                    }`}
+                                  >
+                                    {sesion.estadoTiempo === 'en_curso'
+                                      ? '● En Curso Ahora'
                                       : sesion.estadoTiempo === 'proxima'
-                                      ? styles.statusPillProxima
-                                      : styles.statusPillFinalizada
-                                  }`}
-                                >
-                                  {sesion.estadoTiempo === 'en_curso'
-                                    ? '● En Curso Ahora'
-                                    : sesion.estadoTiempo === 'proxima'
-                                    ? '⏳ Próxima'
-                                    : '✓ Concluida'}
-                                </span>
+                                      ? '⏳ Próxima'
+                                      : '✓ Concluida'}
+                                  </span>
+                                </div>
+                                {sesion.sedeNombre && (
+                                  <span className={styles.sedeBadge}>📍 {sesion.sedeNombre}</span>
+                                )}
                               </div>
-                              {sesion.sedeNombre && (
-                                <span className={styles.sedeBadge}>📍 {sesion.sedeNombre}</span>
-                              )}
-                            </div>
 
                             {/* DESTACADO DE SALA / AMBIENTE (Respuesta inmediata a "¿Dónde me toca?") */}
                             <div className={styles.roomHighlight}>
@@ -747,19 +862,42 @@ export default function ConsultaPublicaPage() {
                             </div>
                           )}
                         </div>
-                      ))}
+                      );
+                    })}
                     </div>
                   </div>
                 ) : (
                   /* Directorio de Docentes */
                   <div className={styles.directorySection}>
                     <div className={styles.directoryHeader}>
-                      <h2 className={styles.directoryTitle}>
-                        Docentes con programación para {fechaLabel} ({filteredDocentes.length})
-                      </h2>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        Selecciona un docente para ver sus ambientes y espejos
-                      </span>
+                      <div>
+                        <h2 className={styles.directoryTitle}>
+                          Docentes con programación para {fechaLabel} ({filteredDocentes.length})
+                        </h2>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          Selecciona un docente para ver sus ambientes y espejos
+                        </span>
+                      </div>
+
+                      {/* Selector de Vista: Tarjetas o Tabla */}
+                      <div className={styles.viewToggleGroup}>
+                        <button
+                          type="button"
+                          onClick={() => handleDocenteViewModeChange('cards')}
+                          className={`${styles.viewToggleBtn} ${docenteViewMode === 'cards' ? styles.viewToggleBtnActive : ''}`}
+                          title="Ver en cuadrícula de tarjetas"
+                        >
+                          <span>🗂️</span> Tarjetas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDocenteViewModeChange('table')}
+                          className={`${styles.viewToggleBtn} ${docenteViewMode === 'table' ? styles.viewToggleBtnActive : ''}`}
+                          title="Ver en tabla detallada"
+                        >
+                          <span>📋</span> Tabla
+                        </button>
+                      </div>
                     </div>
 
                     {todasLasSesiones.length === 0 ? (
@@ -788,31 +926,169 @@ export default function ConsultaPublicaPage() {
                           Mostrar todos
                         </button>
                       </div>
-                    ) : (
+                    ) : docenteViewMode === 'cards' ? (
+                      /* MODO 1: TARJETAS AMPLIAS Y COMPLETAS SIN RECORTE */
                       <div className={styles.directoryGrid}>
-                        {filteredDocentes.map((d) => (
-                          <button
-                            key={d.identificador}
-                            onClick={() => setSelectedDocenteId(d.identificador)}
-                            className={styles.directoryCard}
-                          >
-                            <div className={styles.directoryCardInfo}>
-                              <div className={styles.directoryMiniAvatar}>
-                                {getInitials(d.docenteNombre)}
-                              </div>
-                              <div className={styles.directoryDetails}>
-                                <span className={styles.directoryName}>{d.docenteNombre}</span>
-                                {d.docenteDni && (
-                                  <span className={styles.directoryDni}>DNI: {d.docenteDni}</span>
-                                )}
-                              </div>
-                            </div>
+                        {filteredDocentes.map((d) => {
+                          const sedesDoc = Array.from(new Set(d.sesiones.map((s) => s.sedeNombre).filter(Boolean)));
+                          const cursosDoc = Array.from(new Set(d.sesiones.map((s) => s.cursoNombre || s.titulo).filter(Boolean)));
 
-                            <span className={styles.directoryBadge}>
-                              {d.totalClases} {d.totalClases === 1 ? 'clase' : 'clases'}
-                            </span>
-                          </button>
-                        ))}
+                          return (
+                            <button
+                              key={d.identificador}
+                              onClick={() => setSelectedDocenteId(d.identificador)}
+                              className={styles.directoryCard}
+                            >
+                              <div className={styles.directoryCardInfo}>
+                                <div className={styles.directoryMiniAvatar}>
+                                  {getInitials(d.docenteNombre)}
+                                </div>
+                                <div className={styles.directoryDetails}>
+                                  <span className={styles.directoryName}>{d.docenteNombre}</span>
+                                  {d.docenteDni && (
+                                    <span className={styles.directoryDni}>DNI: {d.docenteDni}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className={styles.directoryCardMeta}>
+                                <div className={styles.directoryCardTags}>
+                                  {sedesDoc.map((s) => (
+                                    <span key={s} className={styles.directoryCardSedeTag}>
+                                      📍 {s}
+                                    </span>
+                                  ))}
+                                  {cursosDoc.length > 0 && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        maxWidth: '160px',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        display: 'inline-block',
+                                      }}
+                                      title={cursosDoc.join(' • ')}
+                                    >
+                                      📚 {cursosDoc[0]}
+                                      {cursosDoc.length > 1 ? ` (+${cursosDoc.length - 1})` : ''}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <span className={styles.directoryBadge}>
+                                  {d.totalClases} {d.totalClases === 1 ? 'clase' : 'clases'}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* MODO 2: TABLA DETALLADA CON NOMBRES COMPLETOS Y CURSOS */
+                      <div className={styles.directoryTableContainer}>
+                        <div className={styles.directoryTableScroll}>
+                          <table className={styles.directoryTable}>
+                            <thead>
+                              <tr>
+                                <th>Docente</th>
+                                <th>Asignaturas de Hoy</th>
+                                <th>Sede / Campus</th>
+                                <th>Horarios y Ambientes</th>
+                                <th style={{ textAlign: 'center' }}>Clases</th>
+                                <th style={{ textAlign: 'right' }}>Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredDocentes.map((d) => {
+                                const sedesDoc = Array.from(new Set(d.sesiones.map((s) => s.sedeNombre).filter(Boolean)));
+                                const cursosDoc = Array.from(new Set(d.sesiones.map((s) => s.cursoNombre || s.titulo).filter(Boolean)));
+                                const horariosDoc = Array.from(
+                                  new Set(
+                                    d.sesiones.map(
+                                      (s) => `${s.horaInicio || '??'} - ${s.horaFin || '??'} (${s.ambienteNombre || 'Sala'})`
+                                    )
+                                  )
+                                );
+
+                                return (
+                                  <tr
+                                    key={d.identificador}
+                                    className={styles.directoryTableRow}
+                                    onClick={() => setSelectedDocenteId(d.identificador)}
+                                  >
+                                    <td>
+                                      <div className={styles.tableDocenteCell}>
+                                        <div className={styles.directoryMiniAvatar}>
+                                          {getInitials(d.docenteNombre)}
+                                        </div>
+                                        <div>
+                                          <div className={styles.tableDocenteName}>{d.docenteNombre}</div>
+                                          {d.docenteDni && (
+                                            <div className={styles.directoryDni}>DNI: {d.docenteDni}</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div className={styles.tableCursosList}>
+                                        {cursosDoc.map((c, idx) => (
+                                          <div key={idx} className={styles.tableCursoItem} title={c}>
+                                            📚 {c}
+                                          </div>
+                                        ))}
+                                        {cursosDoc.length === 0 && (
+                                          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                                            Sin curso asignado
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div>
+                                        {sedesDoc.map((s, idx) => (
+                                          <span key={idx} className={styles.tableSedePill}>
+                                            📍 {s}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div className={styles.tableHorariosList}>
+                                        {horariosDoc.slice(0, 3).map((h, idx) => (
+                                          <div key={idx}>⏰ {h}</div>
+                                        ))}
+                                        {horariosDoc.length > 3 && (
+                                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                            +{horariosDoc.length - 3} turno(s) más
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <span className={styles.directoryBadge}>
+                                        {d.totalClases} {d.totalClases === 1 ? 'clase' : 'clases'}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                      <button
+                                        type="button"
+                                        className={styles.tableActionBtn}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedDocenteId(d.identificador);
+                                        }}
+                                      >
+                                        <span>Ver Salas</span>
+                                        <span>➔</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </div>

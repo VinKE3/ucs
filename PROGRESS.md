@@ -681,6 +681,33 @@ src/
   - **Actualización Manual sin Pérdida de Contexto**:
     - Al presionar el botón "Actualizar", la animación de giro se muestra en el propio botón y la data se refresca en sitio sin pantalla de carga en blanco.
 
+* `feat(consulta-hybrid-docentes-view)`: **Hito 42: Visualización Híbrida de Docentes (Tarjetas Sin Recorte + Tabla Detallada) en `/consulta`**:
+  - **Selector de Vista Integrado (`[ 🗂️ Tarjetas ] [ 📋 Tabla ]`)**:
+    - Botonera segmentada en la cabecera del directorio para alternar instantáneamente entre vista en tarjetas o tabla clínica.
+    - Persistencia automática de la preferencia del usuario en `localStorage` (`ucs_consulta_docente_view`).
+  - **Rediseño Integral de Tarjetas (Cards Mode)**:
+    - Se eliminó el truncamiento por puntos suspensivos (`white-space: normal`, `line-height: 1.3`, `word-break: break-word`), permitiendo que nombres completos extensos (ej. *Ana Patricia Mendoza Silva*, *Juan Francisco Vela Álvarez*) se lean en su totalidad sin cortes.
+    - Grilla optimizada (`minmax(320px, 1fr)`) con mayor espacio horizontal.
+    - Metadatos adicionales en el pie de tarjeta: píldora de Sede(s) (ej: `📍 Campus Villa`) y vista previa de asignatura dictada (ej: `📚 Simulación Médica I`).
+  - **Nueva Vista en Tabla Detallada (Table Mode)**:
+    - Tabla estructurada con columnas de: *Docente (Avatar + Nombre completo + DNI)*, *Asignaturas de Hoy*, *Sede / Campus*, *Horarios y Ambientes asignados*, *Total Clases* y botón de acción interactivo `Ver Salas ➔`.
+    - Fila completa interactiva: clic en cualquier celda o botón abre la ficha y espejos del docente.
+    - Adaptabilidad de alto contraste para temas claro y oscuro con zebra-hover.
+
+* `feat(consulta-auto-scroll-closest-class)`: **Hito 43: Auto-Enfoque y Desplazamiento Inteligente a la Clase Más Cercana por Horario en `/consulta`**:
+  - **Algoritmo de Detección de Clase Objetivo (`getSesionMasCercana`)**:
+    - Prioridad 1: Si hay una clase en curso en ese instante (`horaInicio <= now < horaFin` en hora de Lima, Perú), se selecciona como objetivo principal.
+    - Prioridad 2: Si no hay clase en curso, selecciona la próxima clase más cercana a comenzar (`start >= now`).
+    - Prioridad 3: Si ya concluyeron todas las clases de la jornada, selecciona la última clase recién finalizada.
+  - **Auto-Scroll Suave (`scrollIntoView`)**:
+    - Al hacer clic en un docente (sea desde Tarjetas o Tabla), la vista abre la ficha y se desplaza automáticamente y con animación suave (`behavior: 'smooth', block: 'center'`) hasta la tarjeta del curso relevante.
+  - **Resalte Visual de Alto Impacto**:
+    - Borde pulsante luminoso temático (`.sessionCardHighlight`) y distintivo animado en la cabecera: `🔴 EN CURSO AHORA` o `⚡ CLASE MÁS CERCANA`.
+  - **Barra de Salto Rápido por Horario (`quickClassBar`)**:
+    - En la cabecera del docente, si tiene más de 1 clase en el día, se muestra una barra de accesos rápidos con botones tipo chip (`[ 🔴 17:00 - 18:40 (SALA-2) En curso ]`, `[ 🕒 19:00 - 20:30 (SALA-2) ]`) que permiten saltar a cualquier otro turno con 1 solo clic.
+  - **Corrección de Zona Horaria en Backend (`/api/consulta/route.ts`)**:
+    - Se sincronizó `getTodayPeru` y `calcularEstadoHorario` con `America/Lima` para garantizar que la hora no se desfase en entornos de servidor UTC.
+
 ---
 
 ## 🎯 5. Próximas Mejoras Planificadas (Backlog)

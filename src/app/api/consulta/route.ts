@@ -6,16 +6,15 @@ import { eq, and, sql } from 'drizzle-orm';
 export const dynamic = 'force-dynamic';
 
 function getTodayPeru(): string {
-  // Retorna la fecha local en formato YYYY-MM-DD
-  const now = new Date();
-  // Compensar zona horaria si es necesario o usar toISOString
-  return now.toISOString().slice(0, 10);
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// Determinar estado de la sesión según la hora actual
+// Determinar estado de la sesión según la hora actual en Lima, Perú
 function calcularEstadoHorario(horaInicio: string, horaFin: string, fechaStr: string): 'finalizada' | 'en_curso' | 'proxima' {
   try {
-    const now = new Date();
+    const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
     const hoyStr = getTodayPeru();
 
     // Si la fecha es pasada
@@ -23,12 +22,12 @@ function calcularEstadoHorario(horaInicio: string, horaFin: string, fechaStr: st
     // Si la fecha es futura
     if (fechaStr > hoyStr) return 'proxima';
 
-    const [hIniH, hIniM] = horaInicio.split(':').map(Number);
-    const [hFinH, hFinM] = horaFin.split(':').map(Number);
+    const [hIniH, hIniM] = (horaInicio || '00:00').split(':').map(Number);
+    const [hFinH, hFinM] = (horaFin || '00:00').split(':').map(Number);
 
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const iniMinutes = hIniH * 60 + hIniM;
-    const finMinutes = hFinH * 60 + hFinM;
+    const nowMinutes = limaDate.getHours() * 60 + limaDate.getMinutes();
+    const iniMinutes = (hIniH || 0) * 60 + (hIniM || 0);
+    const finMinutes = (hFinH || 0) * 60 + (hFinM || 0);
 
     if (nowMinutes >= finMinutes) return 'finalizada';
     if (nowMinutes >= iniMinutes && nowMinutes < finMinutes) return 'en_curso';

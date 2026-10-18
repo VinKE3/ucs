@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type {
   AmbienteAdminItem,
@@ -18,6 +18,27 @@ import {
   generarMensajePropuestaCoordinacion,
 } from '@/lib/logisticaSimulacion';
 import { showToast } from '@/lib/alerts';
+
+// Paleta armónica de colores de bloques de curso para contraste visual en el Gantt
+const COURSE_PALETTE = [
+  { bg: 'rgba(2, 132, 199, 0.28)', border: '#38bdf8', text: '#e0f2fe' },
+  { bg: 'rgba(139, 92, 246, 0.28)', border: '#a78bfa', text: '#ede9fe' },
+  { bg: 'rgba(16, 185, 129, 0.28)', border: '#34d399', text: '#d1fae5' },
+  { bg: 'rgba(99, 102, 241, 0.28)', border: '#818cf8', text: '#e0e7ff' },
+  { bg: 'rgba(236, 72, 153, 0.28)', border: '#f472b6', text: '#fce7f3' },
+  { bg: 'rgba(245, 158, 11, 0.28)', border: '#fbbf24', text: '#fef3c7' },
+  { bg: 'rgba(20, 184, 166, 0.28)', border: '#2dd4bf', text: '#ccfbf1' },
+];
+
+function getCourseColor(courseName: string) {
+  let hash = 0;
+  for (let i = 0; i < courseName.length; i++) {
+    hash = (hash << 5) - hash + courseName.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % COURSE_PALETTE.length;
+  return COURSE_PALETTE[idx];
+}
 
 interface HubLogisticaSimulacionProps {
   ambientes: AmbienteAdminItem[];
@@ -60,9 +81,85 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
     }
   };
 
-  // Filtros en Sub-pestaña 1 (Intra-Día)
-  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'swap_mayor' | 'reset_caso' | 'estable' | 'criticas'>('todos');
+  // Modo de visualización en Sub-pestaña 1: 'gantt' (por defecto) vs 'tarjetas'
+  const [vistaSubTab1, setVistaSubTab1State] = useState<'gantt' | 'tarjetas'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('ucs_hub_subtab1_view');
+      if (saved === 'gantt' || saved === 'tarjetas') return saved;
+    }
+    return 'gantt';
+  });
+
+  const setVistaSubTab1 = (v: 'gantt' | 'tarjetas') => {
+    setVistaSubTab1State(v);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('ucs_hub_subtab1_view', v);
+    }
+  };
+
+  // Filtros en Sub-pestaña 1 (Intra-Día): Por defecto 'pendientes' (salas que aún tienen cambios pendientes hoy)
+  const [filtroTipo, setFiltroTipo] = useState<
+    'pendientes' | 'rotan_todas' | 'swap_mayor' | 'reset_caso' | 'criticas' | 'estable' | 'todos'
+  >('pendientes');
   const [search, setSearch] = useState<string>('');
+
+  // Referencia para scroll horizontal en el Gantt Logístico
+  const ganttScrollRef = useRef<HTMLDivElement>(null);
+
+  // String formateado de la hora actual en vivo
+  const horaActualStr = useMemo(() => {
+    const h = Math.floor(nowMinutes / 60);
+    const m = nowMinutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }, [nowMinutes]);
+
+  // Función para desplazar suavemente la vista Gantt a la hora actual
+  const scrollToHoraActual = useCallback(() => {
+    if (!ganttScrollRef.current) return;
+    const container = ganttScrollRef.current;
+    const inner = container.firstElementChild as HTMLElement;
+    if (!inner) return;
+
+    const totalMins = 15 * 60; // 07:00 a 22:00 = 900 minutos
+    const clampedMins = Math.max(7 * 60, Math.min(22 * 60, nowMinutes));
+    const fraction = (clampedMins - 7 * 60) / totalMins;
+
+    const innerWidth = inner.scrollWidth;
+    const targetX = 260 + fraction * (innerWidth - 260);
+    const scrollLeft = Math.max(0, targetX - container.clientWidth / 2);
+
+    container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+  }, [nowMinutes]);
+
+  // Slots horarios para la regla horizontal (07:00 a 22:00)
+  const slotsHorarios = useMemo(() => {
+    const slots: Array<{ label: string; mins: number; esHoraEnPunto: boolean }> = [];
+    for (let h = 7; h <= 22; h++) {
+      slots.push({
+        label: `${h.toString().padStart(2, '0')}:00`,
+        mins: h * 60,
+        esHoraEnPunto: true,
+      });
+      if (h < 22) {
+        slots.push({
+          label: `${h.toString().padStart(2, '0')}:30`,
+          mins: h * 60 + 30,
+          esHoraEnPunto: false,
+        });
+      }
+    }
+    return slots;
+  }, []);
+
+  // Auto-scroll a la hora actual al cargar la pestaña en modo Gantt
+  useEffect(() => {
+    if (esHoy && subTab === 'transiciones' && vistaSubTab1 === 'gantt') {
+      const timer = setTimeout(() => {
+        scrollToHoraActual();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [esHoy, subTab, vistaSubTab1, scrollToHoraActual]);
 
   // Estados para Sub-pestaña 2 (Inter-Día: Hoy vs Mañana / Fecha de comparación)
   const getNextDateStr = useCallback((dateStr: string, offsetDays: number = 1) => {
@@ -141,8 +238,8 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
 
   // 1. Análisis Intra-Día
   const resumenIntra: ResumenLogisticaIntraDia = useMemo(() => {
-    return analizarLogisticaIntraDia(ambientes, sesiones);
-  }, [ambientes, sesiones]);
+    return analizarLogisticaIntraDia(ambientes, sesiones, nowMinutes, esHoy);
+  }, [ambientes, sesiones, nowMinutes, esHoy]);
 
   // Filtrado de salas en la vista intra-día
   const salasIntraFiltradas = useMemo(() => {
@@ -157,7 +254,13 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
         if (!matchNombre && !matchCodigo && !matchCursos && !matchCasos) return false;
       }
 
-      // Filtro por tipo de transición
+      // Filtro por tipo de transición y momento en el tiempo
+      if (filtroTipo === 'pendientes') {
+        return sala.tieneTransicionPendiente;
+      }
+      if (filtroTipo === 'rotan_todas') {
+        return sala.estadoDia === 'swap_mayor' || sala.estadoDia === 'reset_caso';
+      }
       if (filtroTipo === 'swap_mayor') return sala.estadoDia === 'swap_mayor';
       if (filtroTipo === 'reset_caso') return sala.estadoDia === 'reset_caso';
       if (filtroTipo === 'estable') return sala.estadoDia === 'estable';
@@ -318,7 +421,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 fontWeight: 700,
               }}
             >
-              {resumenIntra.salasConSwapMayor + resumenIntra.salasConResetCaso} rotan
+              {resumenIntra.salasConTransicionesPendientes} pendientes • {resumenIntra.salasConSwapMayor + resumenIntra.salasConResetCaso} rotan
             </span>
           </button>
 
@@ -385,15 +488,42 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
           ========================================================================= */}
       {subTab === 'transiciones' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* 4 KPIS OPERATIVOS */}
+          {/* 5 KPIS OPERATIVOS */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
               gap: '0.85rem',
             }}
           >
-            {/* KPI 1: SWAPS MAYORES */}
+            {/* KPI 1: CAMBIOS PENDIENTES HOY (HERO KPI) */}
+            <div
+              onClick={() => setFiltroTipo(filtroTipo === 'pendientes' ? 'todos' : 'pendientes')}
+              style={{
+                background: filtroTipo === 'pendientes' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.08)',
+                border: `1.5px solid ${filtroTipo === 'pendientes' ? '#38bdf8' : 'rgba(56, 189, 248, 0.25)'}`,
+                borderRadius: '12px',
+                padding: '1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: filtroTipo === 'pendientes' ? '0 0 16px rgba(56, 189, 248, 0.25)' : 'none',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8' }}>
+                  ⚡ Cambios Pendientes Hoy
+                </span>
+                <span style={{ fontSize: '1.3rem' }}>⏳</span>
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#38bdf8', marginTop: '0.3rem' }}>
+                {resumenIntra.salasConTransicionesPendientes} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>salas</span>
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                Salas con rotaciones que aún no inician según la hora ({horaActualStr}). Se ocultan tras completarse.
+              </div>
+            </div>
+
+            {/* KPI 2: SWAPS MAYORES */}
             <div
               onClick={() => setFiltroTipo(filtroTipo === 'swap_mayor' ? 'todos' : 'swap_mayor')}
               style={{
@@ -407,7 +537,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ef4444' }}>
-                  🔴 Swaps Mayores (Cambio de Curso)
+                  🔴 Swaps de Curso
                 </span>
                 <span style={{ fontSize: '1.3rem' }}>🔄</span>
               </div>
@@ -415,11 +545,11 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 {resumenIntra.salasConSwapMayor} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>salas</span>
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                Cambio radical de disciplina (ej: Cirugía ➡️ Pediatría). Requiere nuevo simulador o torre.
+                Cambio de disciplina médica. Requiere nuevo simulador, torre o instrumental.
               </div>
             </div>
 
-            {/* KPI 2: RESETS DE CASO */}
+            {/* KPI 3: RESETS DE CASO */}
             <div
               onClick={() => setFiltroTipo(filtroTipo === 'reset_caso' ? 'todos' : 'reset_caso')}
               style={{
@@ -433,7 +563,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#eab308' }}>
-                  🟡 Resets de Caso (Mismo Curso)
+                  🟡 Resets de Caso
                 </span>
                 <span style={{ fontSize: '1.3rem' }}>📋</span>
               </div>
@@ -441,11 +571,11 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 {resumenIntra.salasConResetCaso} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>salas</span>
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                Mismo curso, pero nuevo escenario. Equipos base se quedan; solo cambiar insumos o maqueta.
+                Mismo curso, nuevo caso clínico. Reposición de insumos, suturas o pads.
               </div>
             </div>
 
-            {/* KPI 3: SALAS ESTABLES */}
+            {/* KPI 4: SALAS ESTABLES */}
             <div
               onClick={() => setFiltroTipo(filtroTipo === 'estable' ? 'todos' : 'estable')}
               style={{
@@ -467,11 +597,11 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 {resumenIntra.salasEstables} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>salas</span>
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                Mismo curso y mismo caso todo el día. Cero movimiento de materiales requerido.
+                Mismo curso y escenario todo el día. Cero acarreo ni desmontaje necesario.
               </div>
             </div>
 
-            {/* KPI 4: TRANSICIONES CRÍTICAS */}
+            {/* KPI 5: BRECHAS CORTAS */}
             <div
               onClick={() => setFiltroTipo(filtroTipo === 'criticas' ? 'todos' : 'criticas')}
               style={{
@@ -485,20 +615,20 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f97316' }}>
-                  ⚡ Brechas Cortas (≤ 15 min)
+                  ⏱️ Brechas Cortas (≤ 15 min)
                 </span>
-                <span style={{ fontSize: '1.3rem' }}>⏱️</span>
+                <span style={{ fontSize: '1.3rem' }}>⚡</span>
               </div>
               <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#f97316', marginTop: '0.3rem' }}>
                 {resumenIntra.totalTransicionesCriticas} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>puntos</span>
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                Momentos en el día donde el docente siguiente llega en 15 min o menos. Prioridad alta.
+                Transiciones de alta prisa donde el docente entrante llega en 15 min o menos.
               </div>
             </div>
           </div>
 
-          {/* BARRA DE FILTROS Y BÚSQUEDA */}
+          {/* BARRA DE FILTROS, BUSCADOR Y CONMUTADOR DE VISTA (GANTT VS TARJETAS) */}
           <div
             style={{
               display: 'flex',
@@ -509,20 +639,35 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
               background: 'var(--bg-card)',
               border: '1px solid var(--border-color)',
               padding: '0.75rem 1rem',
-              borderRadius: '10px',
+              borderRadius: '12px',
             }}
           >
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* PÍLDORAS DE FILTRADO */}
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                Filtro de Salas:
+                Filtro:
               </span>
               <button
                 type="button"
-                onClick={() => setFiltroTipo('todos')}
-                className={`${styles.simclicPillBtn} ${filtroTipo === 'todos' ? styles.simclicPillBtnActive : ''}`}
+                onClick={() => setFiltroTipo('pendientes')}
+                className={`${styles.simclicPillBtn} ${filtroTipo === 'pendientes' ? styles.simclicPillBtnActive : ''}`}
+                style={{
+                  color: filtroTipo === 'pendientes' ? '#ffffff' : '#38bdf8',
+                  background: filtroTipo === 'pendientes' ? '#0284c7' : 'rgba(56, 189, 248, 0.1)',
+                  borderColor: 'rgba(56, 189, 248, 0.4)',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                }}
+              >
+                ⚡ Cambios Pendientes ({resumenIntra.salasConTransicionesPendientes})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroTipo('rotan_todas')}
+                className={`${styles.simclicPillBtn} ${filtroTipo === 'rotan_todas' ? styles.simclicPillBtnActive : ''}`}
                 style={{ fontSize: '0.76rem' }}
               >
-                Todas ({resumenIntra.salas.length})
+                🔄 Rotan Hoy ({resumenIntra.salasConSwapMayor + resumenIntra.salasConResetCaso})
               </button>
               <button
                 type="button"
@@ -530,7 +675,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 className={`${styles.simclicPillBtn} ${filtroTipo === 'swap_mayor' ? styles.simclicPillBtnActive : ''}`}
                 style={{ color: '#ef4444', fontSize: '0.76rem' }}
               >
-                🔴 Swaps de Curso ({resumenIntra.salasConSwapMayor})
+                🔴 Swaps ({resumenIntra.salasConSwapMayor})
               </button>
               <button
                 type="button"
@@ -538,15 +683,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 className={`${styles.simclicPillBtn} ${filtroTipo === 'reset_caso' ? styles.simclicPillBtnActive : ''}`}
                 style={{ color: '#eab308', fontSize: '0.76rem' }}
               >
-                🟡 Resets de Caso ({resumenIntra.salasConResetCaso})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroTipo('estable')}
-                className={`${styles.simclicPillBtn} ${filtroTipo === 'estable' ? styles.simclicPillBtnActive : ''}`}
-                style={{ color: '#10b981', fontSize: '0.76rem' }}
-              >
-                🟢 Fijas / Estables ({resumenIntra.salasEstables})
+                🟡 Resets ({resumenIntra.salasConResetCaso})
               </button>
               <button
                 type="button"
@@ -554,40 +691,656 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 className={`${styles.simclicPillBtn} ${filtroTipo === 'criticas' ? styles.simclicPillBtnActive : ''}`}
                 style={{ color: '#f97316', fontSize: '0.76rem' }}
               >
-                ⚡ Con Brecha Corta
+                ⏱️ Brecha Corta
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroTipo('estable')}
+                className={`${styles.simclicPillBtn} ${filtroTipo === 'estable' ? styles.simclicPillBtnActive : ''}`}
+                style={{ color: '#10b981', fontSize: '0.76rem' }}
+              >
+                🟢 Fijas ({resumenIntra.salasEstables})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroTipo('todos')}
+                className={`${styles.simclicPillBtn} ${filtroTipo === 'todos' ? styles.simclicPillBtnActive : ''}`}
+                style={{ fontSize: '0.76rem' }}
+              >
+                👁️ Todas ({resumenIntra.salas.length})
               </button>
             </div>
 
-            {/* BUSCADOR */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: '240px' }}>
-              <input
-                type="text"
-                placeholder="🔍 Buscar sala, curso o caso..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={styles.input}
-                style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', width: '100%' }}
-              />
-              {search && (
+            {/* CONTROLES DERECHA: BUSCADOR, SWITCH DE VISTA Y BOTÓN IR A HORA */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+              
+              {/* BUSCADOR */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: '190px' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar sala, curso..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className={styles.input}
+                  style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', width: '100%' }}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* CONMUTADOR DE VISTA: GANTT VS TARJETAS */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.25rem',
+                  background: 'var(--bg-primary, #06152d)',
+                  padding: '0.25rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
+                  onClick={() => setVistaSubTab1('gantt')}
                   style={{
-                    background: 'transparent',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '6px',
                     border: 'none',
-                    color: 'var(--text-muted)',
+                    background: vistaSubTab1 === 'gantt' ? 'var(--ucs-blue, #0d346c)' : 'transparent',
+                    color: vistaSubTab1 === 'gantt' ? '#ffffff' : 'var(--text-secondary)',
+                    fontWeight: vistaSubTab1 === 'gantt' ? 700 : 500,
+                    fontSize: '0.76rem',
                     cursor: 'pointer',
-                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    transition: 'all 0.15s ease',
                   }}
+                  title="Ver transiciones mapeadas en la línea de tiempo Gantt cronológica (07:00 a 22:00)"
                 >
-                  ✕
+                  <span>📊</span> Vista Gantt
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setVistaSubTab1('tarjetas')}
+                  style={{
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: vistaSubTab1 === 'tarjetas' ? 'var(--ucs-blue, #0d346c)' : 'transparent',
+                    color: vistaSubTab1 === 'tarjetas' ? '#ffffff' : 'var(--text-secondary)',
+                    fontWeight: vistaSubTab1 === 'tarjetas' ? 700 : 500,
+                    fontSize: '0.76rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Ver tarjetas detalladas con protocolos y checklist de intervención por sala"
+                >
+                  <span>📋</span> Tarjetas Detalladas
+                </button>
+              </div>
+
+              {/* BOTÓN IR A LA HORA ACTUAL */}
+              {esHoy && vistaSubTab1 === 'gantt' && (
+                <button
+                  type="button"
+                  onClick={scrollToHoraActual}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '7px',
+                    border: '1px solid rgba(56, 189, 248, 0.5)',
+                    background: 'rgba(2, 132, 199, 0.18)',
+                    color: '#38bdf8',
+                    fontWeight: 700,
+                    fontSize: '0.76rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Desplazar la línea de tiempo hasta la hora actual en vivo"
+                >
+                  <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#00e699', boxShadow: '0 0 6px #00e699' }} />
+                  <span>📍 Ir a la Hora ({horaActualStr})</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* LISTADO DE TARJETAS DE SALAS Y TRANSICIONES */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* =========================================================================
+              CONTENIDO: VISTA GANTT CRONOLÓGICA (MODO PRINCIPAL) VS TARJETAS
+              ========================================================================= */}
+          {vistaSubTab1 === 'gantt' ? (
+            <div
+              style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
+              }}
+            >
+              {/* Scroll horizontal del Gantt */}
+              <div ref={ganttScrollRef} style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
+                <div style={{ minWidth: '1680px', display: 'flex', flexDirection: 'column' }}>
+                  
+                  {/* HEADER DE HORAS (07:00 a 22:00) */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      borderBottom: '2px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 30,
+                    }}
+                  >
+                    {/* Columna fija de Salas */}
+                    <div
+                      style={{
+                        width: '260px',
+                        minWidth: '260px',
+                        padding: '0.85rem 1rem',
+                        fontWeight: 800,
+                        fontSize: '0.82rem',
+                        color: 'var(--text-primary)',
+                        borderRight: '2px solid var(--border-color)',
+                        background: 'var(--bg-card)',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 35,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>🏥 SALA / AMBIENTE</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        ({salasIntraFiltradas.length} {salasIntraFiltradas.length === 1 ? 'sala' : 'salas'})
+                      </span>
+                    </div>
+
+                    {/* Grid de franjas horarias */}
+                    <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+                      {slotsHorarios.map((slot, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            flex: 1,
+                            padding: '0.75rem 0.25rem',
+                            textAlign: 'center',
+                            fontSize: slot.esHoraEnPunto ? '0.75rem' : '0.68rem',
+                            fontWeight: slot.esHoraEnPunto ? 700 : 500,
+                            color: slot.esHoraEnPunto ? 'var(--text-primary)' : 'var(--text-muted)',
+                            borderRight: slot.esHoraEnPunto ? '1px solid var(--border-color)' : '1px dashed rgba(255, 255, 255, 0.08)',
+                            fontFamily: 'var(--font-mono)',
+                          }}
+                        >
+                          {slot.label}
+                        </div>
+                      ))}
+
+                      {/* Pin de tiempo actual en vivo en el header */}
+                      {esHoy && nowMinutes >= 7 * 60 && nowMinutes <= 22 * 60 && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: `${((nowMinutes - 7 * 60) / (15 * 60)) * 100}%`,
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                            border: '1px solid rgba(255, 255, 255, 0.4)',
+                            color: '#ffffff',
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '999px',
+                            boxShadow: '0 0 12px rgba(56, 189, 248, 0.8)',
+                            zIndex: 40,
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e699', boxShadow: '0 0 6px #00e699' }} />
+                          <span>{horaActualStr}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* FILAS DE CADA SALA EN EL GANTT */}
+                  {salasIntraFiltradas.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '3.5rem 2rem',
+                        textAlign: 'center',
+                        color: 'var(--text-secondary)',
+                        background: 'var(--bg-elevated)',
+                      }}
+                    >
+                      {filtroTipo === 'pendientes' ? (
+                        <div style={{ maxWidth: '520px', margin: '0 auto' }}>
+                          <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>🎉</div>
+                          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            ¡No hay cambios de curso ni resets pendientes en este momento!
+                          </div>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 1.25rem 0', lineHeight: 1.5 }}>
+                            Las salas con rotaciones de hoy ya pasaron su hora de cambio o continúan con el mismo curso hasta las 22:00.
+                          </p>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => setFiltroTipo('rotan_todas')}
+                              className={styles.secondaryBtn}
+                              style={{ fontSize: '0.82rem', padding: '0.45rem 0.95rem' }}
+                            >
+                              🔄 Ver todas las que rotan hoy ({resumenIntra.salasConSwapMayor + resumenIntra.salasConResetCaso})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFiltroTipo('todos')}
+                              className={styles.secondaryBtn}
+                              style={{ fontSize: '0.82rem', padding: '0.45rem 0.95rem' }}
+                            >
+                              👁️ Ver todas las salas ({resumenIntra.salas.length})
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
+                          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                            No se encontraron salas con el filtro seleccionado
+                          </div>
+                          <div style={{ fontSize: '0.82rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
+                            Prueba cambiando el filtro o limpiando el texto del buscador.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    salasIntraFiltradas.map((sala, idx) => {
+                      const esSwapMayor = sala.estadoDia === 'swap_mayor';
+                      const esResetCaso = sala.estadoDia === 'reset_caso';
+                      const esEstable = sala.estadoDia === 'estable';
+                      const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)';
+
+                      return (
+                        <div
+                          key={sala.ambienteId}
+                          style={{
+                            display: 'flex',
+                            borderBottom: '1px solid var(--border-color)',
+                            background: rowBg,
+                            minHeight: '82px',
+                            position: 'relative',
+                          }}
+                        >
+                          {/* COLUMNA LATERAL FIJA DE LA SALA */}
+                          <div
+                            style={{
+                              width: '260px',
+                              minWidth: '260px',
+                              padding: '0.75rem 1rem',
+                              borderRight: '2px solid var(--border-color)',
+                              background: 'var(--bg-elevated)',
+                              position: 'sticky',
+                              left: 0,
+                              zIndex: 20,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'center',
+                              gap: '0.35rem',
+                              boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <span style={{ fontSize: '0.95rem' }}>
+                                {esSwapMayor ? '🔴' : esResetCaso ? '🟡' : esEstable ? '🟢' : '⚪'}
+                              </span>
+                              <span
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize: '0.83rem',
+                                  color: 'var(--text-primary)',
+                                  lineHeight: 1.25,
+                                }}
+                              >
+                                {sala.ambienteNombre}
+                              </span>
+                            </div>
+
+                            {/* CÓDIGO + CATEGORÍA */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              {sala.ambienteCodigo && (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontFamily: 'var(--font-mono)',
+                                    background: 'rgba(255, 255, 255, 0.07)',
+                                    color: 'var(--text-secondary)',
+                                    padding: '0.1rem 0.35rem',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {sala.ambienteCodigo}
+                                </span>
+                              )}
+                              {sala.categoriaNombre && (
+                                <span
+                                  style={{
+                                    fontSize: '0.66rem',
+                                    padding: '0.1rem 0.4rem',
+                                    borderRadius: '10px',
+                                    background: sala.categoriaColor ? `${sala.categoriaColor}22` : 'rgba(56, 189, 248, 0.15)',
+                                    color: sala.categoriaColor || '#38bdf8',
+                                    border: `1px solid ${sala.categoriaColor ? `${sala.categoriaColor}44` : 'rgba(56, 189, 248, 0.3)'}`,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {sala.categoriaNombre}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* ESTADO OPERATIVO DE TRANSICIONES */}
+                            <div>
+                              {sala.tieneTransicionPendiente ? (
+                                sala.proximaTransicion?.esEnCursoAhora ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.3rem',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      background: 'rgba(239, 68, 68, 0.2)',
+                                      color: '#ef4444',
+                                      border: '1px solid #ef4444',
+                                      padding: '0.15rem 0.45rem',
+                                      borderRadius: '6px',
+                                    }}
+                                  >
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
+                                    ⚡ EN RESET AHORA ({sala.proximaTransicion.ventanaMinutos}m)
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.3rem',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      background: sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                                      color: sala.proximaTransicion?.tipo === 'swap_curso' ? '#ef4444' : '#eab308',
+                                      border: `1px solid ${sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
+                                      padding: '0.15rem 0.45rem',
+                                      borderRadius: '6px',
+                                    }}
+                                  >
+                                    <span>{sala.proximaTransicion?.tipo === 'swap_curso' ? '🔴' : '🟡'}</span>
+                                    <span>
+                                      Próx: {sala.proximaTransicion?.horaInicioSiguiente}
+                                      {sala.minutosParaProximaTransicion !== null ? ` (en ${sala.minutosParaProximaTransicion}m)` : ''}
+                                    </span>
+                                  </span>
+                                )
+                              ) : esSwapMayor || esResetCaso ? (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    color: '#10b981',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                  }}
+                                >
+                                  ✓ Cambios de hoy completados
+                                </span>
+                              ) : esEstable ? (
+                                <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>
+                                  🟢 Fija: Mismo curso todo el día
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  ⚪ Sin clases hoy
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* LÍNEA DE TIEMPO HORIZONTAL DE LA SALA */}
+                          <div style={{ flex: 1, position: 'relative', minHeight: '82px' }}>
+                            
+                            {/* GUÍAS DE FONDO DE CADA HORA */}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+                              {slotsHorarios.map((slot, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    flex: 1,
+                                    borderRight: slot.esHoraEnPunto ? '1px solid rgba(255, 255, 255, 0.05)' : '1px dashed rgba(255, 255, 255, 0.02)',
+                                  }}
+                                />
+                              ))}
+                            </div>
+
+                            {/* LÍNEA DEL MOMENTO ACTUAL EN VIVO */}
+                            {esHoy && nowMinutes >= 420 && nowMinutes <= 1320 && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: `${((nowMinutes - 420) / 900) * 100}%`,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: '2px',
+                                  background: '#0284c7',
+                                  zIndex: 18,
+                                  pointerEvents: 'none',
+                                  boxShadow: '0 0 8px rgba(56, 189, 248, 0.8)',
+                                }}
+                              />
+                            )}
+
+                            {/* BLOQUES DE SESIONES / CURSOS */}
+                            {sala.sesiones.map((ses) => {
+                              const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
+                              const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
+                              const coursePalette = getCourseColor(ses.cursoNombreSimclic || ses.titulo || '');
+                              const esEnCurso = esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
+
+                              return (
+                                <div
+                                  key={ses.id}
+                                  onClick={() => onVerDetalleSesion(ses)}
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${leftPercent}%`,
+                                    width: `${widthPercent}%`,
+                                    top: '8px',
+                                    bottom: '8px',
+                                    background: coursePalette.bg,
+                                    border: `1.5px solid ${esEnCurso ? '#38bdf8' : coursePalette.border}`,
+                                    borderRadius: '8px',
+                                    padding: '0.35rem 0.6rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    gap: '0.15rem',
+                                    overflow: 'hidden',
+                                    boxShadow: esEnCurso ? '0 0 12px rgba(56, 189, 248, 0.45)' : '0 2px 6px rgba(0, 0, 0, 0.25)',
+                                    zIndex: 10,
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                  }}
+                                  title={`Clic para ver ficha completa:\n${ses.cursoNombreSimclic || ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin} (${ses.duracionMinutos} min)\nDocente: ${ses.docenteNombreSimclic || 'Sin docente'}\nCaso: ${ses.escenarioNombre || 'General'}`}
+                                >
+                                  <div
+                                    style={{
+                                      fontWeight: 800,
+                                      fontSize: '0.74rem',
+                                      color: '#ffffff',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      letterSpacing: '0.01em',
+                                    }}
+                                  >
+                                    {ses.cursoNombreSimclic || ses.titulo}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: '0.67rem',
+                                      color: 'rgba(255, 255, 255, 0.85)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.35rem',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      fontFamily: 'var(--font-mono)',
+                                    }}
+                                  >
+                                    <span>{ses.horaInicio} - {ses.horaFin}</span>
+                                    {ses.escenarioNombre && (
+                                      <span style={{ color: '#38bdf8', fontWeight: 600 }}>
+                                        • {ses.escenarioNombre}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {ses.docenteNombreSimclic && (
+                                    <div
+                                      style={{
+                                        fontSize: '0.64rem',
+                                        color: 'rgba(255, 255, 255, 0.65)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                      }}
+                                    >
+                                      👤 {ses.docenteNombreSimclic}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* MARCADORES DE TRANSICIÓN / RESETS ENTRE CLASES */}
+                            {sala.transiciones
+                              .filter((t) => t.tipo === 'swap_curso' || t.tipo === 'reset_caso')
+                              .map((trans) => {
+                                const startM = trans.horaFinAnteriorMins || 420;
+                                const endM = trans.horaInicioSiguienteMins || startM;
+                                const windowMins = trans.ventanaMinutos;
+                                const isSwap = trans.tipo === 'swap_curso';
+
+                                const leftPercent = Math.max(0, Math.min(100, ((startM - 420) / 900) * 100));
+                                const widthPercent = Math.max(2.8, Math.min(100 - leftPercent, (Math.max(windowMins, 15) / 900) * 100));
+
+                                const esEnCursoAhora = trans.esEnCursoAhora;
+                                const esPasada = trans.esPasada;
+                                const accentColor = isSwap ? '#ef4444' : '#eab308';
+
+                                return (
+                                  <div
+                                    key={trans.id}
+                                    style={{
+                                      position: 'absolute',
+                                      left: `${leftPercent}%`,
+                                      width: `${widthPercent}%`,
+                                      top: '4px',
+                                      bottom: '4px',
+                                      background: esPasada
+                                        ? 'rgba(255, 255, 255, 0.04)'
+                                        : esEnCursoAhora
+                                        ? `linear-gradient(135deg, ${accentColor}44, ${accentColor}22)`
+                                        : `linear-gradient(135deg, ${accentColor}33, ${accentColor}18)`,
+                                      border: `2px ${esPasada ? 'dashed rgba(255,255,255,0.2)' : 'solid'} ${esPasada ? 'rgba(255,255,255,0.3)' : accentColor}`,
+                                      borderRadius: '8px',
+                                      padding: '0.2rem 0.4rem',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      justifyContent: 'center',
+                                      alignItems: 'center',
+                                      textAlign: 'center',
+                                      zIndex: 15,
+                                      boxShadow: esEnCursoAhora
+                                        ? `0 0 16px ${accentColor}99`
+                                        : esPasada
+                                        ? 'none'
+                                        : `0 2px 10px ${accentColor}44`,
+                                      opacity: esPasada ? 0.6 : 1,
+                                      pointerEvents: 'auto',
+                                      cursor: 'help',
+                                    }}
+                                    title={`TRANSICIÓN LOGÍSTICA:\n${isSwap ? '🔴 SWAP DE CURSO' : '🟡 RESET DE CASO'}\nDe: ${trans.cursoAnterior} (hasta ${trans.horaFinAnterior})\nA: ${trans.cursoSiguiente} (desde ${trans.horaInicioSiguiente})\nVentana: ${trans.ventanaMinutos <= 0 ? '0 min (Inmediato)' : `${trans.ventanaMinutos} min`}\nAcción: ${trans.descripcionAccion}\nDocente nuevo: ${trans.docenteSiguiente || 'No especificado'}`}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: 900,
+                                        color: esPasada ? 'var(--text-muted)' : accentColor,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                        whiteSpace: 'nowrap',
+                                        textShadow: esEnCursoAhora ? `0 0 6px ${accentColor}` : 'none',
+                                      }}
+                                    >
+                                      <span>{esPasada ? '✓' : isSwap ? '🔴' : '🟡'}</span>
+                                      <span>{esPasada ? 'Hecho' : isSwap ? 'SWAP' : 'RESET'}</span>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        fontSize: '0.62rem',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontWeight: 800,
+                                        color: esPasada ? 'var(--text-muted)' : '#ffffff',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {trans.horaInicioSiguiente} ({windowMins}m)
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* VISTA TARJETAS DETALLADAS (CHECKLIST Y PROTOCOLO) */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {salasIntraFiltradas.length === 0 ? (
               <div
                 style={{
@@ -929,8 +1682,9 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
               })
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {/* =========================================================================
           SUB-PESTAÑA 2: CONTINUIDAD INTER-DÍAS (HOY VS MAÑANA) & PERMUTAS

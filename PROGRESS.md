@@ -607,6 +607,17 @@ src/
   - **Recarga Silenciosa en Background (`ProgramacionTab.tsx`)**: `loadProgramacion` ahora admite actualización transparente (`isSilentBackground`) al dispararse el auto-sync global, actualizando datos en memoria sin desmontar los componentes ni mostrar el spinner de carga destructivo.
   - **Persistencia de Sub-Pestañas (`HubLogisticaSimulacion.tsx`)**: Guardado en `sessionStorage` (`ucs_hub_logistica_subtab`) para que el usuario nunca sea expulsado de *Continuidad & Acarreo* o de cualquier sub-pestaña al refrescarse los datos.
   - **Eliminación de Timers Duplicados y Cooldown de Focus (`AdminDashboard.tsx` & `ProgramacionTab.tsx`)**: Se removieron los intervalos y listeners redundantes de `ProgramacionTab`, unificando el auto-sync en `AdminDashboard` con un cooldown de 2.5 minutos en el evento `window.onfocus` para evitar ejecuciones innecesarias al alternar ventanas.
+* `feat(hub-logistica-gantt)`: **Hito 38: Línea de Gantt Logística y Filtrado Inteligente por Hora en Transiciones de Hoy**:
+  - **Vista Gantt Logística Horizontal (07:00 a 22:00)** en la Sub-Pestaña 1 `Transiciones de Hoy (Reset Intra-Día)`:
+    - Eje cronológico con bloques de curso diferenciados por colores armónicos de alto contraste (`COURSE_PALETTE`).
+    - Marcadores destacados en las brechas y momentos de cambio: `🔴 SWAP DE CURSO` (cambio de disciplina/equipos) y `🟡 RESET DE CASO` (mismo curso, nuevo escenario/insumos).
+    - Muestra la ventana exacta en minutos disponible para el equipo técnico (`⏱️ Ventana: X min`) y estado en vivo (`⚡ EN RESET AHORA`).
+    - Indicador vertical en vivo de la hora actual con pin pulsante y botón de salto instantáneo `📍 Ir a la Hora`.
+  - **Filtrado Inteligente según la Hora Actual (`nowMinutes`)**:
+    - **Filtro por Defecto: `⚡ Cambios Pendientes`**: Muestra únicamente las salas que de acuerdo a la programación aún tienen cambios futuros en el día.
+    - **Comportamiento Temporal Dinámico**: Si una sala tuvo un cambio a las 12:30 y luego sigue de largo hasta las 22:00 con el mismo curso, la sala es visible antes y durante las 12:30. A la 1:30 PM o 2:00 PM, dado que ya no tiene más cambios por delante, desaparece automáticamente de la vista de pendientes, manteniendo limpio y enfocado el radar del equipo técnico.
+    - Filtros complementarios disponibles: `🔄 Todas las que Rotan Hoy`, `🔴 Solo Swaps`, `🟡 Solo Resets`, `⏱️ Brechas Cortas`, `🟢 Fijas/Estables` y `👁️ Todas las Salas`.
+    - Conmutador flexible entre `📊 Vista Gantt` (por defecto) y `📋 Tarjetas Detalladas` (con persistencia en `sessionStorage`).
 
 ---
 
@@ -620,6 +631,7 @@ src/
    - Programación 360° en tiempo real con línea de tiempo Gantt, cruce con marcación de docentes y pacientes simulados, y auditoría preventiva de ausentismo (Completado).
 4. **Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`AsistenciasTab.tsx` & `ModalAuditoriaProgramacion.tsx`)** (Completado - Hito 36).
 5. **Hub Logístico de Simulación, Radar de Reset de Salas y Optimizador de Continuidad/Acarreo Inter-Días** (Completado - Hito 37).
+6. **Línea de Gantt Logística y Radar Temporal de Cambios Pendientes** (Completado - Hito 38).
 
 
 

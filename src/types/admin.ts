@@ -411,14 +411,21 @@ export interface TransicionBloqueItem {
   casoAnterior: string;
   docenteAnterior: string | null;
   horaFinAnterior: string;
+  horaFinAnteriorMins?: number;
   cursoSiguiente: string;
   casoSiguiente: string;
   docenteSiguiente: string | null;
   horaInicioSiguiente: string;
+  horaInicioSiguienteMins?: number;
   ventanaMinutos: number;
   urgencia: UrgenciaTransicion;
   requiereMateriales: boolean;
   descripcionAccion: string;
+  esPasada?: boolean;
+  esPendiente?: boolean;
+  esEnCursoAhora?: boolean;
+  sesionAnteriorId?: number;
+  sesionSiguienteId?: number;
 }
 
 export type EstadoSalaDia = 'swap_mayor' | 'reset_caso' | 'estable' | 'sin_actividad';
@@ -437,6 +444,11 @@ export interface SalaTransicionResumen {
   docentesDelDia: string[];
   primerHorario: string | null;
   ultimoHorario: string | null;
+  sesiones: SesionProgramadaTimelineItem[];
+  tieneTransicionPendiente: boolean;
+  totalTransicionesPendientes: number;
+  proximaTransicion: TransicionBloqueItem | null;
+  minutosParaProximaTransicion: number | null;
 }
 
 export interface ResumenLogisticaIntraDia {
@@ -446,6 +458,7 @@ export interface ResumenLogisticaIntraDia {
   salasEstables: number;
   salasSinActividad: number;
   totalTransicionesCriticas: number;
+  salasConTransicionesPendientes: number;
   salas: SalaTransicionResumen[];
 }
 

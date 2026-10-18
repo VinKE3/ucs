@@ -34,7 +34,9 @@ function normText(txt: string | null | undefined): string {
  */
 export function analizarLogisticaIntraDia(
   ambientes: AmbienteAdminItem[],
-  sesiones: SesionProgramadaTimelineItem[]
+  sesiones: SesionProgramadaTimelineItem[],
+  nowMinutes: number = 0,
+  esHoy: boolean = true
 ): ResumenLogisticaIntraDia {
   // Mapear sesiones por ambiente
   const mapSesiones = new Map<number, SesionProgramadaTimelineItem[]>();
@@ -53,6 +55,7 @@ export function analizarLogisticaIntraDia(
   let salasEstables = 0;
   let salasSinActividad = 0;
   let totalTransicionesCriticas = 0;
+  let salasConTransicionesPendientes = 0;
 
   for (const amb of ambientes) {
     const sesList = mapSesiones.get(amb.id) || [];
@@ -76,6 +79,11 @@ export function analizarLogisticaIntraDia(
         docentesDelDia: [],
         primerHorario: null,
         ultimoHorario: null,
+        sesiones: [],
+        tieneTransicionPendiente: false,
+        totalTransicionesPendientes: 0,
+        proximaTransicion: null,
+        minutosParaProximaTransicion: null,
       });
       continue;
     }
@@ -145,6 +153,25 @@ export function analizarLogisticaIntraDia(
           totalTransicionesCriticas++;
         }
 
+        // Cálculo temporal reactivo a la hora actual
+        const horaFinAnteriorMins = s.endMins;
+        const horaInicioSiguienteMins = next.startMins;
+        let esPendiente = true;
+        let esPasada = false;
+        let esEnCursoAhora = false;
+
+        if (esHoy && nowMinutes > 0) {
+          if (nowMinutes > horaInicioSiguienteMins) {
+            esPasada = true;
+            esPendiente = false;
+          } else {
+            esPendiente = true;
+            if (nowMinutes >= horaFinAnteriorMins && nowMinutes <= horaInicioSiguienteMins) {
+              esEnCursoAhora = true;
+            }
+          }
+        }
+
         transiciones.push({
           id: `trans_${amb.id}_${s.id}_${next.id}`,
           ambienteId: amb.id,
@@ -154,14 +181,21 @@ export function analizarLogisticaIntraDia(
           casoAnterior: prevCasoNom,
           docenteAnterior: s.docenteNombreSimclic,
           horaFinAnterior: s.horaFin,
+          horaFinAnteriorMins,
           cursoSiguiente: nextCursoNom,
           casoSiguiente: nextCasoNom,
           docenteSiguiente: next.docenteNombreSimclic,
           horaInicioSiguiente: next.horaInicio,
+          horaInicioSiguienteMins,
           ventanaMinutos,
           urgencia,
           requiereMateriales,
           descripcionAccion,
+          esPasada,
+          esPendiente,
+          esEnCursoAhora,
+          sesionAnteriorId: s.id,
+          sesionSiguienteId: next.id,
         });
       }
     }
@@ -178,6 +212,20 @@ export function analizarLogisticaIntraDia(
       salasEstables++;
     }
 
+    // Calcular estado de cambios pendientes en la sala
+    const transicionesRelevantes = transiciones.filter((t) => t.tipo !== 'bloque_continuo');
+    const transicionesPendientes = transicionesRelevantes.filter((t) => t.esPendiente);
+    const tieneTransicionPendiente = transicionesPendientes.length > 0;
+    if (tieneTransicionPendiente) {
+      salasConTransicionesPendientes++;
+    }
+
+    const proximaTransicion = transicionesPendientes.length > 0 ? transicionesPendientes[0] : null;
+    let minutosParaProximaTransicion: number | null = null;
+    if (proximaTransicion && esHoy && nowMinutes > 0 && proximaTransicion.horaInicioSiguienteMins) {
+      minutosParaProximaTransicion = Math.max(0, proximaTransicion.horaInicioSiguienteMins - nowMinutes);
+    }
+
     salasResumen.push({
       ambienteId: amb.id,
       ambienteNombre: amb.nombre,
@@ -192,12 +240,29 @@ export function analizarLogisticaIntraDia(
       docentesDelDia: Array.from(docentesSet),
       primerHorario: sesOrdenadas[0].horaInicio,
       ultimoHorario: sesOrdenadas[sesOrdenadas.length - 1].horaFin,
+      sesiones: sesOrdenadas,
+      tieneTransicionPendiente,
+      totalTransicionesPendientes: transicionesPendientes.length,
+      proximaTransicion,
+      minutosParaProximaTransicion,
     });
   }
 
-  // Ordenar salas: primero las que tienen swap mayor, luego reset de caso, luego estables, luego sin actividad
+  // Ordenar salas: primero las que tienen transiciones pendientes hoy (más próximas primero),
+  // luego por tipo de swap/reset, y finalmente alfabético
   const ordenPrioridad = { swap_mayor: 1, reset_caso: 2, estable: 3, sin_actividad: 4 };
   salasResumen.sort((a, b) => {
+    // 1. Prioridad: salas con transiciones pendientes
+    if (a.tieneTransicionPendiente && !b.tieneTransicionPendiente) return -1;
+    if (!a.tieneTransicionPendiente && b.tieneTransicionPendiente) return 1;
+
+    // Si ambas tienen pendientes, ordenar por la más próxima en horario
+    if (a.tieneTransicionPendiente && b.tieneTransicionPendiente && a.proximaTransicion && b.proximaTransicion) {
+      const minsA = a.proximaTransicion.horaInicioSiguienteMins || 9999;
+      const minsB = b.proximaTransicion.horaInicioSiguienteMins || 9999;
+      if (minsA !== minsB) return minsA - minsB;
+    }
+
     const pA = ordenPrioridad[a.estadoDia];
     const pB = ordenPrioridad[b.estadoDia];
     if (pA !== pB) return pA - pB;
@@ -211,6 +276,7 @@ export function analizarLogisticaIntraDia(
     salasEstables,
     salasSinActividad,
     totalTransicionesCriticas,
+    salasConTransicionesPendientes,
     salas: salasResumen,
   };
 }

@@ -205,12 +205,6 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return sedesList.find((s) => s.id === selectedSedeId) || null;
   }, [sedesList, selectedSedeId]);
 
-  // Análisis Logístico de Transiciones Intra-Día en vivo
-  const resumenLogisticaIntra = useMemo(() => {
-    return analizarLogisticaIntraDia(ambientes, sesiones);
-  }, [ambientes, sesiones]);
-
-  const rotacionesCount = resumenLogisticaIntra.salasConSwapMayor + resumenLogisticaIntra.salasConResetCaso;
   const [docentesList, setDocentesList] = useState<ProgramacionDocenteOption[]>([]);
   const [cursosList, setCursosList] = useState<ProgramacionCursoOption[]>([]);
   const [psList, setPsList] = useState<string[]>([]);
@@ -220,6 +214,13 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return d.getHours() * 60 + d.getMinutes();
   });
   const [esHoy, setEsHoy] = useState<boolean>(true);
+
+  // Análisis Logístico de Transiciones Intra-Día en vivo
+  const resumenLogisticaIntra = useMemo(() => {
+    return analizarLogisticaIntraDia(ambientes, sesiones, nowMinutes, esHoy);
+  }, [ambientes, sesiones, nowMinutes, esHoy]);
+
+  const rotacionesCount = resumenLogisticaIntra.salasConSwapMayor + resumenLogisticaIntra.salasConResetCaso;
 
   // Modal de detalle
   const [sesionSeleccionada, setSesionSeleccionada] = useState<SesionProgramadaTimelineItem | null>(null);

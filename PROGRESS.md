@@ -606,7 +606,6 @@ src/
 * `fix(autosync-persistence)`: **Optimización del Auto-Sync y Persistencia de Sub-Pestañas en Hub Logístico**:
   - **Recarga Silenciosa en Background (`ProgramacionTab.tsx`)**: `loadProgramacion` ahora admite actualización transparente (`isSilentBackground`) al dispararse el auto-sync global, actualizando datos en memoria sin desmontar los componentes ni mostrar el spinner de carga destructivo.
   - **Persistencia de Sub-Pestañas (`HubLogisticaSimulacion.tsx`)**: Guardado en `sessionStorage` (`ucs_hub_logistica_subtab`) para que el usuario nunca sea expulsado de *Continuidad & Acarreo* o de cualquier sub-pestaña al refrescarse los datos.
-  - **Eliminación de Timers Duplicados y Cooldown de Focus (`AdminDashboard.tsx` & `ProgramacionTab.tsx`)**: Se removieron los intervalos y listeners redundantes de `ProgramacionTab`, unificando el auto-sync en `AdminDashboard` con un cooldown de 2.5 minutos en el evento `window.onfocus` para evitar ejecuciones innecesarias al alternar ventanas.
 * `feat(hub-logistica-gantt)`: **Hito 38: Línea de Gantt Logística y Filtrado Inteligente por Hora en Transiciones de Hoy**:
   - **Vista Gantt Logística Horizontal (07:00 a 22:00)** en la Sub-Pestaña 1 `Transiciones de Hoy (Reset Intra-Día)`:
     - Eje cronológico con bloques de curso diferenciados por colores armónicos de alto contraste (`COURSE_PALETTE`).
@@ -615,9 +614,57 @@ src/
     - Indicador vertical en vivo de la hora actual con pin pulsante y botón de salto instantáneo `📍 Ir a la Hora`.
   - **Filtrado Inteligente según la Hora Actual (`nowMinutes`)**:
     - **Filtro por Defecto: `⚡ Cambios Pendientes`**: Muestra únicamente las salas que de acuerdo a la programación aún tienen cambios futuros en el día.
-    - **Comportamiento Temporal Dinámico**: Si una sala tuvo un cambio a las 12:30 y luego sigue de largo hasta las 22:00 con el mismo curso, la sala es visible antes y durante las 12:30. A la 1:30 PM o 2:00 PM, dado que ya no tiene más cambios por delante, desaparece automáticamente de la vista de pendientes, manteniendo limpio y enfocado el radar del equipo técnico.
+    - **Comportamiento Temporal Dinámico**: Si una sala tuvo un cambio a las 12:30 y luego sigue de largo hasta las 22:00 con el mismo curso, la sala es visible antes y durante las 12:30. Al pasar esa hora, desaparece automáticamente de la vista de pendientes, manteniendo limpio y enfocado el radar del equipo técnico.
     - Filtros complementarios disponibles: `🔄 Todas las que Rotan Hoy`, `🔴 Solo Swaps`, `🟡 Solo Resets`, `⏱️ Brechas Cortas`, `🟢 Fijas/Estables` y `👁️ Todas las Salas`.
     - Eliminación de tarjetas KPI superiores y lista de tarjetas detalladas por solicitud operativa: Sub-Pestaña 1 se consolidó 100% en la **Línea de Gantt Logística Horizontal**, maximizando el espacio vertical y permitiendo al equipo técnico trabajar de forma ágil y visual.
+* `feat(continuidad-gantt-bridge)`: **Hito 39: Timeline Bridge Gantt de Continuidad Inter-Días (Cierre Hoy ➡️ Apertura Mañana) & Detección de Reciclaje de Casos Clínicos**:
+  - **Diseño Timeline Bridge en 4 Columnas**:
+    - `[ SALA & VENTANA NOCTURNA ]`: Nombre de sala, código, categoría y cálculo exacto de la ventana nocturna libre entre el cierre y la apertura (`(1440 - ultHoy.endMins) + priManana.startMins`, ej. `🌙 Ventana: 9h 00m`).
+    - `[ 🌙 HOY (CIERRE DE JORNADA) ]`: Bloque interactivo con el último curso dictado hoy, horario (`18:00 - 22:00`), caso clínico en verde menta, docente y paleta armónica de color (`COURSE_PALETTE`). Al hacer clic abre la ficha de auditoría 360° de la sesión (`ModalDetalleSesionSimclic`).
+    - `[ ⚡ CONECTOR PUENTE ]`: Badge con el tipo de acción requerida (`🔴 SWAP DE CURSO`, `🟡 RESET DE CASO`, `📦 DESMONTAJE`, `🆕 MONTAJE NUEVO`, `🌟 CONTINUIDAD 100%`) con conector visual e instrucción ejecutiva de turno.
+    - `[ ☀️ MAÑANA (APERTURA MATUTINA) ]`: Bloque interactivo con el primer curso agendado para mañana, horario (`07:00 - 11:00`), caso clínico en púrpura, docente y color armonizado. Al hacer clic abre la ficha completa de la sesión.
+  - **Filtro por Defecto Operativo: `⚡ Requieren Acción`**:
+    - Oculta automáticamente las salas con continuidad total (mismo curso y mismo caso/tema), ya que los técnicos tienen cero trabajo de montaje o desmontaje (el set queda listo desde la noche anterior).
+    - Enfoca la atención en salas con swaps de disciplina, resets de escenario clínico, montajes nuevos o desmontajes a almacén.
+  - **Algoritmo de Detección de Caso ya Dictado Hoy (`casoYaDictadoHoy` & `detalleCasoDictadoHoy`)**:
+    - Si el caso/tema que se dictará mañana por la mañana en esa sala ya se corrió hoy en ese mismo ambiente (incluso si en la noche hubo otro tema o curso), el sistema lo detecta rastreando todo el historial de sesiones de hoy en esa sala (`listHoy`).
+    - Muestra un banner luminoso verde esmeralda de alto impacto:
+      `💡 ¡VENTAJA LOGÍSTICA! Este caso clínico ya se dictó hoy en esta misma sala: "[Nombre del Caso]" (HH:MM - HH:MM) con [Docente] • Guión descargado en tablets e insumos en sala`.
+  - **Barra de Píldoras de Filtro Rápido y Buscador en Tiempo Real**:
+    - `⚡ Requieren Acción (X)` (default con realce luminoso).
+    - `🔴 Swaps de Curso (Y)`.
+    - `🟡 Resets de Caso (Z)`.
+    - `💡 Casos Ya Corridos Hoy (W)`.
+    - `🌟 Sin Cambios (K)`.
+    - `📦 Desmontar (D)`.
+    - `🆕 Montar (M)`.
+    - `👁️ Todas (N)`.
+    - Buscador reactivo por ambiente, código, curso, escenario de hoy/mañana o caso previo.
+  - **Preservación Integral de Permutas Inteligentes y Barra de Fechas**:
+    - Panel de optimización logística para evitar el traslado de maniquíes pesados por pasillos y botón de 1-clic `📋 Copiar Propuesta para Coordinación` (WhatsApp / correo).
+* `refactor(cleanup-tabla-clases)`: **Eliminación de la Vista Obsoleta "Tabla de Clases" en Programación SimClic 360°**:
+  - Se eliminó el modo y botón `📋 Tabla de Clases`, simplificando la botonera superior de vistas a 3 modos esenciales:
+    1. `📊 Línea de Tiempo (Gantt)`: Vista horizontal con ocupación por salas y pisos.
+    2. `🟢 Radar de Salas Libres`: Disponibilidad y aulas desocupadas en tiempo real.
+    3. `🛠️ Hub Logístico`: Transiciones intra-día y continuidad inter-días.
+  - Se purgó todo el componente de tabla detallada (`<table className={styles.table}>...</table>`) en [ProgramacionTab.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/ProgramacionTab.tsx), reduciendo el código en ~180 líneas y aligerando la carga de memoria.
+* `feat(hub-logistica-theme-contrast)`: **Hito 40: Renombrado Oficial de Acciones Logísticas & Optimización Integral de Contraste en Tema Claro (Light Mode)**:
+  - **Renombrado Oficial de Filtros y Conectores de Continuidad Inter-Días**:
+    - `⚡ Requieren Acción` (Queda igual)
+    - `🔴 Cambio de curso` (Antes: *Swaps de curso*)
+    - `🟡 Cambio de Caso` (Antes: *Resets de Caso*)
+    - `💡 Casos realizados hoy` (Antes: *Casos Ya Corridos Hoy*)
+    - `🌟 Sin Cambios` (Queda igual)
+    - `📦 Desarmar` (Antes: *Desmontar*)
+    - `🆕 Armar` (Antes: *Montar*)
+    - `👁️ Todas` (Queda igual)
+    - Sincronización en [logisticaSimulacion.ts](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/lib/logisticaSimulacion.ts) y [HubLogisticaSimulacion.tsx](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/HubLogisticaSimulacion.tsx) de badges y subtítulos del conector central (`Cambio de Curso`, `Cambio de Caso`, `Desarmar`, `Armar`).
+  - **Optimización de Contraste en Tema Claro (Light Mode) en [admin.module.css](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/admin/admin.module.css)**:
+    - **Títulos de Curso y Bloques**: Uso de `var(--text-primary)` (`#06152d` azul marino profundo en modo claro, blanco `#ffffff` en modo oscuro), eliminando el texto blanco invisible sobre fondo claro.
+    - **Ventana Nocturna**: Nueva clase `.ventanaNocturnaPill` con valor en índigo profundo (`#1e1b4b`) en modo claro.
+    - **Badges de Casos Clínicos**: `.casoBadgeHoy` (verde médico `#047857` sobre `#ecfdf5`) y `.casoBadgeManana` (púrpura `#6d28d9` sobre `#f5f3ff`).
+    - **Píldoras de Filtro**: Clases temáticas de alto contraste (`.pillSwap`, `.pillReset`, `.pillRecorrido`, `.pillDesarmar`, `.pillArmar`, `.pillAction`) con tonos 700 de saturación sobre fondos sutiles.
+    - **Cabecera del Bridge**: `.bridgeHeaderGrid` con fondo `#f1f5f9` y bordes nítidos.
 
 ---
 
@@ -632,7 +679,9 @@ src/
 4. **Auditoría Bloque a Bloque y Detección de Cobertura Parcial / Retiro Anticipado (`AsistenciasTab.tsx` & `ModalAuditoriaProgramacion.tsx`)** (Completado - Hito 36).
 5. **Hub Logístico de Simulación, Radar de Reset de Salas y Optimizador de Continuidad/Acarreo Inter-Días** (Completado - Hito 37).
 6. **Línea de Gantt Logística y Radar Temporal de Cambios Pendientes** (Completado - Hito 38).
-7. **Simplificación y Enfoque Visual en Hub Logístico**: Eliminación de tarjetas KPI superiores y lista de tarjetas detalladas para consolidar la sub-pestaña `Transiciones de Hoy` exclusivamente en la Línea de Gantt interactiva con selector de filtros y salto a la hora actual (Completado).
+7. **Timeline Bridge Gantt de Continuidad Inter-Días & Detección de Reciclaje de Casos** (Completado - Hito 39).
+8. **Renombrado Logístico y Alto Contraste en Modo Claro** (Completado - Hito 40).
+
 
 
 

@@ -477,12 +477,36 @@ export interface ContinuidadSalaItem {
   categoriaNombre?: string | null;
   categoriaColor?: string | null;
   tipoContinuidad: TipoContinuidadSala;
+
+  // Cierre de Hoy
   cursoHoy: string | null;
   casoHoy: string | null;
+  horaInicioHoy?: string | null;
   horaFinHoy: string | null;
+  duracionMinutosHoy?: number | null;
+  docenteHoy?: string | null;
+  sesionHoyObj?: SesionProgramadaTimelineItem | null;
+
+  // Apertura de Mañana
   cursoManana: string | null;
   casoManana: string | null;
   horaInicioManana: string | null;
+  horaFinManana?: string | null;
+  duracionMinutosManana?: number | null;
+  docenteManana?: string | null;
+  sesionMananaObj?: SesionProgramadaTimelineItem | null;
+
+  // Ventana Nocturna & Detección de Caso ya corrido hoy
+  ventanaNocturnaMins?: number | null;
+  ventanaNocturnaStr?: string | null;
+  casoYaDictadoHoy: boolean;
+  detalleCasoDictadoHoy?: {
+    horario: string;
+    curso: string;
+    caso: string;
+    docente?: string;
+  } | null;
+
   accionSugerida: string;
   etiquetaBadge: string;
   colorBadge: string;
@@ -524,6 +548,8 @@ export interface ResumenContinuidadInterDias {
   salasConCambio: number;
   salasDesmontar: number;
   salasMontar: number;
+  salasRequierenAccion: number;
+  salasCasoYaDictadoHoy: number;
   salasContinuidad: ContinuidadSalaItem[];
   permutasSugeridas: PermutaSugeridaItem[];
 }

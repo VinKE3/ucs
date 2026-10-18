@@ -186,7 +186,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [filtroCurso, setFiltroCurso] = useState<string>('todos');
   const [filtroPs, setFiltroPs] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps'>('todos');
-  const [vistaModo, setVistaModo] = useState<'gantt' | 'tabla' | 'libres' | 'logistica'>('gantt');
+  const [vistaModo, setVistaModo] = useState<'gantt' | 'libres' | 'logistica'>('gantt');
 
   // Filtro de visualización: Ocultar salas sin actividad hoy
   const [soloConActividadHoy, setSoloConActividadHoy] = useState<boolean>(false);
@@ -962,26 +962,6 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
             <button
               type="button"
-              onClick={() => setVistaModo('tabla')}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '7px',
-                border: 'none',
-                background: vistaModo === 'tabla' ? 'var(--ucs-blue, #0d346c)' : 'transparent',
-                color: vistaModo === 'tabla' ? '#ffffff' : 'var(--text-secondary)',
-                fontWeight: vistaModo === 'tabla' ? 700 : 500,
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              <span>📋</span> Tabla de Clases ({sesionesFiltradas.length})
-            </button>
-
-            <button
-              type="button"
               onClick={() => setVistaModo('libres')}
               style={{
                 padding: '0.4rem 0.85rem',
@@ -1696,182 +1676,6 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               )}
             </div>
           </div>
-        </div>
-      ) : vistaModo === 'tabla' ? (
-
-        /* =========================================================================
-           MODO 2: TABLA DETALLADA DE SESIONES
-           ========================================================================= */
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>ID SimClic</th>
-                <th>Horario & Duración</th>
-                <th>Sala Programada</th>
-                <th>Asignatura / Carrera</th>
-                <th>Escenario Clínico</th>
-                <th>Docente Asignado</th>
-                <th>Paciente Simulado</th>
-                <th>Estado Kiosco</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sesionesFiltradas.length === 0 ? (
-                <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    No se encontraron clases con los filtros seleccionados.
-                  </td>
-                </tr>
-              ) : (
-                sesionesFiltradas.map((ses) => (
-                  <tr key={ses.id}>
-                    <td>
-                      <span
-                        style={{
-                          background: 'rgba(56, 189, 248, 0.1)',
-                          color: '#38bdf8',
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: '6px',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 700,
-                          fontSize: '0.75rem',
-                        }}
-                      >
-                        #{ses.simclicId}
-                      </span>
-                    </td>
-
-                    <td>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        ⏰ {ses.horaInicio} - {ses.horaFin}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {ses.duracionMinutos} minutos
-                      </div>
-                    </td>
-
-                    <td>
-                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                        📍 {ses.ambienteNombreSimclic || 'Sin sala'}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                        {ses.sedeNombreSimclic}
-                      </div>
-                    </td>
-
-                    <td>
-                      <div style={{ fontWeight: 700, color: 'var(--ucs-orange)' }}>
-                        📚 {ses.cursoNombreSimclic || ses.titulo}
-                      </div>
-                      {ses.carrera && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          🎓 {ses.carrera}
-                        </div>
-                      )}
-                    </td>
-
-                    <td style={{ maxWidth: '220px' }}>
-                      {ses.escenarioNombre ? (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                          {ses.escenarioNombre}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
-                      )}
-                    </td>
-
-                    <td>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.82rem' }}>
-                        {ses.docenteNombreSimclic || 'Sin asignar'}
-                      </div>
-                      {ses.docenteCorreoSimclic && (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          {ses.docenteCorreoSimclic}
-                        </div>
-                      )}
-                    </td>
-
-                    <td>
-                      {ses.pacienteSimuladoNombre ? (
-                        <span
-                          style={{
-                            background: 'rgba(192, 132, 252, 0.15)',
-                            color: '#c084fc',
-                            border: '1px solid rgba(192, 132, 252, 0.3)',
-                            padding: '0.2rem 0.5rem',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          🎭 {ses.pacienteSimuladoNombre}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>No requerido</span>
-                      )}
-                    </td>
-
-                    <td>
-                      {ses.docentePresente ? (
-                        <span
-                          style={{
-                            background: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            padding: '0.15rem 0.45rem',
-                            borderRadius: '4px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          🟢 En Sala (Marcó)
-                        </span>
-                      ) : ses.estadoEnVivo === 'sin_marcar' ? (
-                        <span
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            color: '#ef4444',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            padding: '0.15rem 0.45rem',
-                            borderRadius: '4px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          🔴 Sin Marcación
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            background: 'rgba(148, 163, 184, 0.1)',
-                            color: 'var(--text-muted)',
-                            padding: '0.15rem 0.45rem',
-                            borderRadius: '4px',
-                            fontSize: '0.72rem',
-                          }}
-                        >
-                          ⏳ Por Iniciar
-                        </span>
-                      )}
-                    </td>
-
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => setSesionSeleccionada(ses)}
-                        className={styles.secondaryBtn}
-                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
-                      >
-                        🔍 Ver Ficha
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
       ) : vistaModo === 'libres' ? (
 

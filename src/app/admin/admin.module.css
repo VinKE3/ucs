@@ -2707,4 +2707,381 @@
   color: #ffffff;
   border-color: var(--ucs-blue-sky);
   box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+}
+
+/* ==========================================================================
+   HUB LOGÍSTICA SIMCLIC & TIMELINE BRIDGE - ESTILOS TEMA CLARO / OSCURO
+   ========================================================================== */
+
+:global([data-theme="light"]) .simclicPillBtn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+:global([data-theme="light"]) .simclicPillBtn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+:global([data-theme="light"]) .simclicPillBtnActive {
+  background: #06152d !important;
+  color: #ffffff !important;
+  border-color: #06152d !important;
+  box-shadow: 0 2px 8px rgba(6, 21, 45, 0.25) !important;
+}
+
+/* Píldoras de filtrado */
+.pillAction {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+}
+.pillActionActive {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35) !important;
+}
+:global([data-theme="light"]) .pillAction {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+:global([data-theme="light"]) .pillActionActive {
+  background: #fef3c7 !important;
+  border-color: #d97706 !important;
+  color: #92400e !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25) !important;
+}
+
+.pillSwap {
+  color: #ef4444;
+}
+:global([data-theme="light"]) .pillSwap {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.pillReset {
+  color: #06b6d4;
+}
+:global([data-theme="light"]) .pillReset {
+  color: #0e7490;
+  border-color: #a5f3fc;
+  background: #ecfeff;
+}
+
+.pillRecorrido {
+  color: #10b981;
+}
+:global([data-theme="light"]) .pillRecorrido {
+  color: #047857;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.pillSinCambios {
+  color: #10b981;
+}
+:global([data-theme="light"]) .pillSinCambios {
+  color: #047857;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.pillDesarmar {
+  color: #94a3b8;
+}
+:global([data-theme="light"]) .pillDesarmar {
+  color: #334155;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.pillArmar {
+  color: #38bdf8;
+}
+:global([data-theme="light"]) .pillArmar {
+  color: #0369a1;
+  border-color: #bae6fd;
+  background: #f0f9ff;
+}
+
+/* Timeline Bridge Cards & Badges */
+.bridgeCard {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 1.15rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+:global([data-theme="light"]) .bridgeCard {
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(6, 21, 45, 0.06);
+}
+
+.bridgeHeaderGrid {
+  display: grid;
+  grid-template-columns: minmax(210px, 240px) 1fr minmax(140px, 180px) 1fr;
+  gap: 1rem;
+  padding: 0.65rem 1.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+:global([data-theme="light"]) .bridgeHeaderGrid {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.codigoBadge {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+:global([data-theme="light"]) .codigoBadge {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.ventanaNocturnaPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #a5b4fc;
+  width: fit-content;
+}
+.ventanaNocturnaVal {
+  font-family: var(--font-mono);
+  color: #ffffff;
+  font-weight: 800;
+}
+:global([data-theme="light"]) .ventanaNocturnaPill {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+:global([data-theme="light"]) .ventanaNocturnaVal {
+  color: #1e1b4b;
+}
+
+.badgeHoyTitle {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+:global([data-theme="light"]) .badgeHoyTitle {
+  color: #334155;
+}
+
+.badgeMananaTitle {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+:global([data-theme="light"]) .badgeMananaTitle {
+  color: #0284c7;
+}
+
+.casoBadgeHoy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  font-size: 0.72rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+:global([data-theme="light"]) .casoBadgeHoy {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.casoBadgeManana {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+:global([data-theme="light"]) .casoBadgeManana {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+
+.horaMananaText {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: #38bdf8;
+}
+:global([data-theme="light"]) .horaMananaText {
+  color: #0369a1;
+}
+
+/* Conectores Puente Centrales */
+.bridgeActionBadge_cambio_curso {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1.5px solid #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+:global([data-theme="light"]) .bridgeActionBadge_cambio_curso {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1.5px solid #dc2626;
+  box-shadow: 0 2px 6px rgba(185, 28, 28, 0.15);
+}
+
+.bridgeActionBadge_continuidad_equipos {
+  background: rgba(6, 182, 212, 0.15);
+  color: #06b6d4;
+  border: 1.5px solid #06b6d4;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+}
+:global([data-theme="light"]) .bridgeActionBadge_continuidad_equipos {
+  background: #ecfeff;
+  color: #0e7490;
+  border: 1.5px solid #0891b2;
+  box-shadow: 0 2px 6px rgba(14, 116, 144, 0.15);
+}
+
+.bridgeActionBadge_continuidad_total {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1.5px solid #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+:global([data-theme="light"]) .bridgeActionBadge_continuidad_total {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1.5px solid #059669;
+  box-shadow: 0 2px 6px rgba(4, 120, 87, 0.15);
+}
+
+.bridgeActionBadge_desmontaje {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1.5px solid #94a3b8;
+  box-shadow: 0 0 10px rgba(148, 163, 184, 0.2);
+}
+:global([data-theme="light"]) .bridgeActionBadge_desmontaje {
+  background: #f8fafc;
+  color: #334155;
+  border: 1.5px solid #64748b;
+  box-shadow: 0 2px 6px rgba(51, 65, 85, 0.12);
+}
+
+.bridgeActionBadge_montaje_nuevo {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1.5px solid #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+:global([data-theme="light"]) .bridgeActionBadge_montaje_nuevo {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1.5px solid #d97706;
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.15);
+}
+
+.bridgeActionBadge_sin_actividad {
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748b;
+  border: 1.5px solid #64748b;
+}
+:global([data-theme="light"]) .bridgeActionBadge_sin_actividad {
+  background: #f8fafc;
+  color: #475569;
+  border: 1.5px solid #cbd5e1;
+}
+
+/* Banner de Caso ya corrido hoy */
+.casoYaCorridoBanner {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.16), rgba(6, 182, 212, 0.16));
+  border: 1.5px solid #10b981;
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.15);
+}
+:global([data-theme="light"]) .casoYaCorridoBanner {
+  background: linear-gradient(90deg, #ecfdf5, #f0fdfa);
+  border: 1.5px solid #059669;
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.12);
+}
+
+.casoYaCorridoTitle {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #10b981;
+}
+:global([data-theme="light"]) .casoYaCorridoTitle {
+  color: #047857;
+}
+
+.casoYaCorridoBadge {
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid #10b981;
+  color: #34d399;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.3rem 0.65rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+:global([data-theme="light"]) .casoYaCorridoBadge {
+  background: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
 }

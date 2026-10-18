@@ -361,6 +361,66 @@ export function analizarContinuidadInterDias(
       });
     }
 
+    // 1. Cálculo de Ventana Nocturna (horas/minutos libres entre el cierre de hoy y la apertura de mañana)
+    let ventanaNocturnaMins: number | null = null;
+    let ventanaNocturnaStr: string | null = null;
+    if (ultHoy && priManana) {
+      ventanaNocturnaMins = (1440 - ultHoy.endMins) + priManana.startMins;
+      const horas = Math.floor(ventanaNocturnaMins / 60);
+      const mins = ventanaNocturnaMins % 60;
+      ventanaNocturnaStr = mins > 0 ? `${horas}h ${mins}m` : `${horas}h 00m`;
+    }
+
+    // 2. Detección de Caso ya dictado hoy en esta misma sala (Reciclaje de Guión e Insumos)
+    let casoYaDictadoHoy = false;
+    let detalleCasoDictadoHoy: {
+      horario: string;
+      curso: string;
+      caso: string;
+      docente?: string;
+    } | null = null;
+
+    if (priManana && priManana.escenarioNombre) {
+      const casoMananaNorm = normText(priManana.escenarioNombre);
+      if (casoMananaNorm && casoMananaNorm !== 'general' && casoMananaNorm !== 'sin caso') {
+        const sesionPrevia = listHoy.find((s) => {
+          const cNorm = normText(s.escenarioNombre);
+          return cNorm && cNorm === casoMananaNorm;
+        });
+
+        if (sesionPrevia) {
+          casoYaDictadoHoy = true;
+          detalleCasoDictadoHoy = {
+            horario: `${sesionPrevia.horaInicio} - ${sesionPrevia.horaFin}`,
+            curso: sesionPrevia.cursoNombreSimclic || sesionPrevia.titulo || '',
+            caso: sesionPrevia.escenarioNombre || '',
+            docente: sesionPrevia.docenteNombreSimclic || undefined,
+          };
+        }
+      }
+    }
+
+    // Objeto base con propiedades compartidas
+    const baseItem = {
+      ambienteId: amb.id,
+      ambienteNombre: amb.nombre,
+      ambienteCodigo: amb.codigo,
+      categoriaNombre: amb.categoriaNombre,
+      categoriaColor: amb.categoriaColor,
+      horaInicioHoy: ultHoy?.horaInicio || null,
+      duracionMinutosHoy: ultHoy?.duracionMinutos || null,
+      docenteHoy: ultHoy?.docenteNombreSimclic || null,
+      sesionHoyObj: ultHoy,
+      horaFinManana: priManana?.horaFin || null,
+      duracionMinutosManana: priManana?.duracionMinutos || null,
+      docenteManana: priManana?.docenteNombreSimclic || null,
+      sesionMananaObj: priManana,
+      ventanaNocturnaMins,
+      ventanaNocturnaStr,
+      casoYaDictadoHoy,
+      detalleCasoDictadoHoy,
+    };
+
     // Clasificación de la sala
     if (ultHoy && priManana) {
       const cursoHoy = ultHoy.cursoNombreSimclic || ultHoy.titulo || '';
@@ -375,11 +435,7 @@ export function analizarContinuidadInterDias(
         salasConContinuidad++;
         if (mismoCaso && (casoHoy || casoManana)) {
           salasContinuidad.push({
-            ambienteId: amb.id,
-            ambienteNombre: amb.nombre,
-            ambienteCodigo: amb.codigo,
-            categoriaNombre: amb.categoriaNombre,
-            categoriaColor: amb.categoriaColor,
+            ...baseItem,
             tipoContinuidad: 'continuidad_total',
             cursoHoy,
             casoHoy,
@@ -394,11 +450,7 @@ export function analizarContinuidadInterDias(
           });
         } else {
           salasContinuidad.push({
-            ambienteId: amb.id,
-            ambienteNombre: amb.nombre,
-            ambienteCodigo: amb.codigo,
-            categoriaNombre: amb.categoriaNombre,
-            categoriaColor: amb.categoriaColor,
+            ...baseItem,
             tipoContinuidad: 'continuidad_equipos',
             cursoHoy,
             casoHoy,
@@ -406,8 +458,8 @@ export function analizarContinuidadInterDias(
             cursoManana,
             casoManana,
             horaInicioManana: priManana.horaInicio,
-            accionSugerida: `No desmontar simuladores mayores ni torres. El mismo curso continúa mañana a las ${priManana.horaInicio}. Solo cambiar guías e insumos del nuevo caso.`,
-            etiquetaBadge: '🔄 Mismo Curso (Reset Caso)',
+            accionSugerida: `No desarmar simuladores mayores ni torres. El mismo curso continúa mañana a las ${priManana.horaInicio}. Solo cambiar guías e insumos del nuevo caso.`,
+            etiquetaBadge: '🟡 Cambio de Caso',
             colorBadge: '#06b6d4',
             bgBadge: 'rgba(6, 182, 212, 0.15)',
           });
@@ -415,11 +467,7 @@ export function analizarContinuidadInterDias(
       } else {
         salasConCambio++;
         salasContinuidad.push({
-          ambienteId: amb.id,
-          ambienteNombre: amb.nombre,
-          ambienteCodigo: amb.codigo,
-          categoriaNombre: amb.categoriaNombre,
-          categoriaColor: amb.categoriaColor,
+          ...baseItem,
           tipoContinuidad: 'cambio_curso',
           cursoHoy,
           casoHoy,
@@ -437,11 +485,7 @@ export function analizarContinuidadInterDias(
       salasDesmontar++;
       const cursoHoy = ultHoy.cursoNombreSimclic || ultHoy.titulo || '';
       salasContinuidad.push({
-        ambienteId: amb.id,
-        ambienteNombre: amb.nombre,
-        ambienteCodigo: amb.codigo,
-        categoriaNombre: amb.categoriaNombre,
-        categoriaColor: amb.categoriaColor,
+        ...baseItem,
         tipoContinuidad: 'desmontaje',
         cursoHoy,
         casoHoy: ultHoy.escenarioNombre || '',
@@ -449,8 +493,8 @@ export function analizarContinuidadInterDias(
         cursoManana: null,
         casoManana: null,
         horaInicioManana: null,
-        accionSugerida: `Sala sin clases mañana. Desmontar a las ${ultHoy.horaFin} y guardar simuladores en almacén.`,
-        etiquetaBadge: '📦 Desmontar y Guardar',
+        accionSugerida: `Sala sin clases mañana. Desarmar a las ${ultHoy.horaFin} y guardar simuladores en almacén.`,
+        etiquetaBadge: '📦 Desarmar y Guardar',
         colorBadge: '#94a3b8',
         bgBadge: 'rgba(148, 163, 184, 0.12)',
       });
@@ -458,11 +502,7 @@ export function analizarContinuidadInterDias(
       salasMontar++;
       const cursoManana = priManana.cursoNombreSimclic || priManana.titulo || '';
       salasContinuidad.push({
-        ambienteId: amb.id,
-        ambienteNombre: amb.nombre,
-        ambienteCodigo: amb.codigo,
-        categoriaNombre: amb.categoriaNombre,
-        categoriaColor: amb.categoriaColor,
+        ...baseItem,
         tipoContinuidad: 'montaje_nuevo',
         cursoHoy: null,
         casoHoy: null,
@@ -470,18 +510,14 @@ export function analizarContinuidadInterDias(
         cursoManana,
         casoManana: priManana.escenarioNombre || '',
         horaInicioManana: priManana.horaInicio,
-        accionSugerida: `Sala inicia mañana a las ${priManana.horaInicio} con "${cursoManana}". Montar set con anticipación.`,
-        etiquetaBadge: '🆕 Montaje Nuevo',
+        accionSugerida: `Sala inicia mañana a las ${priManana.horaInicio} con "${cursoManana}". Armar set con anticipación.`,
+        etiquetaBadge: '🆕 Armar',
         colorBadge: '#f59e0b',
         bgBadge: 'rgba(245, 158, 11, 0.15)',
       });
     } else {
       salasContinuidad.push({
-        ambienteId: amb.id,
-        ambienteNombre: amb.nombre,
-        ambienteCodigo: amb.codigo,
-        categoriaNombre: amb.categoriaNombre,
-        categoriaColor: amb.categoriaColor,
+        ...baseItem,
         tipoContinuidad: 'sin_actividad',
         cursoHoy: null,
         casoHoy: null,
@@ -497,13 +533,15 @@ export function analizarContinuidadInterDias(
     }
   }
 
-  // Ordenar lista de continuidad: primero las que tienen continuidad (buenas noticias), luego cambios, montaje, desmontaje
+  // Ordenar lista de continuidad:
+  // Primero las salas que requieren acción logística (cambio de curso, resets, montajes, desmontajes)
+  // Al final las que no requieren acción (continuidad total y sin actividad)
   const ordenContinuidad = {
-    continuidad_total: 1,
+    cambio_curso: 1,
     continuidad_equipos: 2,
-    cambio_curso: 3,
-    montaje_nuevo: 4,
-    desmontaje: 5,
+    montaje_nuevo: 3,
+    desmontaje: 4,
+    continuidad_total: 5,
     sin_actividad: 6,
   };
   salasContinuidad.sort((a, b) => {
@@ -572,6 +610,17 @@ export function analizarContinuidadInterDias(
     }
   }
 
+  // Contadores analíticos adicionales
+  const salasRequierenAccion = salasContinuidad.filter(
+    (s) =>
+      s.tipoContinuidad === 'cambio_curso' ||
+      s.tipoContinuidad === 'continuidad_equipos' ||
+      s.tipoContinuidad === 'montaje_nuevo' ||
+      s.tipoContinuidad === 'desmontaje'
+  ).length;
+
+  const salasCasoYaDictadoHoy = salasContinuidad.filter((s) => s.casoYaDictadoHoy).length;
+
   return {
     fechaOrigen,
     fechaDestino,
@@ -580,6 +629,8 @@ export function analizarContinuidadInterDias(
     salasConCambio,
     salasDesmontar,
     salasMontar,
+    salasRequierenAccion,
+    salasCasoYaDictadoHoy,
     salasContinuidad,
     permutasSugeridas,
   };

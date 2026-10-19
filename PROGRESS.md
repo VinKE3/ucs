@@ -756,9 +756,10 @@ src/
     - Al programarse la misma materia en simultáneo en distintos campus (ej. *Simulación Quirúrgica* a las 15:20 en Campus Villa y Campus Norte), los docentes de Los Olivos aparecían como espejos de un docente en Chorrillos.
   - **Solución Implementada**:
     - **Backend (`src/app/api/consulta/route.ts`)**: Se incorporó validación estricta de sede física (`mismaSede` por `sedeId` o `sedeNombre`). Un docente solo es espejo de otro si imparten en el mismo campus físico.
-    - **Frontend (`src/app/consulta/page.tsx`)**:
+    - **Frontend (`src/app/consulta/page.tsx` & `consulta.module.css`)**:
       - Doble filtro defensivo en la sección de docentes espejo respetando la sede seleccionada en la cabecera (`selectedSede`).
       - Inclusión de etiqueta de sede (`📍 Campus Villa`, etc.) en las tarjetas de docentes espejo.
+      - **Rediseño del Layout de Tarjetas Espejo (`.mirrorGrid` & `.mirrorCard`)**: Se reemplazó el `auto-fill` rígido por `repeat(auto-fit, minmax(380px, 1fr))` y se desacopló el contenedor de la sala (`.mirrorRoomBadgeWrapper`), eliminando el aplastamiento vertical de nombres y casos cuando solo hay 1 docente espejo y garantizando un ancho amplio, legible y adaptativo con media query móvil.
       - En la pestaña *«Por Asignatura / Salas en Simultáneo»*, se adaptó el listado de salas paralelas para respetar el filtro de sede seleccionado y mostrar la sede correspondiente cuando se consulta en *"Todas las Sedes"*.
 
 ---

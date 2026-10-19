@@ -901,12 +901,12 @@ export default function ConsultaPublicaPage() {
                                           )}
                                         </div>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
+                                        <div className={styles.mirrorRoomBadgeWrapper}>
                                           <div className={styles.mirrorRoomBadge} title={esp.ambienteNombre}>
                                             🚪 {esp.ambienteNombre}
                                           </div>
                                           {esp.sedeNombre && (
-                                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                            <span className={styles.mirrorSedeBadge}>
                                               📍 {esp.sedeNombre}
                                             </span>
                                           )}

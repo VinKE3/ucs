@@ -750,7 +750,16 @@ src/
     - Se removió tanto el botón de acceso de la barra de navegación como el bloque de contenido estático de protocolos.
     - El Hub Logístico queda enfocado exclusivamente en sus dos núcleos de valor operativo en tiempo real:
       1. `🔁 Transiciones de Hoy (Reset Intra-Día)` con la regla cronológica Gantt.
-      2. `📅 Continuidad & Ahorro de Acarreo (Hoy vs Mañana)` con el Bridge Gantt y detección de casos realizados.
+* `fix(consulta-espejos-sede)`: **Hito 47: Restricción y Filtrado Estricto de Docentes Espejo por Sede Física en `/consulta`**:
+  - **Causa Raíz Identificada**:
+    - El cálculo previo de docentes espejo en el backend (`/api/consulta/route.ts`) únicamente evaluaba coincidencia de asignatura (`mismoCurso`) y superposición horaria (`seSuperpone`), sin validar la sede física (`sedeId` / `sedeNombre`).
+    - Al programarse la misma materia en simultáneo en distintos campus (ej. *Simulación Quirúrgica* a las 15:20 en Campus Villa y Campus Norte), los docentes de Los Olivos aparecían como espejos de un docente en Chorrillos.
+  - **Solución Implementada**:
+    - **Backend (`src/app/api/consulta/route.ts`)**: Se incorporó validación estricta de sede física (`mismaSede` por `sedeId` o `sedeNombre`). Un docente solo es espejo de otro si imparten en el mismo campus físico.
+    - **Frontend (`src/app/consulta/page.tsx`)**:
+      - Doble filtro defensivo en la sección de docentes espejo respetando la sede seleccionada en la cabecera (`selectedSede`).
+      - Inclusión de etiqueta de sede (`📍 Campus Villa`, etc.) en las tarjetas de docentes espejo.
+      - En la pestaña *«Por Asignatura / Salas en Simultáneo»*, se adaptó el listado de salas paralelas para respetar el filtro de sede seleccionado y mostrar la sede correspondiente cuando se consulta en *"Todas las Sedes"*.
 
 ---
 

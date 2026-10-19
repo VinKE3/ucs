@@ -150,6 +150,15 @@ export async function GET(request: Request) {
       const espejos = enrichedSessions
         .filter((other) => {
           if (other.id === s.id) return false;
+
+          // Misma sede física (las clases espejo y coordinación ocurren dentro del mismo campus)
+          const mismaSede = s.sedeId && other.sedeId
+            ? s.sedeId === other.sedeId
+            : (s.sedeNombre && other.sedeNombre
+                ? s.sedeNombre.toLowerCase().trim() === other.sedeNombre.toLowerCase().trim()
+                : true);
+          if (!mismaSede) return false;
+
           // Mismo curso (por nombre normalizado o código)
           const mismoCurso = (other.cursoNombre && other.cursoNombre.toLowerCase().trim() === s.cursoNombre?.toLowerCase().trim()) ||
             (other.prefijo && s.prefijo && other.prefijo.toLowerCase().trim() === s.prefijo.toLowerCase().trim());

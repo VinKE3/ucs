@@ -862,48 +862,62 @@ export default function ConsultaPublicaPage() {
                           </div>
 
                           {/* REQUERIMIENTO CLAVE: DOCENTES ESPEJO / COMPAÑEROS EN PARALELO */}
-                          {sesion.espejos && sesion.espejos.length > 0 && (
-                            <div className={styles.mirrorSection}>
-                              <div className={styles.mirrorHeader}>
-                                <span className={styles.mirrorIcon}>🤝</span>
-                                <span className={styles.mirrorTitle}>
-                                  {sesion.espejos.length}{' '}
-                                  {sesion.espejos.length === 1 ? 'Docente Espejo' : 'Docentes Espejo'}{' '}
-                                  en paralelo (Mismo curso y horario):
-                                </span>
-                              </div>
+                          {(() => {
+                            const espejosVisibles = (sesion.espejos || []).filter(
+                              (esp) => selectedSede === 'todas' || !esp.sedeNombre || esp.sedeNombre.toLowerCase() === selectedSede.toLowerCase()
+                            );
+                            if (espejosVisibles.length === 0) return null;
 
-                              <div className={styles.mirrorGrid}>
-                                {sesion.espejos.map((esp) => {
-                                  const nombreMostrado = esp.docenteNombre && esp.docenteNombre !== 'Sin Docente'
-                                    ? esp.docenteNombre
-                                    : (esp.docenteCorreo ? esp.docenteCorreo.split('@')[0] : 'Docente Espejo');
+                            return (
+                              <div className={styles.mirrorSection}>
+                                <div className={styles.mirrorHeader}>
+                                  <span className={styles.mirrorIcon}>🤝</span>
+                                  <span className={styles.mirrorTitle}>
+                                    {espejosVisibles.length}{' '}
+                                    {espejosVisibles.length === 1 ? 'Docente Espejo' : 'Docentes Espejo'}{' '}
+                                    en paralelo (Mismo curso y horario):
+                                  </span>
+                                </div>
 
-                                  return (
-                                    <div key={esp.id} className={styles.mirrorCard}>
-                                      <div className={styles.mirrorColleague}>
-                                        <span className={styles.mirrorColleagueName}>
-                                          {nombreMostrado}
-                                        </span>
-                                        {esp.escenarioNombre && (
-                                          <div className={styles.mirrorCase}>
-                                            <span>🩺</span>
-                                            <span>
-                                              <strong className={styles.mirrorCaseStrong}>Caso:</strong> {esp.escenarioNombre}
-                                            </span>
+                                <div className={styles.mirrorGrid}>
+                                  {espejosVisibles.map((esp) => {
+                                    const nombreMostrado = esp.docenteNombre && esp.docenteNombre !== 'Sin Docente'
+                                      ? esp.docenteNombre
+                                      : (esp.docenteCorreo ? esp.docenteCorreo.split('@')[0] : 'Docente Espejo');
+
+                                    return (
+                                      <div key={esp.id} className={styles.mirrorCard}>
+                                        <div className={styles.mirrorColleague}>
+                                          <span className={styles.mirrorColleagueName}>
+                                            {nombreMostrado}
+                                          </span>
+                                          {esp.escenarioNombre && (
+                                            <div className={styles.mirrorCase}>
+                                              <span>🩺</span>
+                                              <span>
+                                                <strong className={styles.mirrorCaseStrong}>Caso:</strong> {esp.escenarioNombre}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
+                                          <div className={styles.mirrorRoomBadge} title={esp.ambienteNombre}>
+                                            🚪 {esp.ambienteNombre}
                                           </div>
-                                        )}
+                                          {esp.sedeNombre && (
+                                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                              📍 {esp.sedeNombre}
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
-
-                                      <div className={styles.mirrorRoomBadge} title={esp.ambienteNombre}>
-                                        🚪 {esp.ambienteNombre}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -1151,52 +1165,65 @@ export default function ConsultaPublicaPage() {
                     <p className={styles.emptyText}>No hay asignaturas dictándose con los filtros seleccionados.</p>
                   </div>
                 ) : (
-                  filteredCursos.map((curso) => (
-                    <div key={curso.cursoNombre} className={styles.courseAccordion}>
-                      <div className={styles.courseAccordionHeader}>
-                        <div className={styles.courseAccordionTitle}>
-                          <span>📚</span>
-                          <span>{curso.cursoNombre}</span>
+                  filteredCursos.map((curso) => {
+                    const sesionesSede = curso.sesiones.filter(
+                      (s) => selectedSede === 'todas' || s.sedeNombre?.toLowerCase() === selectedSede.toLowerCase()
+                    );
+
+                    return (
+                      <div key={curso.cursoNombre} className={styles.courseAccordion}>
+                        <div className={styles.courseAccordionHeader}>
+                          <div className={styles.courseAccordionTitle}>
+                            <span>📚</span>
+                            <span>{curso.cursoNombre}</span>
+                          </div>
+                          <span className={styles.courseGroupsCount}>
+                            {sesionesSede.length} {sesionesSede.length === 1 ? 'Grupo / Sala' : 'Grupos en Salas Paralelas'}
+                          </span>
                         </div>
-                        <span className={styles.courseGroupsCount}>
-                          {curso.totalGrupos} {curso.totalGrupos === 1 ? 'Grupo / Sala' : 'Grupos en Salas Paralelas'}
-                        </span>
-                      </div>
 
-                      <div className={styles.courseAccordionContent}>
-                        <div className={styles.roomsSimultaneousGrid}>
-                          {curso.sesiones.map((s) => (
-                            <div key={s.id} className={styles.simultaneousRoomCard}>
-                              <div className={styles.simultaneousHeader}>
-                                <span className={styles.simultaneousRoomName}>
-                                  🚪 {s.ambienteNombre || 'Sala sin asignar'}
-                                </span>
-                                <span className={styles.simultaneousTime}>
-                                  {s.horaInicio} - {s.horaFin}
-                                </span>
-                              </div>
-
-                              <div className={styles.simultaneousDocente}>
-                                👨‍🏫 {s.docenteNombreCompleto || s.docenteNombre || 'Docente sin asignar'}
-                              </div>
-
-                              {s.escenarioNombre && (
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                  🩺 {s.escenarioNombre}
+                        <div className={styles.courseAccordionContent}>
+                          <div className={styles.roomsSimultaneousGrid}>
+                            {sesionesSede.map((s) => (
+                              <div key={s.id} className={styles.simultaneousRoomCard}>
+                                <div className={styles.simultaneousHeader}>
+                                  <span className={styles.simultaneousRoomName}>
+                                    🚪 {s.ambienteNombre || 'Sala sin asignar'}
+                                  </span>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
+                                    <span className={styles.simultaneousTime}>
+                                      {s.horaInicio} - {s.horaFin}
+                                    </span>
+                                    {s.sedeNombre && selectedSede === 'todas' && (
+                                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                        📍 {s.sedeNombre}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
 
-                              {s.pacienteSimuladoNombre && (
-                                <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
-                                  🎭 Actor: {s.pacienteSimuladoNombre}
+                                <div className={styles.simultaneousDocente}>
+                                  👨‍🏫 {s.docenteNombreCompleto || s.docenteNombre || 'Docente sin asignar'}
                                 </div>
-                              )}
-                            </div>
-                          ))}
+
+                                {s.escenarioNombre && (
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                    🩺 {s.escenarioNombre}
+                                  </div>
+                                )}
+
+                                {s.pacienteSimuladoNombre && (
+                                  <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
+                                    🎭 Actor: {s.pacienteSimuladoNombre}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}

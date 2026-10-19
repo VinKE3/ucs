@@ -551,62 +551,315 @@ export function analizarContinuidadInterDias(
     return a.ambienteNombre.localeCompare(b.ambienteNombre);
   });
 
-  // ALGORITMO DE OPTIMIZACIÓN: DETECCIÓN DE PERMUTAS MUTUAS INTELIGENTES
-  const permutasSugeridas: PermutaSugeridaItem[] = [];
-  const roomIds = Array.from(ultimosHoyPorSala.keys());
+  // =========================================================================
+  // ALGORITMO DE OPTIMIZACIÓN GLOBAL: PERMUTAS Y TRASPASOS DIRECTOS INTER-DÍAS
+  // =========================================================================
+  // Evalúa exhaustivamente todas las salas que cierran hoy contra todas las que abren
+  // mañana buscando la combinación óptima de mínimo esfuerzo para el equipo técnico:
+  // - Nivel 1: Retención de Sala Libre (Sala con set hoy está libre mañana temprano)
+  // - Nivel 2: Permuta Cruzada Mutua (Ambas salas tienen cursos/casos inversos)
+  // - Nivel 3: Traspaso Directo de Pasillo (De sala a sala a las 22:00 sin pasar por almacén)
 
-  for (let i = 0; i < roomIds.length; i++) {
-    for (let j = i + 1; j < roomIds.length; j++) {
-      const idA = roomIds[i];
-      const idB = roomIds[j];
+  function esCasoSignificativo(caso: string | null | undefined): boolean {
+    if (!caso) return false;
+    const n = normText(caso);
+    if (!n) return false;
+    const genericos = [
+      'general',
+      'sin caso',
+      'caso no especificado',
+      'sin asignar',
+      'clase',
+      'simulacion',
+      'practica',
+      'taller',
+      'ecoe',
+    ];
+    return !genericos.includes(n);
+  }
 
-      const uA = ultimosHoyPorSala.get(idA)!;
-      const uB = ultimosHoyPorSala.get(idB)!;
-      const pA = primerosMananaPorSala.get(idA);
-      const pB = primerosMananaPorSala.get(idB);
+  interface CandidatoPermuta {
+    id: string;
+    tipo: 'retencion_sala_libre' | 'permuta_cruzada' | 'traspaso_directo';
+    score: number;
+    prioridad: number;
+    casoClave: string;
+    cursoClave: string;
+    ahorroEstimado: string;
+    explicacion: string;
+    accionRecomendadaCoordinacion: string;
+    beneficioOrigen: string;
+    beneficioDestino: string;
+    ambA: AmbienteAdminItem;
+    ambB: AmbienteAdminItem;
+    ultHoyA: { curso: string; caso: string; horaFin: string };
+    priMananaB: { curso: string; caso: string; horaInicio: string };
+    priMananaA?: { curso: string; caso: string; horaInicio: string };
+    ultHoyB?: { curso: string; caso: string; horaFin: string };
+  }
 
-      if (!pA || !pB) continue;
+  const candidatos: CandidatoPermuta[] = [];
+  const roomIdsHoy = Array.from(ultimosHoyPorSala.keys());
+  const roomIdsManana = Array.from(primerosMananaPorSala.keys());
 
-      const normCursoUA = normText(uA.curso);
-      const normCursoUB = normText(uB.curso);
-      const normCursoPA = normText(pA.curso);
-      const normCursoPB = normText(pB.curso);
+  for (const idA of roomIdsHoy) {
+    const uA = ultimosHoyPorSala.get(idA)!;
+    const pA = primerosMananaPorSala.get(idA);
 
-      // Si Curso(A_hoy) == Curso(B_mañana) && Curso(B_hoy) == Curso(A_mañana) && Cursos son diferentes
-      if (
-        normCursoUA &&
-        normCursoUB &&
-        normCursoUA !== normCursoUB &&
-        normCursoUA === normCursoPB &&
-        normCursoUB === normCursoPA
-      ) {
-        permutasSugeridas.push({
-          id: `permuta_${idA}_${idB}`,
-          tipo: 'permuta_cruzada',
-          titulo: `Permuta Cruzada: ${uA.amb.nombre} 🔁 ${uB.amb.nombre}`,
-          explicacion: `Hoy ${uA.amb.nombre} finaliza con "${uA.curso}" y ${uB.amb.nombre} con "${uB.curso}". Mañana SimClic asignó los cursos en salas inversas. Si se permutan las salas en coordinación, ambos sets quedan intactos y se evitan dos traslados pesados de pasillo.`,
-          ahorroEstimado: 'Ahorro: 2 traslados de alta fidelidad evitados (100% de esfuerzo)',
-          salaA: {
-            id: idA,
-            nombre: uA.amb.nombre,
-            cursoHoy: uA.curso,
-            casoHoy: uA.caso,
-            cursoMananaOriginal: pA.curso,
-            casoMananaOriginal: pA.caso,
-            cursoPropuesto: uA.curso,
-          },
-          salaB: {
-            id: idB,
-            nombre: uB.amb.nombre,
-            cursoHoy: uB.curso,
-            casoHoy: uB.caso,
-            cursoMananaOriginal: pB.curso,
-            casoMananaOriginal: pB.caso,
-            cursoPropuesto: uB.curso,
-          },
-          impactoDocentes: [],
+    for (const idB of roomIdsManana) {
+      if (idA === idB) continue; // Misma sala no es permuta inter-salas
+
+      const pB = primerosMananaPorSala.get(idB)!;
+      const uB = ultimosHoyPorSala.get(idB);
+
+      const normCasoA = normText(uA.caso);
+      const normCasoB = normText(pB.caso);
+      const normCursoA = normText(uA.curso);
+      const normCursoB = normText(pB.curso);
+
+      const matchCaso = esCasoSignificativo(uA.caso) && esCasoSignificativo(pB.caso) && normCasoA === normCasoB;
+      const matchCurso = normCursoA && normCursoB && normCursoA === normCursoB;
+
+      // Si no comparten ni caso ni curso, no hay compatibilidad de simulación
+      if (!matchCaso && !matchCurso) continue;
+
+      const casoRepresentativo = matchCaso ? (uA.caso || pB.caso) : (uA.caso || pB.caso || uA.curso);
+      const cursoRepresentativo = uA.curso || pB.curso;
+
+      // Nivel 1: Retención en Sala Libre (Sala A termina hoy con el set y mañana está LIBRE)
+      if (!pA) {
+        candidatos.push({
+          id: `permuta_retencion_${idA}_${idB}`,
+          tipo: 'retencion_sala_libre',
+          score: 1000 + (matchCaso ? 300 : 100),
+          prioridad: 1,
+          casoClave: casoRepresentativo,
+          cursoClave: cursoRepresentativo,
+          ahorroEstimado: 'Ahorro Máximo (100%): 0 desmontajes, 0 traslados y 0 montajes nuevos',
+          explicacion: `Hoy ${uA.amb.nombre} finaliza a las ${uA.horaFin} con "${casoRepresentativo}" y mañana está LIBRE a primera hora. SimClic asignó esta misma clase a ${pB.amb.nombre} a las ${pB.horaInicio}. Si Coordinación traslada la clase a ${uA.amb.nombre}, el set ya queda 100% listo desde hoy a las 22:00.`,
+          accionRecomendadaCoordinacion: `Mover la clase matutina de [${pB.amb.nombre}] a [${uA.amb.nombre}]. Permite dejar el set armado toda la noche.`,
+          beneficioOrigen: `La sala queda armada y lista para la clase de las ${pB.horaInicio}. Cero desarmes.`,
+          beneficioDestino: `Evita tener que armar el set desde cero en esta sala a las ${pB.horaInicio}.`,
+          ambA: uA.amb,
+          ambB: pB.amb,
+          ultHoyA: uA,
+          priMananaB: pB,
+          priMananaA: pA,
+          ultHoyB: uB,
         });
       }
+      // Nivel 2: Permuta Cruzada Mutua (Sala A y Sala B intercambian sus cursos/casos)
+      else if (uB && pA) {
+        const normCasoUB = normText(uB.caso);
+        const normCasoPA = normText(pA.caso);
+        const normCursoUB = normText(uB.curso);
+        const normCursoPA = normText(pA.curso);
+
+        const matchCruzadoCaso = esCasoSignificativo(uB.caso) && esCasoSignificativo(pA.caso) && normCasoUB === normCasoPA;
+        const matchCruzadoCurso = normCursoUB && normCursoPA && normCursoUB === normCursoPA;
+
+        if (matchCruzadoCaso || matchCruzadoCurso) {
+          // Para no duplicar el candidato A->B y B->A, solo registrar cuando idA < idB
+          if (idA < idB) {
+            candidatos.push({
+              id: `permuta_cruzada_${idA}_${idB}`,
+              tipo: 'permuta_cruzada',
+              score: 950 + ((matchCaso && matchCruzadoCaso) ? 300 : 100),
+              prioridad: 1,
+              casoClave: `${casoRepresentativo} 🔁 ${matchCruzadoCaso ? (uB.caso || pA.caso) : (uB.curso || pA.curso)}`,
+              cursoClave: `${uA.curso} 🔁 ${uB.curso}`,
+              ahorroEstimado: 'Ahorro 100% Doble: Ambas salas quedan listas sin mover simuladores',
+              explicacion: `Hoy ${uA.amb.nombre} termina con "${uA.curso}" y mañana requiere "${pA.curso}". Inversamente, ${uB.amb.nombre} termina hoy con "${uB.curso}" y mañana requiere "${pB.curso}". Si se intercambian las salas para mañana, ningún simulador tiene que trasladarse.`,
+              accionRecomendadaCoordinacion: `Permutar salas entre [${uA.amb.nombre}] y [${uB.amb.nombre}] en la primera franja de mañana.`,
+              beneficioOrigen: `Permuta cruzada con ${uB.amb.nombre}: 100% de ahorro en acarreo.`,
+              beneficioDestino: `Permuta cruzada con ${uA.amb.nombre}: 100% de ahorro en acarreo.`,
+              ambA: uA.amb,
+              ambB: pB.amb,
+              ultHoyA: uA,
+              priMananaB: pB,
+              priMananaA: pA,
+              ultHoyB: uB,
+            });
+          }
+        } else {
+          // Nivel 3: Traspaso Directo de Pasillo (Sin entrar a almacén)
+          candidatos.push({
+            id: `permuta_traspaso_${idA}_${idB}`,
+            tipo: 'traspaso_directo',
+            score: 400 + (matchCaso ? 200 : 50),
+            prioridad: 2,
+            casoClave: casoRepresentativo,
+            cursoClave: cursoRepresentativo,
+            ahorroEstimado: 'Ahorro 50%: Traspaso de pasillo directo a las 22:00 sin guardar en almacén',
+            explicacion: `${uA.amb.nombre} finaliza a las ${uA.horaFin} con "${casoRepresentativo}". Mañana a las ${pB.horaInicio}, ${pB.amb.nombre} necesita el mismo equipamiento. El equipo técnico puede traspasarlo directamente de puerta a puerta en el cierre de turno.`,
+            accionRecomendadaCoordinacion: `Autorizar traspaso directo de materiales entre [${uA.amb.nombre}] y [${pB.amb.nombre}] sin ingresar a almacén central.`,
+            beneficioOrigen: `Entregar set directamente a ${pB.amb.nombre} a las ${uA.horaFin}.`,
+            beneficioDestino: `Recibir set directamente desde ${uA.amb.nombre} a las 22:00.`,
+            ambA: uA.amb,
+            ambB: pB.amb,
+            ultHoyA: uA,
+            priMananaB: pB,
+            priMananaA: pA,
+            ultHoyB: uB,
+          });
+        }
+      } else {
+        // Nivel 3: Traspaso Directo de Pasillo
+        candidatos.push({
+          id: `permuta_traspaso_${idA}_${idB}`,
+          tipo: 'traspaso_directo',
+          score: 400 + (matchCaso ? 200 : 50),
+          prioridad: 2,
+          casoClave: casoRepresentativo,
+          cursoClave: cursoRepresentativo,
+          ahorroEstimado: 'Ahorro 50%: Traspaso de pasillo directo a las 22:00 sin guardar en almacén',
+          explicacion: `${uA.amb.nombre} finaliza a las ${uA.horaFin} con "${casoRepresentativo}". Mañana a las ${pB.horaInicio}, ${pB.amb.nombre} necesita el mismo equipamiento. Traspaso directo de pasillo.`,
+          accionRecomendadaCoordinacion: `Traspaso directo de sala a sala a las 22:00 sin ingresar a almacén central.`,
+          beneficioOrigen: `Entregar set directamente a ${pB.amb.nombre}.`,
+          beneficioDestino: `Recibir set directamente desde ${uA.amb.nombre}.`,
+          ambA: uA.amb,
+          ambB: pB.amb,
+          ultHoyA: uA,
+          priMananaB: pB,
+          priMananaA: pA,
+          ultHoyB: uB,
+        });
+      }
+    }
+  }
+
+  // Ordenar candidatos por puntuación global descendente
+  candidatos.sort((a, b) => b.score - a.score);
+
+  // Selección sin solapamientos (Cada sala participa en la mejor optimización posible)
+  const permutasSugeridas: PermutaSugeridaItem[] = [];
+  const usedOriginRoomIds = new Set<number>();
+  const usedDestRoomIds = new Set<number>();
+
+  for (const c of candidatos) {
+    const idA = c.ambA.id;
+    const idB = c.ambB.id;
+
+    if (c.tipo === 'permuta_cruzada') {
+      if (
+        usedOriginRoomIds.has(idA) ||
+        usedDestRoomIds.has(idA) ||
+        usedOriginRoomIds.has(idB) ||
+        usedDestRoomIds.has(idB)
+      ) {
+        continue;
+      }
+      usedOriginRoomIds.add(idA);
+      usedDestRoomIds.add(idA);
+      usedOriginRoomIds.add(idB);
+      usedDestRoomIds.add(idB);
+    } else {
+      if (usedOriginRoomIds.has(idA) || usedDestRoomIds.has(idB)) {
+        continue;
+      }
+      usedOriginRoomIds.add(idA);
+      usedDestRoomIds.add(idB);
+    }
+
+    const estadoMananaA = c.priMananaA
+      ? `Cambia a "${c.priMananaA.curso}" a las ${c.priMananaA.horaInicio}`
+      : 'Libre a primera hora';
+
+    permutasSugeridas.push({
+      id: c.id,
+      tipo: c.tipo,
+      prioridad: c.prioridad,
+      titulo:
+        c.tipo === 'retencion_sala_libre'
+          ? `🌟 Retención en Sala Libre: [${c.ambA.nombre}] ➔ [${c.ambB.nombre}]`
+          : c.tipo === 'permuta_cruzada'
+            ? `🔁 Permuta Cruzada: [${c.ambA.nombre}] 🔁 [${c.ambB.nombre}]`
+            : `🚚 Traspaso Directo: [${c.ambA.nombre}] ➔ [${c.ambB.nombre}]`,
+      explicacion: c.explicacion,
+      casoClave: c.casoClave,
+      cursoClave: c.cursoClave,
+      ahorroEstimado: c.ahorroEstimado,
+      salaOrigen: {
+        id: c.ambA.id,
+        nombre: c.ambA.nombre,
+        casoHoy: c.ultHoyA.caso,
+        cursoHoy: c.ultHoyA.curso,
+        horaFinHoy: c.ultHoyA.horaFin,
+        estadoManana: estadoMananaA,
+      },
+      salaDestino: {
+        id: c.ambB.id,
+        nombre: c.ambB.nombre,
+        casoMananaOriginal: c.priMananaB.caso,
+        cursoMananaOriginal: c.priMananaB.curso,
+        horaInicioManana: c.priMananaB.horaInicio,
+      },
+      accionRecomendadaCoordinacion: c.accionRecomendadaCoordinacion,
+      impactoDocentes: [],
+    });
+  }
+
+  // Asignar recomendación de permuta a cada sala en salasContinuidad
+  const permutaPorSalaMap = new Map<
+    number,
+    {
+      idPermuta: string;
+      tipo: 'retencion_sala_libre' | 'permuta_cruzada' | 'traspaso_directo' | 'aprovechamiento_sala';
+      salaIdRelacionada: number;
+      salaNombreRelacionada: string;
+      casoRelacionado: string;
+      cursoRelacionado: string;
+      explicacion: string;
+      beneficio: string;
+      esOrigen: boolean;
+    }
+  >();
+
+  for (const p of permutasSugeridas) {
+    // Sala Origen
+    permutaPorSalaMap.set(p.salaOrigen.id, {
+      idPermuta: p.id,
+      tipo: p.tipo,
+      salaIdRelacionada: p.salaDestino.id,
+      salaNombreRelacionada: p.salaDestino.nombre,
+      casoRelacionado: p.casoClave,
+      cursoRelacionado: p.cursoClave,
+      explicacion: p.explicacion,
+      beneficio:
+        p.tipo === 'retencion_sala_libre'
+          ? `Mantener set armado aquí: Cero desmontajes (evita montar en ${p.salaDestino.nombre})`
+          : p.tipo === 'permuta_cruzada'
+            ? `Permuta con ${p.salaDestino.nombre}: 100% de continuidad sin mover equipos`
+            : `Traspaso directo de salida hacia ${p.salaDestino.nombre} a las 22:00`,
+      esOrigen: true,
+    });
+
+    // Sala Destino
+    permutaPorSalaMap.set(p.salaDestino.id, {
+      idPermuta: p.id,
+      tipo: p.tipo,
+      salaIdRelacionada: p.salaOrigen.id,
+      salaNombreRelacionada: p.salaOrigen.nombre,
+      casoRelacionado: p.casoClave,
+      cursoRelacionado: p.cursoClave,
+      explicacion: p.explicacion,
+      beneficio:
+        p.tipo === 'retencion_sala_libre'
+          ? `Mudar clase a ${p.salaOrigen.nombre}: El set ya está 100% listo allá desde anoche`
+          : p.tipo === 'permuta_cruzada'
+            ? `Permuta con ${p.salaOrigen.nombre}: 100% de continuidad sin mover equipos`
+            : `Recibe set directamente desde ${p.salaOrigen.nombre} sin pedir a almacén`,
+      esOrigen: false,
+    });
+  }
+
+  // Enriquecer cada elemento de salasContinuidad con su permutaRecomendada
+  for (const s of salasContinuidad) {
+    const rec = permutaPorSalaMap.get(s.ambienteId);
+    if (rec) {
+      s.permutaRecomendada = rec;
+    } else {
+      s.permutaRecomendada = null;
     }
   }
 
@@ -620,6 +873,7 @@ export function analizarContinuidadInterDias(
   ).length;
 
   const salasCasoYaDictadoHoy = salasContinuidad.filter((s) => s.casoYaDictadoHoy).length;
+  const salasConPermuta = salasContinuidad.filter((s) => Boolean(s.permutaRecomendada)).length;
 
   return {
     fechaOrigen,
@@ -631,6 +885,7 @@ export function analizarContinuidadInterDias(
     salasMontar,
     salasRequierenAccion,
     salasCasoYaDictadoHoy,
+    salasConPermuta,
     salasContinuidad,
     permutasSugeridas,
   };
@@ -648,32 +903,50 @@ export function generarMensajePropuestaCoordinacion(
 
   lineas.push(`🏥 *PROPUESTA DE OPTIMIZACIÓN LOGÍSTICA DE SALAS*`);
   lineas.push(`*Clínica de Simulación UCS - ${nombreSede}*`);
-  lineas.push(`📅 *Periodo*: ${resumen.fechaOrigen} ➡️ ${resumen.fechaDestino}`);
+  lineas.push(`📅 *Continuidad*: ${resumen.fechaOrigen} ➡️ ${resumen.fechaDestino}`);
   lineas.push(``);
   lineas.push(`Estimada Coordinación Académica,`);
   lineas.push(
-    `Para optimizar los tiempos de respuesta y evitar el traslado innecesario de simuladores pesados y torres de simulación entre pasillos, elevamos la siguiente propuesta de continuidad:`
+    `Para optimizar tiempos de alistamiento y evitar el traslado y desarmado innecesario de simuladores clínicos y torres médicas entre pasillos, elevamos el siguiente plan de continuidad:`
   );
   lineas.push(``);
   lineas.push(`📊 *Diagnóstico Operativo Nocturno:*`);
-  lineas.push(`• *${resumen.salasConContinuidad} salas* mantienen el mismo curso y quedan listas desde hoy a las 22:00.`);
-  lineas.push(`• *${resumen.salasConCambio} salas* requieren cambio de equipamiento.`);
+  lineas.push(`• *${resumen.salasConContinuidad} salas* mantienen continuidad natural (mismo curso/caso).`);
+  lineas.push(`• *${resumen.permutasSugeridas.length} permutas/traspasos estratégicos* detectados para ahorrar desmontajes.`);
 
   if (resumen.permutasSugeridas.length > 0) {
     lineas.push(``);
-    lineas.push(`💡 *PERMUTAS RECOMENDADAS PARA EVITAR ACARREO:*`);
+    lineas.push(`💡 *OPTIMIZACIONES RECOMENDADAS PARA COORDINACIÓN:*`);
     resumen.permutasSugeridas.forEach((p, idx) => {
       lineas.push(``);
-      lineas.push(`*Propuesta #${idx + 1}*:`);
-      lineas.push(`🔁 *Intercambiar*: [${p.salaA.nombre}] 🔁 [${p.salaB.nombre}]`);
-      lineas.push(`• *Motivo*: Los equipos de "${p.salaA.cursoHoy}" ya están montados en ${p.salaA.nombre}, y los de "${p.salaB.cursoHoy}" en ${p.salaB.nombre}.`);
-      lineas.push(`• *Resultado*: Cero acarreo pesado de simuladores.`);
+      if (p.tipo === 'retencion_sala_libre') {
+        lineas.push(`*Propuesta #${idx + 1} (🌟 Retención en Sala Libre)*:`);
+        lineas.push(`🔀 *Mover clase matutina de*: [${p.salaDestino.nombre}] ➔ a [${p.salaOrigen.nombre}]`);
+        lineas.push(`• *Caso / Curso*: "${p.casoClave}"`);
+        lineas.push(`• *Motivo*: ${p.salaOrigen.nombre} cierra hoy con este set y mañana está libre. Ya queda 100% montada.`);
+        lineas.push(`• *Resultado*: Cero desmontajes y cero traslados pesados.`);
+      } else if (p.tipo === 'permuta_cruzada') {
+        lineas.push(`*Propuesta #${idx + 1} (🔁 Permuta Cruzada)*:`);
+        lineas.push(`🔁 *Intercambiar Salas*: [${p.salaOrigen.nombre}] 🔁 [${p.salaDestino.nombre}]`);
+        lineas.push(`• *Cursos*: ${p.cursoClave}`);
+        lineas.push(`• *Motivo*: Ambas salas tienen invertidos los cursos de hoy vs mañana.`);
+        lineas.push(`• *Resultado*: 100% de ahorro en ambas salas (sets intactos).`);
+      } else {
+        lineas.push(`*Propuesta #${idx + 1} (🚚 Traspaso Directo)*:`);
+        lineas.push(`🚚 *Traspaso*: [${p.salaOrigen.nombre}] ➔ [${p.salaDestino.nombre}]`);
+        lineas.push(`• *Set*: "${p.casoClave}"`);
+        lineas.push(`• *Motivo*: Traspaso directo pasillo a pasillo a las 22:00.`);
+        lineas.push(`• *Resultado*: Evita retorno a almacén y doble manipulación.`);
+      }
     });
+  } else {
+    lineas.push(``);
+    lineas.push(`ℹ️ _No se detectaron permutas cruzadas posibles para este cambio de ciclo. Se procederá con el alistamiento regular de almacén._`);
   }
 
   lineas.push(``);
   lineas.push(`Agradecemos su confirmación para proceder con el alistamiento correspondiente.`);
-  lineas.push(`_Equipo Técnico de la Clínica de Simulación UCS_`);
+  lineas.push(`_Equipo Técnico de Simulación Clínica UCS_`);
 
   return lineas.join('\n');
 }

@@ -718,6 +718,40 @@ src/
     - Los docentes con clases 100% virtuales que no pisan campus físico no inflan el directorio de salas.
     - Se eliminaron las asignaciones virtuales de la pestaña *«Por Ambiente / Sede»*, de las salas en simultáneo y de los docentes espejo.
 
+* `feat(hub-logistica-optimizador-permutas-global)`: **Hito 45: Optimizador Global de Permutas y Traspasos Directos Inter-Días (`logisticaSimulacion.ts` & `HubLogisticaSimulacion.tsx`)**:
+  - **Algoritmo de Optimización Global Multi-Nivel (`analizarContinuidadInterDias`)**:
+    - **Nivel 1: Retención en Sala Libre (`retencion_sala_libre`)**:
+      - Si una sala cierra hoy con un set de simulación y mañana temprano está desocupada/libre, y SimClic asignó ese mismo caso o curso a otra sala a primera hora (ej. *Hospitalización 2* con *Hidrocele* que mañana SimClic asignó a *Consultorio 2*), el sistema propone retener la clase matutina en la sala de origen.
+      - **Ahorro 100%**: 0 desmontajes, 0 traslados de pasillo y 0 montajes desde cero (el set amanece listo).
+    - **Nivel 2: Permuta Cruzada Mutua (`permuta_cruzada`)**:
+      - Si dos salas cierran hoy e inician mañana con cursos/casos inversos (Sala A termina con X y pide Y; Sala B termina con Y y pide X), propone permutar sus asignaciones matutinas en el sistema.
+      - **Ahorro Doble**: 2 salas quedan con continuidad total sin mover un solo equipo ni torre médica.
+    - **Nivel 3: Traspaso Directo de Pasillo (`traspaso_directo`)**:
+      - Si una sala concluye con un caso y otra sala lo requiere al día siguiente (sin permuta mutua ni sala libre), propone traspaso directo puerta a puerta a las 22:00 sin pasar por el almacén central (50% de manipulación evitada).
+    - **Resolución Global sin Conflictos**:
+      - Ponderación por puntuación y asignación voraz óptima evitando colisiones o dobles asignaciones de una misma sala.
+    - **Manejo de Transición de Ciclos Incompatibles (ej. Miércoles para Jueves)**:
+      - Detecta automáticamente cuando no existen permutas viables debido a cambio general de temas/guías curriculares, emitiendo un aviso informativo de alistamiento regular de almacén sin errores.
+  - **Banner Ejecutivo de Recomendación Global (`styles.permutaExecBanner`)**:
+    - Cabecera de impacto con el total de permutas detectadas, conteo de salas optimizadas y botón para aislar las salas participantes en 1 clic.
+    - Botón de 1 Clic para WhatsApp/Correo (`handleCopiarPropuesta`): genera una propuesta formal y cortés para Coordinación Académica con viñetas detalladas, casos clínicos y justificación operativa.
+  - **Nueva Píldora de Filtro Rápido (`🔀 Con Permuta / Traspaso (X)`)**:
+    - Integra el filtro `'permutas'` en la barra de píldoras del Hub Logístico para auditar únicamente las salas participantes.
+  - **Insignias en Conector Central y Tarjetas del Timeline Bridge**:
+    - Insignia destacada en el conector central (`.conectorPermutaBadge`): muestra `Retener (...)`, `Permuta con (...)` o `Traspaso ➔ (...)`.
+    - Banner explicativo de alto contraste dentro de cada tarjeta (`.permutaCardBanner`): resalta la oportunidad, el motivo y el beneficio específico de esa sala.
+
+* `chore(hub-logistica-cleanup)`: **Hito 46: Depuración y Enfoque Operativo del Hub Logístico (`HubLogisticaSimulacion.tsx`)**:
+  - **Remoción de Banners y Sugerencias de Recomendación**:
+    - Se eliminó el banner de recomendaciones ejecutivas, las tarjetas de permutas sugeridas y los botones automáticos de propuesta para coordinación.
+    - Se eliminaron las insignias y banners de permuta/traspaso dentro del conector central y en el cuerpo de las tarjetas de sala, manteniendo la vista limpia, ágil y sin distracciones.
+    - Se purgó el filtro `'permutas'` de la barra de píldoras.
+  - **Eliminación Definitiva de la Sub-Pestaña «Guía & Protocolo de Reset»**:
+    - Se removió tanto el botón de acceso de la barra de navegación como el bloque de contenido estático de protocolos.
+    - El Hub Logístico queda enfocado exclusivamente en sus dos núcleos de valor operativo en tiempo real:
+      1. `🔁 Transiciones de Hoy (Reset Intra-Día)` con la regla cronológica Gantt.
+      2. `📅 Continuidad & Ahorro de Acarreo (Hoy vs Mañana)` con el Bridge Gantt y detección de casos realizados.
+
 ---
 
 ## 🎯 5. Próximas Mejoras Planificadas (Backlog)

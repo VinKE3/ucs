@@ -507,6 +507,19 @@ export interface ContinuidadSalaItem {
     docente?: string;
   } | null;
 
+  // Recomendación de Permuta / Traspaso Inteligente
+  permutaRecomendada?: {
+    idPermuta: string;
+    tipo: 'retencion_sala_libre' | 'permuta_cruzada' | 'traspaso_directo' | 'aprovechamiento_sala';
+    salaIdRelacionada: number;
+    salaNombreRelacionada: string;
+    casoRelacionado: string;
+    cursoRelacionado: string;
+    explicacion: string;
+    beneficio: string;
+    esOrigen: boolean; // true si esta sala tiene el set hoy, false si esta sala lo recibiría
+  } | null;
+
   accionSugerida: string;
   etiquetaBadge: string;
   colorBadge: string;
@@ -515,29 +528,30 @@ export interface ContinuidadSalaItem {
 
 export interface PermutaSugeridaItem {
   id: string;
-  tipo: 'permuta_cruzada' | 'aprovechamiento_sala';
+  tipo: 'retencion_sala_libre' | 'permuta_cruzada' | 'traspaso_directo' | 'aprovechamiento_sala';
+  prioridad: number;
   titulo: string;
   explicacion: string;
+  casoClave: string;
+  cursoClave: string;
   ahorroEstimado: string;
-  salaA: {
+  salaOrigen: {
     id: number;
     nombre: string;
+    casoHoy: string;
     cursoHoy: string;
-    casoHoy?: string;
-    cursoMananaOriginal: string;
-    casoMananaOriginal?: string;
-    cursoPropuesto: string;
+    horaFinHoy: string;
+    estadoManana: string;
   };
-  salaB: {
+  salaDestino: {
     id: number;
     nombre: string;
-    cursoHoy: string;
-    casoHoy?: string;
+    casoMananaOriginal: string;
     cursoMananaOriginal: string;
-    casoMananaOriginal?: string;
-    cursoPropuesto: string;
+    horaInicioManana: string;
   };
-  impactoDocentes: string[];
+  accionRecomendadaCoordinacion: string;
+  impactoDocentes?: string[];
 }
 
 export interface ResumenContinuidadInterDias {
@@ -550,8 +564,10 @@ export interface ResumenContinuidadInterDias {
   salasMontar: number;
   salasRequierenAccion: number;
   salasCasoYaDictadoHoy: number;
+  salasConPermuta: number;
   salasContinuidad: ContinuidadSalaItem[];
   permutasSugeridas: PermutaSugeridaItem[];
 }
+
 
 

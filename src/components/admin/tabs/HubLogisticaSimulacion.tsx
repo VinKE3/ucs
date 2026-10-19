@@ -15,7 +15,6 @@ import type {
 import {
   analizarLogisticaIntraDia,
   analizarContinuidadInterDias,
-  generarMensajePropuestaCoordinacion,
 } from '@/lib/logisticaSimulacion';
 import { showToast } from '@/lib/alerts';
 
@@ -64,17 +63,17 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   onIrAGantt,
 }) => {
   // Sub-pestañas del Hub (con persistencia en sessionStorage para no perder la vista seleccionada)
-  const [subTab, setSubTabState] = useState<'transiciones' | 'continuidad' | 'guia'>(() => {
+  const [subTab, setSubTabState] = useState<'transiciones' | 'continuidad'>(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem('ucs_hub_logistica_subtab');
-      if (saved === 'transiciones' || saved === 'continuidad' || saved === 'guia') {
+      if (saved === 'transiciones' || saved === 'continuidad') {
         return saved;
       }
     }
     return 'transiciones';
   });
 
-  const setSubTab = (newTab: 'transiciones' | 'continuidad' | 'guia') => {
+  const setSubTab = (newTab: 'transiciones' | 'continuidad') => {
     setSubTabState(newTab);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('ucs_hub_logistica_subtab', newTab);
@@ -159,7 +158,6 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   const [loadingComparacion, setLoadingComparacion] = useState<boolean>(false);
   const [syncingComparacion, setSyncingComparacion] = useState<boolean>(false);
   const [filtroContinuidad, setFiltroContinuidad] = useState<string>('requieren_accion');
-  const [copiadoPropuesta, setCopiadoPropuesta] = useState<boolean>(false);
 
   // Sincronizar fechaComparacion cuando cambie la fecha principal
   useEffect(() => {
@@ -316,19 +314,6 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
     });
   }, [resumenInter, filtroContinuidad, search]);
 
-  // Copiar propuesta para coordinación al portapapeles
-  const handleCopiarPropuesta = () => {
-    if (!resumenInter) return;
-    const texto = generarMensajePropuestaCoordinacion(resumenInter, nombreSede);
-    navigator.clipboard.writeText(texto).then(() => {
-      setCopiadoPropuesta(true);
-      showToast('Propuesta copiada al portapapeles para WhatsApp o correo', 'success');
-      setTimeout(() => setCopiadoPropuesta(false), 3000);
-    }).catch(() => {
-      showToast('No se pudo copiar automáticamente', 'error');
-    });
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* 1. ENCABEZADO Y SELECTOR DE SUB-PESTAÑA */}
@@ -461,30 +446,9 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                   fontWeight: 700,
                 }}
               >
-                {resumenInter.salasConContinuidad} no desmontar
+                {resumenInter.salasConContinuidad} no desarmar
               </span>
             )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSubTab('guia')}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              border: 'none',
-              background: subTab === 'guia' ? 'var(--ucs-blue, #0d346c)' : 'transparent',
-              color: subTab === 'guia' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: subTab === 'guia' ? 700 : 500,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <span>📘</span> Guía & Protocolo de Reset
           </button>
         </div>
       </div>
@@ -579,7 +543,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
 
             {/* CONTROLES DERECHA: BUSCADOR Y BOTÓN IR A HORA */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-              
+
               {/* BUSCADOR */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: '190px' }}>
                 <input
@@ -638,513 +602,513 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
 
           {/* LÍNEA DE GANTT LOGÍSTICA CRONOLÓGICA (07:00 A 22:00) */}
           <div
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
-              }}
-            >
-              {/* Scroll horizontal del Gantt */}
-              <div ref={ganttScrollRef} style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
-                <div style={{ minWidth: '1680px', display: 'flex', flexDirection: 'column' }}>
-                  
-                  {/* HEADER DE HORAS (07:00 a 22:00) */}
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
+            }}
+          >
+            {/* Scroll horizontal del Gantt */}
+            <div ref={ganttScrollRef} style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
+              <div style={{ minWidth: '1680px', display: 'flex', flexDirection: 'column' }}>
+
+                {/* HEADER DE HORAS (07:00 a 22:00) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    borderBottom: '2px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 30,
+                  }}
+                >
+                  {/* Columna fija de Salas */}
                   <div
                     style={{
-                      display: 'flex',
-                      borderBottom: '2px solid var(--border-color)',
+                      width: '260px',
+                      minWidth: '260px',
+                      padding: '0.85rem 1rem',
+                      fontWeight: 800,
+                      fontSize: '0.82rem',
+                      color: 'var(--text-primary)',
+                      borderRight: '2px solid var(--border-color)',
                       background: 'var(--bg-card)',
                       position: 'sticky',
-                      top: 0,
-                      zIndex: 30,
+                      left: 0,
+                      zIndex: 35,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
                   >
-                    {/* Columna fija de Salas */}
-                    <div
-                      style={{
-                        width: '260px',
-                        minWidth: '260px',
-                        padding: '0.85rem 1rem',
-                        fontWeight: 800,
-                        fontSize: '0.82rem',
-                        color: 'var(--text-primary)',
-                        borderRight: '2px solid var(--border-color)',
-                        background: 'var(--bg-card)',
-                        position: 'sticky',
-                        left: 0,
-                        zIndex: 35,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span>🏥 SALA / AMBIENTE</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        ({salasIntraFiltradas.length} {salasIntraFiltradas.length === 1 ? 'sala' : 'salas'})
-                      </span>
-                    </div>
-
-                    {/* Grid de franjas horarias */}
-                    <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
-                      {slotsHorarios.map((slot, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            flex: 1,
-                            padding: '0.75rem 0.25rem',
-                            textAlign: 'center',
-                            fontSize: slot.esHoraEnPunto ? '0.75rem' : '0.68rem',
-                            fontWeight: slot.esHoraEnPunto ? 700 : 500,
-                            color: slot.esHoraEnPunto ? 'var(--text-primary)' : 'var(--text-muted)',
-                            borderRight: slot.esHoraEnPunto ? '1px solid var(--border-color)' : '1px dashed rgba(255, 255, 255, 0.08)',
-                            fontFamily: 'var(--font-mono)',
-                          }}
-                        >
-                          {slot.label}
-                        </div>
-                      ))}
-
-                      {/* Pin de tiempo actual en vivo en el header */}
-                      {esHoy && nowMinutes >= 7 * 60 && nowMinutes <= 22 * 60 && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${((nowMinutes - 7 * 60) / (15 * 60)) * 100}%`,
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                            border: '1px solid rgba(255, 255, 255, 0.4)',
-                            color: '#ffffff',
-                            fontSize: '0.68rem',
-                            fontWeight: 800,
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '999px',
-                            boxShadow: '0 0 12px rgba(56, 189, 248, 0.8)',
-                            zIndex: 40,
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.3rem',
-                            pointerEvents: 'none',
-                          }}
-                        >
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e699', boxShadow: '0 0 6px #00e699' }} />
-                          <span>{horaActualStr}</span>
-                        </div>
-                      )}
-                    </div>
+                    <span>🏥 SALA / AMBIENTE</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      ({salasIntraFiltradas.length} {salasIntraFiltradas.length === 1 ? 'sala' : 'salas'})
+                    </span>
                   </div>
 
-                  {/* FILAS DE CADA SALA EN EL GANTT */}
-                  {salasIntraFiltradas.length === 0 ? (
-                    <div
-                      style={{
-                        padding: '3.5rem 2rem',
-                        textAlign: 'center',
-                        color: 'var(--text-secondary)',
-                        background: 'var(--bg-elevated)',
-                      }}
-                    >
-                      {filtroTipo === 'pendientes' ? (
-                        <div style={{ maxWidth: '520px', margin: '0 auto' }}>
-                          <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>🎉</div>
-                          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                            ¡No hay cambios de curso ni resets pendientes en este momento!
-                          </div>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 1.25rem 0', lineHeight: 1.5 }}>
-                            Las salas con rotaciones de hoy ya pasaron su hora de cambio o continúan con el mismo curso hasta las 22:00.
-                          </p>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              onClick={() => setFiltroTipo('rotan_todas')}
-                              className={styles.secondaryBtn}
-                              style={{ fontSize: '0.82rem', padding: '0.45rem 0.95rem' }}
-                            >
-                              🔄 Ver todas las que rotan hoy ({resumenIntra.salasConSwapMayor + resumenIntra.salasConResetCaso})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFiltroTipo('todos')}
-                              className={styles.secondaryBtn}
-                              style={{ fontSize: '0.82rem', padding: '0.45rem 0.95rem' }}
-                            >
-                              👁️ Ver todas las salas ({resumenIntra.salas.length})
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
-                          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                            No se encontraron salas con el filtro seleccionado
-                          </div>
-                          <div style={{ fontSize: '0.82rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
-                            Prueba cambiando el filtro o limpiando el texto del buscador.
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    salasIntraFiltradas.map((sala, idx) => {
-                      const esSwapMayor = sala.estadoDia === 'swap_mayor';
-                      const esResetCaso = sala.estadoDia === 'reset_caso';
-                      const esEstable = sala.estadoDia === 'estable';
-                      const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)';
+                  {/* Grid de franjas horarias */}
+                  <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+                    {slotsHorarios.map((slot, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          flex: 1,
+                          padding: '0.75rem 0.25rem',
+                          textAlign: 'center',
+                          fontSize: slot.esHoraEnPunto ? '0.75rem' : '0.68rem',
+                          fontWeight: slot.esHoraEnPunto ? 700 : 500,
+                          color: slot.esHoraEnPunto ? 'var(--text-primary)' : 'var(--text-muted)',
+                          borderRight: slot.esHoraEnPunto ? '1px solid var(--border-color)' : '1px dashed rgba(255, 255, 255, 0.08)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {slot.label}
+                      </div>
+                    ))}
 
-                      return (
+                    {/* Pin de tiempo actual en vivo en el header */}
+                    {esHoy && nowMinutes >= 7 * 60 && nowMinutes <= 22 * 60 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${((nowMinutes - 7 * 60) / (15 * 60)) * 100}%`,
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                          border: '1px solid rgba(255, 255, 255, 0.4)',
+                          color: '#ffffff',
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '999px',
+                          boxShadow: '0 0 12px rgba(56, 189, 248, 0.8)',
+                          zIndex: 40,
+                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e699', boxShadow: '0 0 6px #00e699' }} />
+                        <span>{horaActualStr}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* FILAS DE CADA SALA EN EL GANTT */}
+                {salasIntraFiltradas.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '3.5rem 2rem',
+                      textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                      background: 'var(--bg-elevated)',
+                    }}
+                  >
+                    {filtroTipo === 'pendientes' ? (
+                      <div style={{ maxWidth: '520px', margin: '0 auto' }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>🎉</div>
+                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                          ¡No hay cambios de curso ni resets pendientes en este momento!
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 1.25rem 0', lineHeight: 1.5 }}>
+                          Las salas con rotaciones de hoy ya pasaron su hora de cambio o continúan con el mismo curso hasta las 22:00.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => setFiltroTipo('rotan_todas')}
+                            className={styles.secondaryBtn}
+                            style={{ fontSize: '0.82rem', padding: '0.45rem 0.95rem' }}
+                          >
+                            🔄 Ver todas las que rotan hoy ({resumenIntra.salasConSwapMayor + resumenIntra.salasConResetCaso})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFiltroTipo('todos')}
+                            className={styles.secondaryBtn}
+                            style={{ fontSize: '0.82rem', padding: '0.45rem 0.95rem' }}
+                          >
+                            👁️ Ver todas las salas ({resumenIntra.salas.length})
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
+                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                          No se encontraron salas con el filtro seleccionado
+                        </div>
+                        <div style={{ fontSize: '0.82rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
+                          Prueba cambiando el filtro o limpiando el texto del buscador.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  salasIntraFiltradas.map((sala, idx) => {
+                    const esSwapMayor = sala.estadoDia === 'swap_mayor';
+                    const esResetCaso = sala.estadoDia === 'reset_caso';
+                    const esEstable = sala.estadoDia === 'estable';
+                    const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)';
+
+                    return (
+                      <div
+                        key={sala.ambienteId}
+                        style={{
+                          display: 'flex',
+                          borderBottom: '1px solid var(--border-color)',
+                          background: rowBg,
+                          minHeight: '82px',
+                          position: 'relative',
+                        }}
+                      >
+                        {/* COLUMNA LATERAL FIJA DE LA SALA */}
                         <div
-                          key={sala.ambienteId}
                           style={{
+                            width: '260px',
+                            minWidth: '260px',
+                            padding: '0.75rem 1rem',
+                            borderRight: '2px solid var(--border-color)',
+                            background: 'var(--bg-elevated)',
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 20,
                             display: 'flex',
-                            borderBottom: '1px solid var(--border-color)',
-                            background: rowBg,
-                            minHeight: '82px',
-                            position: 'relative',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            gap: '0.35rem',
+                            boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
                           }}
                         >
-                          {/* COLUMNA LATERAL FIJA DE LA SALA */}
-                          <div
-                            style={{
-                              width: '260px',
-                              minWidth: '260px',
-                              padding: '0.75rem 1rem',
-                              borderRight: '2px solid var(--border-color)',
-                              background: 'var(--bg-elevated)',
-                              position: 'sticky',
-                              left: 0,
-                              zIndex: 20,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'center',
-                              gap: '0.35rem',
-                              boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                              <span style={{ fontSize: '0.95rem' }}>
-                                {esSwapMayor ? '🔴' : esResetCaso ? '🟡' : esEstable ? '🟢' : '⚪'}
-                              </span>
-                              <span
-                                style={{
-                                  fontWeight: 800,
-                                  fontSize: '0.83rem',
-                                  color: 'var(--text-primary)',
-                                  lineHeight: 1.25,
-                                }}
-                              >
-                                {sala.ambienteNombre}
-                              </span>
-                            </div>
-
-                            {/* CÓDIGO + CATEGORÍA */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                              {sala.ambienteCodigo && (
-                                <span
-                                  style={{
-                                    fontSize: '0.68rem',
-                                    fontFamily: 'var(--font-mono)',
-                                    background: 'rgba(255, 255, 255, 0.07)',
-                                    color: 'var(--text-secondary)',
-                                    padding: '0.1rem 0.35rem',
-                                    borderRadius: '4px',
-                                  }}
-                                >
-                                  {sala.ambienteCodigo}
-                                </span>
-                              )}
-                              {sala.categoriaNombre && (
-                                <span
-                                  style={{
-                                    fontSize: '0.66rem',
-                                    padding: '0.1rem 0.4rem',
-                                    borderRadius: '10px',
-                                    background: sala.categoriaColor ? `${sala.categoriaColor}22` : 'rgba(56, 189, 248, 0.15)',
-                                    color: sala.categoriaColor || '#38bdf8',
-                                    border: `1px solid ${sala.categoriaColor ? `${sala.categoriaColor}44` : 'rgba(56, 189, 248, 0.3)'}`,
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {sala.categoriaNombre}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* ESTADO OPERATIVO DE TRANSICIONES */}
-                            <div>
-                              {sala.tieneTransicionPendiente ? (
-                                sala.proximaTransicion?.esEnCursoAhora ? (
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '0.3rem',
-                                      fontSize: '0.68rem',
-                                      fontWeight: 800,
-                                      background: 'rgba(239, 68, 68, 0.2)',
-                                      color: '#ef4444',
-                                      border: '1px solid #ef4444',
-                                      padding: '0.15rem 0.45rem',
-                                      borderRadius: '6px',
-                                    }}
-                                  >
-                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
-                                    ⚡ EN RESET AHORA ({sala.proximaTransicion.ventanaMinutos}m)
-                                  </span>
-                                ) : (
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '0.3rem',
-                                      fontSize: '0.68rem',
-                                      fontWeight: 700,
-                                      background: sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                                      color: sala.proximaTransicion?.tipo === 'swap_curso' ? '#ef4444' : '#eab308',
-                                      border: `1px solid ${sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
-                                      padding: '0.15rem 0.45rem',
-                                      borderRadius: '6px',
-                                    }}
-                                  >
-                                    <span>{sala.proximaTransicion?.tipo === 'swap_curso' ? '🔴' : '🟡'}</span>
-                                    <span>
-                                      Próx: {sala.proximaTransicion?.horaInicioSiguiente}
-                                      {sala.minutosParaProximaTransicion !== null ? ` (en ${sala.minutosParaProximaTransicion}m)` : ''}
-                                    </span>
-                                  </span>
-                                )
-                              ) : esSwapMayor || esResetCaso ? (
-                                <span
-                                  style={{
-                                    fontSize: '0.68rem',
-                                    color: '#10b981',
-                                    fontWeight: 600,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                  }}
-                                >
-                                  ✓ Cambios de hoy completados
-                                </span>
-                              ) : esEstable ? (
-                                <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>
-                                  🟢 Fija: Mismo curso todo el día
-                                </span>
-                              ) : (
-                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                                  ⚪ Sin clases hoy
-                                </span>
-                              )}
-                            </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <span style={{ fontSize: '0.95rem' }}>
+                              {esSwapMayor ? '🔴' : esResetCaso ? '🟡' : esEstable ? '🟢' : '⚪'}
+                            </span>
+                            <span
+                              style={{
+                                fontWeight: 800,
+                                fontSize: '0.83rem',
+                                color: 'var(--text-primary)',
+                                lineHeight: 1.25,
+                              }}
+                            >
+                              {sala.ambienteNombre}
+                            </span>
                           </div>
 
-                          {/* LÍNEA DE TIEMPO HORIZONTAL DE LA SALA */}
-                          <div style={{ flex: 1, position: 'relative', minHeight: '82px' }}>
-                            
-                            {/* GUÍAS DE FONDO DE CADA HORA */}
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
-                              {slotsHorarios.map((slot, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    flex: 1,
-                                    borderRight: slot.esHoraEnPunto ? '1px solid rgba(255, 255, 255, 0.05)' : '1px dashed rgba(255, 255, 255, 0.02)',
-                                  }}
-                                />
-                              ))}
-                            </div>
-
-                            {/* LÍNEA DEL MOMENTO ACTUAL EN VIVO */}
-                            {esHoy && nowMinutes >= 420 && nowMinutes <= 1320 && (
-                              <div
+                          {/* CÓDIGO + CATEGORÍA */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            {sala.ambienteCodigo && (
+                              <span
                                 style={{
-                                  position: 'absolute',
-                                  left: `${((nowMinutes - 420) / 900) * 100}%`,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: '2px',
-                                  background: '#0284c7',
-                                  zIndex: 18,
-                                  pointerEvents: 'none',
-                                  boxShadow: '0 0 8px rgba(56, 189, 248, 0.8)',
+                                  fontSize: '0.68rem',
+                                  fontFamily: 'var(--font-mono)',
+                                  background: 'rgba(255, 255, 255, 0.07)',
+                                  color: 'var(--text-secondary)',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '4px',
+                                }}
+                              >
+                                {sala.ambienteCodigo}
+                              </span>
+                            )}
+                            {sala.categoriaNombre && (
+                              <span
+                                style={{
+                                  fontSize: '0.66rem',
+                                  padding: '0.1rem 0.4rem',
+                                  borderRadius: '10px',
+                                  background: sala.categoriaColor ? `${sala.categoriaColor}22` : 'rgba(56, 189, 248, 0.15)',
+                                  color: sala.categoriaColor || '#38bdf8',
+                                  border: `1px solid ${sala.categoriaColor ? `${sala.categoriaColor}44` : 'rgba(56, 189, 248, 0.3)'}`,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {sala.categoriaNombre}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* ESTADO OPERATIVO DE TRANSICIONES */}
+                          <div>
+                            {sala.tieneTransicionPendiente ? (
+                              sala.proximaTransicion?.esEnCursoAhora ? (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.3rem',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    background: 'rgba(239, 68, 68, 0.2)',
+                                    color: '#ef4444',
+                                    border: '1px solid #ef4444',
+                                    padding: '0.15rem 0.45rem',
+                                    borderRadius: '6px',
+                                  }}
+                                >
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
+                                  ⚡ EN RESET AHORA ({sala.proximaTransicion.ventanaMinutos}m)
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.3rem',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    background: sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                                    color: sala.proximaTransicion?.tipo === 'swap_curso' ? '#ef4444' : '#eab308',
+                                    border: `1px solid ${sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
+                                    padding: '0.15rem 0.45rem',
+                                    borderRadius: '6px',
+                                  }}
+                                >
+                                  <span>{sala.proximaTransicion?.tipo === 'swap_curso' ? '🔴' : '🟡'}</span>
+                                  <span>
+                                    Próx: {sala.proximaTransicion?.horaInicioSiguiente}
+                                    {sala.minutosParaProximaTransicion !== null ? ` (en ${sala.minutosParaProximaTransicion}m)` : ''}
+                                  </span>
+                                </span>
+                              )
+                            ) : esSwapMayor || esResetCaso ? (
+                              <span
+                                style={{
+                                  fontSize: '0.68rem',
+                                  color: '#10b981',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                }}
+                              >
+                                ✓ Cambios de hoy completados
+                              </span>
+                            ) : esEstable ? (
+                              <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600 }}>
+                                🟢 Fija: Mismo curso todo el día
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                ⚪ Sin clases hoy
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* LÍNEA DE TIEMPO HORIZONTAL DE LA SALA */}
+                        <div style={{ flex: 1, position: 'relative', minHeight: '82px' }}>
+
+                          {/* GUÍAS DE FONDO DE CADA HORA */}
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+                            {slotsHorarios.map((slot, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  flex: 1,
+                                  borderRight: slot.esHoraEnPunto ? '1px solid rgba(255, 255, 255, 0.05)' : '1px dashed rgba(255, 255, 255, 0.02)',
                                 }}
                               />
-                            )}
+                            ))}
+                          </div>
 
-                            {/* BLOQUES DE SESIONES / CURSOS */}
-                            {sala.sesiones.map((ses) => {
-                              const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
-                              const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
-                              const coursePalette = getCourseColor(ses.cursoNombreSimclic || ses.titulo || '');
-                              const esEnCurso = esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
+                          {/* LÍNEA DEL MOMENTO ACTUAL EN VIVO */}
+                          {esHoy && nowMinutes >= 420 && nowMinutes <= 1320 && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${((nowMinutes - 420) / 900) * 100}%`,
+                                top: 0,
+                                bottom: 0,
+                                width: '2px',
+                                background: '#0284c7',
+                                zIndex: 18,
+                                pointerEvents: 'none',
+                                boxShadow: '0 0 8px rgba(56, 189, 248, 0.8)',
+                              }}
+                            />
+                          )}
+
+                          {/* BLOQUES DE SESIONES / CURSOS */}
+                          {sala.sesiones.map((ses) => {
+                            const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
+                            const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
+                            const coursePalette = getCourseColor(ses.cursoNombreSimclic || ses.titulo || '');
+                            const esEnCurso = esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
+
+                            return (
+                              <div
+                                key={ses.id}
+                                onClick={() => onVerDetalleSesion(ses)}
+                                style={{
+                                  position: 'absolute',
+                                  left: `${leftPercent}%`,
+                                  width: `${widthPercent}%`,
+                                  top: '8px',
+                                  bottom: '8px',
+                                  background: coursePalette.bg,
+                                  border: `1.5px solid ${esEnCurso ? '#38bdf8' : coursePalette.border}`,
+                                  borderRadius: '8px',
+                                  padding: '0.35rem 0.6rem',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'center',
+                                  gap: '0.15rem',
+                                  overflow: 'hidden',
+                                  boxShadow: esEnCurso ? '0 0 12px rgba(56, 189, 248, 0.45)' : '0 2px 6px rgba(0, 0, 0, 0.25)',
+                                  zIndex: 10,
+                                  transition: 'transform 0.15s, box-shadow 0.15s',
+                                }}
+                                title={`Clic para ver ficha completa:\n${ses.cursoNombreSimclic || ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin} (${ses.duracionMinutos} min)\nDocente: ${ses.docenteNombreSimclic || 'Sin docente'}\nCaso: ${ses.escenarioNombre || 'General'}`}
+                              >
+                                <div
+                                  style={{
+                                    fontWeight: 800,
+                                    fontSize: '0.74rem',
+                                    color: 'var(--text-primary)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    letterSpacing: '0.01em',
+                                  }}
+                                >
+                                  {ses.cursoNombreSimclic || ses.titulo}
+                                </div>
+
+                                <div
+                                  style={{
+                                    fontSize: '0.67rem',
+                                    color: 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    fontFamily: 'var(--font-mono)',
+                                  }}
+                                >
+                                  <span>{ses.horaInicio} - {ses.horaFin}</span>
+                                  {ses.escenarioNombre && (
+                                    <span style={{ color: 'var(--ucs-blue-sky, #38bdf8)', fontWeight: 600 }}>
+                                      • {ses.escenarioNombre}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {ses.docenteNombreSimclic && (
+                                  <div
+                                    style={{
+                                      fontSize: '0.64rem',
+                                      color: 'rgba(255, 255, 255, 0.65)',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                    }}
+                                  >
+                                    👤 {ses.docenteNombreSimclic}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* MARCADORES DE TRANSICIÓN / RESETS ENTRE CLASES */}
+                          {sala.transiciones
+                            .filter((t) => t.tipo === 'swap_curso' || t.tipo === 'reset_caso')
+                            .map((trans) => {
+                              const startM = trans.horaFinAnteriorMins || 420;
+                              const endM = trans.horaInicioSiguienteMins || startM;
+                              const windowMins = trans.ventanaMinutos;
+                              const isSwap = trans.tipo === 'swap_curso';
+
+                              const leftPercent = Math.max(0, Math.min(100, ((startM - 420) / 900) * 100));
+                              const widthPercent = Math.max(2.8, Math.min(100 - leftPercent, (Math.max(windowMins, 15) / 900) * 100));
+
+                              const esEnCursoAhora = trans.esEnCursoAhora;
+                              const esPasada = trans.esPasada;
+                              const accentColor = isSwap ? '#ef4444' : '#eab308';
 
                               return (
                                 <div
-                                  key={ses.id}
-                                  onClick={() => onVerDetalleSesion(ses)}
+                                  key={trans.id}
                                   style={{
                                     position: 'absolute',
                                     left: `${leftPercent}%`,
                                     width: `${widthPercent}%`,
-                                    top: '8px',
-                                    bottom: '8px',
-                                    background: coursePalette.bg,
-                                    border: `1.5px solid ${esEnCurso ? '#38bdf8' : coursePalette.border}`,
+                                    top: '4px',
+                                    bottom: '4px',
+                                    background: esPasada
+                                      ? 'rgba(255, 255, 255, 0.04)'
+                                      : esEnCursoAhora
+                                        ? `linear-gradient(135deg, ${accentColor}44, ${accentColor}22)`
+                                        : `linear-gradient(135deg, ${accentColor}33, ${accentColor}18)`,
+                                    border: `2px ${esPasada ? 'dashed rgba(255,255,255,0.2)' : 'solid'} ${esPasada ? 'rgba(255,255,255,0.3)' : accentColor}`,
                                     borderRadius: '8px',
-                                    padding: '0.35rem 0.6rem',
-                                    cursor: 'pointer',
+                                    padding: '0.2rem 0.4rem',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'center',
-                                    gap: '0.15rem',
-                                    overflow: 'hidden',
-                                    boxShadow: esEnCurso ? '0 0 12px rgba(56, 189, 248, 0.45)' : '0 2px 6px rgba(0, 0, 0, 0.25)',
-                                    zIndex: 10,
-                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                    alignItems: 'center',
+                                    textAlign: 'center',
+                                    zIndex: 15,
+                                    boxShadow: esEnCursoAhora
+                                      ? `0 0 16px ${accentColor}99`
+                                      : esPasada
+                                        ? 'none'
+                                        : `0 2px 10px ${accentColor}44`,
+                                    opacity: esPasada ? 0.6 : 1,
+                                    pointerEvents: 'auto',
+                                    cursor: 'help',
                                   }}
-                                  title={`Clic para ver ficha completa:\n${ses.cursoNombreSimclic || ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin} (${ses.duracionMinutos} min)\nDocente: ${ses.docenteNombreSimclic || 'Sin docente'}\nCaso: ${ses.escenarioNombre || 'General'}`}
+                                  title={`TRANSICIÓN LOGÍSTICA:\n${isSwap ? '🔴 SWAP DE CURSO' : '🟡 RESET DE CASO'}\nDe: ${trans.cursoAnterior} (hasta ${trans.horaFinAnterior})\nA: ${trans.cursoSiguiente} (desde ${trans.horaInicioSiguiente})\nVentana: ${trans.ventanaMinutos <= 0 ? '0 min (Inmediato)' : `${trans.ventanaMinutos} min`}\nAcción: ${trans.descripcionAccion}\nDocente nuevo: ${trans.docenteSiguiente || 'No especificado'}`}
                                 >
                                   <div
                                     style={{
-                                      fontWeight: 800,
-                                      fontSize: '0.74rem',
-                                      color: 'var(--text-primary)',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 900,
+                                      color: esPasada ? 'var(--text-muted)' : accentColor,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
                                       whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      letterSpacing: '0.01em',
+                                      textShadow: esEnCursoAhora ? `0 0 6px ${accentColor}` : 'none',
                                     }}
                                   >
-                                    {ses.cursoNombreSimclic || ses.titulo}
+                                    <span>{esPasada ? '✓' : isSwap ? '🔴' : '🟡'}</span>
+                                    <span>{esPasada ? 'Hecho' : isSwap ? 'SWAP' : 'RESET'}</span>
                                   </div>
 
                                   <div
                                     style={{
-                                      fontSize: '0.67rem',
-                                      color: 'var(--text-secondary)',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '0.35rem',
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
+                                      fontSize: '0.62rem',
                                       fontFamily: 'var(--font-mono)',
+                                      fontWeight: 800,
+                                      color: esPasada ? 'var(--text-muted)' : '#ffffff',
+                                      whiteSpace: 'nowrap',
                                     }}
                                   >
-                                    <span>{ses.horaInicio} - {ses.horaFin}</span>
-                                    {ses.escenarioNombre && (
-                                      <span style={{ color: 'var(--ucs-blue-sky, #38bdf8)', fontWeight: 600 }}>
-                                        • {ses.escenarioNombre}
-                                      </span>
-                                    )}
+                                    {trans.horaInicioSiguiente} ({windowMins}m)
                                   </div>
-
-                                  {ses.docenteNombreSimclic && (
-                                    <div
-                                      style={{
-                                        fontSize: '0.64rem',
-                                        color: 'rgba(255, 255, 255, 0.65)',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                      }}
-                                    >
-                                      👤 {ses.docenteNombreSimclic}
-                                    </div>
-                                  )}
                                 </div>
                               );
                             })}
-
-                            {/* MARCADORES DE TRANSICIÓN / RESETS ENTRE CLASES */}
-                            {sala.transiciones
-                              .filter((t) => t.tipo === 'swap_curso' || t.tipo === 'reset_caso')
-                              .map((trans) => {
-                                const startM = trans.horaFinAnteriorMins || 420;
-                                const endM = trans.horaInicioSiguienteMins || startM;
-                                const windowMins = trans.ventanaMinutos;
-                                const isSwap = trans.tipo === 'swap_curso';
-
-                                const leftPercent = Math.max(0, Math.min(100, ((startM - 420) / 900) * 100));
-                                const widthPercent = Math.max(2.8, Math.min(100 - leftPercent, (Math.max(windowMins, 15) / 900) * 100));
-
-                                const esEnCursoAhora = trans.esEnCursoAhora;
-                                const esPasada = trans.esPasada;
-                                const accentColor = isSwap ? '#ef4444' : '#eab308';
-
-                                return (
-                                  <div
-                                    key={trans.id}
-                                    style={{
-                                      position: 'absolute',
-                                      left: `${leftPercent}%`,
-                                      width: `${widthPercent}%`,
-                                      top: '4px',
-                                      bottom: '4px',
-                                      background: esPasada
-                                        ? 'rgba(255, 255, 255, 0.04)'
-                                        : esEnCursoAhora
-                                        ? `linear-gradient(135deg, ${accentColor}44, ${accentColor}22)`
-                                        : `linear-gradient(135deg, ${accentColor}33, ${accentColor}18)`,
-                                      border: `2px ${esPasada ? 'dashed rgba(255,255,255,0.2)' : 'solid'} ${esPasada ? 'rgba(255,255,255,0.3)' : accentColor}`,
-                                      borderRadius: '8px',
-                                      padding: '0.2rem 0.4rem',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      justifyContent: 'center',
-                                      alignItems: 'center',
-                                      textAlign: 'center',
-                                      zIndex: 15,
-                                      boxShadow: esEnCursoAhora
-                                        ? `0 0 16px ${accentColor}99`
-                                        : esPasada
-                                        ? 'none'
-                                        : `0 2px 10px ${accentColor}44`,
-                                      opacity: esPasada ? 0.6 : 1,
-                                      pointerEvents: 'auto',
-                                      cursor: 'help',
-                                    }}
-                                    title={`TRANSICIÓN LOGÍSTICA:\n${isSwap ? '🔴 SWAP DE CURSO' : '🟡 RESET DE CASO'}\nDe: ${trans.cursoAnterior} (hasta ${trans.horaFinAnterior})\nA: ${trans.cursoSiguiente} (desde ${trans.horaInicioSiguiente})\nVentana: ${trans.ventanaMinutos <= 0 ? '0 min (Inmediato)' : `${trans.ventanaMinutos} min`}\nAcción: ${trans.descripcionAccion}\nDocente nuevo: ${trans.docenteSiguiente || 'No especificado'}`}
-                                  >
-                                    <div
-                                      style={{
-                                        fontSize: '0.68rem',
-                                        fontWeight: 900,
-                                        color: esPasada ? 'var(--text-muted)' : accentColor,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.25rem',
-                                        whiteSpace: 'nowrap',
-                                        textShadow: esEnCursoAhora ? `0 0 6px ${accentColor}` : 'none',
-                                      }}
-                                    >
-                                      <span>{esPasada ? '✓' : isSwap ? '🔴' : '🟡'}</span>
-                                      <span>{esPasada ? 'Hecho' : isSwap ? 'SWAP' : 'RESET'}</span>
-                                    </div>
-
-                                    <div
-                                      style={{
-                                        fontSize: '0.62rem',
-                                        fontFamily: 'var(--font-mono)',
-                                        fontWeight: 800,
-                                        color: esPasada ? 'var(--text-muted)' : '#ffffff',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      {trans.horaInicioSiguiente} ({windowMins}m)
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                          </div>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
+          </div>
         </div>
       )}
 
@@ -1227,26 +1191,6 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 </button>
               </div>
             </div>
-
-            {/* BOTÓN COPIAR MENSAJE PARA COORDINACIÓN */}
-            {resumenInter && (
-              <button
-                type="button"
-                onClick={handleCopiarPropuesta}
-                className={styles.actionBtn}
-                style={{
-                  padding: '0.45rem 1rem',
-                  fontSize: '0.82rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  background: copiadoPropuesta ? '#10b981' : 'var(--ucs-blue, #0d346c)',
-                }}
-              >
-                <span>{copiadoPropuesta ? '✓' : '📋'}</span>
-                <span>{copiadoPropuesta ? '¡Propuesta Copiada!' : 'Copiar Propuesta para Coordinación'}</span>
-              </button>
-            )}
           </div>
 
           {loadingComparacion ? (
@@ -1260,75 +1204,6 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
             </div>
           ) : (
             <>
-              {/* PERMUTAS SUGERIDAS (RECOMENDADOR DE AHORRO DE ACARREO PESADO) */}
-              {resumenInter.permutasSugeridas.length > 0 && (
-                <div
-                  style={{
-                    background: 'rgba(234, 179, 8, 0.08)',
-                    border: '1.5px solid #eab308',
-                    borderRadius: '14px',
-                    padding: '1.25rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.85rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '1.4rem' }}>💡</span>
-                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#eab308' }}>
-                        Permutas Inteligentes Detectadas ({resumenInter.permutasSugeridas.length})
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        background: '#eab308',
-                        color: '#06152d',
-                        padding: '0.2rem 0.65rem',
-                        borderRadius: '20px',
-                        fontSize: '0.72rem',
-                        fontWeight: 800,
-                      }}
-                    >
-                      Ahorro Directo de Acarreo Pesado
-                    </span>
-                  </div>
-
-                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    SimClic programó los cursos invertidos entre dos salas para el día siguiente. Si se propone a coordinación permutar las salas en el sistema, los simuladores y torres se quedan exactamente en su lugar y no se mueven por los pasillos:
-                  </p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {resumenInter.permutasSugeridas.map((permuta) => (
-                      <div
-                        key={permuta.id}
-                        style={{
-                          background: 'var(--bg-card)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '10px',
-                          padding: '1rem',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.5rem',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                            {permuta.titulo}
-                          </span>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981' }}>
-                            {permuta.ahorroEstimado}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                          {permuta.explicacion}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* BARRA DE FILTROS RÁPIDOS Y BÚSQUEDA INTERACTIVA */}
               {(() => {
                 const countRequierenAccion = resumenInter.salasRequierenAccion;
@@ -1714,14 +1589,14 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                                 {sala.tipoContinuidad === 'cambio_curso'
                                   ? 'Cambio de Curso'
                                   : sala.tipoContinuidad === 'continuidad_equipos'
-                                  ? 'Cambio de Caso'
-                                  : sala.tipoContinuidad === 'continuidad_total'
-                                  ? '¡Dejar Montado!'
-                                  : sala.tipoContinuidad === 'desmontaje'
-                                  ? 'Desarmar'
-                                  : sala.tipoContinuidad === 'montaje_nuevo'
-                                  ? 'Armar'
-                                  : 'Sin acción'}
+                                    ? 'Cambio de Caso'
+                                    : sala.tipoContinuidad === 'continuidad_total'
+                                      ? '¡Dejar Armado!'
+                                      : sala.tipoContinuidad === 'desmontaje'
+                                        ? 'Desarmar'
+                                        : sala.tipoContinuidad === 'montaje_nuevo'
+                                          ? 'Armar'
+                                          : 'Sin acción'}
                               </span>
                             </div>
 
@@ -1871,108 +1746,6 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {/* =========================================================================
-          SUB-PESTAÑA 3: GUÍA RÁPIDA & PROTOCOLO DE RESET
-          ========================================================================= */}
-      {subTab === 'guia' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-          {/* TARJETA 1 */}
-          <div
-            style={{
-              background: 'var(--bg-card)',
-              border: '1.5px solid #ef4444',
-              borderRadius: '12px',
-              padding: '1.25rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.6rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.3rem' }}>🔴</span>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#ef4444' }}>
-                Protocolo: Swap Mayor (Cambio de Curso)
-              </h3>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Ocurre cuando la sala pasa de una especialidad a otra completamente diferente (ej. de Simulación Quirúrgica a Simulación Pediátrica).
-            </p>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', marginTop: '0.3rem' }}>
-              <strong>Checklist Técnico:</strong>
-              <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0 }}>
-                <li>Desconectar y apagar simulador anterior.</li>
-                <li>Retirar cajas de instrumental y suturas del curso saliente.</li>
-                <li>Montar simulador específico del nuevo curso (SimMan / SimBaby / Fantoma).</li>
-                <li>Configurar monitor multiparámetro o torre de laparoscopía con el preset del nuevo curso.</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* TARJETA 2 */}
-          <div
-            style={{
-              background: 'var(--bg-card)',
-              border: '1.5px solid #eab308',
-              borderRadius: '12px',
-              padding: '1.25rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.6rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.3rem' }}>🟡</span>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#eab308' }}>
-                Protocolo: Reset de Caso (Mismo Curso)
-              </h3>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              El curso académico se mantiene, pero los alumnos pasan a un escenario clínico diferente (ej. de Paro Cardíaco a Shock Séptico).
-            </p>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', marginTop: '0.3rem' }}>
-              <strong>Checklist Técnico:</strong>
-              <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0 }}>
-                <li><strong>No mover el simulador mayor ni el mobiliario pesado.</strong></li>
-                <li>Reemplazar apósitos, vías venosas o fluidos según el nuevo caso.</li>
-                <li>Cargar en el software el nuevo guión o estado del paciente virtual.</li>
-                <li>Colocar la nueva historia clínica física en la camilla para el docente.</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* TARJETA 3 */}
-          <div
-            style={{
-              background: 'var(--bg-card)',
-              border: '1.5px solid #10b981',
-              borderRadius: '12px',
-              padding: '1.25rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.6rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.3rem' }}>🌟</span>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#10b981' }}>
-                Protocolo: Continuidad Nocturna (22:00)
-              </h3>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Al cierre del turno noche (22:00), los técnicos revisan qué salas inician mañana con la misma especialidad.
-            </p>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', marginTop: '0.3rem' }}>
-              <strong>Regla de Oro:</strong>
-              <ul style={{ margin: '0.4rem 0 0 1rem', padding: 0 }}>
-                <li>Las salas marcadas en verde quedan <strong>armadas, limpias y listas</strong>.</li>
-                <li>Se ahorran hasta 45 minutos de montaje pesado a las 06:30 am del día siguiente.</li>
-                <li>Baterías conectadas a la red eléctrica para carga nocturna.</li>
-              </ul>
-            </div>
-          </div>
         </div>
       )}
     </div>

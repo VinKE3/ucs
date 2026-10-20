@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { sesionesProgramadas, ambientes, categoriasAmbiente, sedes, asistencias, usuarios } from '@/db/schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { isAmbienteVirtual, isSesionVirtual } from '@/lib/logisticaSimulacion';
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,7 +61,9 @@ export async function GET(request: NextRequest) {
       )
       .orderBy(ambientes.nombre);
 
-    const ambientesList = await ambientesQuery;
+    const ambientesRaw = await ambientesQuery;
+    // Excluir ambientes virtuales (VIRTUAL - VILLA, etc.) de la clínica física
+    const ambientesList = ambientesRaw.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
 
     // 3. Obtener Sesiones Programadas para la fecha (y sede si aplica)
     const condicionesSesiones = [eq(sesionesProgramadas.fecha, fecha)];
@@ -68,7 +71,7 @@ export async function GET(request: NextRequest) {
       condicionesSesiones.push(eq(sesionesProgramadas.sedeId, activeSedeId));
     }
 
-    const sesionesRaw = await db
+    const sesionesRawFromDb = await db
       .select({
         id: sesionesProgramadas.id,
         simclicId: sesionesProgramadas.simclicId,
@@ -104,6 +107,17 @@ export async function GET(request: NextRequest) {
       .from(sesionesProgramadas)
       .where(and(...condicionesSesiones))
       .orderBy(sesionesProgramadas.horaInicio);
+
+    // Excluir clases virtuales (VIRTUAL - VILLA, etc.) para que no ocupen salas ni se tomen en cuenta
+    const sesionesRaw = sesionesRawFromDb.filter(
+      (s) =>
+        !isSesionVirtual({
+          ambienteNombreSimclic: s.ambienteNombreSimclic,
+          ambienteCodigoSimclic: s.ambienteCodigoSimclic,
+          titulo: s.titulo,
+          cursoNombreSimclic: s.cursoNombreSimclic,
+        })
+    );
 
     // 4. Obtener asistencias del día para cruce en tiempo real con Kiosco
     const condicionesAsistencias = [eq(asistencias.fecha, fecha)];

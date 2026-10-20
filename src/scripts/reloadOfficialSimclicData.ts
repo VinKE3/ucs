@@ -55,10 +55,9 @@ const SIMCLIC_ROOMS = [
   { campus: 'Villa', code: 'SL02TA39', name: 'ECOE 08', tipo: 'ecoe', capacidad: 3 },
   { campus: 'Villa', code: 'SL02TA30', name: 'ECOE 9', tipo: 'ecoe', capacidad: 3 },
   { campus: 'Villa', code: 'SL02TA31', name: 'ECOE 10', tipo: 'ecoe', capacidad: 3 },
-  { campus: 'Villa', code: 'VIRT', name: 'VIRTUAL - VILLA', tipo: 'general', capacidad: 1 },
   { campus: 'Villa', code: 'AG', name: 'Almacén General - Villa', tipo: 'general', capacidad: 3 },
 
-  // --- CAMPUS NORTE (11 salas) ---
+  // --- CAMPUS NORTE (10 salas físicas) ---
   { campus: 'Norte', code: 'SL05LA25', name: 'SALA ALTA FIDELIDAD 1 - NORTE', tipo: 'alta_fidelidad', capacidad: 10 },
   { campus: 'Norte', code: 'SL05LA26', name: 'SALA ALTA FIDELIDAD 2 - NORTE', tipo: 'alta_fidelidad', capacidad: 10 },
   { campus: 'Norte', code: 'SL05LA27', name: 'SALA ALTA FIDELIDAD 3 - NORTE', tipo: 'alta_fidelidad', capacidad: 10 },
@@ -68,10 +67,9 @@ const SIMCLIC_ROOMS = [
   { campus: 'Norte', code: 'SL05TA01', name: 'CONSULTORIO 1 - NORTE', tipo: 'consultorio', capacidad: 9 },
   { campus: 'Norte', code: 'SL05TA02', name: 'CONSULTORIO 2 - NORTE', tipo: 'consultorio', capacidad: 9 },
   { campus: 'Norte', code: 'SL05TA03', name: 'CONSULTORIO 3 - NORTE', tipo: 'consultorio', capacidad: 9 },
-  { campus: 'Norte', code: 'VIRT-N', name: 'Virtual - Norte', tipo: 'general', capacidad: 1 },
   { campus: 'Norte', code: 'AG-N', name: 'Almacén General - Norte', tipo: 'general', capacidad: 3 },
 
-  // --- CAMPUS ATE (14 salas) ---
+  // --- CAMPUS ATE (13 salas físicas) ---
   { campus: 'Ate', code: 'ATE01_C801', name: 'Sala de Alta Fidelidad 1 - Ate', tipo: 'alta_fidelidad', capacidad: 12 },
   { campus: 'Ate', code: 'ATE01_C802', name: 'Sala de Alta Fidelidad 2 - Ate', tipo: 'alta_fidelidad', capacidad: 12 },
   { campus: 'Ate', code: 'ATE01_C803', name: 'Sala de Alta Fidelidad 3 - Ate', tipo: 'alta_fidelidad', capacidad: 12 },
@@ -84,7 +82,6 @@ const SIMCLIC_ROOMS = [
   { campus: 'Ate', code: 'SL06LA13', name: 'SALA DE HABILIDADES B-401 - ATE', tipo: 'habilidades', capacidad: 16 },
   { campus: 'Ate', code: 'SL06TA02', name: 'CONSULTORIO B-402 A - ATE', tipo: 'consultorio', capacidad: 10 },
   { campus: 'Ate', code: 'SL02LA66', name: 'ARAMBURU Consultorio', tipo: 'consultorio', capacidad: 8 },
-  { campus: 'Ate', code: 'VIRT-A', name: 'Virtual - Ate', tipo: 'general', capacidad: 1 },
   { campus: 'Ate', code: 'AG-A', name: 'Almacén General - Ate', tipo: 'general', capacidad: 1 },
 ];
 

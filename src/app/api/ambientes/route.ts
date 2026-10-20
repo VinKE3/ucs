@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { ambientes, sedes, asistencias, usuarios, cursos } from '@/db/schema';
 import { eq, ne, and, like, or, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { isAmbienteVirtual } from '@/lib/logisticaSimulacion';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,9 @@ export async function GET(request: Request) {
       query = query.where(and(...conditions));
     }
 
-    const list = await query.orderBy(ambientes.nombre);
+    const listRaw = await query.orderBy(ambientes.nombre);
+    // Excluir salas virtuales de la gestión de ambientes físicos
+    const list = listRaw.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
 
     // Obtener ocupantes activos (en curso) de las salas en esta sede
     let activeAsistencias: {

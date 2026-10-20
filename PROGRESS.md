@@ -877,9 +877,25 @@ src/
     - Selector de modo integrado en el banner del Gantt:
       - `[ 🖥️ Mañana Simulado (Gantt Completo) ]`: Vista a pantalla completa de la programación de mañana con todas las salas.
       - `[ 👥 Comparativa Dual (Hoy vs Mañana) ]`: Recrea de forma nativa la experiencia de las dos pestañas de SimClic lado a lado.
-    - **Sincronización Vertical Absoluta**: Cada fila agrupa la sala de **Hoy** (con su cierre nocturno) exactamente a la par de la sala de **Mañana Simulado** (con sus reubicaciones en verde esmeralda y desplazamientos en ámbar). El técnico puede verificar en 5 segundos por qué se movió cada clase y cómo queda todo el campus.
-  - **Guía Rápida de Pasos para SimClic**:
-    - Genera la secuencia exacta de movimientos indicando los bloques de horario (`07:00 a 12:00`), salas origen y destino, lista para aplicar en SimClic en menos de 1 minuto con 0 margen de error.
+* `feat(excluir-clases-virtuales-panel)`: **Hito 57: Exclusión Total y Quirúrgica de VIRTUAL-VILLA y Clases Virtuales del Panel Administrativo**:
+  - **Requerimiento Operativo**:
+    - El usuario solicitó expresamente retirar la sala `VIRTUAL - VILLA` y todas las clases virtuales del panel, asegurando que no se muestren ni se tomen en cuenta en la logística clínica física.
+  - **Filtros Preventivos en Capa API REST**:
+    - `/api/programacion/route.ts`: Exclusión de salas virtuales (`isAmbienteVirtual`) y descarte automático de sesiones con ambiente o título virtual (`isSesionVirtual`). Las métricas del día (`salasTotales`, `totalSesiones`, `salasOcupadasAhora`, `salasLibresAhora`) reflejan con un 100% de fidelidad únicamente los ambientes clínicos físicos.
+    - `/api/ambientes/route.ts`: Filtra y omite salas virtuales al listar ambientes para el panel de administración.
+    - `/api/dashboard/stats/route.ts`: Ajuste del conteo de ambientes activos excluyendo registros con `VIRTUAL` o código `VIRT`.
+  - **Lógica Centralizada de Simulación & Algoritmos (`logisticaSimulacion.ts`)**:
+    - Nuevos helpers exportados: `isAmbienteVirtual(nom, cod)` y `isSesionVirtual(ses)`.
+    - `analizarLogisticaIntraDia`: Purga salas y sesiones virtuales para evitar transiciones espurias o falsos swaps.
+    - `analizarContinuidadInterDias`: No evalúa clases virtuales para el cálculo de acarreo o cierres de noche.
+    - `autoReorganizarSalasOptimas`: Previene categóricamente cualquier reubicación o permuta que involucre salas o materias virtuales.
+    - `clasificarPisoYOrden`: Asigna orden de seguridad deshabilitado a ambientes virtuales.
+  - **Limpieza en Vistas de Usuario (`ProgramacionTab.tsx` & `HubLogisticaSimulacion.tsx`)**:
+    - `ProgramacionTab.tsx`: Eliminada la categoría visual de "Ambientes Virtuales"; el Gantt principal omite salas virtuales y sus sesiones.
+    - `HubLogisticaSimulacion.tsx`: El Gantt de Continuidad, la Comparativa Dual (Hoy vs Mañana) y las tarjetas de acción no listan ni consideran clases virtuales.
+  - **Depuración de Base de Datos y Semillas**:
+    - Desactivación de registros en PostgreSQL (`ambientes.activo = false` para `VIRTUAL - VILLA`, `Virtual - Norte`, `Virtual - Ate`).
+    - Eliminadas las entradas virtuales del catálogo oficial de salas en `reloadOfficialSimclicData.ts`.
 
 ---
 

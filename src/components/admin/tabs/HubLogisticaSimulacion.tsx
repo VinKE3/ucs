@@ -20,6 +20,8 @@ import {
   clasificarPisoYOrden,
   haySolapamientoHorario,
   obtenerBloqueConsecutivo,
+  isAmbienteVirtual,
+  isSesionVirtual,
 } from '@/lib/logisticaSimulacion';
 
 import { showToast, showAlert, confirmModal } from '@/lib/alerts';
@@ -198,7 +200,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       const res = await fetch(`/api/programacion?${params.toString()}`);
       const data = await res.json();
       if (res.ok && data.success) {
-        const list = data.sesiones || [];
+        const list = (data.sesiones || []).filter((s: any) => !isSesionVirtual(s));
         setSesionesComparacion(list);
         setSesionesComparacionOriginales(list);
         setHistorialPermutas([]);
@@ -421,10 +423,9 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   }, [historialPermutas]);
 
   // Ambientes para el Gantt de Continuidad:
-  // Por defecto muestra TODAS las salas del campus (idéntico a la vista general de SimClic),
-  // permitiendo inspeccionar la clínica completa y filtrar por término de búsqueda o alcance.
+  // Muestra todas las salas físicas del campus (excluyendo salas virtuales como VIRTUAL-VILLA)
   const ambientesGanttContinuidad = useMemo(() => {
-    let list = ambientes;
+    let list = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       list = list.filter(
@@ -467,7 +468,9 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
     >();
 
     for (const amb of ambientesGanttContinuidad) {
+      if (isAmbienteVirtual(amb.nombre, amb.codigo)) continue;
       const { piso, ordenPiso, ordenSala } = clasificarPisoYOrden(amb);
+      if (piso === 'Ambientes Virtuales') continue;
       if (!gruposMap.has(piso)) {
         gruposMap.set(piso, { piso, ordenPiso, ambientes: [] });
       }

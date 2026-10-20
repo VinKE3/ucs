@@ -13,7 +13,7 @@ import type {
 } from '@/types/admin';
 import { ModalDetalleSesionSimclic } from '@/components/admin/modals/ModalDetalleSesionSimclic';
 import { HubLogisticaSimulacion } from '@/components/admin/tabs/HubLogisticaSimulacion';
-import { analizarLogisticaIntraDia } from '@/lib/logisticaSimulacion';
+import { analizarLogisticaIntraDia, isAmbienteVirtual, isSesionVirtual } from '@/lib/logisticaSimulacion';
 import { showToast, showAlert, showError } from '@/lib/alerts';
 
 interface ProgramacionTabProps {
@@ -34,9 +34,9 @@ function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | null }): 
   const nom = (amb.nombre || '').toUpperCase();
   const cod = (amb.codigo || '').toUpperCase();
 
-  // Ambientes Virtuales
-  if (nom.includes('VIRTUAL') || cod.includes('VIRT')) {
-    return { piso: 'Ambientes Virtuales', ordenPiso: 90, ordenSala: 1 };
+  // Ambientes Virtuales (excluidos de la clínica física)
+  if (isAmbienteVirtual(nom, cod)) {
+    return { piso: 'Ambientes Virtuales', ordenPiso: 999, ordenSala: 999 };
   }
 
   // Almacén / Administrativo
@@ -519,6 +519,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   // Filtrado reactivo de sesiones
   const sesionesFiltradas = useMemo(() => {
     return sesiones.filter((ses) => {
+      // Excluir clases y ambientes virtuales
+      if (isSesionVirtual(ses)) return false;
+
       // 1. Filtro por Docente
       if (filtroDocente !== 'todos') {
         if (!ses.docenteNombreSimclic || !ses.docenteNombreSimclic.toLowerCase().includes(filtroDocente.toLowerCase())) {
@@ -620,7 +623,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
   // Lista de salas filtradas (si se selecciona 'libres', o el toggle 'soloConActividadHoy')
   const ambientesFiltrados = useMemo(() => {
-    let result = ambientes;
+    let result = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
     if (filtroEstado === 'libres' && esHoy) {
       const idsLibres = new Set((metricas?.salasLibresAhora || []).map((s) => s.id));
       result = result.filter((a) => idsLibres.has(a.id));
@@ -639,7 +642,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     >();
 
     for (const amb of ambientesFiltrados) {
+      if (isAmbienteVirtual(amb.nombre, amb.codigo)) continue;
       const { piso, ordenPiso, ordenSala } = clasificarPisoYOrden(amb);
+      if (piso === 'Ambientes Virtuales') continue;
       if (!gruposMap.has(piso)) {
         gruposMap.set(piso, { piso, ordenPiso, ambientes: [] });
       }

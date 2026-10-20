@@ -21,7 +21,12 @@ export async function GET() {
     const [ambientesCount] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(ambientes)
-      .where(eq(ambientes.activo, true));
+      .where(
+        and(
+          eq(ambientes.activo, true),
+          sql`nombre NOT ILIKE '%VIRTUAL%' AND (codigo IS NULL OR codigo NOT ILIKE '%VIRT%')`
+        )
+      );
 
     const [usuariosCount] = await db
       .select({ count: sql<number>`count(*)::int` })

@@ -27,6 +27,38 @@ function normText(txt: string | null | undefined): string {
 }
 
 /**
+ * Determina si un ambiente corresponde a una sala virtual (ej: VIRTUAL - VILLA, Virtual - Norte, código VIRT).
+ * Las salas virtuales no corresponden a aulas físicas ni requieren gestión logística.
+ */
+export function isAmbienteVirtual(nom?: string | null, cod?: string | null): boolean {
+  const n = (nom || '').toUpperCase();
+  const c = (cod || '').toUpperCase();
+  return n.includes('VIRTUAL') || c.includes('VIRT');
+}
+
+/**
+ * Determina si una sesión corresponde a una clase virtual.
+ * Excluidas de tableros, líneas de tiempo Gantt y algoritmos de continuidad.
+ */
+export function isSesionVirtual(ses: {
+  ambienteNombreSimclic?: string | null;
+  ambienteCodigoSimclic?: string | null;
+  titulo?: string | null;
+  cursoNombreSimclic?: string | null;
+}): boolean {
+  const n = (ses.ambienteNombreSimclic || '').toUpperCase();
+  const c = (ses.ambienteCodigoSimclic || '').toUpperCase();
+  const t = (ses.titulo || '').toUpperCase();
+  const cur = (ses.cursoNombreSimclic || '').toUpperCase();
+  return (
+    n.includes('VIRTUAL') ||
+    c.includes('VIRT') ||
+    t.includes('VIRTUAL') ||
+    cur.includes('VIRTUAL')
+  );
+}
+
+/**
  * Clasificación y ordenamiento idéntico al SimClic por pisos (Primer Piso / Segundo Piso / etc.)
  */
 export function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | null }): {
@@ -37,9 +69,9 @@ export function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | nu
   const nom = (amb.nombre || '').toUpperCase();
   const cod = (amb.codigo || '').toUpperCase();
 
-  // Ambientes Virtuales
-  if (nom.includes('VIRTUAL') || cod.includes('VIRT')) {
-    return { piso: 'Ambientes Virtuales', ordenPiso: 90, ordenSala: 1 };
+  // Ambientes Virtuales (orden alto de seguridad; no deben incluirse en la clínica física)
+  if (isAmbienteVirtual(nom, cod)) {
+    return { piso: 'Ambientes Virtuales', ordenPiso: 999, ordenSala: 999 };
   }
 
   // Almacén / Administrativo
@@ -138,6 +170,10 @@ export function analizarLogisticaIntraDia(
   nowMinutes: number = 0,
   esHoy: boolean = true
 ): ResumenLogisticaIntraDia {
+  // Excluir ambientes y clases virtuales de la logística física
+  ambientes = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
+  sesiones = sesiones.filter((s) => !isSesionVirtual(s));
+
   // Mapear sesiones por ambiente
   const mapSesiones = new Map<number, SesionProgramadaTimelineItem[]>();
   for (const s of sesiones) {
@@ -395,6 +431,11 @@ export function analizarContinuidadInterDias(
   fechaOrigen: string,
   fechaDestino: string
 ): ResumenContinuidadInterDias {
+  // Excluir ambientes y clases virtuales de la continuidad física
+  ambientes = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
+  sesionesHoy = sesionesHoy.filter((s) => !isSesionVirtual(s));
+  sesionesManana = sesionesManana.filter((s) => !isSesionVirtual(s));
+
   const mapHoy = new Map<number, SesionProgramadaTimelineItem[]>();
   for (const s of sesionesHoy) {
     if (!s.ambienteId) continue;
@@ -1143,6 +1184,11 @@ export function autoReorganizarSalasOptimas(
   fechaOrigen: string,
   fechaDestino: string
 ): ResultadoAutoReorganizacion {
+  // Excluir ambientes y clases virtuales de la optimización física
+  ambientes = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
+  sesionesHoy = sesionesHoy.filter((s) => !isSesionVirtual(s));
+  sesionesMananaOriginales = sesionesMananaOriginales.filter((s) => !isSesionVirtual(s));
+
   // 1. Diagnóstico base sin reubicaciones
   const resumenBase = analizarContinuidadInterDias(
     ambientes,

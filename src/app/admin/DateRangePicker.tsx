@@ -7,6 +7,7 @@ interface DateRangePickerProps {
   fechaDesde: string; // 'YYYY-MM-DD' o ''
   fechaHasta: string; // 'YYYY-MM-DD' o ''
   onChange: (desde: string, hasta: string) => void;
+  align?: 'left' | 'right';
 }
 
 const MONTH_NAMES = [
@@ -20,6 +21,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   fechaDesde,
   fechaHasta,
   onChange,
+  align = 'right',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -317,7 +319,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             className={styles.popoverBackdrop}
             onClick={() => setIsOpen(false)}
           />
-          <div className={styles.popover}>
+          <div className={`${styles.popover} ${align === 'left' ? styles.popoverLeft : styles.popoverRight}`}>
             {/* CABECERA PARA MÓVIL (BOTTOM SHEET) */}
             <div className={styles.mobileHeaderBar}>
               <div className={styles.mobileHandle} />

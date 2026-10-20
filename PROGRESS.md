@@ -772,6 +772,14 @@ src/
     - **Marcación Segura (`/api/kiosco/marcar`)**: La API valida la cookie de terminal directamente en cada marcación de asistencia.
     - **Desvinculación Limpia (`/api/kiosco/terminal/desvincular`)**: Nuevo endpoint para destruir la cookie del servidor y desvincular el dispositivo en 1 clic.
     - **Blindaje del Cliente (`KioscoTerminal.tsx`)**: Eliminación del almacenamiento de tokens en `localStorage`, garantizando que la consola F12 no muestre ni permita clonar credenciales físicas entre perfiles o computadoras.
+* `fix(admin-daterangepicker-overflow)`: **Hito 49: Corrección de Desbordamiento y Posicionamiento de DateRangePicker en Historial de Asistencias**:
+  - **Causa Raíz Identificada**:
+    - En el componente `DateRangePicker.module.css`, la clase `.popover` tenía fijado `left: 0;` con un ancho mínimo de `min-width: 540px;`.
+    - Al ubicarse el botón de filtro de fechas en el extremo derecho de la barra de filtros del tab de asistencias (`AsistenciasTab.tsx`), el menú flotante se desplegaba hacia la derecha fuera del viewport visible, cortando a la mitad el calendario y ocultando los días Jueves a Domingo y las acciones de filtrado.
+  - **Solución Implementada**:
+    - **Alineación Inteligente (`DateRangePicker.module.css`)**: Se configuró `.popover` con `right: 0; left: auto;` por defecto, garantizando que el menú se expanda hacia el interior de la pantalla (hacia la izquierda) y permanezca 100% visible.
+    - **Control Flexible de Alineación (`DateRangePicker.tsx`)**: Se agregó la prop opcional `align?: 'left' | 'right'` (con valor por defecto `'right'`) con clases dedicadas `.popoverLeft` y `.popoverRight`.
+    - **Defensa de Ancho y Adaptabilidad**: Se incorporó `max-width: calc(100vw - 32px)` y se elevó el breakpoint de Bottom Sheet nativo de 680px a 720px (`@media (max-width: 720px)`) para garantizar una navegación perfecta en tablets y laptops.
 
 ---
 

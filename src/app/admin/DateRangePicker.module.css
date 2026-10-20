@@ -87,7 +87,8 @@
 .popover {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
+  left: auto;
   z-index: 1000;
   background: var(--bg-card);
   border: 1.5px solid var(--border-color);
@@ -97,6 +98,17 @@
   overflow: hidden;
   animation: fadeInDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   min-width: 540px;
+  max-width: calc(100vw - 32px);
+}
+
+.popoverLeft {
+  right: auto;
+  left: 0;
+}
+
+.popoverRight {
+  right: 0;
+  left: auto;
 }
 
 @keyframes fadeInDown {
@@ -367,9 +379,9 @@
 }
 
 /* ==========================================================================
-   ADAPTATIVIDAD RESPONSIVE MÓVIL (<= 680px) - BOTTOM SHEET ESTILO NATIVO
+   ADAPTATIVIDAD RESPONSIVE MÓVIL / TABLET (<= 720px) - BOTTOM SHEET ESTILO NATIVO
    ========================================================================== */
-@media (max-width: 680px) {
+@media (max-width: 720px) {
   .container {
     width: 100%;
   }
@@ -394,7 +406,9 @@
     to { opacity: 1; }
   }
 
-  .popover {
+  .popover,
+  .popoverLeft,
+  .popoverRight {
     position: fixed;
     top: auto;
     bottom: 0;

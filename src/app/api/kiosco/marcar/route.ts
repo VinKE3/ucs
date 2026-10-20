@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
     const now = new Date();
 
     if (accion === 'ingreso') {
-      if (!sedeId) {
+      const finalSedeId = term.sedeId || (sedeId ? Number(sedeId) : null);
+      if (!finalSedeId) {
         return NextResponse.json({ error: 'Debe especificar la sede' }, { status: 400 });
       }
 
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest) {
         .insert(asistencias)
         .values({
           usuarioId: user.id,
-          sedeId: Number(sedeId),
+          sedeId: finalSedeId,
           ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
           cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
           fecha: fechaStr,

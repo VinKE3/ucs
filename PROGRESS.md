@@ -788,6 +788,14 @@ src/
   - **Solución Implementada**:
     - **Regla Global de Capas (`globals.css`)**: Se configuró `.swal2-container { z-index: 10000 !important; }`.
     - Con este ajuste, cualquier diálogo de confirmación (`confirmModal`, `confirmDelete`, `confirmToggleActive`), alerta informativa (`showAlert`) o notificación emergente (`showToast`) se proyecta siempre con máxima prioridad visual por encima de cualquier modal o backdrop abierto.
+* `fix(kiosco-terminal-sede-lock)`: **Hito 51: Bloqueo Estricto de Sede en Terminales Físicas y Ocultamiento de Sedes Ajenas**:
+  - **Causa Raíz Identificada**:
+    - Al autorizar una terminal asignada a un campus específico (ej. "Campus Villa"), `KioscoTerminal.tsx` leía `localStorage.getItem('kiosco_selected_sede_id')` en paralelo, sobrescribiendo la sede oficial con la última sede que el usuario probó en ese navegador (ej. "Campus Ate").
+    - Adicionalmente, el selector de campus (`.sedeSelectorRow`) renderizaba incondicionalmente todas las sedes registradas (`sedesList`), permitiendo a los colaboradores cambiar de campus o ver opciones ajenas en una tablet fija en la pared de Villa.
+  - **Solución Implementada**:
+    - **Filtrado y Bloqueo Visual de Sede (`KioscoTerminal.tsx`)**: Si la terminal cuenta con `sedeId` asignado, la lista de campus se filtra exclusivamente a su campus físico (`sede.id === terminalInfo.sedeId`), mostrando la insignia bloqueada con `🔒` y deshabilitando la interacción. El selector multisede solo se despliega si la terminal fue configurada explícitamente como "Cualquier Sede (Multisede)".
+    - **Sincronización Inmutable de Estado**: Se implementó `currentSedeId = terminalInfo?.sedeId || selectedSedeId`, vinculando rígidamente la carga de ambientes de simulación, avisos de técnicos y persistencia en `localStorage`.
+    - **Garantía en Backend (`/api/kiosco/marcar/route.ts`)**: Se forzó `finalSedeId = term.sedeId || sedeId`, blindando el registro en base de datos para que una marcación desde una terminal fija quede grabada irremediablemente en la sede designada.
 
 ---
 

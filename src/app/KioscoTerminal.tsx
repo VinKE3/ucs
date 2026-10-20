@@ -134,6 +134,9 @@ export default function KioscoTerminal() {
           setTerminalInfo(data.terminal);
           if (data.terminal?.sedeId) {
             setSelectedSedeId(data.terminal.sedeId);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('kiosco_selected_sede_id', String(data.terminal.sedeId));
+            }
           }
           // Limpieza de seguridad: Si existía en localStorage, se elimina porque ahora vive en la cookie HttpOnly
           if (typeof window !== 'undefined' && legacyToken) {
@@ -155,6 +158,16 @@ export default function KioscoTerminal() {
 
     checkTerminal();
   }, []);
+
+  // Si la terminal tiene una sede asignada específicamente, forzar selectedSedeId a esa sede
+  useEffect(() => {
+    if (terminalInfo?.sedeId) {
+      setSelectedSedeId(terminalInfo.sedeId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('kiosco_selected_sede_id', String(terminalInfo.sedeId));
+      }
+    }
+  }, [terminalInfo?.sedeId]);
 
   const handleAuthorizeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,6 +204,9 @@ export default function KioscoTerminal() {
       setTerminalInfo(data.terminal);
       if (data.terminal?.sedeId) {
         setSelectedSedeId(data.terminal.sedeId);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('kiosco_selected_sede_id', String(data.terminal.sedeId));
+        }
       }
       setShowAuthModal(false);
       setAuthAdminPass('');
@@ -259,12 +275,16 @@ export default function KioscoTerminal() {
           const data = await resSedes.json();
           setSedesList(data.sedes || []);
           if (data.sedes && data.sedes.length > 0) {
-            const savedSede = typeof window !== 'undefined' ? localStorage.getItem('kiosco_selected_sede_id') : null;
-            if (savedSede) {
-              const found = data.sedes.find((s: SedeItem) => s.id === Number(savedSede));
-              setSelectedSedeId(found ? found.id : data.sedes[0].id);
+            if (terminalInfo?.sedeId) {
+              setSelectedSedeId(terminalInfo.sedeId);
             } else {
-              setSelectedSedeId(data.sedes[0].id);
+              const savedSede = typeof window !== 'undefined' ? localStorage.getItem('kiosco_selected_sede_id') : null;
+              if (savedSede) {
+                const found = data.sedes.find((s: SedeItem) => s.id === Number(savedSede));
+                setSelectedSedeId(found ? found.id : data.sedes[0].id);
+              } else {
+                setSelectedSedeId(data.sedes[0].id);
+              }
             }
           }
         }
@@ -295,6 +315,7 @@ export default function KioscoTerminal() {
   }, []);
 
   const handleSelectSede = (sedeId: number) => {
+    if (terminalInfo?.sedeId) return; // Terminal fijada a su sede física asignada
     setSelectedSedeId(sedeId);
     setSelectedAmbienteId(null);
     if (typeof window !== 'undefined') {
@@ -402,7 +423,7 @@ export default function KioscoTerminal() {
         },
         body: JSON.stringify({
           usuarioId: usuarioActual.id,
-          sedeId: selectedSedeId,
+          sedeId: terminalInfo?.sedeId || selectedSedeId,
           ambienteId: selectedAmbienteId,
           cursoId: selectedCursoId,
           accion,
@@ -472,7 +493,8 @@ export default function KioscoTerminal() {
     inputRef.current?.focus();
   };
 
-  const sedeSeleccionada = sedesList.find((s) => s.id === selectedSedeId);
+  const currentSedeId = terminalInfo?.sedeId || selectedSedeId;
+  const sedeSeleccionada = sedesList.find((s) => s.id === currentSedeId);
   const ambientesDisponibles = sedeSeleccionada?.ambientes || [];
   const selectedAmbienteObj = ambientesDisponibles.find((a) => a.id === selectedAmbienteId);
 
@@ -600,28 +622,50 @@ export default function KioscoTerminal() {
               </p>
             </div>
 
-            {/* SELECTOR DE SEDE (Con memoria persistente en el dispositivo) */}
+            {/* SELECTOR DE SEDE O CAMPUS FIJO DE LA TERMINAL */}
             <div className={styles.sedeSelectorWrap}>
-              <span className={styles.sedeSelectorLabel}>Campus seleccionado:</span>
+              <span className={styles.sedeSelectorLabel}>
+                {terminalInfo?.sedeId ? 'Campus de esta Terminal:' : 'Campus seleccionado:'}
+              </span>
               <div className={styles.sedeSelectorRow}>
-                {sedesList.map((sede) => {
-                  const isActive = selectedSedeId === sede.id;
-                  return (
-                    <button
-                      key={sede.id}
-                      type="button"
-                      className={`${styles.sedeBtn} ${isActive ? styles.sedeBtnActive : ''}`}
-                      onClick={() => handleSelectSede(sede.id)}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      <span>{sede.nombre}</span>
-                      {isActive && <span className={styles.sedeCheck}>✓</span>}
-                    </button>
-                  );
-                })}
+                {sedesList
+                  .filter((sede) => !terminalInfo?.sedeId || sede.id === terminalInfo.sedeId)
+                  .map((sede) => {
+                    const isActive = currentSedeId === sede.id;
+                    return (
+                      <button
+                        key={sede.id}
+                        type="button"
+                        className={`${styles.sedeBtn} ${isActive ? styles.sedeBtnActive : ''}`}
+                        onClick={() => handleSelectSede(sede.id)}
+                        disabled={!!terminalInfo?.sedeId}
+                        style={terminalInfo?.sedeId ? { cursor: 'default' } : undefined}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span>{sede.nombre}</span>
+                        {isActive && (
+                          <span className={styles.sedeCheck}>
+                            {terminalInfo?.sedeId ? '🔒' : '✓'}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                {/* En caso sedesList aún no haya cargado pero la terminal ya tenga sede física */}
+                {sedesList.filter((s) => !terminalInfo?.sedeId || s.id === terminalInfo.sedeId).length === 0 && terminalInfo?.sedeNombre && (
+                  <div className={`${styles.sedeBtn} ${styles.sedeBtnActive}`} style={{ cursor: 'default' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span>{terminalInfo.sedeNombre}</span>
+                    <span className={styles.sedeCheck}>🔒</span>
+                  </div>
+                )}
               </div>
             </div>
 

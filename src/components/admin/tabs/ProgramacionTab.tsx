@@ -486,6 +486,13 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     []
   );
 
+  // Auto-sincronizar con SimClic en segundo plano cada vez que el usuario cambie de fecha
+  useEffect(() => {
+    if (fecha) {
+      runSyncSimclic(false);
+    }
+  }, [fecha, runSyncSimclic]);
+
   // Nota: La sincronización periódica en segundo plano y al reenfocar está centralizada en AdminDashboard.tsx
   // lo cual dispara simclicSyncCount y actualiza los datos silenciosamente sin duplicar timers ni peticiones.
 

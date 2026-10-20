@@ -286,22 +286,56 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       const nowPeru = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
       const pad = (n: number) => n.toString().padStart(2, '0');
       const hoyLima = `${nowPeru.getFullYear()}-${pad(nowPeru.getMonth() + 1)}-${pad(nowPeru.getDate())}`;
-      const targetFecha = targetFechaParam || hoyLima;
 
-      const res = await fetch('/api/simclic/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fecha: targetFecha }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLastGlobalSyncTime(new Date());
-        setSimclicSyncCount((prev) => prev + 1);
+      // Si es el ciclo periódico automático de fondo, sincronizamos Hoy y Mañana
+      if (!targetFechaParam) {
+        const mananaDate = new Date(nowPeru);
+        mananaDate.setDate(mananaDate.getDate() + 1);
+        const mananaLima = `${mananaDate.getFullYear()}-${pad(mananaDate.getMonth() + 1)}-${pad(mananaDate.getDate())}`;
 
-        if (data.reubicadas > 0) {
-          showToast(`🔄 SimClic: Se detectaron ${data.reubicadas} sesiones trasladadas de sala`, 'info');
-        } else if (!isSilent) {
-          showToast(`Sincronización exitosa: ${data.total || 0} sesiones procesadas`, 'success');
+        const [resHoy, resManana] = await Promise.all([
+          fetch('/api/simclic/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fecha: hoyLima }),
+          }),
+          fetch('/api/simclic/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fecha: mananaLima }),
+          }),
+        ]);
+
+        const dataHoy = await resHoy.json();
+        const dataManana = await resManana.json();
+
+        if (resHoy.ok && dataHoy.success) {
+          setLastGlobalSyncTime(new Date());
+          setSimclicSyncCount((prev) => prev + 1);
+
+          const reubicadasTotal = (dataHoy.reubicadas || 0) + (dataManana.reubicadas || 0);
+          if (reubicadasTotal > 0) {
+            showToast(`🔄 SimClic: Se detectaron ${reubicadasTotal} sesiones trasladadas de sala (Hoy / Mañana)`, 'info');
+          } else if (!isSilent) {
+            showToast(`Sincronización exitosa: ${dataHoy.total || 0} (Hoy) y ${dataManana.total || 0} (Mañana) sesiones`, 'success');
+          }
+        }
+      } else {
+        const res = await fetch('/api/simclic/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fecha: targetFechaParam }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setLastGlobalSyncTime(new Date());
+          setSimclicSyncCount((prev) => prev + 1);
+
+          if (data.reubicadas > 0) {
+            showToast(`🔄 SimClic: Se detectaron ${data.reubicadas} sesiones trasladadas de sala`, 'info');
+          } else if (!isSilent) {
+            showToast(`Sincronización exitosa: ${data.total || 0} sesiones procesadas`, 'success');
+          }
         }
       }
     } catch (err) {

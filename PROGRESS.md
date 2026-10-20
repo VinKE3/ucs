@@ -792,10 +792,15 @@ src/
   - **Causa Raíz Identificada**:
     - Al autorizar una terminal asignada a un campus específico (ej. "Campus Villa"), `KioscoTerminal.tsx` leía `localStorage.getItem('kiosco_selected_sede_id')` en paralelo, sobrescribiendo la sede oficial con la última sede que el usuario probó en ese navegador (ej. "Campus Ate").
     - Adicionalmente, el selector de campus (`.sedeSelectorRow`) renderizaba incondicionalmente todas las sedes registradas (`sedesList`), permitiendo a los colaboradores cambiar de campus o ver opciones ajenas en una tablet fija en la pared de Villa.
+* `feat(simclic-multiday-autosync)`: **Hito 52: Sincronización Automática Multi-Día (Hoy y Mañana) y Auto-Sync por Cambio de Fecha**:
+  - **Causa Raíz Identificada**:
+    - SimClic es un sistema cerrado externo que no cuenta con Webhooks para notificar cambios en tiempo real a sistemas de terceros.
+    - El ciclo periódico de fondo en `AdminDashboard.tsx` (cada 3 minutos) consultaba exclusivamente la fecha de HOY (`hoyLima`), dejando las modificaciones del día de MAÑANA sin actualizar hasta las 5:00 AM (cuando corre el Cron diario de Vercel).
+    - Al alternar de fecha en la pestaña `ProgramacionTab` (ej. seleccionar "Mañana"), la vista leía lo que ya estaba en la base de datos local Postgres pero no disparaba una consulta a SimClic.
   - **Solución Implementada**:
-    - **Filtrado y Bloqueo Visual de Sede (`KioscoTerminal.tsx`)**: Si la terminal cuenta con `sedeId` asignado, la lista de campus se filtra exclusivamente a su campus físico (`sede.id === terminalInfo.sedeId`), mostrando la insignia bloqueada con `🔒` y deshabilitando la interacción. El selector multisede solo se despliega si la terminal fue configurada explícitamente como "Cualquier Sede (Multisede)".
-    - **Sincronización Inmutable de Estado**: Se implementó `currentSedeId = terminalInfo?.sedeId || selectedSedeId`, vinculando rígidamente la carga de ambientes de simulación, avisos de técnicos y persistencia en `localStorage`.
-    - **Garantía en Backend (`/api/kiosco/marcar/route.ts`)**: Se forzó `finalSedeId = term.sedeId || sedeId`, blindando el registro en base de datos para que una marcación desde una terminal fija quede grabada irremediablemente en la sede designada.
+    - **Sincronización Dual Continua (`AdminDashboard.tsx`)**: Se amplió `triggerGlobalSyncSimclic` para que en cada ciclo automático en segundo plano sincronice simultáneamente **HOY y MAÑANA** en paralelo mediante `Promise.all`. Cualquier cambio o reubicación de sala realizada por coordinadores en SimClic para el día siguiente ahora se actualiza automáticamente cada 3 minutos y al reenfocar la ventana.
+    - **Auto-Sync Reactivo al Cambiar de Fecha (`ProgramacionTab.tsx`)**: Al hacer clic en "Mañana" o elegir cualquier fecha en el calendario, la aplicación carga los datos locales inmediatamente y dispara en paralelo un `runSyncSimclic(false)` silencioso que consulta SimClic en segundo plano y refresca la vista si se detectan ajustes de sala o sesiones nuevas.
+    - **Sincronización Inmediata Ejecutada**: Se procesaron los cambios de SimClic para el 20/10/2026, detectando y actualizando decenas de traslados de salas y talleres (Cirugía, Pediatría, Gineco-Obstetricia, Habilidades y Consultorios).
 
 ---
 

@@ -116,21 +116,16 @@ export default function KioscoTerminal() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Verificación inicial del token de terminal en este navegador (Edge / Chrome)
+  // Verificación inicial de terminal autorizada (vía Cookie HttpOnly segura + migración transparente de localStorage)
   useEffect(() => {
     async function checkTerminal() {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
-        if (!token) {
-          setTerminalAuthorized(false);
-          setTerminalChecking(false);
-          return;
-        }
+        const legacyToken = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
 
         const res = await fetch('/api/kiosco/terminal/verificar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ token: legacyToken || undefined }),
         });
 
         const data = await res.json();
@@ -139,6 +134,10 @@ export default function KioscoTerminal() {
           setTerminalInfo(data.terminal);
           if (data.terminal?.sedeId) {
             setSelectedSedeId(data.terminal.sedeId);
+          }
+          // Limpieza de seguridad: Si existía en localStorage, se elimina porque ahora vive en la cookie HttpOnly
+          if (typeof window !== 'undefined' && legacyToken) {
+            localStorage.removeItem('ucs_terminal_token');
           }
         } else {
           if (typeof window !== 'undefined') {
@@ -183,8 +182,9 @@ export default function KioscoTerminal() {
         throw new Error(data.error || 'Error al autorizar terminal');
       }
 
+      // La cookie HttpOnly segura ya fue establecida por el servidor
       if (typeof window !== 'undefined') {
-        localStorage.setItem('ucs_terminal_token', data.token);
+        localStorage.removeItem('ucs_terminal_token');
       }
 
       setTerminalAuthorized(true);
@@ -219,6 +219,11 @@ export default function KioscoTerminal() {
     });
 
     if (confirmed) {
+      try {
+        await fetch('/api/kiosco/terminal/desvincular', { method: 'POST' });
+      } catch (e) {
+        console.error('Error desvinculando terminal:', e);
+      }
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ucs_terminal_token');
       }
@@ -388,12 +393,12 @@ export default function KioscoTerminal() {
     setSearchError(null);
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
+      const legacyToken = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
       const res = await fetch('/api/kiosco/marcar', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-terminal-token': token || '',
+          ...(legacyToken ? { 'x-terminal-token': legacyToken } : {}),
         },
         body: JSON.stringify({
           usuarioId: usuarioActual.id,
@@ -402,7 +407,7 @@ export default function KioscoTerminal() {
           cursoId: selectedCursoId,
           accion,
           asistenciaId: asistenciaActiva?.id,
-          terminalToken: token,
+          terminalToken: legacyToken || undefined,
         }),
       });
 

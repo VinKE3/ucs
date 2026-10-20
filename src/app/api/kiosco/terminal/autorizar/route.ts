@@ -125,10 +125,9 @@ export async function POST(request: Request) {
       if (sedeObj) sedeNombre = sedeObj.nombre;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: `Dispositivo "${nuevaTerminal.nombre}" autorizado exitosamente.`,
-      token: nuevaTerminal.token,
       terminal: {
         id: nuevaTerminal.id,
         nombre: nuevaTerminal.nombre,
@@ -136,6 +135,16 @@ export async function POST(request: Request) {
         sedeNombre,
       },
     });
+
+    response.cookies.set('ucs_terminal_token', nuevaTerminal.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365 * 2, // 2 años
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Error al autorizar terminal kiosco:', error);
     return NextResponse.json(

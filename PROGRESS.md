@@ -760,7 +760,18 @@ src/
       - Doble filtro defensivo en la sección de docentes espejo respetando la sede seleccionada en la cabecera (`selectedSede`).
       - Inclusión de etiqueta de sede (`📍 Campus Villa`, etc.) en las tarjetas de docentes espejo.
       - **Rediseño del Layout de Tarjetas Espejo (`.mirrorGrid` & `.mirrorCard`)**: Se reemplazó el `auto-fill` rígido por `repeat(auto-fit, minmax(380px, 1fr))` y se desacopló el contenedor de la sala (`.mirrorRoomBadgeWrapper`), eliminando el aplastamiento vertical de nombres y casos cuando solo hay 1 docente espejo y garantizando un ancho amplio, legible y adaptativo con media query móvil.
-      - En la pestaña *«Por Asignatura / Salas en Simultáneo»*, se adaptó el listado de salas paralelas para respetar el filtro de sede seleccionado y mostrar la sede correspondiente cuando se consulta en *"Todas las Sedes"*.
+* `feat(kiosco-security-httponly)`: **Hito 48: Blindaje Criptográfico de Terminales Kiosco con Cookies HttpOnly, Secure y SameSite=Strict**:
+  - **Problema de Seguridad Resuelto (Bearer Token Hijacking)**:
+    - Anteriormente, el token de autorización de terminal (`ucs_terminal_token`) se almacenaba en texto plano en `localStorage`. Cualquier usuario con acceso a la consola de desarrollador (F12) podía copiar el token y pegarlo en otro navegador o dispositivo personal para habilitarlo indebidamente.
+  - **Arquitectura de Protección Implementada**:
+    - **Autorización Segura (`/api/kiosco/terminal/autorizar`)**: Al autorizar una terminal con credenciales de administrador, el servidor emite una Cookie con flags `HttpOnly`, `Secure` (en producción), `SameSite=Strict` y validez de 2 años (`ucs_terminal_token`). El JavaScript del cliente ya no tiene acceso al token.
+    - **Verificación Automática & Migración Transparente (`/api/kiosco/terminal/verificar`)**:
+      - El endpoint valida prioritariamente la cookie enviada por el navegador.
+      - Para terminales previamente autorizadas bajo el esquema anterior, si detecta un token legado en el body, lo migra automáticamente a Cookie `HttpOnly` y ordena al cliente purgar el `localStorage`.
+      - Si la terminal es revocada o no existe en la base de datos, el servidor elimina la cookie de inmediato.
+    - **Marcación Segura (`/api/kiosco/marcar`)**: La API valida la cookie de terminal directamente en cada marcación de asistencia.
+    - **Desvinculación Limpia (`/api/kiosco/terminal/desvincular`)**: Nuevo endpoint para destruir la cookie del servidor y desvincular el dispositivo en 1 clic.
+    - **Blindaje del Cliente (`KioscoTerminal.tsx`)**: Eliminación del almacenamiento de tokens en `localStorage`, garantizando que la consola F12 no muestre ni permita clonar credenciales físicas entre perfiles o computadoras.
 
 ---
 

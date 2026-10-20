@@ -1,16 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
 import { kioskMarcarRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const clientIp = getClientIp(request);
     const body = await request.json();
     const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones } = body;
-    const terminalToken = request.headers.get('x-terminal-token') || body.terminalToken;
+    const cookieToken = request.cookies.get('ucs_terminal_token')?.value;
+    const terminalToken = cookieToken || request.headers.get('x-terminal-token') || body.terminalToken;
 
     // Rate limiting por IP/terminal
     const rateLimitKey = `kiosk_marcar_${clientIp}_${terminalToken || 'anon'}`;
@@ -34,10 +35,12 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (!term) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Esta terminal no cuenta con autorización activa o ha sido revocada por la coordinación.' },
         { status: 403 }
       );
+      response.cookies.delete('ucs_terminal_token');
+      return response;
     }
 
     // Actualizar último uso de la terminal de forma asíncrona

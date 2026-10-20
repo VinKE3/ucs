@@ -802,7 +802,52 @@ src/
     - **Auto-Sync Reactivo al Cambiar de Fecha (`ProgramacionTab.tsx`)**: Al hacer clic en "Mañana" o elegir cualquier fecha en el calendario, la aplicación carga los datos locales inmediatamente y dispara en paralelo un `runSyncSimclic(false)` silencioso que consulta SimClic en segundo plano y refresca la vista si se detectan ajustes de sala o sesiones nuevas.
     - **Sincronización Inmediata Ejecutada**: Se procesaron los cambios de SimClic para el 20/10/2026, detectando y actualizando decenas de traslados de salas y talleres (Cirugía, Pediatría, Gineco-Obstetricia, Habilidades y Consultorios).
 
+* `feat(simulador-permutas-domino)`: **Hito 53: Simulador Interactivo de Permutas & Reubicaciones en Cadena (Efecto Dominó Logístico)**:
+  - **Concepto y Mentalidad Operativa de Clínica de Simulación**:
+    - Resuelve la necesidad real del equipo técnico: en lugar de acarrear y desmontar torres pesadas durante la noche, el técnico puede intercambiar salas matutinas del día siguiente de forma secuencial y encadenada.
+    - Ejemplo de flujo dominó implementado:
+      1. Si hoy *Consultorio 2* cerró con *«Enfermedad Renal Crónica»* y mañana SimClic lo asignó a *Consultorio 3*, el técnico traslada esa clase matutina a *Consultorio 2* (logrando 100% continuidad y 0 acarreo en Consultorio 2).
+      2. La clase matutina previa de *Consultorio 2* (*«Hidrocele»*) queda desplazada temporalmente en *Consultorio 3*.
+      3. El sistema detecta inmediatamente: *«Hoy en Hospitalización 2 se dictó Hidrocele»*, y le ofrece con 1 clic moverla a *Hospitalización 2* (logrando 100% continuidad en Hospitalización 2).
+      4. El técnico continúa encadenando movimientos tantas veces como sea necesario.
+  - **Componentes y Arquitectura**:
+    - **Detector y Atajos Dominó en Tarjetas (`HubLogisticaSimulacion.tsx`)**:
+      - Si una sala de mañana tiene coincidencia con el cierre nocturno de hoy de otra sala, despliega un banner de atajo rápido: `💡 Oportunidad: "Caso" cerró hoy en [Sala] ➔ [ 🔀 Intercambiar con Sala ]`.
+      - Si una sesión fue desplazada en un paso anterior, despliega un banner pulsante de eslabón dominó: `⚡ Siguiente eslabón dominó: Hoy en [Sala] se dictó "Caso" ➔ [ 🔀 Mover a Sala ]`.
+      - Botón contextual `🔀 Mover Sala` en la cabecera de la apertura matutina.
+    - **Modal Selector Manual (`ModalSelectorPermutaManual.tsx`)**:
+      - Permite al técnico seleccionar cualquier sala candidata agrupada por: *¡Continuidad Idéntica de Caso! (0 acarreo)*, *Mismo Curso Clínico*, *Salas Libres Mañana Temprano* y *Otras Salas*.
+    - **Barra de Control del Simulador (`.simulatorControlBar` & `admin.module.css`)**:
+      - Se activa automáticamente al realizar el primer intercambio en el borrador de trabajo.
+      - Muestra el conteo de movimientos, contador de salas con continuidad ganadas (`🎉 +X salas con continuidad lograda`) y un historial visual de pasos tipo breadcrumbs (`1️⃣ C-3 ➔ C-2 (Renal) ✓`, `2️⃣ C-3 ➔ Hosp-2 (Hidrocele) ✓`).
+      - Botonera ejecutiva:
+        - `↩️ Deshacer`: revierte el último paso reconstruyendo el estado.
+        - `🔄 Restablecer Todo`: restaura la programación original de SimClic.
+        - `📋 Copiar Propuesta`: genera un mensaje formal estructurado para WhatsApp o correo de Coordinación Académica.
+        - `💾 Aplicar en Sistema`: guarda los cambios oficiales en la base de datos con confirmación SweetAlert2.
+    - **API Route de Reubicaciones Oficiales (`/api/programacion/reubicar/route.ts`)**:
+      - Endpoint seguro que actualiza `sesiones_programadas` registrando `ambienteId`, `ambienteNombreSimclic`, guardando el aula previa en `ambienteOriginalNombre` y marcando `estadoUcs = 'reubicada'` para sincronía total con Kiosco y Gantt.
+
+* `feat(simulador-reorganizar-pastilla-simclic)`: **Hito 54: Pastilla «✨ Reorganizar» y Reasignación Global Simulada para SimClic**:
+  - **Solicitud del Usuario & Visión de Operación Técnica**:
+    - Brindar a los técnicos de simulación una herramienta que analice en 1 solo clic todas las clases del SimClic de hoy vs. las de mañana, compare casos y cursos, y genere la **mejor distribución global de salas simulada**.
+    - La simulación permite revisar cómo quedaría todo el piso antes de tocar SimClic, agilizando radicalmente el trabajo técnico sin tener que inspeccionar sala por sala de forma manual.
+  - **Algoritmo de Optimización Global Multi-Fase (`autoReorganizarSalasOptimas` en `logisticaSimulacion.ts`)**:
+    - **Fase 1 (Match Exacto de Caso Clínico)**: Cruza el caso de cierre nocturno de hoy con la apertura matutina de mañana (+10,000 pts). Si encuentra coincidencia en otra sala, ejecuta la permuta o reasignación, bloquea la sala destino (garantizando 100% continuidad y 0 acarreo) y genera un desplazamiento temporal que continúa resolviéndose en cadena (efecto dominó).
+    - **Fase 2 (Match por Curso / Mobiliario / Equipos)**: Para las salas restantes que no pudieron empatar caso idéntico, busca coincidencias de curso (+3,000 pts) para reutilizar simuladores de mediana/alta fidelidad, camillas o instrumental afín.
+    - **Cálculo de Ganancias y Diagnóstico**: Evalúa el delta de continuidades ganadas (`continuidadesNuevas - continuidadesOriginales`) y salas con cambio evitadas.
+  - **Pastilla «✨ Reorganizar» en Barra de Filtros (`HubLogisticaSimulacion.tsx` & `admin.module.css`)**:
+    - Ubicada al inicio de la botonera de filtros de continuidad con estilo esmeralda/turquesa degradado (`.pillReorganizar` / `.pillReorganizarActive`).
+    - Estado dinámico:
+      - Antes de ejecutar: muestra las permutas óptimas calculadas preventivamente en memoria (`✨ Reorganizar (X sugeridas)`).
+      - Tras ejecutar: se ilumina activa indicando las continuidades ganadas (`✨ Reorganizado (+X logradas)`).
+    - Al hacer clic, reasigna en memoria el tablero de mañana, actualiza instantáneamente las tarjetas con las etiquetas `🔀 Reubicada (Orig: Sala X)` / `📦 Desplazada`, y despliega la barra superior del simulador.
+  - **Botón «📋 Copiar Guía para SimClic»**:
+    - Añadido a la botonera ejecutiva del `.simulatorControlBar`.
+    - Genera y copia al portapapeles una lista rápida paso a paso (`1️⃣ Mover Caso X de [Sala A] ➔ [Sala B] (Intercambio con Caso Y)`) para que el técnico abra SimClic y traslade las clases en menos de 1 minuto sin margen de error.
+
 ---
+
 
 ## 🎯 5. Próximas Mejoras Planificadas (Backlog)
 

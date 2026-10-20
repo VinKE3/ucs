@@ -9,7 +9,9 @@ import type {
   ResumenContinuidadInterDias,
   ContinuidadSalaItem,
   PermutaSugeridaItem,
+  PermutaCadenaPaso,
 } from '@/types/admin';
+
 
 /**
  * Normaliza nombres de cursos para comparación tolerante a tildes y espacios
@@ -950,3 +952,300 @@ export function generarMensajePropuestaCoordinacion(
 
   return lineas.join('\n');
 }
+
+export interface ResultadoAutoReorganizacion {
+  sesionesOptimizadas: SesionProgramadaTimelineItem[];
+  pasosRealizados: PermutaCadenaPaso[];
+  continuidadesOriginales: number;
+  continuidadesNuevas: number;
+  salasConCambioEvitadas: number;
+  guiaParaSimclic: string;
+}
+
+/**
+ * Motor de Auto-Reorganización Global de Salas (Simulador Dominó):
+ * Analiza todas las clases del cierre nocturno de HOY contra las clases matutinas de MAÑANA
+ * y resuelve de manera automática la mejor combinación de reubicaciones encadenadas para maximizar
+ * la continuidad de cursos y casos, ahorrando desmontajes y acarreos nocturnos.
+ */
+export function autoReorganizarSalasOptimas(
+  ambientes: AmbienteAdminItem[],
+  sesionesHoy: SesionProgramadaTimelineItem[],
+  sesionesMananaOriginales: SesionProgramadaTimelineItem[],
+  nombreSede: string,
+  fechaOrigen: string,
+  fechaDestino: string
+): ResultadoAutoReorganizacion {
+  // 1. Diagnóstico base sin reubicaciones
+  const resumenBase = analizarContinuidadInterDias(
+    ambientes,
+    sesionesHoy,
+    sesionesMananaOriginales,
+    fechaOrigen,
+    fechaDestino
+  );
+  const continuidadesOriginales = resumenBase.salasConContinuidad;
+
+  // 2. Mapear cierres de hoy por sala
+  const mapHoy = new Map<number, SesionProgramadaTimelineItem[]>();
+  for (const s of sesionesHoy) {
+    if (!s.ambienteId) continue;
+    if (!mapHoy.has(s.ambienteId)) mapHoy.set(s.ambienteId, []);
+    mapHoy.get(s.ambienteId)!.push(s);
+  }
+
+  const cierreHoyPorSala = new Map<
+    number,
+    {
+      ambiente: AmbienteAdminItem;
+      sesion: SesionProgramadaTimelineItem;
+      curso: string;
+      caso: string;
+      cursoNorm: string;
+      casoNorm: string;
+    }
+  >();
+
+  for (const amb of ambientes) {
+    const list = [...(mapHoy.get(amb.id) || [])].sort((a, b) => a.startMins - b.startMins);
+    if (list.length > 0) {
+      const ult = list[list.length - 1];
+      const curso = ult.cursoNombreSimclic || ult.titulo || '';
+      const caso = ult.escenarioNombre || '';
+      cierreHoyPorSala.set(amb.id, {
+        ambiente: amb,
+        sesion: ult,
+        curso,
+        caso,
+        cursoNorm: normText(curso),
+        casoNorm: normText(caso),
+      });
+    }
+  }
+
+  // Copia de trabajo de sesiones de mañana
+  let sesionesTrabajo = sesionesMananaOriginales.map((s) => ({ ...s }));
+  const pasosRealizados: PermutaCadenaPaso[] = [];
+  const salasBloqueadas = new Set<number>(); // Salas con 100% de continuidad lograda
+
+  // Identificar qué salas YA tienen continuidad de caso idéntico en SimClic para no tocarlas
+  for (const amb of ambientes) {
+    const cierre = cierreHoyPorSala.get(amb.id);
+    const sesionesManAmb = sesionesTrabajo
+      .filter((s) => s.ambienteId === amb.id)
+      .sort((a, b) => a.startMins - b.startMins);
+    const sesMan = sesionesManAmb.length > 0 ? sesionesManAmb[0] : null;
+
+    if (cierre && sesMan) {
+      const casoManNorm = normText(sesMan.escenarioNombre);
+      if (
+        cierre.casoNorm &&
+        cierre.casoNorm !== 'general' &&
+        cierre.casoNorm !== 'sin caso' &&
+        casoManNorm === cierre.casoNorm
+      ) {
+        salasBloqueadas.add(amb.id);
+      }
+    }
+  }
+
+  // 3. FASE 1: Búsqueda y encadenamiento por Coincidencia Idéntica de Caso Clínico (+10,000 pts)
+  let huboCambio = true;
+  let iteraciones = 0;
+
+  while (huboCambio && iteraciones < 15) {
+    huboCambio = false;
+    iteraciones++;
+
+    for (const amb of ambientes) {
+      // Si la sala ya está optimizada con continuidad total, continuar
+      if (salasBloqueadas.has(amb.id)) continue;
+
+      const cierre = cierreHoyPorSala.get(amb.id);
+      if (!cierre || !cierre.casoNorm || cierre.casoNorm === 'general' || cierre.casoNorm === 'sin caso') {
+        continue;
+      }
+
+      // Buscar si alguna sesión matutina de mañana en OTRA sala tiene este caso clínico
+      const sesionCandidata = sesionesTrabajo.find((s) => {
+        if (s.ambienteId === amb.id) return false;
+        // Evitar quitar la sesión si esa sala origen ya está bloqueada por continuidad
+        if (s.ambienteId && salasBloqueadas.has(s.ambienteId)) return false;
+        const cNorm = normText(s.escenarioNombre);
+        return cNorm && cNorm === cierre.casoNorm;
+      });
+
+      if (sesionCandidata) {
+        const origenAmbId = sesionCandidata.ambienteId;
+        const origenAmb = ambientes.find((a) => a.id === origenAmbId);
+
+        // Buscar si la sala destino (amb) tiene actualmente una sesión matutina
+        const sesionesEnAmb = sesionesTrabajo
+          .filter((s) => s.ambienteId === amb.id)
+          .sort((a, b) => a.startMins - b.startMins);
+        const sesionDesplazada = sesionesEnAmb.length > 0 ? sesionesEnAmb[0] : null;
+
+        // Ejecutar reasignación
+        sesionesTrabajo = sesionesTrabajo.map((s) => {
+          if (s.id === sesionCandidata.id) {
+            return {
+              ...s,
+              ambienteId: amb.id,
+              ambienteNombreSimclic: amb.nombre,
+              ambienteCodigoSimclic: amb.codigo,
+            };
+          }
+          if (sesionDesplazada && s.id === sesionDesplazada.id) {
+            return {
+              ...s,
+              ambienteId: origenAmbId || null,
+              ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
+              ambienteCodigoSimclic: origenAmb?.codigo || null,
+            };
+          }
+          return s;
+        });
+
+        pasosRealizados.push({
+          id: `paso_opt_${Date.now()}_${pasosRealizados.length + 1}`,
+          timestamp: Date.now(),
+          sesionOrigenId: sesionCandidata.id,
+          sesionOrigenTitulo: sesionCandidata.cursoNombreSimclic || sesionCandidata.titulo || 'Sesión',
+          sesionOrigenCaso: sesionCandidata.escenarioNombre || '',
+          ambienteOrigenId: origenAmbId || 0,
+          ambienteOrigenNombre: origenAmb?.nombre || 'Sala previa',
+          ambienteDestinoId: amb.id,
+          ambienteDestinoNombre: amb.nombre,
+          sesionDesplazadaId: sesionDesplazada?.id || null,
+          sesionDesplazadaTitulo: sesionDesplazada ? (sesionDesplazada.cursoNombreSimclic || sesionDesplazada.titulo || null) : null,
+          sesionDesplazadaCaso: sesionDesplazada?.escenarioNombre || null,
+          logroContinuidadDestino: true,
+          casoContinuidad: sesionCandidata.escenarioNombre,
+        });
+
+        salasBloqueadas.add(amb.id);
+        huboCambio = true;
+        break; // Re-evaluar con el nuevo estado del tablero para continuar la cadena dominó
+      }
+    }
+  }
+
+  // 4. FASE 2: Búsqueda y encadenamiento por Mismo Curso (Mobiliario / Equipos) (+3,000 pts)
+  for (const amb of ambientes) {
+    if (salasBloqueadas.has(amb.id)) continue;
+
+    const cierre = cierreHoyPorSala.get(amb.id);
+    if (!cierre || !cierre.cursoNorm) continue;
+
+    const sesionCandidataCurso = sesionesTrabajo.find((s) => {
+      if (s.ambienteId === amb.id) return false;
+      if (s.ambienteId && salasBloqueadas.has(s.ambienteId)) return false;
+      const cNorm = normText(s.cursoNombreSimclic || s.titulo);
+      return cNorm && cNorm === cierre.cursoNorm;
+    });
+
+    if (sesionCandidataCurso) {
+      const origenAmbId = sesionCandidataCurso.ambienteId;
+      const origenAmb = ambientes.find((a) => a.id === origenAmbId);
+
+      const sesionesEnAmb = sesionesTrabajo
+        .filter((s) => s.ambienteId === amb.id)
+        .sort((a, b) => a.startMins - b.startMins);
+      const sesionDesplazada = sesionesEnAmb.length > 0 ? sesionesEnAmb[0] : null;
+
+      sesionesTrabajo = sesionesTrabajo.map((s) => {
+        if (s.id === sesionCandidataCurso.id) {
+          return {
+            ...s,
+            ambienteId: amb.id,
+            ambienteNombreSimclic: amb.nombre,
+            ambienteCodigoSimclic: amb.codigo,
+          };
+        }
+        if (sesionDesplazada && s.id === sesionDesplazada.id) {
+          return {
+            ...s,
+            ambienteId: origenAmbId || null,
+            ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
+            ambienteCodigoSimclic: origenAmb?.codigo || null,
+          };
+        }
+        return s;
+      });
+
+      pasosRealizados.push({
+        id: `paso_opt_${Date.now()}_${pasosRealizados.length + 1}`,
+        timestamp: Date.now(),
+        sesionOrigenId: sesionCandidataCurso.id,
+        sesionOrigenTitulo: sesionCandidataCurso.cursoNombreSimclic || sesionCandidataCurso.titulo || 'Sesión',
+        sesionOrigenCaso: sesionCandidataCurso.escenarioNombre || '',
+        ambienteOrigenId: origenAmbId || 0,
+        ambienteOrigenNombre: origenAmb?.nombre || 'Sala previa',
+        ambienteDestinoId: amb.id,
+        ambienteDestinoNombre: amb.nombre,
+        sesionDesplazadaId: sesionDesplazada?.id || null,
+        sesionDesplazadaTitulo: sesionDesplazada ? (sesionDesplazada.cursoNombreSimclic || sesionDesplazada.titulo || null) : null,
+        sesionDesplazadaCaso: sesionDesplazada?.escenarioNombre || null,
+        logroContinuidadDestino: true,
+        casoContinuidad: sesionCandidataCurso.cursoNombreSimclic || undefined,
+      });
+
+      salasBloqueadas.add(amb.id);
+    }
+  }
+
+  // 5. Diagnóstico final del resultado
+  const resumenFinal = analizarContinuidadInterDias(
+    ambientes,
+    sesionesHoy,
+    sesionesTrabajo,
+    fechaOrigen,
+    fechaDestino
+  );
+  const continuidadesNuevas = resumenFinal.salasConContinuidad;
+  const salasConCambioEvitadas = Math.max(0, resumenBase.salasConCambio - resumenFinal.salasConCambio);
+
+  // 6. Generar Guía Rápida para SimClic
+  const lineas: string[] = [];
+  lineas.push(`📋 *GUÍA RÁPIDA DE REUBICACIÓN PARA SIMCLIC*`);
+  lineas.push(`📍 *Sede:* ${nombreSede}`);
+  lineas.push(`📅 *Fecha de Mañana:* ${fechaDestino} (Apertura 07:00)`);
+  lineas.push(``);
+
+  if (pasosRealizados.length > 0) {
+    lineas.push(`Estimado equipo técnico, para evitar desmontajes y traslados pesados durante la noche, realicen los siguientes ${pasosRealizados.length} movimientos en SimClic:`);
+    lineas.push(``);
+
+    pasosRealizados.forEach((p, idx) => {
+      lineas.push(`${idx + 1}️⃣ *Mover:* ${p.sesionOrigenTitulo}${p.sesionOrigenCaso ? ` ("${p.sesionOrigenCaso}")` : ''}`);
+      lineas.push(`   *De:* [${p.ambienteOrigenNombre}] ➔ *A:* [${p.ambienteDestinoNombre}]`);
+      if (p.sesionDesplazadaTitulo) {
+        lineas.push(`   *Intercambio con:* ${p.sesionDesplazadaTitulo}${p.sesionDesplazadaCaso ? ` ("${p.sesionDesplazadaCaso}")` : ''}`);
+      }
+      if (p.logroContinuidadDestino) {
+        lineas.push(`   ↳ ✨ *Beneficio:* [${p.ambienteDestinoNombre}] ya tiene este set montado de anoche (0 acarreo).`);
+      }
+      lineas.push(``);
+    });
+
+    lineas.push(`🎉 *RESULTADO LOGÍSTICO TOTAL:*`);
+    lineas.push(`• +${Math.max(0, continuidadesNuevas - continuidadesOriginales)} salas adicionales quedan con 100% de continuidad.`);
+    lineas.push(`• Cero necesidad de desmontar ni acarrear simuladores pesados.`);
+    lineas.push(``);
+    lineas.push(`_Generado por el Hub Logístico de Simulación UCS_`);
+  } else {
+    lineas.push(`ℹ️ _La programación actual de SimClic ya se encuentra óptima o no presenta permutas cruzadas posibles para este cambio de ciclo curricular._`);
+  }
+
+  const guiaParaSimclic = lineas.join('\n');
+
+  return {
+    sesionesOptimizadas: sesionesTrabajo,
+    pasosRealizados,
+    continuidadesOriginales,
+    continuidadesNuevas,
+    salasConCambioEvitadas,
+    guiaParaSimclic,
+  };
+}
+

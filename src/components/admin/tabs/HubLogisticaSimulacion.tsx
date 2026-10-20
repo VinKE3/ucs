@@ -11,12 +11,16 @@ import type {
   ResumenContinuidadInterDias,
   ContinuidadSalaItem,
   PermutaSugeridaItem,
+  PermutaCadenaPaso,
 } from '@/types/admin';
 import {
   analizarLogisticaIntraDia,
   analizarContinuidadInterDias,
+  autoReorganizarSalasOptimas,
 } from '@/lib/logisticaSimulacion';
-import { showToast } from '@/lib/alerts';
+
+import { showToast, showAlert, confirmModal } from '@/lib/alerts';
+import { ModalSelectorPermutaManual } from '@/components/admin/modals/ModalSelectorPermutaManual';
 
 // Paleta armónica de colores de bloques de curso para contraste visual en el Gantt
 const COURSE_PALETTE = [
@@ -155,6 +159,14 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
 
   const [fechaComparacion, setFechaComparacion] = useState<string>(() => getNextDateStr(fecha, 1));
   const [sesionesComparacion, setSesionesComparacion] = useState<SesionProgramadaTimelineItem[]>([]);
+  const [sesionesComparacionOriginales, setSesionesComparacionOriginales] = useState<SesionProgramadaTimelineItem[]>([]);
+  const [historialPermutas, setHistorialPermutas] = useState<PermutaCadenaPaso[]>([]);
+  const [modalPermuta, setModalPermuta] = useState<{
+    isOpen: boolean;
+    sesion: SesionProgramadaTimelineItem | null;
+    sala: { id: number; nombre: string; codigo?: string | null } | null;
+  }>({ isOpen: false, sesion: null, sala: null });
+  const [guardandoReubicaciones, setGuardandoReubicaciones] = useState<boolean>(false);
   const [loadingComparacion, setLoadingComparacion] = useState<boolean>(false);
   const [syncingComparacion, setSyncingComparacion] = useState<boolean>(false);
   const [filtroContinuidad, setFiltroContinuidad] = useState<string>('requieren_accion');
@@ -176,13 +188,20 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       const res = await fetch(`/api/programacion?${params.toString()}`);
       const data = await res.json();
       if (res.ok && data.success) {
-        setSesionesComparacion(data.sesiones || []);
+        const list = data.sesiones || [];
+        setSesionesComparacion(list);
+        setSesionesComparacionOriginales(list);
+        setHistorialPermutas([]);
       } else {
         setSesionesComparacion([]);
+        setSesionesComparacionOriginales([]);
+        setHistorialPermutas([]);
       }
     } catch (err) {
       console.error('Error al cargar fecha de comparación:', err);
       setSesionesComparacion([]);
+      setSesionesComparacionOriginales([]);
+      setHistorialPermutas([]);
     } finally {
       setLoadingComparacion(false);
     }
@@ -217,6 +236,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       loadComparacion();
     }
   }, [subTab, loadComparacion]);
+
 
   // 1. Análisis Intra-Día
   const resumenIntra: ResumenLogisticaIntraDia = useMemo(() => {
@@ -313,6 +333,420 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       return true;
     });
   }, [resumenInter, filtroContinuidad, search]);
+
+  // Continuidades ganadas gracias al simulador de permutas
+  const salasConContinuidadOriginal = useMemo(() => {
+    if (sesionesComparacionOriginales.length === 0) return 0;
+    const res = analizarContinuidadInterDias(
+      ambientes,
+      sesiones,
+      sesionesComparacionOriginales,
+      fecha,
+      fechaComparacion
+    );
+    return res.salasConContinuidad;
+  }, [ambientes, sesiones, sesionesComparacionOriginales, fecha, fechaComparacion]);
+
+  const continuidadesGanadas = useMemo(() => {
+    if (!resumenInter) return 0;
+    return Math.max(0, resumenInter.salasConContinuidad - salasConContinuidadOriginal);
+  }, [resumenInter, salasConContinuidadOriginal]);
+
+  // Detector del siguiente eslabón dominó para una sesión de mañana
+  const buscarOportunidadDomino = useCallback(
+    (sesionManana: SesionProgramadaTimelineItem, ambienteActualId: number) => {
+      if (!resumenInter) return null;
+      const casoNorm = (sesionManana.escenarioNombre || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+
+      if (!casoNorm || casoNorm === 'general' || casoNorm === 'sin caso') {
+        return null;
+      }
+
+      // 1. Prioridad 1: ¿Qué sala cerró HOY con este mismo caso clínico?
+      for (const otraSala of resumenInter.salasContinuidad) {
+        if (otraSala.ambienteId === ambienteActualId) continue;
+        const casoCierreHoyNorm = (otraSala.casoHoy || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+
+        if (casoCierreHoyNorm && casoCierreHoyNorm === casoNorm) {
+          return {
+            ambienteId: otraSala.ambienteId,
+            ambienteNombre: otraSala.ambienteNombre,
+            ambienteCodigo: otraSala.ambienteCodigo,
+            tipoMatch: 'cierre_hoy_mismo_caso' as const,
+            motivo: `Cerró hoy (${otraSala.horaFinHoy || 'noche'}) con este caso`,
+            caso: otraSala.casoHoy || sesionManana.escenarioNombre || '',
+            curso: otraSala.cursoHoy || '',
+          };
+        }
+      }
+
+      // 2. Prioridad 2: ¿En qué sala se dictó este caso hoy durante el día?
+      for (const otraSala of resumenInter.salasContinuidad) {
+        if (otraSala.ambienteId === ambienteActualId) continue;
+        const sesHoyDeSala = sesiones.filter((s) => s.ambienteId === otraSala.ambienteId);
+        const sesionConCaso = sesHoyDeSala.find((s) => {
+          const c = (s.escenarioNombre || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+          return c && c === casoNorm;
+        });
+        if (sesionConCaso) {
+          return {
+            ambienteId: otraSala.ambienteId,
+            ambienteNombre: otraSala.ambienteNombre,
+            ambienteCodigo: otraSala.ambienteCodigo,
+            tipoMatch: 'dictado_hoy_caso' as const,
+            motivo: `Se dictó hoy (${sesionConCaso.horaInicio} - ${sesionConCaso.horaFin}) en esta sala`,
+            caso: sesionConCaso.escenarioNombre || '',
+            curso: sesionConCaso.cursoNombreSimclic || sesionConCaso.titulo || '',
+          };
+        }
+      }
+
+      return null;
+    },
+    [resumenInter, sesiones]
+  );
+
+  // Ejecución interactiva de una permuta / reubicación
+  const handleEjecutarPermuta = useCallback(
+    (sesionOrigenId: number, targetAmbienteId: number) => {
+      const targetAmb = ambientes.find((a) => a.id === targetAmbienteId);
+      const sesionOrigen = sesionesComparacion.find((s) => s.id === sesionOrigenId);
+      if (!targetAmb || !sesionOrigen) return;
+
+      const origenAmb = ambientes.find((a) => a.id === sesionOrigen.ambienteId);
+      const origenAmbNombre = origenAmb?.nombre || 'Sala previa';
+      const origenAmbId = origenAmb?.id || 0;
+
+      // Buscar si la sala destino ya tiene clase matutina mañana
+      const sesionesEnDestino = sesionesComparacion
+        .filter((s) => s.ambienteId === targetAmbienteId && s.id !== sesionOrigenId)
+        .sort((a, b) => a.startMins - b.startMins);
+      const sesionDesplazada = sesionesEnDestino.length > 0 ? sesionesEnDestino[0] : null;
+
+      // Aplicar cambio en sesionesComparacion
+      const nuevasSesiones = sesionesComparacion.map((s) => {
+        if (s.id === sesionOrigenId) {
+          return {
+            ...s,
+            ambienteId: targetAmb.id,
+            ambienteNombreSimclic: targetAmb.nombre,
+            ambienteCodigoSimclic: targetAmb.codigo,
+          };
+        }
+        if (sesionDesplazada && s.id === sesionDesplazada.id) {
+          return {
+            ...s,
+            ambienteId: origenAmbId,
+            ambienteNombreSimclic: origenAmbNombre,
+            ambienteCodigoSimclic: origenAmb?.codigo || null,
+          };
+        }
+        return s;
+      });
+
+      // Evaluar si en la sala destino se logra continuidad (coincide con el cierre de hoy de esa sala)
+      let logroContinuidad = false;
+      let casoContinuidad: string | null | undefined = undefined;
+      if (resumenInter) {
+        const contDestino = resumenInter.salasContinuidad.find((s) => s.ambienteId === targetAmbienteId);
+        const casoOrigenNorm = (sesionOrigen.escenarioNombre || '').toLowerCase().trim();
+        const casoCierreDestinoNorm = (contDestino?.casoHoy || '').toLowerCase().trim();
+        if (casoOrigenNorm && casoOrigenNorm === casoCierreDestinoNorm) {
+          logroContinuidad = true;
+          casoContinuidad = sesionOrigen.escenarioNombre || undefined;
+        }
+      }
+
+
+      const nuevoPaso: PermutaCadenaPaso = {
+        id: `paso_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: Date.now(),
+        sesionOrigenId: sesionOrigen.id,
+        sesionOrigenTitulo: sesionOrigen.cursoNombreSimclic || sesionOrigen.titulo || 'Sesión',
+        sesionOrigenCaso: sesionOrigen.escenarioNombre || '',
+        ambienteOrigenId: origenAmbId,
+        ambienteOrigenNombre: origenAmbNombre,
+        ambienteDestinoId: targetAmb.id,
+        ambienteDestinoNombre: targetAmb.nombre,
+        sesionDesplazadaId: sesionDesplazada?.id,
+        sesionDesplazadaTitulo: sesionDesplazada ? (sesionDesplazada.cursoNombreSimclic || sesionDesplazada.titulo || '') : undefined,
+        sesionDesplazadaCaso: sesionDesplazada?.escenarioNombre,
+        logroContinuidadDestino: logroContinuidad,
+        casoContinuidad,
+      };
+
+      setSesionesComparacion(nuevasSesiones);
+      setHistorialPermutas((prev) => [...prev, nuevoPaso]);
+
+      const msg = logroContinuidad
+        ? `🎉 ¡Continuidad lograda! "${sesionOrigen.escenarioNombre || sesionOrigen.titulo}" movido a ${targetAmb.nombre}`
+        : `🔀 Reubicación aplicada: Sesión movida a ${targetAmb.nombre}`;
+      showToast(msg, logroContinuidad ? 'success' : 'info');
+    },
+    [ambientes, sesionesComparacion, resumenInter]
+  );
+
+  // Deshacer la última permuta del historial
+  const handleDeshacerUltimaPermuta = useCallback(() => {
+    if (historialPermutas.length === 0) return;
+    const nuevoHistorial = historialPermutas.slice(0, -1);
+    let sesionesReconstruidas = [...sesionesComparacionOriginales];
+
+    for (const paso of nuevoHistorial) {
+      const targetAmb = ambientes.find((a) => a.id === paso.ambienteDestinoId);
+      const origenAmb = ambientes.find((a) => a.id === paso.ambienteOrigenId);
+      if (!targetAmb) continue;
+
+      const sesionDesplazadaId = paso.sesionDesplazadaId;
+
+      sesionesReconstruidas = sesionesReconstruidas.map((s) => {
+        if (s.id === paso.sesionOrigenId) {
+          return {
+            ...s,
+            ambienteId: targetAmb.id,
+            ambienteNombreSimclic: targetAmb.nombre,
+            ambienteCodigoSimclic: targetAmb.codigo,
+          };
+        }
+        if (sesionDesplazadaId && s.id === sesionDesplazadaId) {
+          return {
+            ...s,
+            ambienteId: origenAmb?.id || null,
+            ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
+            ambienteCodigoSimclic: origenAmb?.codigo || null,
+          };
+        }
+        return s;
+      });
+    }
+
+    setSesionesComparacion(sesionesReconstruidas);
+    setHistorialPermutas(nuevoHistorial);
+    showToast('↩️ Deshecha última reubicación', 'info');
+  }, [historialPermutas, sesionesComparacionOriginales, ambientes]);
+
+  // Restablecer todas las permutas al estado original de SimClic
+  const handleRestablecerPermutas = useCallback(() => {
+    setSesionesComparacion([...sesionesComparacionOriginales]);
+    setHistorialPermutas([]);
+    showToast('🔄 Programación de mañana restablecida a la original', 'info');
+  }, [sesionesComparacionOriginales]);
+
+  // Copiar propuesta estructurada para WhatsApp o Coordinación
+  const handleCopiarPropuestaCadena = useCallback(() => {
+    if (historialPermutas.length === 0) return;
+
+    const lineasPasos = historialPermutas.map((p, idx) => {
+      const num = idx + 1;
+      const interc = p.sesionDesplazadaTitulo
+        ? `\n   ↳ 🔄 Intercambio con: "${p.sesionDesplazadaCaso || p.sesionDesplazadaTitulo}"`
+        : '\n   ↳ ➡️ Movido a sala libre';
+      const logro = p.logroContinuidadDestino
+        ? `\n   ↳ ✨ Beneficio: ${p.ambienteDestinoNombre} amanece 100% armada con este caso (0 acarreo).`
+        : '';
+      return `${num}️⃣ *Mover:* ${p.sesionOrigenTitulo}${p.sesionOrigenCaso ? ` ("${p.sesionOrigenCaso}")` : ''}\n   *De:* ${p.ambienteOrigenNombre} ➔ *A:* ${p.ambienteDestinoNombre}${interc}${logro}`;
+    });
+
+    const texto = `📋 *PROPUESTA DE REUBICACIÓN DE SALAS PARA MAÑANA*
+📍 *Sede:* ${nombreSede}
+📅 *Cierre:* ${fecha} (22:00) ➔ *Apertura:* ${fechaComparacion} (07:00)
+
+Estimada Coordinación, para optimizar la logística técnica, evitar desmontajes nocturnos y suprimir el acarreo pesado de torres y simuladores, proponemos la siguiente reubicación en cadena de asignaciones matutinas:
+
+${lineasPasos.join('\n\n')}
+
+📈 *Impacto Operativo:*
+• ${continuidadesGanadas > 0 ? `+${continuidadesGanadas} salas adicionales quedan con CONTINUIDAD TOTAL.` : 'Salas optimizadas para reducir traslados.'}
+• Cero riesgo de retraso en la apertura matutina (ambientes amanecen listos).
+
+_Generado desde el Hub Logístico de Simulación UCS._`;
+
+    navigator.clipboard
+      .writeText(texto)
+      .then(() => {
+        showToast('📋 Propuesta copiada al portapapeles para WhatsApp / Correo', 'success');
+      })
+      .catch(() => {
+        showToast('No se pudo copiar automáticamente', 'error');
+      });
+  }, [historialPermutas, nombreSede, fecha, fechaComparacion, continuidadesGanadas]);
+
+  // Aplicar oficialmente las reubicaciones en la base de datos
+  const handleGuardarReubicacionesEnBD = useCallback(async () => {
+    if (historialPermutas.length === 0) return;
+
+    const confirmado = await confirmModal({
+      title: '¿Aplicar Reubicaciones en el Sistema?',
+      text: `Se actualizarán oficialmente las reubicaciones simuladas para el ${fechaComparacion}. Todas las salas y el Kiosco reflejarán los nuevos ambientes.`,
+      confirmText: '💾 Sí, aplicar en sistema',
+      cancelText: 'Cancelar',
+    });
+
+    if (!confirmado) return;
+
+    setGuardandoReubicaciones(true);
+    try {
+      const mapOriginales = new Map(sesionesComparacionOriginales.map((s) => [s.id, s.ambienteId]));
+      const cambiosParaBD: Array<{
+        sesionId: number;
+        nuevoAmbienteId: number;
+        nuevoAmbienteNombre: string;
+        nuevoAmbienteCodigo?: string | null;
+      }> = [];
+
+      for (const ses of sesionesComparacion) {
+        const ambOrig = mapOriginales.get(ses.id);
+        if (ambOrig !== undefined && ses.ambienteId && ambOrig !== ses.ambienteId) {
+          cambiosParaBD.push({
+            sesionId: ses.id,
+            nuevoAmbienteId: ses.ambienteId,
+            nuevoAmbienteNombre: ses.ambienteNombreSimclic || 'Sala',
+            nuevoAmbienteCodigo: ses.ambienteCodigoSimclic || null,
+          });
+        }
+      }
+
+      if (cambiosParaBD.length === 0) {
+        showToast('No hay diferencias pendientes respecto al sistema', 'info');
+        return;
+      }
+
+      const res = await fetch('/api/programacion/reubicar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha: fechaComparacion,
+          cambios: cambiosParaBD,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        await showAlert(
+          '¡Reubicaciones Aplicadas!',
+          `Se guardaron ${data.actualizadas} sesiones reubicadas para el ${fechaComparacion}. Ahora el Kiosco, Gantt y la programación reflejan los nuevos ambientes.`,
+          'success'
+        );
+        setHistorialPermutas([]);
+        await loadComparacion();
+      } else {
+        await showAlert(
+          'Error al aplicar reubicaciones',
+          data.error || 'Ocurrió un error en el servidor',
+          'error'
+        );
+      }
+
+    } catch (err) {
+      console.error('Error al guardar reubicaciones:', err);
+      showToast('Error de conexión al aplicar reubicaciones', 'error');
+    } finally {
+      setGuardandoReubicaciones(false);
+    }
+  }, [historialPermutas, fechaComparacion, sesionesComparacionOriginales, sesionesComparacion, loadComparacion]);
+
+  // Pre-cálculo de la auto-reorganización para mostrar métricas en la pastilla
+  const resultadoAutoSimulacionPrevia = useMemo(() => {
+    if (sesionesComparacionOriginales.length === 0 || !resumenInter) return null;
+    return autoReorganizarSalasOptimas(
+      ambientes,
+      sesiones,
+      sesionesComparacionOriginales,
+      nombreSede,
+      fecha,
+      fechaComparacion
+    );
+  }, [ambientes, sesiones, sesionesComparacionOriginales, nombreSede, fecha, fechaComparacion, resumenInter]);
+
+  const permutasSugeridasCount = resultadoAutoSimulacionPrevia?.pasosRealizados.length || 0;
+
+  // Ejecución de la Reorganización Automática Global
+  const handleAutoReorganizar = useCallback(() => {
+    if (sesionesComparacionOriginales.length === 0) {
+      showToast('No hay sesiones de mañana cargadas para reorganizar', 'info');
+      return;
+    }
+
+    const resultado = autoReorganizarSalasOptimas(
+      ambientes,
+      sesiones,
+      sesionesComparacionOriginales,
+      nombreSede,
+      fecha,
+      fechaComparacion
+    );
+
+    if (resultado.pasosRealizados.length === 0) {
+      showToast(
+        'ℹ️ La programación de SimClic ya está optimizada o no presenta permutas posibles para este cambio de fecha',
+        'info'
+      );
+      return;
+    }
+
+    setSesionesComparacion(resultado.sesionesOptimizadas);
+    setHistorialPermutas(resultado.pasosRealizados);
+    const ganadas = Math.max(0, resultado.continuidadesNuevas - resultado.continuidadesOriginales);
+    showToast(
+      `✨ Reorganización simulada: ${resultado.pasosRealizados.length} salas optimizadas para SimClic (+${ganadas} continuidades)`,
+      'success'
+    );
+  }, [ambientes, sesiones, sesionesComparacionOriginales, nombreSede, fecha, fechaComparacion]);
+
+  // Copiar guía rápida específicamente formateada para SimClic
+  const handleCopiarGuiaSimclic = useCallback(() => {
+    if (historialPermutas.length === 0) return;
+
+    const lineas: string[] = [];
+    lineas.push(`📋 *GUÍA RÁPIDA DE REUBICACIÓN PARA SIMCLIC*`);
+    lineas.push(`📍 *Sede:* ${nombreSede}`);
+    lineas.push(`📅 *Fecha de Mañana:* ${fechaComparacion} (Apertura 07:00)`);
+    lineas.push(``);
+    lineas.push(`Estimado técnico, para evitar desmontajes y traslados pesados durante la noche, realiza estos ${historialPermutas.length} movimientos en SimClic:`);
+    lineas.push(``);
+
+    historialPermutas.forEach((p, idx) => {
+      lineas.push(`${idx + 1}️⃣ *Mover:* ${p.sesionOrigenTitulo}${p.sesionOrigenCaso ? ` ("${p.sesionOrigenCaso}")` : ''}`);
+      lineas.push(`   *De:* [${p.ambienteOrigenNombre}] ➔ *A:* [${p.ambienteDestinoNombre}]`);
+      if (p.sesionDesplazadaTitulo) {
+        lineas.push(`   *Intercambio con:* ${p.sesionDesplazadaTitulo}${p.sesionDesplazadaCaso ? ` ("${p.sesionDesplazadaCaso}")` : ''}`);
+      }
+      if (p.logroContinuidadDestino) {
+        lineas.push(`   ↳ ✨ *Beneficio:* [${p.ambienteDestinoNombre}] ya tiene este set montado de anoche (0 acarreo).`);
+      }
+      lineas.push(``);
+    });
+
+    lineas.push(`🎉 *RESULTADO LOGÍSTICO TOTAL:*`);
+    lineas.push(`• +${continuidadesGanadas} salas adicionales amanecen 100% armadas y listas para las 07:00 AM.`);
+    lineas.push(`• Cero necesidad de desmontar ni acarrear simuladores pesados.`);
+    lineas.push(``);
+    lineas.push(`_Generado por el Hub Logístico de Simulación UCS_`);
+
+    const texto = lineas.join('\n');
+    navigator.clipboard
+      .writeText(texto)
+      .then(() => {
+        showToast('📋 Guía rápida copiada para aplicar en SimClic', 'success');
+      })
+      .catch(() => {
+        showToast('No se pudo copiar automáticamente', 'error');
+      });
+  }, [historialPermutas, nombreSede, fechaComparacion, continuidadesGanadas]);
+
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -1230,6 +1664,37 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {/* PASTILLA REORGANIZAR: Simulación global de asignación óptima de salas para SimClic */}
+                      <button
+                        type="button"
+                        onClick={handleAutoReorganizar}
+                        className={`${styles.simclicPillBtn} ${styles.pillReorganizar} ${historialPermutas.length > 0 ? styles.pillReorganizarActive : ''}`}
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                        title="Simular reorganización automática de todas las salas comparando hoy vs mañana para minimizar acarreos"
+                      >
+                        <span>✨ Reorganizar</span>
+                        {historialPermutas.length > 0 ? (
+                          <span style={{ opacity: 0.95, fontSize: '0.72rem' }}>
+                            (+{continuidadesGanadas} logradas)
+                          </span>
+                        ) : permutasSugeridasCount > 0 ? (
+                          <span
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.25)',
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '9999px',
+                              fontSize: '0.7rem',
+                            }}
+                          >
+                            {permutasSugeridasCount} sugeridas
+                          </span>
+                        ) : null}
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setFiltroContinuidad('requieren_accion')}
@@ -1314,8 +1779,143 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                 );
               })()}
 
+              {/* BARRA DE ESTADO DEL SIMULADOR DE PERMUTAS EN CADENA (EFECTO DOMINÓ) */}
+              {historialPermutas.length > 0 && (
+                <div className={styles.simulatorControlBar}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div className={styles.simulatorControlTitle}>
+                      <span style={{ fontSize: '1.25rem' }}>🎮</span>
+                      <span>Simulador de Permutas & Reubicación en Cadena</span>
+                      <span
+                        style={{
+                          background: 'rgba(56, 189, 248, 0.2)',
+                          color: '#38bdf8',
+                          padding: '0.15rem 0.55rem',
+                          borderRadius: '12px',
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {historialPermutas.length} movimientos
+                      </span>
+                      {continuidadesGanadas > 0 && (
+                        <span
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.25)',
+                            color: '#34d399',
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '12px',
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                          }}
+                        >
+                          🎉 +{continuidadesGanadas} salas con continuidad lograda
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={handleCopiarGuiaSimclic}
+                        className={styles.secondaryActionBtn}
+                        style={{
+                          padding: '0.35rem 0.85rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          borderColor: 'rgba(16, 185, 129, 0.6)',
+                          color: '#10b981',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Copiar guía rápida paso a paso con los cambios exactos para realizar en SimClic en menos de 1 minuto"
+                      >
+                        <span>📋</span> Copiar Guía para SimClic
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeshacerUltimaPermuta}
+                        className={styles.secondaryBtn}
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        title="Deshacer el último intercambio realizado"
+                      >
+                        <span>↩️</span> Deshacer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRestablecerPermutas}
+                        className={styles.secondaryBtn}
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        title="Restablecer todas las salas a la programación original de SimClic"
+                      >
+                        <span>🔄</span> Restablecer Todo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopiarPropuestaCadena}
+                        className={styles.secondaryActionBtn}
+                        style={{
+                          padding: '0.35rem 0.8rem',
+                          fontSize: '0.78rem',
+                          borderColor: 'rgba(16, 185, 129, 0.5)',
+                          color: '#10b981',
+                          background: 'rgba(16, 185, 129, 0.12)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Copiar texto formal estructurado con los pasos para enviar a Coordinación o WhatsApp"
+                      >
+                        <span>📋</span> Copiar Propuesta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGuardarReubicacionesEnBD}
+                        disabled={guardandoReubicaciones}
+                        className={styles.primaryBtn}
+                        style={{
+                          padding: '0.35rem 0.9rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                        title="Guardar oficialmente las reubicaciones en la base de datos para que apliquen a toda la clínica"
+                      >
+                        <span>💾</span> {guardandoReubicaciones ? 'Aplicando...' : 'Aplicar en Sistema'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Historial de pasos en cadena (Breadcrumbs visuales) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', overflowX: 'auto', paddingBottom: '0.2rem' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Secuencia en Cadena:
+                    </span>
+                    {historialPermutas.map((paso, idx) => (
+                      <div key={paso.id} className={styles.simulatorStepChip}>
+                        <span>{idx + 1}️⃣</span>
+                        <span>
+                          <strong>{paso.ambienteOrigenNombre}</strong> ➔ <strong>{paso.ambienteDestinoNombre}</strong>
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
+                          ({paso.sesionOrigenCaso || paso.sesionOrigenTitulo})
+                        </span>
+                        {paso.logroContinuidadDestino && (
+                          <span style={{ color: '#10b981', fontWeight: 900 }}>✓ Continuidad</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* CONTENEDOR GANTT / TIMELINE PUENTE INTER-DÍAS */}
               <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
+
                 <div style={{ minWidth: '860px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* CABECERA DE COLUMNAS DEL TIMELINE BRIDGE */}
                   <div className={styles.bridgeHeaderGrid}>
@@ -1602,74 +2202,185 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
 
                             {/* COLUMNA 4: BARRA MAÑANA (APERTURA MATUTINA) */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                              <div className={styles.badgeMananaTitle}>
-                                <span>☀️</span>
-                                <span>MAÑANA (Apertura: {sala.horaInicioManana || 'Sin clases'})</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                <div className={styles.badgeMananaTitle}>
+                                  <span>☀️</span>
+                                  <span>MAÑANA (Apertura: {sala.horaInicioManana || 'Sin clases'})</span>
+                                </div>
+                                {sala.sesionMananaObj && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setModalPermuta({
+                                        isOpen: true,
+                                        sesion: sala.sesionMananaObj || null,
+                                        sala: { id: sala.ambienteId, nombre: sala.ambienteNombre, codigo: sala.ambienteCodigo },
+                                      });
+
+                                    }}
+                                    className={styles.secondaryBtn}
+                                    style={{
+                                      padding: '0.15rem 0.55rem',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      borderRadius: '6px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
+                                    }}
+                                    title="Reubicar o intercambiar esta clase con otra sala para mañana"
+                                  >
+                                    <span>🔀</span> Mover Sala
+                                  </button>
+                                )}
                               </div>
 
                               {sala.cursoManana ? (
-                                <div
-                                  onClick={() => sala.sesionMananaObj && onVerDetalleSesion(sala.sesionMananaObj)}
-                                  style={{
-                                    flex: 1,
-                                    background: colorManana?.bg || 'var(--pill-bg, rgba(56, 189, 248, 0.08))',
-                                    border: `1.5px solid ${colorManana?.border || 'var(--border-color)'}`,
-                                    borderRadius: '10px',
-                                    padding: '0.75rem 0.85rem',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'space-between',
-                                    gap: '0.4rem',
-                                    cursor: sala.sesionMananaObj ? 'pointer' : 'default',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                  title={sala.sesionMananaObj ? 'Clic para ver ficha completa de la sesión' : undefined}
-                                >
-                                  <div>
-                                    <div
-                                      style={{
-                                        fontWeight: 800,
-                                        fontSize: '0.86rem',
-                                        color: 'var(--text-primary)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.35rem',
-                                      }}
-                                    >
-                                      <span>📘</span>
-                                      <span style={{ wordBreak: 'break-word' }}>{sala.cursoManana}</span>
+                                <>
+                                  <div
+                                    onClick={() => sala.sesionMananaObj && onVerDetalleSesion(sala.sesionMananaObj)}
+                                    style={{
+                                      flex: 1,
+                                      background: colorManana?.bg || 'var(--pill-bg, rgba(56, 189, 248, 0.08))',
+                                      border: `1.5px solid ${colorManana?.border || 'var(--border-color)'}`,
+                                      borderRadius: '10px',
+                                      padding: '0.75rem 0.85rem',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      justifyContent: 'space-between',
+                                      gap: '0.4rem',
+                                      cursor: sala.sesionMananaObj ? 'pointer' : 'default',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                    title={sala.sesionMananaObj ? 'Clic para ver ficha completa de la sesión' : undefined}
+                                  >
+                                    <div>
+                                      <div
+                                        style={{
+                                          fontWeight: 800,
+                                          fontSize: '0.86rem',
+                                          color: 'var(--text-primary)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '0.35rem',
+                                        }}
+                                      >
+                                        <span>📘</span>
+                                        <span style={{ wordBreak: 'break-word' }}>{sala.cursoManana}</span>
+                                      </div>
+
+                                      {sala.casoManana && (
+                                        <div className={styles.casoBadgeManana}>
+                                          <span>📋 Caso:</span>
+                                          <span>{sala.casoManana}</span>
+                                        </div>
+                                      )}
+
+                                      {/* Insignia si esta sesión fue movida o desplazada en el simulador */}
+                                      {(() => {
+                                        const paso = historialPermutas.slice().reverse().find(
+                                          (p) => p.sesionOrigenId === sala.sesionMananaObj?.id || p.sesionDesplazadaId === sala.sesionMananaObj?.id
+                                        );
+                                        if (!paso) return null;
+                                        const esOrigen = paso.sesionOrigenId === sala.sesionMananaObj?.id;
+                                        return (
+                                          <div style={{ marginTop: '0.35rem' }}>
+                                            <span className={styles.reubicadaMananaBadge}>
+                                              {esOrigen
+                                                ? `🔀 Reubicada (Orig: ${paso.ambienteOrigenNombre})`
+                                                : `📦 Desplazada desde ${paso.ambienteDestinoNombre}`}
+                                            </span>
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
 
-                                    {sala.casoManana && (
-                                      <div className={styles.casoBadgeManana}>
-                                        <span>📋 Caso:</span>
-                                        <span>{sala.casoManana}</span>
-                                      </div>
-                                    )}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        flexWrap: 'wrap',
+                                        gap: '0.3rem',
+                                        borderTop: '1px solid var(--border-color)',
+                                        paddingTop: '0.35rem',
+                                        marginTop: '0.2rem',
+                                      }}
+                                    >
+                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                        👨‍🏫 {sala.docenteManana || 'Docente asignado'}
+                                      </span>
+                                      <span className={styles.horaMananaText}>
+                                        ⏰ {sala.horaInicioManana} {sala.horaFinManana ? `- ${sala.horaFinManana}` : ''}
+                                      </span>
+                                    </div>
                                   </div>
 
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      flexWrap: 'wrap',
-                                      gap: '0.3rem',
-                                      borderTop: '1px solid var(--border-color)',
-                                      paddingTop: '0.35rem',
-                                      marginTop: '0.2rem',
-                                    }}
-                                  >
-                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                                      👨‍🏫 {sala.docenteManana || 'Docente asignado'}
-                                    </span>
-                                    <span
-                                      className={styles.horaMananaText}
-                                    >
-                                      ⏰ {sala.horaInicioManana} {sala.horaFinManana ? `- ${sala.horaFinManana}` : ''}
-                                    </span>
-                                  </div>
-                                </div>
+                                  {/* ATAJO INTELIGENTE DOMINÓ */}
+                                  {(() => {
+                                    if (!sala.sesionMananaObj) return null;
+                                    if (sala.tipoContinuidad === 'continuidad_total') return null;
+
+                                    const dominoMatch = buscarOportunidadDomino(sala.sesionMananaObj, sala.ambienteId);
+                                    if (!dominoMatch) return null;
+
+                                    const paso = historialPermutas.slice().reverse().find(
+                                      (p) => p.sesionDesplazadaId === sala.sesionMananaObj?.id
+                                    );
+                                    const esDesplazado = Boolean(paso);
+
+                                    if (esDesplazado) {
+                                      return (
+                                        <div className={styles.dominoChainHelperBanner}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1, minWidth: '180px' }}>
+                                            <span style={{ fontSize: '1.2rem' }}>⚡</span>
+                                            <div style={{ fontSize: '0.74rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                                              <strong>Siguiente eslabón dominó:</strong> Hoy en{' '}
+                                              <strong style={{ color: '#f59e0b' }}>{dominoMatch.ambienteNombre}</strong>{' '}
+                                              se dictó <em>"{dominoMatch.caso}"</em>.
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEjecutarPermuta(sala.sesionMananaObj!.id, dominoMatch.ambienteId);
+                                            }}
+                                            className={styles.dominoShortcutBtn}
+                                            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+                                            title={`Intercambiar con ${dominoMatch.ambienteNombre} para continuar la cadena de continuidades`}
+                                          >
+                                            🔀 Mover a {dominoMatch.ambienteNombre}
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div className={styles.dominoShortcutBanner}>
+                                        <div className={styles.dominoShortcutText}>
+                                          <span>💡</span>
+                                          <span>
+                                            <strong>Oportunidad:</strong> "{dominoMatch.caso}" cerró hoy en{' '}
+                                            <strong style={{ color: '#10b981' }}>{dominoMatch.ambienteNombre}</strong>.
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEjecutarPermuta(sala.sesionMananaObj!.id, dominoMatch.ambienteId);
+                                          }}
+                                          className={styles.dominoShortcutBtn}
+                                          title={`Intercambiar con ${dominoMatch.ambienteNombre} para lograr 100% continuidad`}
+                                        >
+                                          🔀 Intercambiar con {dominoMatch.ambienteNombre}
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
+                                </>
                               ) : (
                                 <div
                                   style={{
@@ -1690,6 +2401,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
                               )}
                             </div>
                           </div>
+
 
                           {/* BANNER CLAVE: CASO YA DICTADO HOY EN ESTA SALA */}
                           {sala.casoYaDictadoHoy && sala.detalleCasoDictadoHoy && (
@@ -1748,6 +2460,22 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
           )}
         </div>
       )}
+
+      {/* MODAL SELECTOR MANUAL DE PERMUTA / REUBICACIÓN */}
+      <ModalSelectorPermutaManual
+        isOpen={modalPermuta.isOpen}
+        onClose={() => setModalPermuta({ isOpen: false, sesion: null, sala: null })}
+        sesionManana={modalPermuta.sesion}
+        salaActual={modalPermuta.sala}
+        ambientes={ambientes}
+        resumenInter={resumenInter}
+        onSelectAmbienteDestino={(targetAmbienteId) => {
+          if (modalPermuta.sesion) {
+            handleEjecutarPermuta(modalPermuta.sesion.id, targetAmbienteId);
+          }
+        }}
+      />
     </div>
   );
 };
+

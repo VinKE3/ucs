@@ -569,5 +569,24 @@ export interface ResumenContinuidadInterDias {
   permutasSugeridas: PermutaSugeridaItem[];
 }
 
+export interface PermutaCadenaPaso {
+  id: string;
+  timestamp: number;
+  sesionOrigenId: number;
+  sesionOrigenTitulo: string;
+  sesionOrigenCaso: string;
+  ambienteOrigenId: number;
+  ambienteOrigenNombre: string;
+  ambienteDestinoId: number;
+  ambienteDestinoNombre: string;
+  sesionDesplazadaId?: number | null;
+  sesionDesplazadaTitulo?: string | null;
+  sesionDesplazadaCaso?: string | null;
+  logroContinuidadDestino: boolean;
+  casoContinuidad?: string | null;
+}
+
+
+
 
 

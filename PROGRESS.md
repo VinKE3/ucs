@@ -780,6 +780,14 @@ src/
     - **Alineación Inteligente (`DateRangePicker.module.css`)**: Se configuró `.popover` con `right: 0; left: auto;` por defecto, garantizando que el menú se expanda hacia el interior de la pantalla (hacia la izquierda) y permanezca 100% visible.
     - **Control Flexible de Alineación (`DateRangePicker.tsx`)**: Se agregó la prop opcional `align?: 'left' | 'right'` (con valor por defecto `'right'`) con clases dedicadas `.popoverLeft` y `.popoverRight`.
     - **Defensa de Ancho y Adaptabilidad**: Se incorporó `max-width: calc(100vw - 32px)` y se elevó el breakpoint de Bottom Sheet nativo de 680px a 720px (`@media (max-width: 720px)`) para garantizar una navegación perfecta en tablets y laptops.
+* `fix(admin-modals-swal-zindex)`: **Hito 50: Corrección de Superposición (z-index) de Modales de Confirmación y Alertas**:
+  - **Causa Raíz Identificada**:
+    - Los modales del panel administrativo (`.modalBackdrop` y `.modalOverlay` en `admin.module.css`) se renderizan en el `document.body` mediante `createPortal` con `z-index: 1200`.
+    - Por defecto, SweetAlert2 (`sweetalert2.min.css`) asigna a su contenedor `.swal2-container` un `z-index: 1060`.
+    - Al solicitar una confirmación destructiva desde adentro de un modal abierto (como revocar/eliminar una terminal en `ModalGestionTerminales`), el cuadro de confirmación de SweetAlert2 quedaba atrapado detrás del modal padre (`1060 < 1200`), obligando al usuario a cerrar el modal para poder ver y pulsar los botones de confirmación.
+  - **Solución Implementada**:
+    - **Regla Global de Capas (`globals.css`)**: Se configuró `.swal2-container { z-index: 10000 !important; }`.
+    - Con este ajuste, cualquier diálogo de confirmación (`confirmModal`, `confirmDelete`, `confirmToggleActive`), alerta informativa (`showAlert`) o notificación emergente (`showToast`) se proyecta siempre con máxima prioridad visual por encima de cualquier modal o backdrop abierto.
 
 ---
 

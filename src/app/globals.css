@@ -130,6 +130,10 @@ code {
 /* ==========================================================================
    ESTILOS INSTITUCIONALES UCS PARA SWEETALERT2 (MODALES CRUD)
    ========================================================================== */
+.swal2-container {
+  z-index: 10000 !important;
+}
+
 .ucs-swal-popup {
   border-radius: 16px !important;
   padding: 1.6rem 1.85rem !important;

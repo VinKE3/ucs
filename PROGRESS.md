@@ -846,6 +846,41 @@ src/
     - Añadido a la botonera ejecutiva del `.simulatorControlBar`.
     - Genera y copia al portapapeles una lista rápida paso a paso (`1️⃣ Mover Caso X de [Sala A] ➔ [Sala B] (Intercambio con Caso Y)`) para que el técnico abra SimClic y traslade las clases en menos de 1 minuto sin margen de error.
 
+* `feat(gantt-simulado-continuidad-manana)`: **Hito 55: Línea de Tiempo Gantt Simulado de Mañana (Vista Idéntica a SimClic)**:
+  - **Solicitud del Usuario & Visión de Operación**:
+    - Al presionar **«✨ Reorganizar»**, los técnicos necesitan ver la distribución de mañana directamente en una **Línea de Tiempo Gantt interactiva** (07:00 a 22:00) idéntica a la interfaz a la que están habituados en SimClic.
+    - Esto permite validar visualmente en segundos el impacto en todo el piso y ejecutar los movimientos en SimClic con total seguridad.
+  - **Arquitectura y Componentes Implementados (`HubLogisticaSimulacion.tsx` & `admin.module.css`)**:
+    - **Activación Reactiva Automática**: Al hacer clic en `✨ Reorganizar`, el sistema conmuta automáticamente a `vistaContinuidad = 'gantt'`.
+    - **Selector de Vista Dual**: Barra de control conmutadora entre `[ 📊 Gantt Simulado ]` y `[ 📋 Tarjetas ]`, permitiendo al técnico alternar entre la vista temporal completa y la comparativa sala por sala en cualquier momento.
+    - **Estructura idéntica a SimClic**:
+      - Eje horizontal con 31 slots de tiempo (07:00 a 22:00 en intervalos de 30 minutos).
+      - Eje vertical con salas agrupadas por pisos UCS (`Primer Piso`, `Segundo Piso`, `Piso 4`, `Piso 8`, etc.) ordenadas con `clasificarPisoYOrden` y con acordeón colapsable por piso.
+    - **Distintivos Inteligentes en Bloques de Clase**:
+      - `🟩 Reubicada (0 Acarreo)`: Bloques de sesión reasignados con borde verde esmeralda luminoso, badge `🔀 REUBICADA de [Sala Origen]`, caso, curso, docente y horario.
+      - `🟨 Desplazada`: Bloques en ámbar que fueron movidos por intercambio (`📦 DESPLAZADA desde [Sala]`).
+      - `🟦 Sin cambios`: Clases que se mantienen en su programación base con el color de su carrera/curso.
+    - **Ficha Lateral de Sala**: Muestra el nombre, código y un badge informativo con lo que cerró esa sala hoy (`🌙 Cierre: Caso / Curso`), facilitando la correlación de por qué se reubicó esa sesión allí.
+* `feat(gantt-reorganizar-dual-inamovible)`: **Hito 56: Reorganización Integral de Todos los Ambientes & Modo Comparativa Dual (Hoy vs Mañana Simulado)**:
+  - **Contexto Operativo & Workflow Real del Técnico de Simulación**:
+    - Históricamente, el técnico abría **dos pestañas independientes de SimClic**: una con la programación de **Hoy** y otra con la de **Mañana**, comparando sala por sala para decidir qué clases mover de ambiente para evitar acarreos nocturnos.
+    - **Regla Operativa Inviolable**: *"La hora es inamovible, solo podemos mover los cursos entre ambientes"*. Los horarios de inicio y fin (`startMins` a `endMins`) deben respetarse al 100%. Las salas no pueden tener colisiones ni solapamientos de horario en ningún minuto.
+  - **Visualización Completa de Toda la Clínica (38+ Ambientes)**:
+    - Se corrigió el alcance del Gantt en `HubLogisticaSimulacion.tsx`: anteriormente filtraba solo las salas con incidencias (~15 salas); ahora muestra **TODOS los 38+ ambientes de la sede** por defecto, agrupados y ordenados por pisos UCS (`Primer Piso`, `Segundo Piso`, `Piso 4`, etc.) de forma idéntica a SimClic.
+    - Permite al técnico revisar la totalidad del campus de un solo vistazo antes de tocar SimClic.
+    - Filtro de alcance dinámico integrado: `[ 🏢 Todas (${ambientes.length}) ]`, `[ ✨ Reubicadas ]`, `[ ⚡ Requieren Acción ]`.
+  - **Algoritmo de Reorganización por Bloques Curriculares & Cero Solapamientos (`logisticaSimulacion.ts`)**:
+    - **Detección de Colisiones (`haySolapamientoHorario`)**: Valida matemáticamente que ninguna sala candidata reciba una clase que solape con otra clase existente en cualquier minuto. Si hay cruce, la permuta se rechaza automáticamente.
+    - **Reubicación por Bloques Contiguos (`obtenerBloqueConsecutivo`)**: En SimClic, un curso matutino suele dividirse en 2 o 3 sesiones contiguas de 1h40m (ej. 07:00 a 12:00). El algoritmo traslada el bloque completo del caso/curso hacia la sala donde cerró anoche, intercambiando limpiamente con el bloque compatible de destino o asignándolo si la sala está libre.
+    - **Validación en Reubicaciones Manuales**: Tanto la auto-reorganización como el modal manual (`handleEjecutarPermuta`) verifican colisiones y previenen cruces de horario.
+  - **Modo Comparativa Dual «Lado a Lado» (Hoy vs Mañana Simulado)**:
+    - Selector de modo integrado en el banner del Gantt:
+      - `[ 🖥️ Mañana Simulado (Gantt Completo) ]`: Vista a pantalla completa de la programación de mañana con todas las salas.
+      - `[ 👥 Comparativa Dual (Hoy vs Mañana) ]`: Recrea de forma nativa la experiencia de las dos pestañas de SimClic lado a lado.
+    - **Sincronización Vertical Absoluta**: Cada fila agrupa la sala de **Hoy** (con su cierre nocturno) exactamente a la par de la sala de **Mañana Simulado** (con sus reubicaciones en verde esmeralda y desplazamientos en ámbar). El técnico puede verificar en 5 segundos por qué se movió cada clase y cómo queda todo el campus.
+  - **Guía Rápida de Pasos para SimClic**:
+    - Genera la secuencia exacta de movimientos indicando los bloques de horario (`07:00 a 12:00`), salas origen y destino, lista para aplicar en SimClic en menos de 1 minuto con 0 margen de error.
+
 ---
 
 

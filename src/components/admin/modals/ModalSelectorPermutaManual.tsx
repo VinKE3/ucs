@@ -179,7 +179,7 @@ export const ModalSelectorPermutaManual: React.FC<ModalSelectorPermutaManualProp
               </h3>
             </div>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Selecciona la sala de destino. Si la sala destino ya tiene clase matutina, se intercambiarán automáticamente (efecto dominó).
+              Selecciona la sala de destino. <strong>Las horas son inamovibles:</strong> se reubica el bloque curricular o se intercambian franjas horarias compatibles para garantizar cero solapamientos.
             </p>
           </div>
           <button

@@ -584,6 +584,9 @@ export interface PermutaCadenaPaso {
   sesionDesplazadaCaso?: string | null;
   logroContinuidadDestino: boolean;
   casoContinuidad?: string | null;
+  sesionOrigenIds?: number[];
+  sesionDesplazadaIds?: number[];
+  horarioFranja?: string;
 }
 
 

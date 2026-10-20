@@ -27,6 +27,104 @@ function normText(txt: string | null | undefined): string {
 }
 
 /**
+ * Clasificación y ordenamiento idéntico al SimClic por pisos (Primer Piso / Segundo Piso / etc.)
+ */
+export function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | null }): {
+  piso: string;
+  ordenPiso: number;
+  ordenSala: number;
+} {
+  const nom = (amb.nombre || '').toUpperCase();
+  const cod = (amb.codigo || '').toUpperCase();
+
+  // Ambientes Virtuales
+  if (nom.includes('VIRTUAL') || cod.includes('VIRT')) {
+    return { piso: 'Ambientes Virtuales', ordenPiso: 90, ordenSala: 1 };
+  }
+
+  // Almacén / Administrativo
+  if (nom.includes('ALMACÉN') || nom.includes('ALMACEN') || cod.startsWith('AG')) {
+    return { piso: 'Almacén / Administrativo', ordenPiso: 85, ordenSala: 1 };
+  }
+
+  // 1. Detectar Primer Piso (L 1xx, Consultorio 1-4, Microbiología, Habilidades 4, Alta Fidelidad 1-5, etc.)
+  const isPrimerPiso =
+    /\bL\s*[-]?\s*1\d{2}\b/i.test(nom) ||
+    /\bL\s*[-]?\s*1\d{2}\b/i.test(cod) ||
+    nom.includes('PRIMER PISO') ||
+    nom.includes('1ER PISO') ||
+    /CONSULTORIO\s*(0?[1-4])\b/i.test(nom);
+
+  if (isPrimerPiso) {
+    let ordenSala = 50;
+    if (nom.includes('MICROBIOLOGIA')) ordenSala = 1;
+    else if (nom.includes('TECNOLOGÍA MÉDICA') || nom.includes('TECNOLOGIA MEDICA')) ordenSala = 2;
+    else if (nom.includes('HABILIDADES 4')) ordenSala = 3;
+    else if (nom.includes('ALTA FIDELIDAD 4')) ordenSala = 4;
+    else if (nom.includes('HOSPITALIZACIÓN 2') || nom.includes('HOSPITALIZACION 2')) ordenSala = 5;
+    else if (nom.includes('ALTA FIDELIDAD 3')) ordenSala = 6;
+    else if (nom.includes('ALTA FIDELIDAD 2')) ordenSala = 7;
+    else if (nom.includes('HOSPITALIZACIÓN 1') || nom.includes('HOSPITALIZACION 1')) ordenSala = 8;
+    else if (nom.includes('ALTA FIDELIDAD 1')) ordenSala = 9;
+    else if (nom.includes('ALTA FIDELIDAD 5')) ordenSala = 10;
+    else if (nom.includes('CONSULTORIO 4')) ordenSala = 11;
+    else if (nom.includes('CONSULTORIO 1')) ordenSala = 12;
+    else if (nom.includes('CONSULTORIO 3')) ordenSala = 13;
+    else if (nom.includes('CONSULTORIO 2')) ordenSala = 14;
+    else {
+      const matchL = nom.match(/\bL\s*[-]?\s*1(\d{2})\b/i);
+      if (matchL) ordenSala = 20 + parseInt(matchL[1], 10);
+    }
+    return { piso: 'Primer Piso', ordenPiso: 1, ordenSala };
+  }
+
+  // 2. Detectar Segundo Piso (L 2xx, Auditorio, Consultorio 5-8, ECOE, Habilidades 1, 2, 3, 5, etc.)
+  const isSegundoPiso =
+    /\bL\s*[-]?\s*2\d{2}\b/i.test(nom) ||
+    /\bL\s*[-]?\s*2\d{2}\b/i.test(cod) ||
+    nom.includes('SEGUNDO PISO') ||
+    nom.includes('2DO PISO') ||
+    nom.includes('AUDITORIO') ||
+    nom.includes('ECOE') ||
+    /CONSULTORIO\s*(0?[5-8])\b/i.test(nom);
+
+  if (isSegundoPiso) {
+    let ordenSala = 50;
+    if (nom.includes('AUDITORIO')) ordenSala = 1;
+    else if (nom.includes('HABILIDADES 5')) ordenSala = 2;
+    else if (nom.includes('ECOGRAFÍAS') || nom.includes('ECOGRAFIAS')) ordenSala = 3;
+    else if (nom.includes('IMÁGENES') || nom.includes('IMAGENES')) ordenSala = 4;
+    else if (nom.includes('HABILIDADES 1')) ordenSala = 5;
+    else if (nom.includes('HABILIDADES 2')) ordenSala = 6;
+    else if (nom.includes('HABILIDADES 3')) ordenSala = 7;
+    else if (nom.includes('CONSULTORIO 5')) ordenSala = 8;
+    else if (nom.includes('CONSULTORIO 6')) ordenSala = 9;
+    else if (nom.includes('CONSULTORIO 7')) ordenSala = 10;
+    else if (nom.includes('CONSULTORIO 8')) ordenSala = 11;
+    else if (nom.includes('OBS. ECOE')) ordenSala = 12;
+    else if (nom.includes('ECOE')) {
+      const matchEcoe = nom.match(/ECOE\s*0?(\d+)/i);
+      ordenSala = 20 + (matchEcoe ? parseInt(matchEcoe[1], 10) : 0);
+    }
+    return { piso: 'Segundo Piso', ordenPiso: 2, ordenSala };
+  }
+
+  // 3. Pisos de otras sedes (Ate, Norte)
+  if (nom.includes('PISO 4') || nom.includes('CUARTO PISO') || /\bB-?4\d{2}\b/i.test(nom) || /\bB4\d{2}\b/i.test(cod)) {
+    return { piso: 'Cuarto Piso', ordenPiso: 4, ordenSala: 1 };
+  }
+  if (nom.includes('PISO 8') || nom.includes('OCTAVO PISO') || /\bC-?8\d{2}\b/i.test(nom) || /\bC8\d{2}\b/i.test(cod)) {
+    return { piso: 'Piso 8', ordenPiso: 8, ordenSala: 1 };
+  }
+  if (nom.includes('PISO 9') || nom.includes('NOVENO PISO') || /\bC-?9\d{2}\b/i.test(nom) || /\bC9\d{2}\b/i.test(cod)) {
+    return { piso: 'Piso 9', ordenPiso: 9, ordenSala: 1 };
+  }
+
+  return { piso: 'Ambientes Generales', ordenPiso: 50, ordenSala: 99 };
+}
+
+
+/**
  * Analiza las transiciones de salas y cursos a lo largo del mismo día (Intra-Día).
  * Identifica con precisión matemática:
  * - Salas que cambian de curso (Swap Mayor de equipamiento/simuladores).
@@ -953,6 +1051,72 @@ export function generarMensajePropuestaCoordinacion(
   return lineas.join('\n');
 }
 
+/**
+ * Verifica si una lista de sesiones en un ambiente presenta algún solapamiento o colisión de horario.
+ * Dado que en SimClic la hora es inamovible, dos clases en el mismo ambiente no pueden coincidir en minutos.
+ */
+export function haySolapamientoHorario(sesiones: SesionProgramadaTimelineItem[]): boolean {
+  if (sesiones.length <= 1) return false;
+  const ordenadas = [...sesiones].sort((a, b) => a.startMins - b.startMins);
+  for (let i = 0; i < ordenadas.length - 1; i++) {
+    const act = ordenadas[i];
+    const sig = ordenadas[i + 1];
+    if (act.endMins > sig.startMins) {
+      return true; // ¡Colisión horaria detectada!
+    }
+  }
+  return false;
+}
+
+/**
+ * Obtiene el bloque de sesiones contiguas de una misma sala que corresponden
+ * al mismo caso clínico o al mismo curso matutino (por ejemplo 07:00 a 12:00 compuesto por 2 o 3 turnos).
+ */
+export function obtenerBloqueConsecutivo(
+  sesionInicial: SesionProgramadaTimelineItem,
+  sesionesSala: SesionProgramadaTimelineItem[]
+): SesionProgramadaTimelineItem[] {
+  const bloque: SesionProgramadaTimelineItem[] = [sesionInicial];
+  const cNorm = normText(sesionInicial.escenarioNombre);
+  const crsNorm = normText(sesionInicial.cursoNombreSimclic || sesionInicial.titulo);
+
+  // Ordenar sesiones de la sala
+  const ordenadas = [...sesionesSala].sort((a, b) => a.startMins - b.startMins);
+
+  // Extender hacia adelante
+  let ultFin = sesionInicial.endMins;
+  for (const s of ordenadas) {
+    if (s.id === sesionInicial.id) continue;
+    if (s.startMins >= ultFin && s.startMins <= ultFin + 25) {
+      const sCasoNorm = normText(s.escenarioNombre);
+      const sCrsNorm = normText(s.cursoNombreSimclic || s.titulo);
+      if ((cNorm && sCasoNorm === cNorm) || (crsNorm && sCrsNorm === crsNorm)) {
+        bloque.push(s);
+        ultFin = s.endMins;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Extender hacia atrás por si la inicial no era la primera del bloque
+  let primInicio = sesionInicial.startMins;
+  for (let i = ordenadas.length - 1; i >= 0; i--) {
+    const s = ordenadas[i];
+    if (s.id === sesionInicial.id || bloque.some((b) => b.id === s.id)) continue;
+    if (s.endMins <= primInicio && s.endMins >= primInicio - 25) {
+      const sCasoNorm = normText(s.escenarioNombre);
+      const sCrsNorm = normText(s.cursoNombreSimclic || s.titulo);
+      if ((cNorm && sCasoNorm === cNorm) || (crsNorm && sCrsNorm === crsNorm)) {
+        bloque.unshift(s);
+        primInicio = s.startMins;
+      }
+    }
+  }
+
+  return bloque.sort((a, b) => a.startMins - b.startMins);
+}
+
 export interface ResultadoAutoReorganizacion {
   sesionesOptimizadas: SesionProgramadaTimelineItem[];
   pasosRealizados: PermutaCadenaPaso[];
@@ -966,7 +1130,10 @@ export interface ResultadoAutoReorganizacion {
  * Motor de Auto-Reorganización Global de Salas (Simulador Dominó):
  * Analiza todas las clases del cierre nocturno de HOY contra las clases matutinas de MAÑANA
  * y resuelve de manera automática la mejor combinación de reubicaciones encadenadas para maximizar
- * la continuidad de cursos y casos, ahorrando desmontajes y acarreos nocturnos.
+ * la continuidad de cursos y casos, garantizando que:
+ * 1. "La hora es inamovible": Ningún horario de clase es alterado en absoluto.
+ * 2. Cero solapamientos: Valida que ninguna sala reciba clases solapadas en ningún minuto.
+ * 3. Bloques completos: Traslada bloques contiguos de sesiones de la misma materia matutina.
  */
 export function autoReorganizarSalasOptimas(
   ambientes: AmbienteAdminItem[],
@@ -1026,9 +1193,9 @@ export function autoReorganizarSalasOptimas(
   // Copia de trabajo de sesiones de mañana
   let sesionesTrabajo = sesionesMananaOriginales.map((s) => ({ ...s }));
   const pasosRealizados: PermutaCadenaPaso[] = [];
-  const salasBloqueadas = new Set<number>(); // Salas con 100% de continuidad lograda
+  const salasBloqueadas = new Set<number>(); // Salas con continuidad lograda o intocables
 
-  // Identificar qué salas YA tienen continuidad de caso idéntico en SimClic para no tocarlas
+  // Identificar qué salas YA tienen continuidad de caso idéntico en SimClic para no moverlas
   for (const amb of ambientes) {
     const cierre = cierreHoyPorSala.get(amb.id);
     const sesionesManAmb = sesionesTrabajo
@@ -1053,12 +1220,11 @@ export function autoReorganizarSalasOptimas(
   let huboCambio = true;
   let iteraciones = 0;
 
-  while (huboCambio && iteraciones < 15) {
+  while (huboCambio && iteraciones < 20) {
     huboCambio = false;
     iteraciones++;
 
     for (const amb of ambientes) {
-      // Si la sala ya está optimizada con continuidad total, continuar
       if (salasBloqueadas.has(amb.id)) continue;
 
       const cierre = cierreHoyPorSala.get(amb.id);
@@ -1069,63 +1235,111 @@ export function autoReorganizarSalasOptimas(
       // Buscar si alguna sesión matutina de mañana en OTRA sala tiene este caso clínico
       const sesionCandidata = sesionesTrabajo.find((s) => {
         if (s.ambienteId === amb.id) return false;
-        // Evitar quitar la sesión si esa sala origen ya está bloqueada por continuidad
         if (s.ambienteId && salasBloqueadas.has(s.ambienteId)) return false;
         const cNorm = normText(s.escenarioNombre);
         return cNorm && cNorm === cierre.casoNorm;
       });
 
-      if (sesionCandidata) {
+      if (sesionCandidata && sesionCandidata.ambienteId) {
         const origenAmbId = sesionCandidata.ambienteId;
         const origenAmb = ambientes.find((a) => a.id === origenAmbId);
 
-        // Buscar si la sala destino (amb) tiene actualmente una sesión matutina
-        const sesionesEnAmb = sesionesTrabajo
-          .filter((s) => s.ambienteId === amb.id)
-          .sort((a, b) => a.startMins - b.startMins);
-        const sesionDesplazada = sesionesEnAmb.length > 0 ? sesionesEnAmb[0] : null;
+        // Extraer el bloque contiguo de la sesión candidata en origen
+        const sesionesEnOrigen = sesionesTrabajo.filter((s) => s.ambienteId === origenAmbId);
+        const bloqueOrigen = obtenerBloqueConsecutivo(sesionCandidata, sesionesEnOrigen);
+        const minStartOrigen = Math.min(...bloqueOrigen.map((s) => s.startMins));
+        const maxEndOrigen = Math.max(...bloqueOrigen.map((s) => s.endMins));
 
-        // Ejecutar reasignación
-        sesionesTrabajo = sesionesTrabajo.map((s) => {
-          if (s.id === sesionCandidata.id) {
-            return {
+        // Sesiones en sala destino
+        const sesionesEnDestino = sesionesTrabajo.filter((s) => s.ambienteId === amb.id);
+        const sesionesOverDestino = sesionesEnDestino.filter(
+          (s) => s.startMins < maxEndOrigen && s.endMins > minStartOrigen
+        );
+
+        let bloqueDestino: SesionProgramadaTimelineItem[] = [];
+        if (sesionesOverDestino.length > 0) {
+          bloqueDestino = obtenerBloqueConsecutivo(sesionesOverDestino[0], sesionesEnDestino);
+        }
+
+        const bloqueOrigenIds = new Set(bloqueOrigen.map((s) => s.id));
+        const bloqueDestinoIds = new Set(bloqueDestino.map((s) => s.id));
+
+        // Simular sesiones resultantes en sala destino
+        const sesionesFuturasDestino = sesionesEnDestino
+          .filter((s) => !bloqueDestinoIds.has(s.id))
+          .concat(
+            bloqueOrigen.map((s) => ({
               ...s,
               ambienteId: amb.id,
               ambienteNombreSimclic: amb.nombre,
               ambienteCodigoSimclic: amb.codigo,
-            };
-          }
-          if (sesionDesplazada && s.id === sesionDesplazada.id) {
-            return {
+            }))
+          );
+
+        // Simular sesiones resultantes en sala origen
+        const sesionesFuturasOrigen = sesionesEnOrigen
+          .filter((s) => !bloqueOrigenIds.has(s.id))
+          .concat(
+            bloqueDestino.map((s) => ({
               ...s,
-              ambienteId: origenAmbId || null,
+              ambienteId: origenAmbId,
               ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
               ambienteCodigoSimclic: origenAmb?.codigo || null,
-            };
-          }
-          return s;
-        });
+            }))
+          );
 
-        pasosRealizados.push({
-          id: `paso_opt_${Date.now()}_${pasosRealizados.length + 1}`,
-          timestamp: Date.now(),
-          sesionOrigenId: sesionCandidata.id,
-          sesionOrigenTitulo: sesionCandidata.cursoNombreSimclic || sesionCandidata.titulo || 'Sesión',
-          sesionOrigenCaso: sesionCandidata.escenarioNombre || '',
-          ambienteOrigenId: origenAmbId || 0,
-          ambienteOrigenNombre: origenAmb?.nombre || 'Sala previa',
-          ambienteDestinoId: amb.id,
-          ambienteDestinoNombre: amb.nombre,
-          sesionDesplazadaId: sesionDesplazada?.id || null,
-          sesionDesplazadaTitulo: sesionDesplazada ? (sesionDesplazada.cursoNombreSimclic || sesionDesplazada.titulo || null) : null,
-          sesionDesplazadaCaso: sesionDesplazada?.escenarioNombre || null,
-          logroContinuidadDestino: true,
-          casoContinuidad: sesionCandidata.escenarioNombre,
-        });
+        // VALIDACIÓN ESTRICTA: La hora es inamovible y ninguna sala puede tener solapamientos
+        if (
+          !haySolapamientoHorario(sesionesFuturasDestino) &&
+          !haySolapamientoHorario(sesionesFuturasOrigen)
+        ) {
+          // Aplicar la reasignación en sesionesTrabajo
+          sesionesTrabajo = sesionesTrabajo.map((s) => {
+            if (bloqueOrigenIds.has(s.id)) {
+              return {
+                ...s,
+                ambienteId: amb.id,
+                ambienteNombreSimclic: amb.nombre,
+                ambienteCodigoSimclic: amb.codigo,
+              };
+            }
+            if (bloqueDestinoIds.has(s.id)) {
+              return {
+                ...s,
+                ambienteId: origenAmbId,
+                ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
+                ambienteCodigoSimclic: origenAmb?.codigo || null,
+              };
+            }
+            return s;
+          });
 
-        salasBloqueadas.add(amb.id);
-        huboCambio = true;
-        break; // Re-evaluar con el nuevo estado del tablero para continuar la cadena dominó
+          const horarioFranja = `${bloqueOrigen[0].horaInicio} - ${bloqueOrigen[bloqueOrigen.length - 1].horaFin}`;
+
+          pasosRealizados.push({
+            id: `paso_opt_${Date.now()}_${pasosRealizados.length + 1}`,
+            timestamp: Date.now(),
+            sesionOrigenId: sesionCandidata.id,
+            sesionOrigenTitulo: sesionCandidata.cursoNombreSimclic || sesionCandidata.titulo || 'Sesión',
+            sesionOrigenCaso: sesionCandidata.escenarioNombre || '',
+            ambienteOrigenId: origenAmbId,
+            ambienteOrigenNombre: origenAmb?.nombre || 'Sala previa',
+            ambienteDestinoId: amb.id,
+            ambienteDestinoNombre: amb.nombre,
+            sesionDesplazadaId: bloqueDestino.length > 0 ? bloqueDestino[0].id : null,
+            sesionDesplazadaTitulo: bloqueDestino.length > 0 ? (bloqueDestino[0].cursoNombreSimclic || bloqueDestino[0].titulo || null) : null,
+            sesionDesplazadaCaso: bloqueDestino.length > 0 ? (bloqueDestino[0].escenarioNombre || null) : null,
+            logroContinuidadDestino: true,
+            casoContinuidad: sesionCandidata.escenarioNombre,
+            sesionOrigenIds: Array.from(bloqueOrigenIds),
+            sesionDesplazadaIds: Array.from(bloqueDestinoIds),
+            horarioFranja,
+          });
+
+          salasBloqueadas.add(amb.id);
+          huboCambio = true;
+          break; // Reiniciar iteración para encadenar la clase desplazada (Efecto Dominó)
+        }
       }
     }
   }
@@ -1144,53 +1358,98 @@ export function autoReorganizarSalasOptimas(
       return cNorm && cNorm === cierre.cursoNorm;
     });
 
-    if (sesionCandidataCurso) {
+    if (sesionCandidataCurso && sesionCandidataCurso.ambienteId) {
       const origenAmbId = sesionCandidataCurso.ambienteId;
       const origenAmb = ambientes.find((a) => a.id === origenAmbId);
 
-      const sesionesEnAmb = sesionesTrabajo
-        .filter((s) => s.ambienteId === amb.id)
-        .sort((a, b) => a.startMins - b.startMins);
-      const sesionDesplazada = sesionesEnAmb.length > 0 ? sesionesEnAmb[0] : null;
+      const sesionesEnOrigen = sesionesTrabajo.filter((s) => s.ambienteId === origenAmbId);
+      const bloqueOrigen = obtenerBloqueConsecutivo(sesionCandidataCurso, sesionesEnOrigen);
+      const minStartOrigen = Math.min(...bloqueOrigen.map((s) => s.startMins));
+      const maxEndOrigen = Math.max(...bloqueOrigen.map((s) => s.endMins));
 
-      sesionesTrabajo = sesionesTrabajo.map((s) => {
-        if (s.id === sesionCandidataCurso.id) {
-          return {
+      const sesionesEnDestino = sesionesTrabajo.filter((s) => s.ambienteId === amb.id);
+      const sesionesOverDestino = sesionesEnDestino.filter(
+        (s) => s.startMins < maxEndOrigen && s.endMins > minStartOrigen
+      );
+
+      let bloqueDestino: SesionProgramadaTimelineItem[] = [];
+      if (sesionesOverDestino.length > 0) {
+        bloqueDestino = obtenerBloqueConsecutivo(sesionesOverDestino[0], sesionesEnDestino);
+      }
+
+      const bloqueOrigenIds = new Set(bloqueOrigen.map((s) => s.id));
+      const bloqueDestinoIds = new Set(bloqueDestino.map((s) => s.id));
+
+      const sesionesFuturasDestino = sesionesEnDestino
+        .filter((s) => !bloqueDestinoIds.has(s.id))
+        .concat(
+          bloqueOrigen.map((s) => ({
             ...s,
             ambienteId: amb.id,
             ambienteNombreSimclic: amb.nombre,
             ambienteCodigoSimclic: amb.codigo,
-          };
-        }
-        if (sesionDesplazada && s.id === sesionDesplazada.id) {
-          return {
+          }))
+        );
+
+      const sesionesFuturasOrigen = sesionesEnOrigen
+        .filter((s) => !bloqueOrigenIds.has(s.id))
+        .concat(
+          bloqueDestino.map((s) => ({
             ...s,
-            ambienteId: origenAmbId || null,
+            ambienteId: origenAmbId,
             ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
             ambienteCodigoSimclic: origenAmb?.codigo || null,
-          };
-        }
-        return s;
-      });
+          }))
+        );
 
-      pasosRealizados.push({
-        id: `paso_opt_${Date.now()}_${pasosRealizados.length + 1}`,
-        timestamp: Date.now(),
-        sesionOrigenId: sesionCandidataCurso.id,
-        sesionOrigenTitulo: sesionCandidataCurso.cursoNombreSimclic || sesionCandidataCurso.titulo || 'Sesión',
-        sesionOrigenCaso: sesionCandidataCurso.escenarioNombre || '',
-        ambienteOrigenId: origenAmbId || 0,
-        ambienteOrigenNombre: origenAmb?.nombre || 'Sala previa',
-        ambienteDestinoId: amb.id,
-        ambienteDestinoNombre: amb.nombre,
-        sesionDesplazadaId: sesionDesplazada?.id || null,
-        sesionDesplazadaTitulo: sesionDesplazada ? (sesionDesplazada.cursoNombreSimclic || sesionDesplazada.titulo || null) : null,
-        sesionDesplazadaCaso: sesionDesplazada?.escenarioNombre || null,
-        logroContinuidadDestino: true,
-        casoContinuidad: sesionCandidataCurso.cursoNombreSimclic || undefined,
-      });
+      if (
+        !haySolapamientoHorario(sesionesFuturasDestino) &&
+        !haySolapamientoHorario(sesionesFuturasOrigen)
+      ) {
+        sesionesTrabajo = sesionesTrabajo.map((s) => {
+          if (bloqueOrigenIds.has(s.id)) {
+            return {
+              ...s,
+              ambienteId: amb.id,
+              ambienteNombreSimclic: amb.nombre,
+              ambienteCodigoSimclic: amb.codigo,
+            };
+          }
+          if (bloqueDestinoIds.has(s.id)) {
+            return {
+              ...s,
+              ambienteId: origenAmbId,
+              ambienteNombreSimclic: origenAmb?.nombre || 'Sala previa',
+              ambienteCodigoSimclic: origenAmb?.codigo || null,
+            };
+          }
+          return s;
+        });
 
-      salasBloqueadas.add(amb.id);
+        const horarioFranja = `${bloqueOrigen[0].horaInicio} - ${bloqueOrigen[bloqueOrigen.length - 1].horaFin}`;
+
+        pasosRealizados.push({
+          id: `paso_opt_${Date.now()}_${pasosRealizados.length + 1}`,
+          timestamp: Date.now(),
+          sesionOrigenId: sesionCandidataCurso.id,
+          sesionOrigenTitulo: sesionCandidataCurso.cursoNombreSimclic || sesionCandidataCurso.titulo || 'Sesión',
+          sesionOrigenCaso: sesionCandidataCurso.escenarioNombre || '',
+          ambienteOrigenId: origenAmbId,
+          ambienteOrigenNombre: origenAmb?.nombre || 'Sala previa',
+          ambienteDestinoId: amb.id,
+          ambienteDestinoNombre: amb.nombre,
+          sesionDesplazadaId: bloqueDestino.length > 0 ? bloqueDestino[0].id : null,
+          sesionDesplazadaTitulo: bloqueDestino.length > 0 ? (bloqueDestino[0].cursoNombreSimclic || bloqueDestino[0].titulo || null) : null,
+          sesionDesplazadaCaso: bloqueDestino.length > 0 ? (bloqueDestino[0].escenarioNombre || null) : null,
+          logroContinuidadDestino: true,
+          casoContinuidad: sesionCandidataCurso.cursoNombreSimclic || undefined,
+          sesionOrigenIds: Array.from(bloqueOrigenIds),
+          sesionDesplazadaIds: Array.from(bloqueDestinoIds),
+          horarioFranja,
+        });
+
+        salasBloqueadas.add(amb.id);
+      }
     }
   }
 
@@ -1210,6 +1469,7 @@ export function autoReorganizarSalasOptimas(
   lineas.push(`📋 *GUÍA RÁPIDA DE REUBICACIÓN PARA SIMCLIC*`);
   lineas.push(`📍 *Sede:* ${nombreSede}`);
   lineas.push(`📅 *Fecha de Mañana:* ${fechaDestino} (Apertura 07:00)`);
+  lineas.push(`⏱️ *Regla Operativa:* Las horas son inamovibles. Solo se trasladan cursos entre salas.`);
   lineas.push(``);
 
   if (pasosRealizados.length > 0) {
@@ -1217,10 +1477,12 @@ export function autoReorganizarSalasOptimas(
     lineas.push(``);
 
     pasosRealizados.forEach((p, idx) => {
-      lineas.push(`${idx + 1}️⃣ *Mover:* ${p.sesionOrigenTitulo}${p.sesionOrigenCaso ? ` ("${p.sesionOrigenCaso}")` : ''}`);
+      lineas.push(`${idx + 1}️⃣ *Mover Bloque:* ${p.sesionOrigenTitulo}${p.sesionOrigenCaso ? ` ("${p.sesionOrigenCaso}")` : ''}${p.horarioFranja ? ` [Horario: ${p.horarioFranja}]` : ''}`);
       lineas.push(`   *De:* [${p.ambienteOrigenNombre}] ➔ *A:* [${p.ambienteDestinoNombre}]`);
       if (p.sesionDesplazadaTitulo) {
         lineas.push(`   *Intercambio con:* ${p.sesionDesplazadaTitulo}${p.sesionDesplazadaCaso ? ` ("${p.sesionDesplazadaCaso}")` : ''}`);
+      } else {
+        lineas.push(`   *Destino:* Sala libre en esa franja horaria.`);
       }
       if (p.logroContinuidadDestino) {
         lineas.push(`   ↳ ✨ *Beneficio:* [${p.ambienteDestinoNombre}] ya tiene este set montado de anoche (0 acarreo).`);
@@ -1230,6 +1492,7 @@ export function autoReorganizarSalasOptimas(
 
     lineas.push(`🎉 *RESULTADO LOGÍSTICO TOTAL:*`);
     lineas.push(`• +${Math.max(0, continuidadesNuevas - continuidadesOriginales)} salas adicionales quedan con 100% de continuidad.`);
+    lineas.push(`• Cero solapamientos de horario (todas las franjas horarias respetadas estrictamente).`);
     lineas.push(`• Cero necesidad de desmontar ni acarrear simuladores pesados.`);
     lineas.push(``);
     lineas.push(`_Generado por el Hub Logístico de Simulación UCS_`);

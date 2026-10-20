@@ -3277,4 +3277,130 @@
   border-color: #d97706;
   color: #b45309;
 }
+
+/* =========================================================
+   GANTT SIMULADO DE CONTINUIDAD & REORGANIZACIÓN (MAÑANA)
+   ========================================================= */
+
+.ganttSimuladoWrapper {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  margin-top: 0.5rem;
+}
+:global([data-theme="light"]) .ganttSimuladoWrapper {
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(6, 21, 45, 0.08);
+}
+
+.ganttSimuladoBanner {
+  background: linear-gradient(135deg, rgba(6, 21, 45, 0.9), rgba(13, 52, 108, 0.85));
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.3);
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+:global([data-theme="light"]) .ganttSimuladoBanner {
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border-bottom: 1.5px solid #10b981;
+}
+
+.sesionBlockReubicadaGantt {
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.6) !important;
+  animation: pulseReubicada 3s infinite ease-in-out;
+}
+
+@keyframes pulseReubicada {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.8);
+  }
+}
+
+/* =========================================================
+   MODO COMPARATIVA DUAL (HOY VS MAÑANA SIMULADO - LADO A LADO)
+   ========================================================= */
+
+.ganttDualContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.ganttDualHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 2px solid var(--border-color);
+  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.ganttDualSideHeader {
+  padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-right: 2px solid var(--border-color);
+  background: rgba(6, 21, 45, 0.4);
+}
+:global([data-theme="light"]) .ganttDualSideHeader {
+  background: rgba(240, 249, 255, 0.7);
+}
+
+.ganttDualSideHeader:last-child {
+  border-right: none;
+}
+
+.ganttDualRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--border-color);
+  min-height: 80px;
+  position: relative;
+}
+
+.ganttDualSide {
+  display: flex;
+  border-right: 2px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.ganttDualSide:last-child {
+  border-right: none;
+}
+
+.ganttDualRoomLabel {
+  width: 220px;
+  min-width: 220px;
+  padding: 0.6rem 0.85rem;
+  border-right: 1.5px solid var(--border-color);
+  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  z-index: 10;
+}
+:global([data-theme="light"]) .ganttDualRoomLabel {
+  background: #f8fafc;
+}
+
+.ganttDualTrack {
+  flex: 1;
+  position: relative;
+  min-height: 80px;
+  overflow: hidden;
+}
+
 

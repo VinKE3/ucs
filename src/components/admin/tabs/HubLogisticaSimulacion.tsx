@@ -17,6 +17,9 @@ import {
   analizarLogisticaIntraDia,
   analizarContinuidadInterDias,
   autoReorganizarSalasOptimas,
+  clasificarPisoYOrden,
+  haySolapamientoHorario,
+  obtenerBloqueConsecutivo,
 } from '@/lib/logisticaSimulacion';
 
 import { showToast, showAlert, confirmModal } from '@/lib/alerts';
@@ -170,6 +173,13 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   const [loadingComparacion, setLoadingComparacion] = useState<boolean>(false);
   const [syncingComparacion, setSyncingComparacion] = useState<boolean>(false);
   const [filtroContinuidad, setFiltroContinuidad] = useState<string>('requieren_accion');
+  const [vistaContinuidad, setVistaContinuidad] = useState<'tarjetas' | 'gantt'>('tarjetas');
+  const [filtroGanttSalas, setFiltroGanttSalas] = useState<'todas' | 'reubicadas' | 'requieren_accion'>('todas');
+  const [modoComparativaGantt, setModoComparativaGantt] = useState<'manana_completo' | 'lado_a_lado'>('manana_completo');
+  const [pisosColapsadosContinuidad, setPisosColapsadosContinuidad] = useState<Record<string, boolean>>({});
+  const togglePisoContinuidad = (piso: string) =>
+    setPisosColapsadosContinuidad((prev) => ({ ...prev, [piso]: !prev[piso] }));
+  const ganttContinuidadScrollRef = useRef<HTMLDivElement>(null);
 
   // Sincronizar fechaComparacion cuando cambie la fecha principal
   useEffect(() => {
@@ -352,6 +362,127 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
     return Math.max(0, resumenInter.salasConContinuidad - salasConContinuidadOriginal);
   }, [resumenInter, salasConContinuidadOriginal]);
 
+  // Mapeo de sesiones de mañana por ambiente (para el Gantt simulado de continuidad)
+  const sesionesComparacionPorAmbienteMap = useMemo(() => {
+    const map = new Map<number, SesionProgramadaTimelineItem[]>();
+    for (const s of sesionesComparacion) {
+      if (!s.ambienteId) continue;
+      if (!map.has(s.ambienteId)) {
+        map.set(s.ambienteId, []);
+      }
+      map.get(s.ambienteId)!.push(s);
+    }
+    for (const [_, list] of map) {
+      list.sort((a, b) => a.startMins - b.startMins);
+    }
+    return map;
+  }, [sesionesComparacion]);
+
+  // Información del cierre de hoy por sala (para mostrar contexto de continuidad en el Gantt)
+  const cierreHoyPorSalaMap = useMemo(() => {
+    const map = new Map<number, { curso: string; caso: string; horaFin: string }>();
+    if (!resumenInter) return map;
+    for (const s of resumenInter.salasContinuidad) {
+      if (s.cursoHoy) {
+        map.set(s.ambienteId, {
+          curso: s.cursoHoy,
+          caso: s.casoHoy || '',
+          horaFin: s.horaFinHoy || '',
+        });
+      }
+    }
+    return map;
+  }, [resumenInter]);
+
+  // Mapeo de sesiones de hoy por ambiente (para la vista comparativa dual Hoy vs Mañana)
+  const sesionesHoyPorAmbienteMap = useMemo(() => {
+    const map = new Map<number, SesionProgramadaTimelineItem[]>();
+    for (const s of sesiones) {
+      if (!s.ambienteId) continue;
+      if (!map.has(s.ambienteId)) {
+        map.set(s.ambienteId, []);
+      }
+      map.get(s.ambienteId)!.push(s);
+    }
+    for (const [_, list] of map) {
+      list.sort((a, b) => a.startMins - b.startMins);
+    }
+    return map;
+  }, [sesiones]);
+
+  // Total de salas con reubicaciones realizadas en el simulador
+  const salasReubicadasCount = useMemo(() => {
+    const ids = new Set<number>();
+    for (const p of historialPermutas) {
+      ids.add(p.ambienteDestinoId);
+      ids.add(p.ambienteOrigenId);
+    }
+    return ids.size;
+  }, [historialPermutas]);
+
+  // Ambientes para el Gantt de Continuidad:
+  // Por defecto muestra TODAS las salas del campus (idéntico a la vista general de SimClic),
+  // permitiendo inspeccionar la clínica completa y filtrar por término de búsqueda o alcance.
+  const ambientesGanttContinuidad = useMemo(() => {
+    let list = ambientes;
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (a) =>
+          a.nombre.toLowerCase().includes(q) ||
+          (a.codigo && a.codigo.toLowerCase().includes(q))
+      );
+    }
+
+    if (filtroGanttSalas === 'reubicadas') {
+      const idsReubicadas = new Set<number>();
+      for (const p of historialPermutas) {
+        idsReubicadas.add(p.ambienteDestinoId);
+        idsReubicadas.add(p.ambienteOrigenId);
+      }
+      list = list.filter((a) => idsReubicadas.has(a.id));
+    } else if (filtroGanttSalas === 'requieren_accion') {
+      const idsReq = new Set(
+        resumenInter?.salasContinuidad
+          .filter(
+            (s) =>
+              s.tipoContinuidad === 'cambio_curso' ||
+              s.tipoContinuidad === 'continuidad_equipos' ||
+              s.tipoContinuidad === 'desmontaje' ||
+              s.tipoContinuidad === 'montaje_nuevo'
+          )
+          .map((s) => s.ambienteId) || []
+      );
+      list = list.filter((a) => idsReq.has(a.id));
+    }
+
+    return list;
+  }, [ambientes, search, filtroGanttSalas, historialPermutas, resumenInter]);
+
+  // Agrupamiento de salas por piso para el Gantt de Continuidad
+  const gruposPisoContinuidad = useMemo(() => {
+    const gruposMap = new Map<
+      string,
+      { piso: string; ordenPiso: number; ambientes: Array<AmbienteAdminItem & { ordenSala: number }> }
+    >();
+
+    for (const amb of ambientesGanttContinuidad) {
+      const { piso, ordenPiso, ordenSala } = clasificarPisoYOrden(amb);
+      if (!gruposMap.has(piso)) {
+        gruposMap.set(piso, { piso, ordenPiso, ambientes: [] });
+      }
+      gruposMap.get(piso)!.ambientes.push({ ...amb, ordenSala });
+    }
+
+    const gruposArray = Array.from(gruposMap.values()).map((g) => {
+      g.ambientes.sort((a, b) => a.ordenSala - b.ordenSala);
+      return g;
+    });
+
+    gruposArray.sort((a, b) => a.ordenPiso - b.ordenPiso);
+    return gruposArray;
+  }, [ambientesGanttContinuidad]);
+
   // Detector del siguiente eslabón dominó para una sesión de mañana
   const buscarOportunidadDomino = useCallback(
     (sesionManana: SesionProgramadaTimelineItem, ambienteActualId: number) => {
@@ -418,7 +549,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
     [resumenInter, sesiones]
   );
 
-  // Ejecución interactiva de una permuta / reubicación
+  // Ejecución interactiva de una permuta / reubicación con validación estricta de solapamiento
   const handleEjecutarPermuta = useCallback(
     (sesionOrigenId: number, targetAmbienteId: number) => {
       const targetAmb = ambientes.find((a) => a.id === targetAmbienteId);
@@ -429,15 +560,72 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       const origenAmbNombre = origenAmb?.nombre || 'Sala previa';
       const origenAmbId = origenAmb?.id || 0;
 
-      // Buscar si la sala destino ya tiene clase matutina mañana
-      const sesionesEnDestino = sesionesComparacion
-        .filter((s) => s.ambienteId === targetAmbienteId && s.id !== sesionOrigenId)
-        .sort((a, b) => a.startMins - b.startMins);
-      const sesionDesplazada = sesionesEnDestino.length > 0 ? sesionesEnDestino[0] : null;
+      // Obtener bloque contiguo de la sesión en sala origen
+      const sesionesEnOrigen = sesionesComparacion.filter((s) => s.ambienteId === origenAmbId);
+      const bloqueOrigen = obtenerBloqueConsecutivo(sesionOrigen, sesionesEnOrigen);
+      const minStartOrigen = Math.min(...bloqueOrigen.map((s) => s.startMins));
+      const maxEndOrigen = Math.max(...bloqueOrigen.map((s) => s.endMins));
+
+      // Sesiones que ocupan esa franja horaria en la sala destino
+      const sesionesEnDestino = sesionesComparacion.filter((s) => s.ambienteId === targetAmbienteId);
+      const sesionesOverDestino = sesionesEnDestino.filter(
+        (s) => s.startMins < maxEndOrigen && s.endMins > minStartOrigen
+      );
+
+      let bloqueDestino: SesionProgramadaTimelineItem[] = [];
+      if (sesionesOverDestino.length > 0) {
+        bloqueDestino = obtenerBloqueConsecutivo(sesionesOverDestino[0], sesionesEnDestino);
+      }
+
+      const bloqueOrigenIds = new Set(bloqueOrigen.map((s) => s.id));
+      const bloqueDestinoIds = new Set(bloqueDestino.map((s) => s.id));
+
+      // Simular sesiones resultantes en sala destino
+      const sesionesFuturasDestino = sesionesEnDestino
+        .filter((s) => !bloqueDestinoIds.has(s.id))
+        .concat(
+          bloqueOrigen.map((s) => ({
+            ...s,
+            ambienteId: targetAmb.id,
+            ambienteNombreSimclic: targetAmb.nombre,
+            ambienteCodigoSimclic: targetAmb.codigo,
+          }))
+        );
+
+      // Simular sesiones resultantes en sala origen
+      const sesionesFuturasOrigen = sesionesEnOrigen
+        .filter((s) => !bloqueOrigenIds.has(s.id))
+        .concat(
+          bloqueDestino.map((s) => ({
+            ...s,
+            ambienteId: origenAmbId,
+            ambienteNombreSimclic: origenAmbNombre,
+            ambienteCodigoSimclic: origenAmb?.codigo || null,
+          }))
+        );
+
+      // Verificación estricta de horas inamovibles (Cero solapamientos)
+      if (haySolapamientoHorario(sesionesFuturasDestino)) {
+        showAlert(
+          'Conflicto de Horario en Sala Destino',
+          `La hora es inamovible en SimClic. Mover esta sesión causaría un solapamiento con otra clase en ${targetAmb.nombre}. Elige una sala con horario compatible.`,
+          'warning'
+        );
+        return;
+      }
+
+      if (haySolapamientoHorario(sesionesFuturasOrigen)) {
+        showAlert(
+          'Conflicto de Horario en Sala Origen',
+          `La hora es inamovible en SimClic. Al intercambiar clases, la sesión desplazada hacia ${origenAmbNombre} solaparía con otra clase existente en esa sala.`,
+          'warning'
+        );
+        return;
+      }
 
       // Aplicar cambio en sesionesComparacion
       const nuevasSesiones = sesionesComparacion.map((s) => {
-        if (s.id === sesionOrigenId) {
+        if (bloqueOrigenIds.has(s.id)) {
           return {
             ...s,
             ambienteId: targetAmb.id,
@@ -445,7 +633,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
             ambienteCodigoSimclic: targetAmb.codigo,
           };
         }
-        if (sesionDesplazada && s.id === sesionDesplazada.id) {
+        if (bloqueDestinoIds.has(s.id)) {
           return {
             ...s,
             ambienteId: origenAmbId,
@@ -469,6 +657,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
         }
       }
 
+      const horarioFranja = `${bloqueOrigen[0].horaInicio} - ${bloqueOrigen[bloqueOrigen.length - 1].horaFin}`;
 
       const nuevoPaso: PermutaCadenaPaso = {
         id: `paso_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -480,19 +669,22 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
         ambienteOrigenNombre: origenAmbNombre,
         ambienteDestinoId: targetAmb.id,
         ambienteDestinoNombre: targetAmb.nombre,
-        sesionDesplazadaId: sesionDesplazada?.id,
-        sesionDesplazadaTitulo: sesionDesplazada ? (sesionDesplazada.cursoNombreSimclic || sesionDesplazada.titulo || '') : undefined,
-        sesionDesplazadaCaso: sesionDesplazada?.escenarioNombre,
+        sesionDesplazadaId: bloqueDestino.length > 0 ? bloqueDestino[0].id : null,
+        sesionDesplazadaTitulo: bloqueDestino.length > 0 ? (bloqueDestino[0].cursoNombreSimclic || bloqueDestino[0].titulo || '') : undefined,
+        sesionDesplazadaCaso: bloqueDestino.length > 0 ? (bloqueDestino[0].escenarioNombre || null) : null,
         logroContinuidadDestino: logroContinuidad,
         casoContinuidad,
+        sesionOrigenIds: Array.from(bloqueOrigenIds),
+        sesionDesplazadaIds: Array.from(bloqueDestinoIds),
+        horarioFranja,
       };
 
       setSesionesComparacion(nuevasSesiones);
       setHistorialPermutas((prev) => [...prev, nuevoPaso]);
 
       const msg = logroContinuidad
-        ? `🎉 ¡Continuidad lograda! "${sesionOrigen.escenarioNombre || sesionOrigen.titulo}" movido a ${targetAmb.nombre}`
-        : `🔀 Reubicación aplicada: Sesión movida a ${targetAmb.nombre}`;
+        ? `🎉 ¡Continuidad lograda! "${sesionOrigen.escenarioNombre || sesionOrigen.titulo}" (${horarioFranja}) movido a ${targetAmb.nombre}`
+        : `🔀 Reubicación aplicada: Sesión (${horarioFranja}) movida a ${targetAmb.nombre}`;
       showToast(msg, logroContinuidad ? 'success' : 'info');
     },
     [ambientes, sesionesComparacion, resumenInter]
@@ -509,10 +701,11 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
       const origenAmb = ambientes.find((a) => a.id === paso.ambienteOrigenId);
       if (!targetAmb) continue;
 
-      const sesionDesplazadaId = paso.sesionDesplazadaId;
+      const origenIds = paso.sesionOrigenIds || (paso.sesionOrigenId ? [paso.sesionOrigenId] : []);
+      const desplazadaIds = paso.sesionDesplazadaIds || (paso.sesionDesplazadaId ? [paso.sesionDesplazadaId] : []);
 
       sesionesReconstruidas = sesionesReconstruidas.map((s) => {
-        if (s.id === paso.sesionOrigenId) {
+        if (origenIds.includes(s.id)) {
           return {
             ...s,
             ambienteId: targetAmb.id,
@@ -520,7 +713,7 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
             ambienteCodigoSimclic: targetAmb.codigo,
           };
         }
-        if (sesionDesplazadaId && s.id === sesionDesplazadaId) {
+        if (desplazadaIds.includes(s.id)) {
           return {
             ...s,
             ambienteId: origenAmb?.id || null,
@@ -698,6 +891,7 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
 
     setSesionesComparacion(resultado.sesionesOptimizadas);
     setHistorialPermutas(resultado.pasosRealizados);
+    setVistaContinuidad('gantt'); // Activar automáticamente la vista Gantt de mañana solicitada por el usuario
     const ganadas = Math.max(0, resultado.continuidadesNuevas - resultado.continuidadesOriginales);
     showToast(
       `✨ Reorganización simulada: ${resultado.pasosRealizados.length} salas optimizadas para SimClic (+${ganadas} continuidades)`,
@@ -1764,16 +1958,69 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                       </button>
                     </div>
 
-                    {/* Buscador interactivo */}
-                    <div style={{ minWidth: '220px', flex: '1', maxWidth: '320px' }}>
-                      <input
-                        type="text"
-                        placeholder="🔍 Buscar sala, curso o caso..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className={styles.input}
-                        style={{ width: '100%', padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-                      />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      {/* SELECTOR DE VISTA: GANTT SIMULADO VS TARJETAS */}
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          background: 'var(--bg-elevated, rgba(255, 255, 255, 0.04))',
+                          padding: '0.2rem',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border-color)',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setVistaContinuidad('gantt')}
+                          className={styles.simclicPillBtn}
+                          style={{
+                            background: vistaContinuidad === 'gantt' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent',
+                            color: vistaContinuidad === 'gantt' ? '#ffffff' : 'var(--text-secondary)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '0.35rem 0.75rem',
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
+                            boxShadow: vistaContinuidad === 'gantt' ? '0 2px 8px rgba(56, 189, 248, 0.35)' : 'none',
+                            cursor: 'pointer',
+                          }}
+                          title="Ver en Línea de Tiempo Gantt como en SimClic"
+                        >
+                          📊 Gantt Simulado
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVistaContinuidad('tarjetas')}
+                          className={styles.simclicPillBtn}
+                          style={{
+                            background: vistaContinuidad === 'tarjetas' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent',
+                            color: vistaContinuidad === 'tarjetas' ? '#ffffff' : 'var(--text-secondary)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '0.35rem 0.75rem',
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
+                            boxShadow: vistaContinuidad === 'tarjetas' ? '0 2px 8px rgba(56, 189, 248, 0.35)' : 'none',
+                            cursor: 'pointer',
+                          }}
+                          title="Ver en Tarjetas Comparativas de Salas"
+                        >
+                          📋 Tarjetas
+                        </button>
+                      </div>
+
+                      {/* Buscador interactivo */}
+                      <div style={{ minWidth: '180px', flex: '1', maxWidth: '280px' }}>
+                        <input
+                          type="text"
+                          placeholder="🔍 Buscar sala, curso o caso..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className={styles.input}
+                          style={{ width: '100%', padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
@@ -1913,8 +2160,955 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                 </div>
               )}
 
-              {/* CONTENEDOR GANTT / TIMELINE PUENTE INTER-DÍAS */}
-              <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
+              {/* VISTA 1: LÍNEA DE TIEMPO GANTT SIMULADO (IDÉNTICO A SIMCLIC) */}
+              {vistaContinuidad === 'gantt' && (
+                <div className={styles.ganttSimuladoWrapper}>
+                  {/* BANNER INFORMATIVO Y DE CONTROL DEL GANTT */}
+                  <div className={styles.ganttSimuladoBanner}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ fontSize: '1.35rem' }}>📊</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>Línea de Tiempo Gantt Simulado</span>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '0.1rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                              07:00 a 22:00
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            Programación de todos los ambientes para el <strong>{fechaComparacion}</strong> • {ambientesGanttContinuidad.length} de {ambientes.length} salas mostradas
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ACCIONES RÁPIDAS DEL SIMULADOR */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {historialPermutas.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleCopiarGuiaSimclic}
+                            className={styles.secondaryActionBtn}
+                            style={{
+                              padding: '0.4rem 0.85rem',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              borderColor: '#10b981',
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.18)',
+                              boxShadow: '0 0 12px rgba(16, 185, 129, 0.25)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                            }}
+                            title="Copiar guía rápida con los cambios exactos para realizar en SimClic en menos de 1 minuto"
+                          >
+                            <span>📋</span> Copiar Guía para SimClic
+                          </button>
+                        )}
+                        {historialPermutas.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleRestablecerPermutas}
+                            className={styles.secondaryBtn}
+                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+                            title="Restablecer todas las salas a la programación original de SimClic"
+                          >
+                            <span>🔄</span> Restablecer Todo
+                          </button>
+                        )}
+                        {historialPermutas.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleGuardarReubicacionesEnBD}
+                            disabled={guardandoReubicaciones}
+                            className={styles.primaryBtn}
+                            style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem', fontWeight: 800 }}
+                            title="Guardar oficialmente las reubicaciones en la base de datos"
+                          >
+                            <span>💾</span> {guardandoReubicaciones ? 'Aplicando...' : 'Aplicar en Sistema'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* BARRA INFERIOR DE FILTROS Y SELECTOR DE MODO DUAL */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        {/* SELECTOR DE MODO: COMPLETO VS LADO A LADO */}
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            background: 'rgba(0, 0, 0, 0.25)',
+                            padding: '0.2rem',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)',
+                            gap: '0.2rem',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setModoComparativaGantt('manana_completo')}
+                            className={styles.simclicPillBtn}
+                            style={{
+                              background: modoComparativaGantt === 'manana_completo' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent',
+                              color: modoComparativaGantt === 'manana_completo' ? '#ffffff' : 'var(--text-secondary)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '0.3rem 0.65rem',
+                              fontSize: '0.74rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                            title="Ver la programación reorganizada de mañana a pantalla completa"
+                          >
+                            🖥️ Mañana Simulado
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setModoComparativaGantt('lado_a_lado')}
+                            className={styles.simclicPillBtn}
+                            style={{
+                              background: modoComparativaGantt === 'lado_a_lado' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+                              color: modoComparativaGantt === 'lado_a_lado' ? '#ffffff' : 'var(--text-secondary)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '0.3rem 0.65rem',
+                              fontSize: '0.74rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                            title="Comparar lado a lado: Hoy vs Mañana Simulado (como en tus dos pestañas de SimClic)"
+                          >
+                            👥 Comparativa Dual (Hoy vs Mañana)
+                          </button>
+                        </div>
+
+                        {/* FILTRO DE ALCANCE DE SALAS EN GANTT */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => setFiltroGanttSalas('todas')}
+                            className={`${styles.simclicPillBtn} ${filtroGanttSalas === 'todas' ? styles.simclicPillBtnActive : ''}`}
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
+                          >
+                            🏢 Todas ({ambientes.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFiltroGanttSalas('reubicadas')}
+                            className={`${styles.simclicPillBtn} ${filtroGanttSalas === 'reubicadas' ? styles.simclicPillBtnActive : ''}`}
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
+                          >
+                            ✨ Reubicadas ({salasReubicadasCount})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFiltroGanttSalas('requieren_accion')}
+                            className={`${styles.simclicPillBtn} ${filtroGanttSalas === 'requieren_accion' ? styles.simclicPillBtnActive : ''}`}
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
+                          >
+                            ⚡ Requieren Acción ({resumenInter?.salasRequierenAccion || 0})
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* LEYENDA VISUAL */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                          <span style={{ fontWeight: 700, color: '#10b981' }}>Reubicada (0 Acarreo)</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b' }} />
+                          <span style={{ fontWeight: 700, color: '#f59e0b' }}>Desplazada</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#0284c7' }} />
+                          <span style={{ color: 'var(--text-secondary)' }}>Sin cambios</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* =========================================================================
+                      MODO 1: MAÑANA SIMULADO COMPLETO (GANTT 100% ANCHO PARA TODAS LAS SALAS)
+                      ========================================================================= */}
+                  {modoComparativaGantt === 'manana_completo' ? (
+                    <div ref={ganttContinuidadScrollRef} style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
+                      <div style={{ minWidth: '1720px', display: 'flex', flexDirection: 'column' }}>
+
+                        {/* HEADER HORARIO (07:00 a 22:00) */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            borderBottom: '2px solid var(--border-color)',
+                            background: 'var(--bg-card)',
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 30,
+                          }}
+                        >
+                          {/* Columna fija de Salas */}
+                          <div
+                            style={{
+                              width: '280px',
+                              minWidth: '280px',
+                              padding: '0.85rem 1rem',
+                              fontWeight: 800,
+                              fontSize: '0.82rem',
+                              color: 'var(--text-primary)',
+                              borderRight: '2px solid var(--border-color)',
+                              background: 'var(--bg-card)',
+                              position: 'sticky',
+                              left: 0,
+                              zIndex: 35,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span>🏥 SALA / AMBIENTE</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              ({ambientesGanttContinuidad.length} {ambientesGanttContinuidad.length === 1 ? 'sala' : 'salas'})
+                            </span>
+                          </div>
+
+                          {/* Grid de slots horarios */}
+                          <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+                            {slotsHorarios.map((slot, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  flex: 1,
+                                  padding: '0.75rem 0.25rem',
+                                  textAlign: 'center',
+                                  fontSize: slot.esHoraEnPunto ? '0.75rem' : '0.68rem',
+                                  fontWeight: slot.esHoraEnPunto ? 700 : 500,
+                                  color: slot.esHoraEnPunto ? 'var(--text-primary)' : 'var(--text-muted)',
+                                  borderRight: slot.esHoraEnPunto ? '1px solid var(--border-color)' : '1px dashed rgba(255, 255, 255, 0.08)',
+                                  fontFamily: 'var(--font-mono)',
+                                }}
+                              >
+                                {slot.label}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* FILAS DE SALAS AGRUPADAS POR PISO */}
+                        {gruposPisoContinuidad.length === 0 ? (
+                          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No se encontraron salas con los filtros seleccionados.
+                          </div>
+                        ) : (
+                          gruposPisoContinuidad.map((grupo) => {
+                            const isColapsado = pisosColapsadosContinuidad[grupo.piso];
+
+                            return (
+                              <div key={grupo.piso} style={{ display: 'flex', flexDirection: 'column' }}>
+                                {/* BARRA SEPARADORA DE PISO */}
+                                <div
+                                  onClick={() => togglePisoContinuidad(grupo.piso)}
+                                  style={{
+                                    display: 'flex',
+                                    borderBottom: '1px solid var(--border-color)',
+                                    background: 'rgba(59, 130, 246, 0.08)',
+                                    cursor: 'pointer',
+                                    userSelect: 'none',
+                                    position: 'sticky',
+                                    zIndex: 22,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: '280px',
+                                      minWidth: '280px',
+                                      padding: '0.45rem 1rem',
+                                      borderRight: '2px solid var(--border-color)',
+                                      borderLeft: '4px solid #3b82f6',
+                                      background: 'var(--bg-card)',
+                                      position: 'sticky',
+                                      left: 0,
+                                      zIndex: 25,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      boxShadow: '4px 0 10px rgba(0, 0, 0, 0.05)',
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <span
+                                        style={{
+                                          fontSize: '0.75rem',
+                                          color: '#3b82f6',
+                                          transition: 'transform 0.2s',
+                                          display: 'inline-block',
+                                          transform: isColapsado ? 'rotate(-90deg)' : 'rotate(0deg)',
+                                        }}
+                                      >
+                                        ▼
+                                      </span>
+                                      <span style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)', letterSpacing: '0.02em' }}>
+                                        {grupo.piso}
+                                      </span>
+                                    </div>
+                                    <span
+                                      style={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: 700,
+                                        background: 'rgba(59, 130, 246, 0.12)',
+                                        color: '#3b82f6',
+                                        padding: '0.1rem 0.45rem',
+                                        borderRadius: '10px',
+                                      }}
+                                    >
+                                      {grupo.ambientes.length} {grupo.ambientes.length === 1 ? 'sala' : 'salas'}
+                                    </span>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      flex: 1,
+                                      background: 'rgba(59, 130, 246, 0.03)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      paddingLeft: '1rem',
+                                      fontSize: '0.72rem',
+                                      color: 'var(--text-muted)',
+                                      fontStyle: 'italic',
+                                    }}
+                                  >
+                                    {isColapsado && <span>(Sección colapsada — clic para desplegar salas)</span>}
+                                  </div>
+                                </div>
+
+                                {/* SALAS DEL PISO */}
+                                {!isColapsado &&
+                                  grupo.ambientes.map((amb, ambIdx) => {
+                                    const sesionesDeSala = sesionesComparacionPorAmbienteMap.get(amb.id) || [];
+                                    const cierre = cierreHoyPorSalaMap.get(amb.id);
+
+                                    const tieneReubicada = sesionesDeSala.some((s) =>
+                                      historialPermutas.some((p) => p.sesionOrigenId === s.id)
+                                    );
+
+                                    return (
+                                      <div
+                                        key={amb.id}
+                                        style={{
+                                          display: 'flex',
+                                          borderBottom: '1px solid var(--border-color)',
+                                          background: ambIdx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)',
+                                          minHeight: '74px',
+                                          position: 'relative',
+                                        }}
+                                      >
+                                        {/* COLUMNA LATERAL FIJA DE LA SALA */}
+                                        <div
+                                          style={{
+                                            width: '280px',
+                                            minWidth: '280px',
+                                            padding: '0.65rem 1rem',
+                                            borderRight: '2px solid var(--border-color)',
+                                            background: 'var(--bg-elevated)',
+                                            position: 'sticky',
+                                            left: 0,
+                                            zIndex: 20,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'center',
+                                            gap: '0.25rem',
+                                            boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+                                              <span style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                                                {amb.nombre}
+                                              </span>
+                                            </div>
+                                            {sesionesDeSala.length > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setModalPermuta({
+                                                    isOpen: true,
+                                                    sesion: sesionesDeSala[0],
+                                                    sala: { id: amb.id, nombre: amb.nombre, codigo: amb.codigo },
+                                                  })
+                                                }
+                                                className={styles.secondaryBtn}
+                                                style={{
+                                                  padding: '0.15rem 0.45rem',
+                                                  fontSize: '0.68rem',
+                                                  fontWeight: 700,
+                                                  borderRadius: '6px',
+                                                  flexShrink: 0,
+                                                }}
+                                                title="Intercambiar sesión matutina de esta sala"
+                                              >
+                                                🔀 Mover
+                                              </button>
+                                            )}
+                                          </div>
+
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                            <span>{amb.codigo || amb.tipo}</span>
+                                            {tieneReubicada && (
+                                              <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.68rem' }}>
+                                                ✨ Optimizada
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Pill de Cierre Hoy */}
+                                          {cierre ? (
+                                            <div
+                                              style={{
+                                                fontSize: '0.68rem',
+                                                color: 'var(--text-secondary)',
+                                                background: 'rgba(255, 255, 255, 0.04)',
+                                                border: '1px solid var(--border-color)',
+                                                borderRadius: '6px',
+                                                padding: '0.15rem 0.4rem',
+                                                marginTop: '0.1rem',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                              }}
+                                              title={`Hoy cerró con: ${cierre.curso}${cierre.caso ? ` - Caso: ${cierre.caso}` : ''} (Hasta las ${cierre.horaFin})`}
+                                            >
+                                              <span style={{ color: '#f59e0b' }}>🌙 Cierre:</span> {cierre.caso || cierre.curso}
+                                            </div>
+                                          ) : (
+                                            <div
+                                              style={{
+                                                fontSize: '0.66rem',
+                                                color: 'var(--text-muted)',
+                                                fontStyle: 'italic',
+                                              }}
+                                            >
+                                              ⚪ Sin clases hoy al cierre
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* LÍNEA DE TIEMPO HORIZONTAL DE LA SALA */}
+                                        <div style={{ flex: 1, position: 'relative', minHeight: '74px' }}>
+                                          {/* GUÍAS HORARIAS DE FONDO */}
+                                          <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+                                            {slotsHorarios.map((slot, i) => (
+                                              <div
+                                                key={i}
+                                                style={{
+                                                  flex: 1,
+                                                  borderRight: slot.esHoraEnPunto
+                                                    ? '1px solid rgba(255, 255, 255, 0.05)'
+                                                    : '1px dashed rgba(255, 255, 255, 0.02)',
+                                                }}
+                                              />
+                                            ))}
+                                          </div>
+
+                                          {/* SESIONES DE LA SALA MAÑANA */}
+                                          {sesionesDeSala.length === 0 ? (
+                                            <div
+                                              style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                paddingLeft: '1.25rem',
+                                                color: 'var(--text-muted)',
+                                                fontSize: '0.74rem',
+                                                fontStyle: 'italic',
+                                                pointerEvents: 'none',
+                                              }}
+                                            >
+                                              ⚪ Sala libre todo el día mañana
+                                            </div>
+                                          ) : (
+                                            sesionesDeSala.map((ses) => {
+                                              const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
+                                              const widthPercent = Math.max(2.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
+
+                                              const pasoOrigen = historialPermutas.slice().reverse().find((p) => p.sesionOrigenId === ses.id || (p.sesionOrigenIds && p.sesionOrigenIds.includes(ses.id)));
+                                              const pasoDesplazado = historialPermutas.slice().reverse().find((p) => p.sesionDesplazadaId === ses.id || (p.sesionDesplazadaIds && p.sesionDesplazadaIds.includes(ses.id)));
+                                              const esReubicada = Boolean(pasoOrigen);
+                                              const esDesplazada = Boolean(pasoDesplazado);
+
+                                              let bgStyle = `linear-gradient(135deg, ${(ses.carreraColor || '#0284c7')}e6, ${(ses.carreraColor || '#0284c7')}cc)`;
+                                              let borderStyle = '1px solid rgba(255, 255, 255, 0.3)';
+                                              let boxShadowStyle = '0 3px 8px rgba(0, 0, 0, 0.25)';
+                                              let badgeEtiqueta: string | null = null;
+
+                                              if (esReubicada) {
+                                                bgStyle = 'linear-gradient(135deg, rgba(16, 185, 129, 0.94), rgba(5, 150, 105, 0.9))';
+                                                borderStyle = '2px solid #10b981';
+                                                boxShadowStyle = '0 0 14px rgba(16, 185, 129, 0.6)';
+                                                badgeEtiqueta = `🔀 REUBICADA de [${pasoOrigen!.ambienteOrigenNombre}]`;
+                                              } else if (esDesplazada) {
+                                                bgStyle = 'linear-gradient(135deg, rgba(245, 158, 11, 0.94), rgba(217, 119, 6, 0.9))';
+                                                borderStyle = '2px solid #f59e0b';
+                                                boxShadowStyle = '0 0 12px rgba(245, 158, 11, 0.5)';
+                                                badgeEtiqueta = `📦 DESPLAZADA desde [${pasoDesplazado!.ambienteDestinoNombre}]`;
+                                              }
+
+                                              return (
+                                                <div
+                                                  key={ses.id}
+                                                  onClick={() => onVerDetalleSesion(ses)}
+                                                  className={esReubicada ? styles.sesionBlockReubicadaGantt : undefined}
+                                                  style={{
+                                                    position: 'absolute',
+                                                    left: `${leftPercent}%`,
+                                                    width: `${widthPercent}%`,
+                                                    top: '6px',
+                                                    bottom: '6px',
+                                                    background: bgStyle,
+                                                    border: borderStyle,
+                                                    borderRadius: '8px',
+                                                    padding: '0.35rem 0.65rem',
+                                                    color: '#ffffff',
+                                                    cursor: 'pointer',
+                                                    overflow: 'hidden',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justifyContent: 'space-between',
+                                                    boxShadow: boxShadowStyle,
+                                                    transition: 'all 0.15s ease',
+                                                    zIndex: esReubicada || esDesplazada ? 18 : 10,
+                                                  }}
+                                                  title={`[${ses.simclicId}] ${ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}${ses.escenarioNombre ? `\nCaso: ${ses.escenarioNombre}` : ''}${esReubicada ? `\n✨ Mover en SimClic desde ${pasoOrigen!.ambienteOrigenNombre} a esta sala` : ''}`}
+                                                >
+                                                  {/* Header del Bloque */}
+                                                  <div>
+                                                    {badgeEtiqueta && (
+                                                      <div
+                                                        style={{
+                                                          fontSize: '0.64rem',
+                                                          fontWeight: 900,
+                                                          background: 'rgba(0, 0, 0, 0.35)',
+                                                          padding: '0.1rem 0.35rem',
+                                                          borderRadius: '4px',
+                                                          marginBottom: '0.2rem',
+                                                          display: 'inline-block',
+                                                          whiteSpace: 'nowrap',
+                                                          overflow: 'hidden',
+                                                          textOverflow: 'ellipsis',
+                                                          maxWidth: '100%',
+                                                        }}
+                                                      >
+                                                        {badgeEtiqueta}
+                                                      </div>
+                                                    )}
+
+                                                    <div
+                                                      style={{
+                                                        fontWeight: 800,
+                                                        fontSize: '0.78rem',
+                                                        lineHeight: 1.2,
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                      }}
+                                                    >
+                                                      {ses.cursoNombreSimclic || ses.titulo}
+                                                    </div>
+
+                                                    {ses.escenarioNombre && (
+                                                      <div
+                                                        style={{
+                                                          fontSize: '0.68rem',
+                                                          opacity: 0.95,
+                                                          whiteSpace: 'nowrap',
+                                                          overflow: 'hidden',
+                                                          textOverflow: 'ellipsis',
+                                                          fontWeight: 600,
+                                                        }}
+                                                      >
+                                                        📋 {ses.escenarioNombre}
+                                                      </div>
+                                                    )}
+                                                  </div>
+
+                                                  {/* Footer del Bloque: Docente y Horas */}
+                                                  <div
+                                                    style={{
+                                                      display: 'flex',
+                                                      alignItems: 'center',
+                                                      justifyContent: 'space-between',
+                                                      fontSize: '0.66rem',
+                                                      opacity: 0.9,
+                                                      borderTop: '1px solid rgba(255, 255, 255, 0.2)',
+                                                      paddingTop: '0.15rem',
+                                                      gap: '0.3rem',
+                                                    }}
+                                                  >
+                                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                      👨‍🏫 {ses.docenteNombreSimclic || 'Docente asignado'}
+                                                    </span>
+                                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, flexShrink: 0 }}>
+                                                      ⏰ {ses.horaInicio} - {ses.horaFin}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* =========================================================================
+                        MODO 2: COMPARATIVA DUAL "LADO A LADO" (HOY VS MAÑANA SIMULADO)
+                        Recrea la experiencia de dos pestañas de SimClic sincronizadas
+                        ========================================================================= */
+                    <div style={{ overflowX: 'auto', width: '100%', position: 'relative' }}>
+                      <div style={{ minWidth: '2200px', display: 'flex', flexDirection: 'column' }}>
+
+                        {/* HEADER PRINCIPAL DUAL */}
+                        <div className={styles.ganttDualHeader}>
+                          {/* LADO IZQUIERDO: CABECERA HOY */}
+                          <div className={styles.ganttDualSideHeader}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.1rem' }}>🌙</span>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+                                  HOY: {fecha} (Programación Real y Cierres)
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                  Estado actual de salas y equipamiento nocturno montado
+                                </div>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 700 }}>
+                              Base de Partida
+                            </span>
+                          </div>
+
+                          {/* LADO DERECHO: CABECERA MAÑANA SIMULADO */}
+                          <div className={styles.ganttDualSideHeader}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.1rem' }}>☀️</span>
+                              <div>
+                                <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#10b981' }}>
+                                  MAÑANA SIMULADO: {fechaComparacion} (Reorganizado para SimClic)
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                  Distribución óptima de clases respetando horas inamovibles
+                                </div>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 700 }}>
+                              ✨ Simulación Activa
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* SUB-HEADER HORARIO EN AMBOS LADOS (07:00 a 22:00) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid var(--border-color)', background: 'var(--bg-card)', position: 'sticky', top: '48px', zIndex: 28 }}>
+                          {/* Sub-header Izquierdo (Hoy) */}
+                          <div style={{ display: 'flex', borderRight: '2px solid var(--border-color)' }}>
+                            <div style={{ width: '220px', minWidth: '220px', padding: '0.5rem 0.85rem', fontWeight: 800, fontSize: '0.76rem', color: 'var(--text-primary)', borderRight: '1.5px solid var(--border-color)', background: 'var(--bg-card)' }}>
+                              🏥 SALA (HOY)
+                            </div>
+                            <div style={{ flex: 1, display: 'flex' }}>
+                              {slotsHorarios.map((slot, i) => (
+                                <div key={i} style={{ flex: 1, padding: '0.5rem 0.15rem', textAlign: 'center', fontSize: slot.esHoraEnPunto ? '0.7rem' : '0.62rem', fontWeight: slot.esHoraEnPunto ? 700 : 500, color: slot.esHoraEnPunto ? 'var(--text-primary)' : 'var(--text-muted)', borderRight: '1px solid rgba(255,255,255,0.06)', fontFamily: 'var(--font-mono)' }}>
+                                  {slot.label}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Sub-header Derecho (Mañana Simulado) */}
+                          <div style={{ display: 'flex' }}>
+                            <div style={{ width: '220px', minWidth: '220px', padding: '0.5rem 0.85rem', fontWeight: 800, fontSize: '0.76rem', color: '#10b981', borderRight: '1.5px solid var(--border-color)', background: 'var(--bg-card)' }}>
+                              🏥 SALA (MAÑANA)
+                            </div>
+                            <div style={{ flex: 1, display: 'flex' }}>
+                              {slotsHorarios.map((slot, i) => (
+                                <div key={i} style={{ flex: 1, padding: '0.5rem 0.15rem', textAlign: 'center', fontSize: slot.esHoraEnPunto ? '0.7rem' : '0.62rem', fontWeight: slot.esHoraEnPunto ? 700 : 500, color: slot.esHoraEnPunto ? 'var(--text-primary)' : 'var(--text-muted)', borderRight: '1px solid rgba(255,255,255,0.06)', fontFamily: 'var(--font-mono)' }}>
+                                  {slot.label}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* FILAS DE AMBIENTES DUALES AGRUPADAS POR PISO */}
+                        {gruposPisoContinuidad.length === 0 ? (
+                          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No se encontraron salas con los filtros seleccionados.
+                          </div>
+                        ) : (
+                          gruposPisoContinuidad.map((grupo) => {
+                            const isColapsado = pisosColapsadosContinuidad[grupo.piso];
+
+                            return (
+                              <div key={grupo.piso} style={{ display: 'flex', flexDirection: 'column' }}>
+                                {/* BARRA DE PISO TRANSVERSAL */}
+                                <div
+                                  onClick={() => togglePisoContinuidad(grupo.piso)}
+                                  style={{
+                                    display: 'flex',
+                                    borderBottom: '1px solid var(--border-color)',
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    cursor: 'pointer',
+                                    padding: '0.45rem 1rem',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    position: 'sticky',
+                                    zIndex: 22,
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '0.75rem', color: '#3b82f6', transform: isColapsado ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>
+                                      ▼
+                                    </span>
+                                    <span style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+                                      {grupo.piso}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', padding: '0.1rem 0.45rem', borderRadius: '10px' }}>
+                                      {grupo.ambientes.length} salas
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                    {isColapsado ? 'Sección colapsada (clic para desplegar)' : 'Comparativa de continuidad alineada sala por sala'}
+                                  </div>
+                                </div>
+
+                                {/* SALAS DEL PISO: FILA DUAL SINCRONIZADA */}
+                                {!isColapsado &&
+                                  grupo.ambientes.map((amb, ambIdx) => {
+                                    const sesionesHoyDeSala = sesionesHoyPorAmbienteMap.get(amb.id) || [];
+                                    const sesionesManDeSala = sesionesComparacionPorAmbienteMap.get(amb.id) || [];
+                                    const cierre = cierreHoyPorSalaMap.get(amb.id);
+
+                                    const tieneReubicada = sesionesManDeSala.some((s) =>
+                                      historialPermutas.some((p) => p.sesionOrigenId === s.id || (p.sesionOrigenIds && p.sesionOrigenIds.includes(s.id)))
+                                    );
+
+                                    return (
+                                      <div key={amb.id} className={styles.ganttDualRow} style={{ background: ambIdx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.012)' }}>
+                                        {/* PANEL IZQUIERDO: HOY */}
+                                        <div className={styles.ganttDualSide}>
+                                          <div className={styles.ganttDualRoomLabel}>
+                                            <span style={{ fontWeight: 800, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                                              {amb.nombre}
+                                            </span>
+                                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                              {amb.codigo || amb.tipo}
+                                            </span>
+                                            {cierre ? (
+                                              <div style={{ fontSize: '0.66rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '4px', padding: '0.1rem 0.35rem', marginTop: '0.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`Cierre Hoy: ${cierre.curso}${cierre.caso ? ` - ${cierre.caso}` : ''}`}>
+                                                🌙 {cierre.caso || cierre.curso} ({cierre.horaFin})
+                                              </div>
+                                            ) : (
+                                              <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '0.2rem' }}>
+                                                ⚪ Libre al cierre hoy
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          <div className={styles.ganttDualTrack}>
+                                            {/* Guías horarias */}
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+                                              {slotsHorarios.map((slot, i) => (
+                                                <div key={i} style={{ flex: 1, borderRight: '1px solid rgba(255,255,255,0.03)' }} />
+                                              ))}
+                                            </div>
+
+                                            {sesionesHoyDeSala.length === 0 ? (
+                                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: '1rem', color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic' }}>
+                                                ⚪ Sin clases hoy
+                                              </div>
+                                            ) : (
+                                              sesionesHoyDeSala.map((ses) => {
+                                                const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
+                                                const widthPercent = Math.max(2.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
+                                                const esUltima = sesionesHoyDeSala[sesionesHoyDeSala.length - 1].id === ses.id;
+
+                                                return (
+                                                  <div
+                                                    key={ses.id}
+                                                    onClick={() => onVerDetalleSesion(ses)}
+                                                    style={{
+                                                      position: 'absolute',
+                                                      left: `${leftPercent}%`,
+                                                      width: `${widthPercent}%`,
+                                                      top: '6px',
+                                                      bottom: '6px',
+                                                      background: esUltima ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.85), rgba(217, 119, 6, 0.8))' : `linear-gradient(135deg, ${(ses.carreraColor || '#0284c7')}c0, ${(ses.carreraColor || '#0284c7')}a0)`,
+                                                      border: esUltima ? '1.5px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.2)',
+                                                      borderRadius: '6px',
+                                                      padding: '0.25rem 0.5rem',
+                                                      color: '#ffffff',
+                                                      cursor: 'pointer',
+                                                      overflow: 'hidden',
+                                                      display: 'flex',
+                                                      flexDirection: 'column',
+                                                      justifyContent: 'space-between',
+                                                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                                                    }}
+                                                    title={`HOY: ${ses.titulo}\n${ses.horaInicio} - ${ses.horaFin}\nCaso: ${ses.escenarioNombre || 'General'}`}
+                                                  >
+                                                    <div style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                      {ses.cursoNombreSimclic || ses.titulo}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.64rem', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                      {ses.escenarioNombre ? `📋 ${ses.escenarioNombre}` : `⏰ ${ses.horaInicio} - ${ses.horaFin}`}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* PANEL DERECHO: MAÑANA SIMULADO */}
+                                        <div className={styles.ganttDualSide}>
+                                          <div className={styles.ganttDualRoomLabel}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem' }}>
+                                              <span style={{ fontWeight: 800, fontSize: '0.8rem', color: tieneReubicada ? '#10b981' : 'var(--text-primary)' }}>
+                                                {amb.nombre}
+                                              </span>
+                                              {sesionesManDeSala.length > 0 && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setModalPermuta({
+                                                      isOpen: true,
+                                                      sesion: sesionesManDeSala[0],
+                                                      sala: { id: amb.id, nombre: amb.nombre, codigo: amb.codigo },
+                                                    })
+                                                  }
+                                                  className={styles.secondaryBtn}
+                                                  style={{ padding: '0.12rem 0.4rem', fontSize: '0.66rem', borderRadius: '4px' }}
+                                                  title="Intercambiar sesión matutina"
+                                                >
+                                                  🔀 Mover
+                                                </button>
+                                              )}
+                                            </div>
+                                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                              {amb.codigo || amb.tipo}
+                                            </span>
+                                            {tieneReubicada ? (
+                                              <span style={{ fontSize: '0.66rem', color: '#10b981', fontWeight: 800 }}>
+                                                ✨ Continuidad Lograda (0 Acarreo)
+                                              </span>
+                                            ) : (
+                                              <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>
+                                                {sesionesManDeSala.length > 0 ? `${sesionesManDeSala.length} clases` : 'Libre mañana'}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className={styles.ganttDualTrack}>
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none' }}>
+                                              {slotsHorarios.map((slot, i) => (
+                                                <div key={i} style={{ flex: 1, borderRight: '1px solid rgba(255,255,255,0.03)' }} />
+                                              ))}
+                                            </div>
+
+                                            {sesionesManDeSala.length === 0 ? (
+                                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: '1rem', color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic' }}>
+                                                ⚪ Sala libre todo el día mañana
+                                              </div>
+                                            ) : (
+                                              sesionesManDeSala.map((ses) => {
+                                                const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
+                                                const widthPercent = Math.max(2.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
+
+                                                const pasoOrigen = historialPermutas.slice().reverse().find((p) => p.sesionOrigenId === ses.id || (p.sesionOrigenIds && p.sesionOrigenIds.includes(ses.id)));
+                                                const pasoDesplazado = historialPermutas.slice().reverse().find((p) => p.sesionDesplazadaId === ses.id || (p.sesionDesplazadaIds && p.sesionDesplazadaIds.includes(ses.id)));
+                                                const esReubicada = Boolean(pasoOrigen);
+                                                const esDesplazada = Boolean(pasoDesplazado);
+
+                                                let bgStyle = `linear-gradient(135deg, ${(ses.carreraColor || '#0284c7')}e6, ${(ses.carreraColor || '#0284c7')}cc)`;
+                                                let borderStyle = '1px solid rgba(255, 255, 255, 0.3)';
+                                                let badgeEtiqueta: string | null = null;
+
+                                                if (esReubicada) {
+                                                  bgStyle = 'linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.9))';
+                                                  borderStyle = '2px solid #10b981';
+                                                  badgeEtiqueta = `🔀 de [${pasoOrigen!.ambienteOrigenNombre}]`;
+                                                } else if (esDesplazada) {
+                                                  bgStyle = 'linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(217, 119, 6, 0.9))';
+                                                  borderStyle = '2px solid #f59e0b';
+                                                  badgeEtiqueta = `📦 desde [${pasoDesplazado!.ambienteDestinoNombre}]`;
+                                                }
+
+                                                return (
+                                                  <div
+                                                    key={ses.id}
+                                                    onClick={() => onVerDetalleSesion(ses)}
+                                                    className={esReubicada ? styles.sesionBlockReubicadaGantt : undefined}
+                                                    style={{
+                                                      position: 'absolute',
+                                                      left: `${leftPercent}%`,
+                                                      width: `${widthPercent}%`,
+                                                      top: '6px',
+                                                      bottom: '6px',
+                                                      background: bgStyle,
+                                                      border: borderStyle,
+                                                      borderRadius: '6px',
+                                                      padding: '0.25rem 0.5rem',
+                                                      color: '#ffffff',
+                                                      cursor: 'pointer',
+                                                      overflow: 'hidden',
+                                                      display: 'flex',
+                                                      flexDirection: 'column',
+                                                      justifyContent: 'space-between',
+                                                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                                                      zIndex: esReubicada || esDesplazada ? 15 : 10,
+                                                    }}
+                                                    title={`MAÑANA: ${ses.titulo}\n${ses.horaInicio} - ${ses.horaFin}\nCaso: ${ses.escenarioNombre || 'General'}${esReubicada ? `\n✨ Mover en SimClic desde ${pasoOrigen!.ambienteOrigenNombre}` : ''}`}
+                                                  >
+                                                    <div>
+                                                      {badgeEtiqueta && (
+                                                        <div style={{ fontSize: '0.62rem', fontWeight: 900, background: 'rgba(0,0,0,0.4)', padding: '0.05rem 0.3rem', borderRadius: '3px', marginBottom: '0.15rem', display: 'inline-block' }}>
+                                                          {badgeEtiqueta}
+                                                        </div>
+                                                      )}
+                                                      <div style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {ses.cursoNombreSimclic || ses.titulo}
+                                                      </div>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.64rem', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                      {ses.escenarioNombre ? `📋 ${ses.escenarioNombre}` : `⏰ ${ses.horaInicio} - ${ses.horaFin}`}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* VISTA 2: TARJETAS COMPARATIVAS DE SALAS */}
+              {vistaContinuidad === 'tarjetas' && (
+                <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
 
                 <div style={{ minWidth: '860px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* CABECERA DE COLUMNAS DEL TIMELINE BRIDGE */}
@@ -2456,6 +3650,7 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                   )}
                 </div>
               </div>
+              )}
             </>
           )}
         </div>

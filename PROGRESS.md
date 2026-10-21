@@ -1025,6 +1025,12 @@ src/
     - Si difieren, etiqueta automáticamente la asistencia con nota contextual: `🔄 Suplencia Docente: Cubriendo a [Titular] en sesión SimClic #[ID]` (o `🔄 Suplencia Paciente Simulado`).
     - Enlace bidireccional: asocia `sesionesProgramadas.asistenciaId` a la nueva asistencia y marca `estadoUcs = 'en_curso'`. Al marcar salida, actualiza a `finalizada`.
     - Puntualidad calculada contra la hora real de la clase en SimClic (`horaEntradaProgramada`), reportando si llegó a tiempo o con demora.
+  - **Soporte Nativo de Secuencias Multi-Bloque en el Día (`lookup` & `KioscoTerminal`)**:
+    - Si un docente o PS tiene múltiples bloques en el día (ej. Bloque 1 de 07:00 a 10:00 en Sim Quirúrgica y Bloque 2 de 11:00 a 13:00 en Sim Pediátrica):
+      1. En la mañana (07:00), el Kiosco le detecta y preselecciona el Bloque 1 con el badge `📅 Bloque 1 de 2 hoy` y le anticipa el siguiente bloque: `📌 Próximo bloque: 11:00 - 13:00 • Simulación Pediátrica`.
+      2. Al terminar a las 10:00, marca su salida. El Bloque 1 se cierra y se marca como `finalizada`.
+      3. A las 10:55, al volver a poner su DNI, el sistema descarta el Bloque 1 ya concluido y le ofrece automáticamente el botón 1-Tap para el Bloque 2 en su nueva sala.
+      4. Cada bloque genera su propia asistencia y cálculo independiente de horas/honorarios, impidiendo cobros indebidos por horas muertas intermedias.
   - **Verificación Técnica**:
     - Tipado TypeScript estricto verificado con `npx tsc --noEmit` (**0 errores**).
 

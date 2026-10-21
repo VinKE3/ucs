@@ -152,6 +152,7 @@ export async function GET(request: Request) {
           pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
           pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
           asistenciaId: sesionesProgramadas.asistenciaId,
+          estadoUcs: sesionesProgramadas.estadoUcs,
         })
         .from(sesionesProgramadas)
         .leftJoin(sedes, eq(sesionesProgramadas.sedeId, sedes.id))
@@ -176,6 +177,7 @@ export async function GET(request: Request) {
         score: number;
       }
 
+      const todasSesionesUsuario: Array<{ sesion: (typeof sesionesHoy)[0]; rol: 'docente_titular' | 'co_docente' | 'paciente_simulado'; startM: number; endM: number }> = [];
       const candidatas: Candidata[] = [];
 
       for (const s of sesionesHoy) {
@@ -215,6 +217,13 @@ export async function GET(request: Request) {
         const startM = hStart * 60 + mStart;
         const endM = hEnd * 60 + mEnd;
 
+        todasSesionesUsuario.push({ sesion: s, rol: rolMatch, startM, endM });
+
+        // Si la sesión ya fue completada y cerrada hoy (estadoUcs === 'finalizada'), no sugerirla de nuevo
+        if (s.estadoUcs === 'finalizada') {
+          continue;
+        }
+
         // Bonificación de afinidad si coincide con la sede de la terminal física
         let score = 0;
         if (targetSedeId && s.sedeId === targetSedeId) {
@@ -239,6 +248,8 @@ export async function GET(request: Request) {
         }
       }
 
+      // Ordenar todas cronológicamente para numerar los bloques
+      todasSesionesUsuario.sort((a, b) => a.startM - b.startM);
       candidatas.sort((a, b) => b.score - a.score);
 
       if (candidatas.length > 0) {
@@ -246,6 +257,25 @@ export async function GET(request: Request) {
         const s = best.sesion;
         const esProxima = nowMinutes < best.startM - 20;
         const minutosParaInicio = Math.max(0, best.startM - nowMinutes);
+
+        // Identificar número de bloque cronológico del día
+        const totalBloquesHoy = todasSesionesUsuario.length;
+        const indexCronologico = todasSesionesUsuario.findIndex((item) => item.sesion.id === s.id);
+        const numeroBloque = indexCronologico >= 0 ? indexCronologico + 1 : 1;
+
+        // Identificar el siguiente bloque si existe
+        const siguienteItem = todasSesionesUsuario.find(
+          (item) => item.startM > best.startM && item.sesion.estadoUcs !== 'finalizada'
+        );
+
+        const proximoBloque = siguienteItem
+          ? {
+              cursoNombre: siguienteItem.sesion.cursoNombre || siguienteItem.sesion.cursoNombreSimclic || siguienteItem.sesion.titulo,
+              ambienteNombre: siguienteItem.sesion.ambienteNombre || siguienteItem.sesion.ambienteNombreSimclic,
+              horaInicio: siguienteItem.sesion.horaInicio,
+              horaFin: siguienteItem.sesion.horaFin,
+            }
+          : null;
 
         sesionSugerida = {
           id: s.id,
@@ -263,6 +293,9 @@ export async function GET(request: Request) {
           minutosParaInicio,
           sedeId: s.sedeId,
           sedeNombre: s.sedeNombre || s.sedeNombreSimclic,
+          totalBloquesHoy,
+          numeroBloque,
+          proximoBloque,
         };
       }
     }

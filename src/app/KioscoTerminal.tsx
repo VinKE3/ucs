@@ -93,6 +93,14 @@ interface SesionSugeridaItem {
   minutosParaInicio: number;
   sedeId: number | null;
   sedeNombre: string | null;
+  totalBloquesHoy?: number;
+  numeroBloque?: number;
+  proximoBloque?: {
+    cursoNombre: string;
+    ambienteNombre: string | null;
+    horaInicio: string;
+    horaFin: string;
+  } | null;
 }
 
 export default function KioscoTerminal() {
@@ -1317,20 +1325,35 @@ export default function KioscoTerminal() {
                                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
                               }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                  <span style={{
-                                    background: 'linear-gradient(135deg, #059669, #10b981)',
-                                    color: '#ffffff',
-                                    padding: '0.25rem 0.75rem',
-                                    borderRadius: '999px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 800,
-                                    letterSpacing: '0.04em',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem',
-                                  }}>
-                                    ⚡ SESIÓN DETECTADA EN SIMCLIC
-                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <span style={{
+                                      background: 'linear-gradient(135deg, #059669, #10b981)',
+                                      color: '#ffffff',
+                                      padding: '0.25rem 0.75rem',
+                                      borderRadius: '999px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 800,
+                                      letterSpacing: '0.04em',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.35rem',
+                                    }}>
+                                      ⚡ SESIÓN DETECTADA EN SIMCLIC
+                                    </span>
+                                    {sesionSugerida.totalBloquesHoy && sesionSugerida.totalBloquesHoy > 1 && (
+                                      <span style={{
+                                        background: 'rgba(255, 255, 255, 0.1)',
+                                        color: 'var(--text-primary)',
+                                        padding: '0.25rem 0.65rem',
+                                        borderRadius: '999px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                      }}>
+                                        📅 Bloque {sesionSugerida.numeroBloque || 1} de {sesionSugerida.totalBloquesHoy} hoy
+                                      </span>
+                                    )}
+                                  </div>
                                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                     ID SimClic #{sesionSugerida.simclicId}
                                   </span>
@@ -1387,6 +1410,25 @@ export default function KioscoTerminal() {
                                     borderRadius: '8px',
                                   }}>
                                     ⏳ Tu sesión inicia en aproximadamente <strong>{sesionSugerida.minutosParaInicio} minutos</strong>.
+                                  </div>
+                                )}
+
+                                {sesionSugerida.proximoBloque && (
+                                  <div style={{
+                                    fontSize: '0.8rem',
+                                    color: '#38bdf8',
+                                    background: 'rgba(56, 189, 248, 0.08)',
+                                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                                    padding: '0.45rem 0.75rem',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.45rem',
+                                  }}>
+                                    <span>📌</span>
+                                    <span>
+                                      <strong>Próximo bloque hoy:</strong> {sesionSugerida.proximoBloque.horaInicio} - {sesionSugerida.proximoBloque.horaFin} • {sesionSugerida.proximoBloque.cursoNombre} {sesionSugerida.proximoBloque.ambienteNombre ? `(${sesionSugerida.proximoBloque.ambienteNombre})` : ''}
+                                    </span>
                                   </div>
                                 )}
 

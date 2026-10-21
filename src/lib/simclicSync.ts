@@ -10,6 +10,13 @@ import {
 } from '@/db/schema';
 import { eq, ilike } from 'drizzle-orm';
 
+export type ModoSync = 'dia' | 'semana';
+
+export interface SyncOptions {
+  targetDate?: Date;
+  modo?: ModoSync;
+}
+
 export interface SyncResult {
   success: boolean;
   total: number;
@@ -19,6 +26,10 @@ export interface SyncResult {
   canceladas: number;
   fecha: string;
   duracionMs: number;
+  modo?: ModoSync;
+  fechaInicio?: string;
+  fechaFin?: string;
+  diasProcesados?: string[];
   error?: string;
   detallesReubicadas?: Array<{
     simclicId: string;
@@ -38,12 +49,20 @@ export interface SyncResult {
 /**
  * Motor central de sincronización SimClic para UCS Registro.
  * Conecta de forma headless vía SockJS DDP WebSocket, autentica con credenciales
- * institucionales y sincroniza la programación del día detectando traslados de ambiente.
+ * institucionales y sincroniza la programación del día o de la semana completa.
  */
-export async function syncSimclicSessions(targetDate: Date = new Date()): Promise<SyncResult> {
+export async function syncSimclicSessions(
+  optionsOrDate: Date | SyncOptions = new Date()
+): Promise<SyncResult> {
   const startTime = Date.now();
   const user = process.env.SIMCLIC_USER;
   const password = process.env.SIMCLIC_PASSWORD;
+
+  const targetDate: Date =
+    optionsOrDate instanceof Date ? optionsOrDate : optionsOrDate.targetDate || new Date();
+  const modo: ModoSync =
+    optionsOrDate instanceof Date ? 'dia' : optionsOrDate.modo || 'dia';
+
   const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
 
   if (!user || !password) {
@@ -55,6 +74,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
       reubicadas: 0,
       canceladas: 0,
       fecha: targetDateStr,
+      modo,
       duracionMs: 0,
       error: 'Credenciales SIMCLIC_USER o SIMCLIC_PASSWORD no configuradas en .env.local',
     };
@@ -299,7 +319,8 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     let isDone = false;
     let isSubReady = false;
 
-    // Timeout de seguridad de 14 segundos
+    // Timeout de seguridad (24s para semana completa, 14s para día individual)
+    const timerMs = modo === 'semana' ? 24000 : 14000;
     const timer = setTimeout(() => {
       if (!isDone) {
         isDone = true;
@@ -310,7 +331,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
           resolve(collected);
         }
       }
-    }, 14000);
+    }, timerMs);
 
     // @ts-ignore
     const ws = new (globalThis.WebSocket as any)(wsUrl, {
@@ -362,7 +383,8 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
               return;
             }
 
-            // Suscribirse a las sesiones de la fecha solicitada
+            // Suscribirse a las sesiones de la fecha solicitada o de la semana completa
+            const currentView = modo === 'semana' ? 'TimelineWeek' : 'TimelineDay';
             sendDDP({
               msg: 'sub',
               id: 'sub-sessions-sync',
@@ -370,7 +392,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
               params: [
                 {
                   currentDate: { $date: targetDate.getTime() },
-                  currentView: 'TimelineDay',
+                  currentView,
                   firstDayOfWeek: 1,
                 },
                 'America/Lima',
@@ -432,6 +454,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
 
   // Conjunto de IDs recibidos en el payload actual de SimClic para detección de eliminaciones
   const rawSimclicIds = new Set<string>();
+  const diasProcesadosSet = new Set<string>();
 
   for (const s of rawSessions) {
     const simclicId = String(s.id || s._id);
@@ -445,6 +468,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
 
     // Convertir a YYYY-MM-DD
     const fecha = startD.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+    diasProcesadosSet.add(fecha);
     const horaInicio = startD.toLocaleTimeString('en-GB', {
       timeZone: 'America/Lima',
       hour: '2-digit',
@@ -670,9 +694,12 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
   }
 
   // 4. DETECCIÓN DE SESIONES FANTASMA (Eliminadas o Desprogramadas en SimClic)
-  // Sesiones que existían en BD para esta fecha pero que ya NO figuran en el payload de SimClic
-  const existingForDate = existingRows.filter((r) => r.fecha === targetDateStr);
-  for (const ghost of existingForDate) {
+  // Si es modo día, busca en la fecha objetivo. Si es semana, en todos los días recibidos en la semana.
+  const existingForScope = modo === 'semana'
+    ? existingRows.filter((r) => diasProcesadosSet.has(r.fecha))
+    : existingRows.filter((r) => r.fecha === targetDateStr);
+
+  for (const ghost of existingForScope) {
     if (!rawSimclicIds.has(ghost.simclicId)) {
       if (ghost.estadoUcs !== 'cancelada') {
         canceladas++;
@@ -697,6 +724,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
   }
 
   const duracionMs = Date.now() - startTime;
+  const diasProcesados = Array.from(diasProcesadosSet).sort();
 
   return {
     success: true,
@@ -706,8 +734,19 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     reubicadas,
     canceladas,
     fecha: targetDateStr,
+    modo,
+    fechaInicio: diasProcesados[0] || targetDateStr,
+    fechaFin: diasProcesados[diasProcesados.length - 1] || targetDateStr,
+    diasProcesados,
     duracionMs,
     detallesReubicadas,
     detallesCanceladas,
   };
+}
+
+/**
+ * Helper para sincronizar preventivamente la semana completa de SimClic (Lunes a Domingo).
+ */
+export async function syncSimclicWeek(targetDate: Date = new Date()): Promise<SyncResult> {
+  return syncSimclicSessions({ targetDate, modo: 'semana' });
 }

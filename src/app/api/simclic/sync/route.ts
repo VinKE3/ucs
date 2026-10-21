@@ -44,10 +44,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Ejecutar sincronización manual o programada con SimClic
+// POST: Ejecutar sincronización manual o programada con SimClic (Día o Semana Completa)
 export async function POST(request: Request) {
   try {
     let targetDate = new Date();
+    let modo: 'dia' | 'semana' = 'dia';
+
     try {
       const body = await request.json();
       if (body.fecha) {
@@ -55,11 +57,14 @@ export async function POST(request: Request) {
         const [y, m, d] = body.fecha.split('-').map(Number);
         targetDate = new Date(y, m - 1, d, 12, 0, 0);
       }
+      if (body.modo === 'semana') {
+        modo = 'semana';
+      }
     } catch {
-      // Body vacío o no parseable, usa fecha actual
+      // Body vacío o no parseable, usa fecha actual y modo día
     }
 
-    const result = await syncSimclicSessions(targetDate);
+    const result = await syncSimclicSessions({ targetDate, modo });
 
     if (!result.success) {
       return NextResponse.json(

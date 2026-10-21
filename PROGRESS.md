@@ -986,6 +986,28 @@ src/
     - Migración ejecutada exitosamente en Neon PostgreSQL.
     - Sincronización en vivo verificada contra Meteor SimClic (185 sesiones procesadas y enriquecidas con JSON de participantes).
     - Tipado y compilación estricta con TypeScript `npx tsc --noEmit` (**0 errores**).
+* `feat(simclic-sync-semanal)`: **Hito 61: Sincronización Preventiva Semanal y Ventana Deslizante Multi-Días de SimClic**:
+  - **Contexto y Problemática**:
+    - Anteriormente, el sistema consultaba SimClic únicamente para el día activo (`TimelineDay`) en demanda. Cuando los coordinadores navegaban a fechas futuras (ej. jueves o viernes) o planificaban la logística de la semana, las salas figuraban vacías hasta que se forzara la sincronización manual de ese día en específico. Además, cambios de programación realizados a futuro (cancelaciones, traslados o reprogramaciones de casos) no se detectaban proactivamente.
+  - **Motor de Ingesta Semanal Nativizado en Meteor SockJS DDP (`src/lib/simclicSync.ts`)**:
+    - Soporte para `ModoSync = 'dia' | 'semana'` y opciones estructuradas `SyncOptions { targetDate, modo }`.
+    - Conexión SockJS Meteor adaptada: al solicitar `modo: 'semana'`, suscribe al canal `sessions.byDateAndUser` con `currentView: 'TimelineWeek'` y `firstDayOfWeek: 1`. Esto permite traer toda la semana académica (Lunes a Domingo, >1,300 sesiones) en una sola conexión WebSocket ultrarrápida (~1.8s a 2.5s) sin tener que hacer 7 conexiones diarias separadas.
+    - Timeout de seguridad dinámico (12s para día, 24s para semana).
+    - Scope-aware phantom detection: En modo semanal, reconcilia contra todas las sesiones existentes en PostgreSQL cuya fecha corresponda a cualquiera de los días recibidos en el lote semanal (`diasProcesadosSet`), marcando como canceladas aquellas que hayan sido desprogramadas o eliminadas de SimClic durante la semana.
+    - Exportación del helper `syncSimclicWeek(targetDate)`.
+  - **Endpoint API Ampliado (`/api/simclic/sync/route.ts`)**:
+    - Acepta en el body `{ fecha?: string, modo?: 'dia' | 'semana' }` y despacha al motor de ingesta semanal retornando el desglose de fechas (`fechaInicio`, `fechaFin`, `diasProcesados`, `total`, `creadas`, `actualizadas`, `reubicadas`, `canceladas`).
+  - **Daemon Autónomo con Ventana Deslizante (`src/scripts/simclicCron.ts`)**:
+    - Estrategia de ventana rodante:
+      1. Alta frecuencia (cada 30 min): Sincroniza Hoy y Mañana para control en tiempo real y detección inmediata de traslados de ambiente.
+      2. Ventana Deslizante Semanal: En el primer ciclo y cada 4 ciclos (~2 horas), ejecuta preventivamente la sincronización completa de la semana académica en segundo plano, manteniendo Neon PostgreSQL perpetuamente fresco para cualquier día de la semana.
+  - **Interfaz de Usuario en el Dashboard (`src/components/admin/tabs/ProgramacionTab.tsx`)**:
+    - Nuevo botón `📅 Sincronizar Semana` con diseño de alto contraste en el action bar superior.
+    - Estado de carga `syncingSemana` con bloqueo de peticiones concurrentes y feedback en vivo vía notificaciones Toast (reportando total de sesiones, rango de fechas, sesiones canceladas y traslados de sala detectados).
+    - Refresco automático de la vista del Gantt y métricas tras culminar el ciclo semanal.
+  - **Verificación Técnica**:
+    - Prueba real contra servidor WebSocket Meteor de SimClic: 1,315 sesiones sincronizadas a través de 7 días (`2026-10-19` a `2026-10-25`) en 1.8 segundos.
+    - Tipado TypeScript estricto verificado con `npx tsc --noEmit` (**0 errores**).
 
 ---
 

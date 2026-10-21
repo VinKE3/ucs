@@ -197,6 +197,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   // Estados de datos
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [syncingSemana, setSyncingSemana] = useState<boolean>(false);
   const [ambientes, setAmbientes] = useState<AmbienteAdminItem[]>([]);
   const [sesiones, setSesiones] = useState<SesionProgramadaTimelineItem[]>([]);
 
@@ -490,6 +491,75 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     },
     []
   );
+
+  // Sincronización completa de la semana académica (Lunes a Domingo)
+  const runSyncSemana = useCallback(async () => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setSyncingSemana(true);
+
+    const targetFecha = fechaRef.current;
+    try {
+      showToast('Sincronizando la semana completa con SimClic...', 'info');
+      const res = await fetch('/api/simclic/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha: targetFecha, modo: 'semana' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLastSyncTime(new Date());
+        const diasCount = data.diasProcesados?.length || 7;
+        const rangoFechas =
+          data.fechaInicio && data.fechaFin
+            ? `${data.fechaInicio} al ${data.fechaFin}`
+            : 'semana';
+
+        showToast(
+          `Semana sincronizada: ${data.total || 0} sesiones (${rangoFechas}, ${diasCount} días)`,
+          'success'
+        );
+
+        if (data.canceladas > 0) {
+          showToast(`⚠️ Se detectaron ${data.canceladas} sesiones canceladas o desprogramadas en la semana`, 'warning');
+        }
+        if (data.reubicadas > 0) {
+          showToast(`🔄 Se detectaron ${data.reubicadas} sesiones trasladadas de sala en la semana`, 'info');
+        }
+
+        // Recargar datos en segundo plano usando SIEMPRE la sede y fecha activas en los refs
+        const currentSedeId = selectedSedeIdRef.current;
+        const currentFecha = fechaRef.current;
+
+        const params = new URLSearchParams();
+        if (currentFecha) params.set('fecha', currentFecha);
+        if (currentSedeId) params.set('sedeId', String(currentSedeId));
+
+        const resProg = await fetch(`/api/programacion?${params.toString()}`);
+        const dataProg = await resProg.json();
+        if (resProg.ok && dataProg.success) {
+          if (selectedSedeIdRef.current === currentSedeId) {
+            setAmbientes(dataProg.ambientesList || []);
+            setSesiones(dataProg.sesiones || []);
+            setDocentesList(dataProg.docentesList || []);
+            setCursosList(dataProg.cursosList || []);
+            setPsList(dataProg.psList || []);
+            setMetricas(dataProg.metricas || null);
+            setNowMinutes(dataProg.nowMinutes || 0);
+            setEsHoy(dataProg.esHoy);
+          }
+        }
+      } else {
+        showAlert('Atención', data.error || 'No se pudo sincronizar la semana con SimClic', 'warning');
+      }
+    } catch (err: unknown) {
+      console.error('Error al sincronizar semana con SimClic:', err);
+      showToast('Error al conectar con SimClic para la sincronización semanal', 'error');
+    } finally {
+      isSyncingRef.current = false;
+      setSyncingSemana(false);
+    }
+  }, []);
 
   // Auto-sincronizar con SimClic en segundo plano cada vez que el usuario cambie de fecha
   useEffect(() => {
@@ -862,11 +932,11 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             <span>Exportar ({sesionesFiltradas.length})</span>
           </button>
 
-          {/* BOTÓN SINCRONIZAR SIMCLIC */}
+          {/* BOTÓN SINCRONIZAR SIMCLIC (DÍA) */}
           <button
             type="button"
             onClick={() => runSyncSimclic(true)}
-            disabled={syncing}
+            disabled={syncing || syncingSemana}
             className={styles.actionBtn}
             style={{
               padding: '0.45rem 0.95rem',
@@ -881,6 +951,37 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               🔄
             </span>
             {syncing ? 'Sincronizando...' : 'Actualizar SimClic'}
+          </button>
+
+          {/* BOTÓN SINCRONIZAR SEMANA SIMCLIC */}
+          <button
+            type="button"
+            onClick={runSyncSemana}
+            disabled={syncing || syncingSemana}
+            className={styles.secondaryActionBtn}
+            style={{
+              padding: '0.45rem 0.95rem',
+              fontSize: '0.82rem',
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              color: '#38bdf8',
+              background: 'rgba(56, 189, 248, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              whiteSpace: 'nowrap',
+            }}
+            title="Sincronizar preventivamente toda la semana académica (Lunes a Domingo) desde SimClic"
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                transform: syncingSemana ? 'rotate(360deg)' : 'none',
+                transition: 'transform 0.8s ease',
+              }}
+            >
+              📅
+            </span>
+            {syncingSemana ? 'Sincronizando Semana...' : 'Sincronizar Semana'}
           </button>
         </div>
       </div>

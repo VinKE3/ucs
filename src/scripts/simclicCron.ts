@@ -56,6 +56,18 @@ async function ejecutarCicloSincronizacion(iteracion: number) {
     } else {
       console.warn(`⚠️ Advertencia en sincronización de mañana:`, resManana.error);
     }
+
+    // 3. Sincronización de Ventana Deslizante (Semana Completa) cada 4 ciclos (~2 horas) o en el primer ciclo
+    const tocaSemana = iteracion === 1 || iteracion % 4 === 0;
+    if (tocaSemana) {
+      console.log(`📅 [Ventana Deslizante] Sincronizando preventivamente la SEMANA COMPLETA con SimClic...`);
+      const resSemana = await syncSimclicSessions({ targetDate: new Date(), modo: 'semana' });
+      if (resSemana.success) {
+        console.log(`🎉 [Semana Completa] ${resSemana.total} clases procesadas en ${(resSemana.duracionMs / 1000).toFixed(1)}s (${resSemana.diasProcesados?.length || 7} días). Nuevas: ${resSemana.creadas}, Actualizadas: ${resSemana.actualizadas}, Canceladas: ${resSemana.canceladas}`);
+      } else {
+        console.warn(`⚠️ Advertencia sincronizando semana completa:`, resSemana.error);
+      }
+    }
   } catch (err: any) {
     console.error(`❌ Error en ciclo #${iteracion}:`, err.message || err);
   }

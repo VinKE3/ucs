@@ -73,6 +73,7 @@ export interface TicketSalidaData {
   tarifaHora?: number | null;
   montoSesionEstimado?: number | null;
   montoMesEstimado?: number | null;
+  diasCompensatoriosSaldo?: number | null;
 }
 
 export interface SedeAdminItem {
@@ -588,6 +589,48 @@ export interface PermutaCadenaPaso {
   sesionDesplazadaIds?: number[];
   horarioFranja?: string;
 }
+
+// --- GESTIÓN DE TÉCNICOS: TURNOS MENSUALES & BANCO DE COMPENSATORIOS ---
+export type TipoDiaTecnico = 'laborable' | 'descanso' | 'descanso_compensatorio' | 'guardia_evento';
+
+export interface TurnoProgramadoTecnicoItem {
+  id?: number;
+  usuarioId: number;
+  fecha: string; // YYYY-MM-DD
+  tipoDia: TipoDiaTecnico;
+  horaEntradaEsperada?: string | null;
+  horaSalidaEsperada?: string | null;
+  esPersonalizado: boolean;
+  nota?: string | null;
+  programadoPorId?: number | null;
+  programadoPorNombre?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type TipoMovimientoCompensatorio = 'acumulado' | 'canjeado' | 'ajuste_manual';
+
+export interface BancoCompensatorioItem {
+  id: number;
+  usuarioId: number;
+  tipo: TipoMovimientoCompensatorio;
+  dias: number;
+  fechaReferencia?: string | null;
+  motivo: string;
+  autorizadoPorId?: number | null;
+  autorizadoPorNombre?: string | null;
+  saldoResultante: number;
+  createdAt: string;
+}
+
+export interface CompensatorioResumenItem {
+  usuarioId: number;
+  saldoDias: number;
+  totalAcumulados: number;
+  totalCanjeados: number;
+  ultimoMovimiento?: string | null;
+}
+
 
 
 

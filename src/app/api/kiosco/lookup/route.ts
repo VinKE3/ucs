@@ -82,8 +82,42 @@ export async function GET(request: Request) {
 
     const asistenciaActiva = asistenciasActivas[0] || null;
 
+    // Enriquecimiento para Técnicos (turno del día y balance compensatorio)
+    let turnoHoy = null;
+    let saldoDiasCompensatorios: number | null = null;
+
+    if (usuario.tipoPersonal === 'tecnico') {
+      const { getPeruDateString } = await import('@/lib/peruTime');
+      const { turnosProgramadosTecnicos, bancoCompensatoriosTecnicos } = await import('@/db/schema');
+      const hoyStr = getPeruDateString();
+
+      const [tProg] = await db
+        .select()
+        .from(turnosProgramadosTecnicos)
+        .where(
+          and(
+            eq(turnosProgramadosTecnicos.usuarioId, usuario.id),
+            eq(turnosProgramadosTecnicos.fecha, hoyStr)
+          )
+        )
+        .limit(1);
+
+      turnoHoy = tProg || null;
+
+      const movs = await db
+        .select({ dias: bancoCompensatoriosTecnicos.dias })
+        .from(bancoCompensatoriosTecnicos)
+        .where(eq(bancoCompensatoriosTecnicos.usuarioId, usuario.id));
+
+      saldoDiasCompensatorios = movs.reduce((acc, m) => acc + Number(m.dias || 0), 0);
+    }
+
     return NextResponse.json({
-      usuario,
+      usuario: {
+        ...usuario,
+        turnoHoy,
+        saldoDiasCompensatorios,
+      },
       asistenciaActiva,
     });
   } catch (error) {

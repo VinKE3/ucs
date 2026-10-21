@@ -45,6 +45,18 @@ interface UsuarioData {
   nombres: string;
   apellidos: string;
   tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
+  horaEntradaEsperada?: string | null;
+  horaSalidaEsperada?: string | null;
+  turnoHoy?: {
+    id: number;
+    fecha: string;
+    tipoDia: string;
+    horaEntradaEsperada: string;
+    horaSalidaEsperada: string;
+    esPersonalizado: boolean;
+    nota?: string | null;
+  } | null;
+  saldoDiasCompensatorios?: number | null;
 }
 
 interface AsistenciaActiva {
@@ -850,11 +862,35 @@ export default function KioscoTerminal() {
                         padding: '0.65rem 0.85rem',
                         border: '1px solid rgba(0, 230, 153, 0.2)',
                         display: 'flex',
-                        justifyContent: 'space-between',
+                        flexDirection: 'column',
+                        gap: '0.45rem',
                         fontSize: '0.78rem',
                       }}>
-                        <span>Acumulado Semana: <strong>{ticketSalida.horasSemanaTexto}</strong></span>
-                        <span>Acumulado Mes: <strong>{ticketSalida.horasMesTexto}</strong></span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Acumulado Semana: <strong>{ticketSalida.horasSemanaTexto}</strong></span>
+                          <span>Acumulado Mes: <strong>{ticketSalida.horasMesTexto}</strong></span>
+                        </div>
+                        {ticketSalida.tipoPersonal === 'tecnico' && ticketSalida.diasCompensatoriosSaldo !== undefined && ticketSalida.diasCompensatoriosSaldo !== null && (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            paddingTop: '0.35rem',
+                            borderTop: '1px dashed rgba(0, 230, 153, 0.25)',
+                            color: '#34d399',
+                            fontWeight: 600,
+                          }}>
+                            <span>⭐ Días Compensatorios a Favor:</span>
+                            <span style={{
+                              background: 'rgba(16, 185, 129, 0.2)',
+                              padding: '0.1rem 0.5rem',
+                              borderRadius: '4px',
+                              fontFamily: 'var(--font-mono)',
+                            }}>
+                              {ticketSalida.diasCompensatoriosSaldo} {ticketSalida.diasCompensatoriosSaldo === 1 ? 'día' : 'días'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1161,6 +1197,57 @@ export default function KioscoTerminal() {
                                 Tu ingreso se registrará para la sede general de <strong>{sedeSeleccionada?.nombre}</strong>.
                               </span>
                             </div>
+
+                            {/* Detalle especial para Técnicos: Turno del día y Banco Compensatorio */}
+                            {usuarioActual.tipoPersonal === 'tecnico' && (
+                              <div style={{
+                                marginTop: '0.75rem',
+                                marginBottom: '0.85rem',
+                                padding: '0.75rem 0.95rem',
+                                background: 'rgba(56, 189, 248, 0.08)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                borderRadius: '10px',
+                                fontSize: '0.82rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.4rem',
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ color: '#38bdf8', fontWeight: 600 }}>
+                                    {usuarioActual.turnoHoy ? (
+                                      usuarioActual.turnoHoy.tipoDia === 'descanso' ? (
+                                        '🏖️ Programado: Descanso Semanal (DSO)'
+                                      ) : usuarioActual.turnoHoy.tipoDia === 'descanso_compensatorio' ? (
+                                        '⭐ Programado: Descanso Compensatorio'
+                                      ) : usuarioActual.turnoHoy.esPersonalizado ? (
+                                        `✏️ Horario Personalizado Hoy: ${usuarioActual.turnoHoy.horaEntradaEsperada} - ${usuarioActual.turnoHoy.horaSalidaEsperada}`
+                                      ) : (
+                                        `⏰ Horario Programado Hoy: ${usuarioActual.turnoHoy.horaEntradaEsperada} - ${usuarioActual.turnoHoy.horaSalidaEsperada}`
+                                      )
+                                    ) : (
+                                      `⏰ Horario Habitual: ${usuarioActual.horaEntradaEsperada || '13:00'} - ${usuarioActual.horaSalidaEsperada || '22:00'}`
+                                    )}
+                                  </span>
+                                  {usuarioActual.saldoDiasCompensatorios !== null && usuarioActual.saldoDiasCompensatorios !== undefined && (
+                                    <span style={{
+                                      background: usuarioActual.saldoDiasCompensatorios > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                                      color: usuarioActual.saldoDiasCompensatorios > 0 ? '#34d399' : 'var(--text-muted)',
+                                      padding: '0.15rem 0.5rem',
+                                      borderRadius: '6px',
+                                      fontWeight: 700,
+                                      fontSize: '0.75rem',
+                                    }}>
+                                      ⭐ {usuarioActual.saldoDiasCompensatorios} d. compensatorios
+                                    </span>
+                                  )}
+                                </div>
+                                {usuarioActual.turnoHoy?.nota && (
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                    Nota: &ldquo;{usuarioActual.turnoHoy.nota}&rdquo;
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             <button
                               onClick={() => handleMarcar('ingreso')}

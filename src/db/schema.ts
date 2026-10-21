@@ -482,6 +482,44 @@ export type NewCarrera = typeof carreras.$inferInsert;
 export type SesionProgramada = typeof sesionesProgramadas.$inferSelect;
 export type NewSesionProgramada = typeof sesionesProgramadas.$inferInsert;
 
+// --- 8. TABLA: TURNOS PROGRAMADOS DE TÉCNICOS (Malla mensual, descansos y horarios personalizados) ---
+export const turnosProgramadosTecnicos = pgTable('turnos_programados_tecnicos', {
+  id: serial('id').primaryKey(),
+  usuarioId: integer('usuario_id')
+    .notNull()
+    .references(() => usuarios.id, { onDelete: 'cascade' }),
+  fecha: varchar('fecha', { length: 10 }).notNull(), // "YYYY-MM-DD"
+  tipoDia: varchar('tipo_dia', { length: 30 }).default('laborable').notNull(), // 'laborable', 'descanso', 'descanso_compensatorio', 'guardia_evento'
+  horaEntradaEsperada: varchar('hora_entrada_esperada', { length: 5 }), // ej: "09:00", "10:00", "13:00"
+  horaSalidaEsperada: varchar('hora_salida_esperada', { length: 5 }),   // ej: "18:00", "19:00", "22:00"
+  esPersonalizado: boolean('es_personalizado').default(false).notNull(), // true si se digitó horario específico
+  nota: text('nota'), // Ej: "Guardia domingo - Cobertura ECOE"
+  programadoPorId: integer('programado_por_id').references(() => usuarios.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// --- 9. TABLA: BANCO DE DÍAS COMPENSATORIOS DE TÉCNICOS ---
+export const bancoCompensatoriosTecnicos = pgTable('banco_compensatorios_tecnicos', {
+  id: serial('id').primaryKey(),
+  usuarioId: integer('usuario_id')
+    .notNull()
+    .references(() => usuarios.id, { onDelete: 'cascade' }),
+  tipo: varchar('tipo', { length: 30 }).notNull(), // 'acumulado', 'canjeado', 'ajuste_manual'
+  dias: numeric('dias', { precision: 4, scale: 1 }).notNull(), // ej: +1.0 o -1.0
+  fechaReferencia: varchar('fecha_referencia', { length: 10 }), // Fecha del día trabajado o descanso tomado
+  motivo: text('motivo').notNull(), // Explicación de la acumulación o canje
+  autorizadoPorId: integer('autorizado_por_id').references(() => usuarios.id, { onDelete: 'set null' }),
+  saldoResultante: numeric('saldo_resultante', { precision: 4, scale: 1 }).default('0'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type TurnoProgramadoTecnico = typeof turnosProgramadosTecnicos.$inferSelect;
+export type NewTurnoProgramadoTecnico = typeof turnosProgramadosTecnicos.$inferInsert;
+export type BancoCompensatorioTecnico = typeof bancoCompensatoriosTecnicos.$inferSelect;
+export type NewBancoCompensatorioTecnico = typeof bancoCompensatoriosTecnicos.$inferInsert;
+
+
 
 
 

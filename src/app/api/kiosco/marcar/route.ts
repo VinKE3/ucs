@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco } from '@/db/schema';
+import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco, turnosProgramadosTecnicos, bancoCompensatoriosTecnicos } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
 import { kioskMarcarRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
@@ -171,11 +171,34 @@ export async function POST(request: NextRequest) {
       let anticipoMin: number | null = null;
       let feedbackPuntualidad = '';
 
-      if ((user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') && user.horaEntradaEsperada) {
-        horaEntradaProg = user.horaEntradaEsperada;
-        horaSalidaProg = user.horaSalidaEsperada || null;
+      // Si es técnico, buscar si tiene un turno programado específicamente para hoy en turnos_programados_tecnicos
+      let turnoHoyProg: { horaEntradaEsperada?: string | null; horaSalidaEsperada?: string | null; esPersonalizado?: boolean } | null = null;
+      if (user.tipoPersonal === 'tecnico') {
+        const [tProg] = await db
+          .select({
+            horaEntradaEsperada: turnosProgramadosTecnicos.horaEntradaEsperada,
+            horaSalidaEsperada: turnosProgramadosTecnicos.horaSalidaEsperada,
+            esPersonalizado: turnosProgramadosTecnicos.esPersonalizado,
+          })
+          .from(turnosProgramadosTecnicos)
+          .where(
+            and(
+              eq(turnosProgramadosTecnicos.usuarioId, user.id),
+              eq(turnosProgramadosTecnicos.fecha, fechaStr)
+            )
+          )
+          .limit(1);
+        turnoHoyProg = tProg || null;
+      }
 
-        const [expH, expM] = user.horaEntradaEsperada.split(':').map(Number);
+      const entradaObjetivo = turnoHoyProg?.horaEntradaEsperada || user.horaEntradaEsperada;
+      const salidaObjetivo = turnoHoyProg?.horaSalidaEsperada || user.horaSalidaEsperada;
+
+      if ((user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') && entradaObjetivo) {
+        horaEntradaProg = entradaObjetivo;
+        horaSalidaProg = salidaObjetivo || null;
+
+        const [expH, expM] = entradaObjetivo.split(':').map(Number);
         const expectedMinutes = expH * 60 + expM;
 
         const actualTimeString = getPeruTimeString(now);
@@ -184,19 +207,20 @@ export async function POST(request: NextRequest) {
 
         const diffMinutes = actualMinutes - expectedMinutes;
         const tolerancia = user.toleranciaMinutos ?? 10;
+        const etiquetaPersonalizado = turnoHoyProg?.esPersonalizado ? ' [Personalizado]' : '';
 
         if (diffMinutes > tolerancia) {
           tardanzaMin = diffMinutes;
           anticipoMin = 0;
-          feedbackPuntualidad = ` • ⚠️ Tardanza de ${diffMinutes} min (Turno: ${user.horaEntradaEsperada} - ${user.horaSalidaEsperada || ''})`;
+          feedbackPuntualidad = ` • ⚠️ Tardanza de ${diffMinutes} min (Turno: ${entradaObjetivo} - ${salidaObjetivo || ''}${etiquetaPersonalizado})`;
         } else if (diffMinutes < 0) {
           anticipoMin = Math.abs(diffMinutes);
           tardanzaMin = 0;
-          feedbackPuntualidad = ` • 🌅 Llegó ${Math.abs(diffMinutes)} min temprano (Turno: ${user.horaEntradaEsperada} - ${user.horaSalidaEsperada || ''})`;
+          feedbackPuntualidad = ` • 🌅 Llegó ${Math.abs(diffMinutes)} min temprano (Turno: ${entradaObjetivo} - ${salidaObjetivo || ''}${etiquetaPersonalizado})`;
         } else {
           tardanzaMin = 0;
           anticipoMin = 0;
-          feedbackPuntualidad = ` • ✅ A tiempo (Turno: ${user.horaEntradaEsperada} - ${user.horaSalidaEsperada || ''})`;
+          feedbackPuntualidad = ` • ✅ A tiempo (Turno: ${entradaObjetivo} - ${salidaObjetivo || ''}${etiquetaPersonalizado})`;
         }
       }
 
@@ -342,6 +366,16 @@ export async function POST(request: NextRequest) {
       const montoSesion = tarifaSesion ? Number(((minutosTotales / 60) * tarifaSesion).toFixed(2)) : null;
       const montoMes = tarifaNum ? Number(((minutosMes / 60) * tarifaNum).toFixed(2)) : null;
 
+      // Si es técnico, calcular saldo actual de días compensatorios acumulados
+      let saldoCompensatorios: number | null = null;
+      if (user.tipoPersonal === 'tecnico') {
+        const movs = await db
+          .select({ dias: bancoCompensatoriosTecnicos.dias })
+          .from(bancoCompensatoriosTecnicos)
+          .where(eq(bancoCompensatoriosTecnicos.usuarioId, user.id));
+        saldoCompensatorios = movs.reduce((acc, m) => acc + Number(m.dias || 0), 0);
+      }
+
       const ticketSalida = {
         colaborador: `${user.nombres} ${user.apellidos}`,
         tipoPersonal: user.tipoPersonal,
@@ -360,6 +394,7 @@ export async function POST(request: NextRequest) {
         tarifaHora: null,
         montoSesionEstimado: null,
         montoMesEstimado: null,
+        diasCompensatoriosSaldo: saldoCompensatorios,
       };
 
       return NextResponse.json({

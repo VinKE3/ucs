@@ -10,6 +10,7 @@ import {
 import styles from './KardexDrawer.module.css';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalComprobanteLiquidacion, DesgloseCursoPS } from './ModalComprobanteLiquidacion';
+import { ModalCronogramaTecnico } from './ModalCronogramaTecnico';
 
 interface KardexDrawerProps {
   usuario: UsuarioItem | null;
@@ -101,6 +102,31 @@ export function KardexDrawer({
   // Sub-corte quincenal para liquidación de honorarios PS
   const [cortePs, setCortePs] = useState<'todo' | 'q1' | 'q2'>('todo');
 
+  // Modal para cronograma y banco compensatorio del técnico
+  const [showCronogramaTecnico, setShowCronogramaTecnico] = useState(false);
+  const [compensatorioSummary, setCompensatorioSummary] = useState<{
+    saldoDias: number;
+    totalAcumulados: number;
+    totalCanjeados: number;
+  } | null>(null);
+
+  const fetchCompensatorios = async () => {
+    if (!usuario?.id || usuario.tipoPersonal !== 'tecnico') return;
+    try {
+      const res = await fetch(`/api/tecnicos/compensatorios?usuarioId=${usuario.id}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCompensatorioSummary({
+          saldoDias: data.saldoDias || 0,
+          totalAcumulados: data.totalAcumulados || 0,
+          totalCanjeados: data.totalCanjeados || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching compensatorios in KardexDrawer:', err);
+    }
+  };
+
   useEffect(() => {
     setLimiteLocal(undefined);
   }, [usuario?.id]);
@@ -108,6 +134,9 @@ export function KardexDrawer({
   useEffect(() => {
     if (isOpen) {
       setNowTimestamp(Date.now());
+      if (usuario?.tipoPersonal === 'tecnico') {
+        fetchCompensatorios();
+      }
     }
   }, [isOpen, usuario?.id, periodo]);
 
@@ -837,6 +866,93 @@ export function KardexDrawer({
             </div>
           )}
 
+          {/* BANCO DE DÍAS COMPENSATORIOS PARA TÉCNICO DE SIMULACIÓN */}
+          {usuario.tipoPersonal === 'tecnico' && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(255, 90, 0, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                border: '1px solid rgba(255, 90, 0, 0.25)',
+                borderRadius: '12px',
+                padding: '1rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>⭐</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#ff5a00' }}>
+                      Banco de Días Compensatorios & Cronograma
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Días a favor por domingos trabajados o semanas continuas 7/7 (ECOE / Eventos)
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCronogramaTecnico(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #ff5a00, #ff7a29)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '0.45rem 0.9rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 8px rgba(255, 90, 0, 0.3)',
+                  }}
+                >
+                  📅 Ver Cronograma & Compensatorios
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Saldo a Favor</div>
+                  <div style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 800,
+                    color: (compensatorioSummary?.saldoDias ?? 0) > 0 ? '#10b981' : 'var(--text-primary)',
+                  }}>
+                    {compensatorioSummary?.saldoDias ?? 0} {compensatorioSummary?.saldoDias === 1 ? 'día' : 'días'}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    Disponibles para canjear
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Total Acumulados</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#38bdf8' }}>
+                    +{compensatorioSummary?.totalAcumulados ?? 0} días
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    Ganados históricamente
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Total Canjeados</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#a855f7' }}>
+                    {compensatorioSummary?.totalCanjeados ?? 0} días
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    Descansos compensatorios
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TARJETA DE PERFIL DE CASTING PARA PACIENTE SIMULADO */}
           {usuario.tipoPersonal === 'paciente_simulado' && (
             <div
@@ -1399,6 +1515,18 @@ export function KardexDrawer({
           totalMonto={preLiquidacion?.totalMonto || 0}
           totalSesiones={preLiquidacion?.totalSesiones || 0}
           asistencias={preLiquidacion?.asistenciasFiltradas || asistencias}
+        />
+      )}
+
+      {/* MODAL CRONOGRAMA Y BANCO COMPENSATORIO TÉCNICO */}
+      {usuario.tipoPersonal === 'tecnico' && showCronogramaTecnico && (
+        <ModalCronogramaTecnico
+          usuario={usuario}
+          isOpen={showCronogramaTecnico}
+          onClose={() => setShowCronogramaTecnico(false)}
+          onTurnoUpdated={() => {
+            fetchCompensatorios();
+          }}
         />
       )}
     </div>

@@ -895,7 +895,48 @@ src/
     - `HubLogisticaSimulacion.tsx`: El Gantt de Continuidad, la Comparativa Dual (Hoy vs Mañana) y las tarjetas de acción no listan ni consideran clases virtuales.
   - **Depuración de Base de Datos y Semillas**:
     - Desactivación de registros en PostgreSQL (`ambientes.activo = false` para `VIRTUAL - VILLA`, `Virtual - Norte`, `Virtual - Ate`).
-    - Eliminadas las entradas virtuales del catálogo oficial de salas en `reloadOfficialSimclicData.ts`.
+* `feat(cronograma-compensatorios-tecnicos)`: **Hito 58: Malla Mensual Dinámica con Horarios Personalizados y Banco de Días Compensatorios para Técnicos de Simulación**:
+  - **Contexto Operativo del Personal Técnico**:
+    - Los técnicos de simulación cuentan con un turno base habitual (ej. Turno Tarde 13:00 a 22:00), pero por la naturaleza de las actividades clínicas rotan descansos y asisten en domingo o días de guardia con horarios especiales (ej. 07:00 a 15:00, 09:00 a 18:00, 10:00 a 19:00 cuando un curso finaliza a las 18:45/19:00, o cualquier franja a medida).
+    - Asimismo, en semanas de alta demanda (eventos especiales, ECOE), trabajan 7 de 7 días continuos sin descanso, acumulando "días a favor" (compensatorios) que se coordinan con jefatura para ser canjeados posteriormente.
+  - **Fase 1: Banco de Días Compensatorios ("Días a Favor")**:
+    - **Tabla PostgreSQL (`banco_compensatorios_tecnicos`)**:
+      - Registro inmutable de transacciones: `usuario_id`, `tipo` (`acumulado`, `canjeado`, `ajuste_manual`), `dias` (+1.0 / -1.0), `fecha_referencia`, `motivo`, `autorizado_por_id`, `saldo_resultante`.
+    - **API REST `/api/tecnicos/compensatorios`**:
+      - `GET`: Retorna el historial de movimientos y el saldo neto (`saldoDias`, `totalAcumulados`, `totalCanjeados`) por técnico o consolidado general.
+      - `POST`: Permite la acumulación o canje manual con motivo y fecha de referencia.
+      - `POST (action: 'auto_detect_semanas')`: Algoritmo de auditoría automática que examina semanas calendario (Lunes a Domingo); si el técnico asistió los 7 días consecutivos sin descanso, detecta la semana y permite asignar en 1 clic los días compensatorios ganados.
+  - **Fase 2: Cronograma Mensual y Horarios Personalizados por Día**:
+    - **Tabla PostgreSQL (`turnos_programados_tecnicos`)**:
+      - Permite sobreescribir la jornada de cualquier día específico (`fecha` YYYY-MM-DD): `tipo_dia` (`laborable`, `descanso`, `descanso_compensatorio`, `guardia_evento`), `hora_entrada_esperada`, `hora_salida_esperada`, `es_personalizado`, `nota`.
+    - **API REST `/api/tecnicos/cronograma`**:
+      - `GET`: Consulta la malla del mes (`mes=YYYY-MM`).
+      - `POST`: Guarda o actualiza la jornada diaria. Si se programa un `descanso_compensatorio`, deduce automáticamente 1 día del banco compensatorio con trazabilidad.
+      - `DELETE`: Revierte la fecha a la jornada base del técnico.
+    - **Componente Modal `ModalCronogramaTecnico`**:
+      - **Diseño Compacto Idéntico a Crear Sede / Sala (`admin.module.css`)**: Estructurado como un modal de formulario limpio, centrado y ágil (`max-width: 520px`), idéntico visualmente a `ModalCrearAmbiente` y `ModalCrearSede`.
+      - **Pestaña 1 (Programar Horario / Descanso)**:
+        - Selección ágil de fecha con atajos directos (`Hoy` y `Próximo Domingo`).
+        - Selector de tipo de jornada: **Horario Personalizado** (con inputs `<input type="time">` para entrada y salida arbitraria + chips de atajos frecuentes `07:00-15:00`, `09:00-18:00`, `10:00-19:00`), **Descanso Semanal (DSO)**, **Descanso Compensatorio** o **Turno Base**.
+        - Campo de observación/motivo opcional.
+        - Detección reactiva de programación previa en la fecha con botón para revertir a horario base.
+      - **Pestaña 2 (Banco de Compensatorios)**:
+        - Tarjeta de saldo neto actual con total de días acumulados y canjeados.
+        - Formulario ágil para registrar días compensatorios a favor (+1 por ECOE o evento) o registrar descanso canjeado (-1).
+        - Botón de auto-auditoría de semanas 7/7 consecutivas trabajadas.
+      - **Pie de Modal y Estilo**:
+        - Botón `Cancelar` y botón de acción naranja UCS (`styles.actionBtn`) con sombra y gradiente idéntico a las capturas de campus/ambiente.
+  - **Integración Integral en la Plataforma**:
+    - **Kiosco Terminal (`/kiosco`, `/api/kiosco/marcar`, `/api/kiosco/lookup`)**:
+      - Al ingresar el DNI, consulta si el técnico tiene un horario especial hoy (personalizado o programado) y evalúa su puntualidad/tolerancia sobre dicha hora (ej. 10:00 en lugar de su base 13:00).
+      - Muestra el saldo de días compensatorios en la pantalla de bienvenida y en el ticket de salida impreso/digital.
+    - **Directorio de Personal (`PersonalTab.tsx`)**:
+      - Nueva columna y botón `📅 Turnos` para técnicos, junto con badge `⭐ X Días Comp.` visible en la lista.
+    - **Ficha 360° (`KardexDrawer.tsx`)**:
+      - Tarjeta destacada de "Banco de Días Compensatorios & Cronograma" con saldo en vivo y botón para abrir directamente el modal de gestión mensual.
+  - **Verificación Técnica**:
+    - Migración ejecutada exitosamente en Neon PostgreSQL.
+    - Verificación de tipos TypeScript estricto con `npx tsc --noEmit` (0 errores).
 
 ---
 

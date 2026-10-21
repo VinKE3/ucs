@@ -11,6 +11,7 @@ import type {
 } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
 import { showAlert, showError, showToast } from '@/lib/alerts';
+import { ModalCronogramaTecnico } from '@/components/admin/modals/ModalCronogramaTecnico';
 
 interface PersonalTabProps {
   usuariosList: UsuarioItem[];
@@ -89,6 +90,36 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
       clearInterval(interval);
     };
   }, []);
+
+  // Gestión de Cronograma & Días Compensatorios para Técnicos
+  const [selectedTecnicoCronograma, setSelectedTecnicoCronograma] = useState<UsuarioItem | null>(null);
+  const [showModalCronogramaTecnico, setShowModalCronogramaTecnico] = useState(false);
+  const [saldosCompensatoriosMap, setSaldosCompensatoriosMap] = useState<Map<number, number>>(new Map());
+
+  const fetchCompensatoriosResumen = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tecnicos/compensatorios');
+      const data = await res.json();
+      if (res.ok && data.success && data.resumenTecnicos) {
+        const map = new Map<number, number>();
+        for (const t of data.resumenTecnicos) {
+          map.set(t.id, t.saldoDiasCompensatorios || 0);
+        }
+        setSaldosCompensatoriosMap(map);
+      }
+    } catch (e) {
+      console.error('Error cargando saldo de compensatorios:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCompensatoriosResumen();
+  }, [fetchCompensatoriosResumen, usuariosList]);
+
+  const handleOpenCronogramaTecnico = (u: UsuarioItem) => {
+    setSelectedTecnicoCronograma(u);
+    setShowModalCronogramaTecnico(true);
+  };
 
   // Paginación dinámica
   const [paginaActual, setPaginaActual] = useState(1);
@@ -985,18 +1016,42 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                   </td>
                   <td>
                     {getTipoBadge(u.tipoPersonal)}
-                    {u.tipoPersonal === 'tecnico' && u.horaEntradaEsperada && (
-                      <div
-                        style={{
-                          fontSize: '0.72rem',
-                          color: 'var(--ucs-blue-sky)',
-                          marginTop: '0.25rem',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 600,
-                        }}
-                        title={`Turno programado: ${u.horaEntradaEsperada} a ${u.horaSalidaEsperada || '--'} (Tolerancia: ${u.toleranciaMinutos || 10} min)`}
-                      >
-                        ⏰ Turno: {u.horaEntradaEsperada} - {u.horaSalidaEsperada || '--'}
+                    {u.tipoPersonal === 'tecnico' && (
+                      <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        {u.horaEntradaEsperada && (
+                          <div
+                            style={{
+                              fontSize: '0.72rem',
+                              color: 'var(--ucs-blue-sky)',
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 600,
+                            }}
+                            title={`Turno programado: ${u.horaEntradaEsperada} a ${u.horaSalidaEsperada || '--'} (Tolerancia: ${u.toleranciaMinutos || 10} min)`}
+                          >
+                            ⏰ Turno: {u.horaEntradaEsperada} - {u.horaSalidaEsperada || '--'}
+                          </div>
+                        )}
+                        {Boolean(saldosCompensatoriosMap.get(u.id)) && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCronogramaTecnico(u)}
+                              style={{
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                color: '#fbbf24',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                borderRadius: '4px',
+                                padding: '0.1rem 0.4rem',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                              title="Click para ver/canjear días compensatorios"
+                            >
+                              ⭐ {saldosCompensatoriosMap.get(u.id)} {saldosCompensatoriosMap.get(u.id) === 1 ? 'Día Comp.' : 'Días Comp.'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {u.tipoPersonal === 'docente' && u.horasSemanalesMax && (
@@ -1268,6 +1323,22 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
+                      {u.tipoPersonal === 'tecnico' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCronogramaTecnico(u)}
+                          className={styles.iconBtn}
+                          style={{
+                            borderColor: 'rgba(245, 158, 11, 0.4)',
+                            color: '#fbbf24',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                          }}
+                          title="Gestionar Malla Mensual de Turnos y Banco de Días Compensatorios"
+                        >
+                          <span>📅</span> Turnos
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => onOpenEditUsuario(u)}
@@ -1456,6 +1527,18 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {showModalCronogramaTecnico && selectedTecnicoCronograma && (
+        <ModalCronogramaTecnico
+          usuario={selectedTecnicoCronograma}
+          isOpen={showModalCronogramaTecnico}
+          onClose={() => {
+            setShowModalCronogramaTecnico(false);
+            setSelectedTecnicoCronograma(null);
+          }}
+          onTurnoUpdated={fetchCompensatoriosResumen}
+        />
       )}
     </section>
   );

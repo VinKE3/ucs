@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     const clientIp = getClientIp(request);
     const body = await request.json();
-    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones } = body;
+    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones, sesionProgramadaId } = body;
     const cookieToken = request.cookies.get('ucs_terminal_token')?.value;
     const terminalToken = cookieToken || request.headers.get('x-terminal-token') || body.terminalToken;
 
@@ -238,6 +238,119 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Detección de sesión programada en SimClic y Suplencias para Docentes y Pacientes Simulados
+      let sesionVinculadaId: number | null = sesionProgramadaId ? Number(sesionProgramadaId) : null;
+      let esSuplenciaDetectada = false;
+      let nombreTitularReemplazado = '';
+
+      if (user.tipoPersonal !== 'tecnico' && user.tipoPersonal !== 'administrativo' && ambienteId) {
+        const { sesionesProgramadas } = await import('@/db/schema');
+        const { ne } = await import('drizzle-orm');
+
+        let sesionTarget = null;
+        if (sesionVinculadaId) {
+          const [found] = await db
+            .select()
+            .from(sesionesProgramadas)
+            .where(eq(sesionesProgramadas.id, sesionVinculadaId))
+            .limit(1);
+          sesionTarget = found || null;
+        } else {
+          // Buscar si hay una sesión programada en este ambiente a esta hora
+          const actualTimeString = getPeruTimeString(now);
+          const [actH, actM] = actualTimeString.split(':').map(Number);
+          const actMinutes = actH * 60 + actM;
+
+          const candidatasEnAmbiente = await db
+            .select()
+            .from(sesionesProgramadas)
+            .where(
+              and(
+                eq(sesionesProgramadas.ambienteId, Number(ambienteId)),
+                eq(sesionesProgramadas.fecha, fechaStr),
+                ne(sesionesProgramadas.estadoUcs, 'cancelada')
+              )
+            );
+
+          for (const s of candidatasEnAmbiente) {
+            const [h1, m1] = s.horaInicio.split(':').map(Number);
+            const [h2, m2] = s.horaFin.split(':').map(Number);
+            const sStart = h1 * 60 + m1;
+            const sEnd = h2 * 60 + m2;
+            if (actMinutes >= sStart - 60 && actMinutes <= sEnd) {
+              sesionTarget = s;
+              sesionVinculadaId = s.id;
+              break;
+            }
+          }
+        }
+
+        if (sesionTarget) {
+          horaEntradaProg = sesionTarget.horaInicio;
+          horaSalidaProg = sesionTarget.horaFin;
+
+          const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const userApNorm = norm(user.apellidos);
+
+          if (user.tipoPersonal === 'docente') {
+            const esTitular =
+              sesionTarget.docenteId === user.id ||
+              (sesionTarget.docenteNombreSimclic && norm(sesionTarget.docenteNombreSimclic).includes(userApNorm)) ||
+              (Array.isArray(sesionTarget.docentesJson) &&
+                sesionTarget.docentesJson.some(
+                  (d) => d.id === user.id || (d.nombre && norm(d.nombre).includes(userApNorm))
+                ));
+
+            if (!esTitular) {
+              esSuplenciaDetectada = true;
+              nombreTitularReemplazado = sesionTarget.docenteNombreSimclic || 'Docente titular programado';
+              const notaSuplencia = `🔄 Suplencia Docente: Cubriendo a ${nombreTitularReemplazado} en sesión SimClic #${sesionTarget.simclicId}`;
+              notaObservacion = notaObservacion ? `${notaObservacion} | ${notaSuplencia}` : notaSuplencia;
+            }
+          } else if (user.tipoPersonal === 'paciente_simulado') {
+            const esActorProgramado =
+              (sesionTarget.pacienteSimuladoNombre && norm(sesionTarget.pacienteSimuladoNombre).includes(userApNorm)) ||
+              (Array.isArray(sesionTarget.pacientesSimuladosJson) &&
+                sesionTarget.pacientesSimuladosJson.some(
+                  (p) => p.id === user.id || (p.nombre && norm(p.nombre).includes(userApNorm))
+                ));
+
+            if (!esActorProgramado) {
+              esSuplenciaDetectada = true;
+              nombreTitularReemplazado = sesionTarget.pacienteSimuladoNombre || 'Actor titular programado';
+              const notaSuplencia = `🔄 Suplencia Paciente Simulado: Cubriendo a ${nombreTitularReemplazado} en sesión SimClic #${sesionTarget.simclicId}`;
+              notaObservacion = notaObservacion ? `${notaObservacion} | ${notaSuplencia}` : notaSuplencia;
+            }
+          }
+
+          // Evaluación de puntualidad para Docentes / PS contra la sesión
+          const [expH, expM] = sesionTarget.horaInicio.split(':').map(Number);
+          const expectedMinutes = expH * 60 + expM;
+          const actualTimeString = getPeruTimeString(now);
+          const [actH, actM] = actualTimeString.split(':').map(Number);
+          const actualMinutes = actH * 60 + actM;
+          const diffMinutes = actualMinutes - expectedMinutes;
+
+          if (diffMinutes > 10) {
+            tardanzaMin = diffMinutes;
+            anticipoMin = 0;
+            feedbackPuntualidad = ` • ⚠️ Llegada con ${diffMinutes} min tras inicio de clase (${sesionTarget.horaInicio})`;
+          } else if (diffMinutes < 0) {
+            anticipoMin = Math.abs(diffMinutes);
+            tardanzaMin = 0;
+            feedbackPuntualidad = ` • 🌅 Ingreso ${Math.abs(diffMinutes)} min previo al inicio (${sesionTarget.horaInicio})`;
+          } else {
+            tardanzaMin = 0;
+            anticipoMin = 0;
+            feedbackPuntualidad = ` • ✅ Puntual para clase (${sesionTarget.horaInicio})`;
+          }
+
+          if (esSuplenciaDetectada) {
+            feedbackPuntualidad += ` • 🔄 Suplencia: Cubriendo a ${nombreTitularReemplazado}`;
+          }
+        }
+      }
+
       const [nuevaAsistencia] = await db
         .insert(asistencias)
         .values({
@@ -256,6 +369,18 @@ export async function POST(request: NextRequest) {
           observaciones: notaObservacion,
         })
         .returning();
+
+      if (sesionVinculadaId) {
+        const { sesionesProgramadas } = await import('@/db/schema');
+        db.update(sesionesProgramadas)
+          .set({
+            asistenciaId: nuevaAsistencia.id,
+            estadoUcs: 'en_curso',
+            updatedAt: new Date(),
+          })
+          .where(eq(sesionesProgramadas.id, sesionVinculadaId))
+          .catch((err) => console.error('Error enlazando sesionProgramada con asistencia:', err));
+      }
 
       return NextResponse.json({
         ok: true,
@@ -323,6 +448,16 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(asistencias.id, asistenciaTarget.id))
         .returning();
+
+      // Si la sesión programada estaba asociada a esta asistencia, actualizar su estado en SimClic a finalizada
+      const { sesionesProgramadas } = await import('@/db/schema');
+      db.update(sesionesProgramadas)
+        .set({
+          estadoUcs: 'finalizada',
+          updatedAt: now,
+        })
+        .where(eq(sesionesProgramadas.asistenciaId, asistenciaTarget.id))
+        .catch((err) => console.error('Error actualizando sesionProgramada en salida:', err));
 
       const horas = Math.floor(minutosTotales / 60);
       const minutos = minutosTotales % 60;

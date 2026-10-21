@@ -77,6 +77,24 @@ interface CursoItem {
   codigo: string | null;
 }
 
+interface SesionSugeridaItem {
+  id: number;
+  simclicId: string;
+  titulo: string;
+  cursoId: number | null;
+  cursoNombre: string | null;
+  ambienteId: number | null;
+  ambienteNombre: string | null;
+  ambienteCodigo: string | null;
+  horaInicio: string;
+  horaFin: string;
+  rol: 'docente_titular' | 'co_docente' | 'paciente_simulado';
+  esProxima: boolean;
+  minutosParaInicio: number;
+  sedeId: number | null;
+  sedeNombre: string | null;
+}
+
 export default function KioscoTerminal() {
   const [sedesList, setSedesList] = useState<SedeItem[]>([]);
   const [selectedSedeId, setSelectedSedeId] = useState<number | null>(null);
@@ -102,6 +120,8 @@ export default function KioscoTerminal() {
   // Estado del usuario consultado
   const [usuarioActual, setUsuarioActual] = useState<UsuarioData | null>(null);
   const [asistenciaActiva, setAsistenciaActiva] = useState<AsistenciaActiva | null>(null);
+  const [sesionSugerida, setSesionSugerida] = useState<SesionSugeridaItem | null>(null);
+  const [modoManual, setModoManual] = useState<boolean>(false);
   const [selectedAmbienteId, setSelectedAmbienteId] = useState<number | null>(null);
 
   // Estado de marcación
@@ -356,8 +376,9 @@ export default function KioscoTerminal() {
     setLoadingSearch(true);
 
     try {
+      const currentSedeId = terminalInfo?.sedeId || selectedSedeId;
       const [resLookup, resSedes] = await Promise.all([
-        fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniABuscar)}`),
+        fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniABuscar)}&sedeId=${currentSedeId || ''}`),
         fetch('/api/kiosco/sedes'),
       ]);
 
@@ -376,6 +397,18 @@ export default function KioscoTerminal() {
 
       setUsuarioActual(data.usuario);
       setAsistenciaActiva(data.asistenciaActiva);
+      setSesionSugerida(data.sesionSugerida || null);
+      setModoManual(false);
+
+      // Preseleccionar sala y curso si SimClic detectó una sesión programada
+      if (data.sesionSugerida) {
+        if (data.sesionSugerida.ambienteId) {
+          setSelectedAmbienteId(data.sesionSugerida.ambienteId);
+        }
+        if (data.sesionSugerida.cursoId) {
+          setSelectedCursoId(data.sesionSugerida.cursoId);
+        }
+      }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Error al consultar DNI');
     } finally {
@@ -438,6 +471,7 @@ export default function KioscoTerminal() {
           sedeId: terminalInfo?.sedeId || selectedSedeId,
           ambienteId: selectedAmbienteId,
           cursoId: selectedCursoId,
+          sesionProgramadaId: (!modoManual && sesionSugerida?.ambienteId === selectedAmbienteId) ? sesionSugerida.id : undefined,
           accion,
           asistenciaId: asistenciaActiva?.id,
           terminalToken: legacyToken || undefined,
@@ -495,6 +529,8 @@ export default function KioscoTerminal() {
     setDniInput('');
     setUsuarioActual(null);
     setAsistenciaActiva(null);
+    setSesionSugerida(null);
+    setModoManual(false);
     setSelectedAmbienteId(null);
     setSelectedCursoId(null);
     setRoomSearch('');
@@ -1267,28 +1303,214 @@ export default function KioscoTerminal() {
                         ) : (
                           /* Si es DOCENTE o PACIENTE SIMULADO: debe elegir curso y ambiente */
                           <div>
-                            {/* SELECCIÓN DE CURSO (LIGADO AL AMBIENTE) */}
-                            <div className={styles.cursoSelectorSection}>
-                              <div className={styles.roomSectionTitle}>
-                                1. Selecciona el Curso / Asignatura:
-                              </div>
-                              <div className={styles.cursoSelectBox}>
-                                <select
-                                  id="cursoSelectorKiosco"
-                                  className={styles.cursoSelect}
-                                  value={selectedCursoId ?? ''}
-                                  onChange={(e) => setSelectedCursoId(e.target.value ? Number(e.target.value) : null)}
+                            {/* TARJETA 1-TAP: SESIÓN DETECTADA EN SIMCLIC */}
+                            {sesionSugerida && !modoManual ? (
+                              <div style={{
+                                background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(56, 189, 248, 0.08) 100%)',
+                                border: '1.5px solid rgba(16, 185, 129, 0.35)',
+                                borderRadius: '16px',
+                                padding: '1.35rem 1.45rem',
+                                marginBottom: '1.25rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1rem',
+                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <span style={{
+                                    background: 'linear-gradient(135deg, #059669, #10b981)',
+                                    color: '#ffffff',
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.04em',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                  }}>
+                                    ⚡ SESIÓN DETECTADA EN SIMCLIC
+                                  </span>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                    ID SimClic #{sesionSugerida.simclicId}
+                                  </span>
+                                </div>
+
+                                <div>
+                                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.45rem' }}>
+                                    📚 {sesionSugerida.cursoNombre || sesionSugerida.titulo}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center', fontSize: '0.86rem' }}>
+                                    <span style={{
+                                      background: 'rgba(56, 189, 248, 0.15)',
+                                      color: '#38bdf8',
+                                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                                      padding: '0.25rem 0.65rem',
+                                      borderRadius: '8px',
+                                      fontWeight: 700,
+                                    }}>
+                                      📍 {sesionSugerida.ambienteNombre || 'Ambiente'} {sesionSugerida.ambienteCodigo ? `(${sesionSugerida.ambienteCodigo})` : ''}
+                                    </span>
+                                    <span style={{
+                                      background: 'rgba(255, 255, 255, 0.08)',
+                                      color: 'var(--text-primary)',
+                                      padding: '0.25rem 0.65rem',
+                                      borderRadius: '8px',
+                                      fontWeight: 600,
+                                      fontFamily: 'var(--font-mono)',
+                                    }}>
+                                      ⏰ {sesionSugerida.horaInicio} - {sesionSugerida.horaFin}
+                                    </span>
+                                    <span style={{
+                                      background: sesionSugerida.rol === 'docente_titular' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                                      color: sesionSugerida.rol === 'docente_titular' ? '#818cf8' : '#c084fc',
+                                      padding: '0.25rem 0.65rem',
+                                      borderRadius: '8px',
+                                      fontWeight: 700,
+                                    }}>
+                                      {sesionSugerida.rol === 'docente_titular'
+                                        ? '⭐ Docente Titular'
+                                        : sesionSugerida.rol === 'co_docente'
+                                        ? '👥 Co-docente'
+                                        : '🎭 Paciente Simulado'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {sesionSugerida.esProxima && (
+                                  <div style={{
+                                    fontSize: '0.8rem',
+                                    color: '#fbbf24',
+                                    background: 'rgba(251, 191, 36, 0.08)',
+                                    border: '1px solid rgba(251, 191, 36, 0.25)',
+                                    padding: '0.45rem 0.75rem',
+                                    borderRadius: '8px',
+                                  }}>
+                                    ⏳ Tu sesión inicia en aproximadamente <strong>{sesionSugerida.minutosParaInicio} minutos</strong>.
+                                  </div>
+                                )}
+
+                                {/* BOTÓN 1-TAP CONFIRMAR INGRESO DIRECTO */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarcar('ingreso')}
+                                  disabled={marcando}
+                                  className={styles.checkInBtn}
+                                  style={{
+                                    background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                                    fontSize: '1.05rem',
+                                    padding: '1rem',
+                                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                                  }}
                                 >
-                                  <option value="">— Seleccione un curso —</option>
-                                  {cursosList.map((curso) => (
-                                    <option key={curso.id} value={curso.id}>
-                                      {curso.nombre} {curso.codigo ? `(${curso.codigo})` : ''}
-                                    </option>
-                                  ))}
-                                </select>
-                                <span className={styles.cursoSelectIcon}>▼</span>
+                                  {marcando ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
+                                      <span className={styles.btnSpinner} />
+                                      <span>Registrando ingreso oficial...</span>
+                                    </span>
+                                  ) : (
+                                    `🟢 CONFIRMAR INGRESO A ${sesionSugerida.ambienteNombre?.toUpperCase() || 'SALA'}`
+                                  )}
+                                </button>
+
+                                <div style={{ textAlign: 'center', marginTop: '0.2rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setModoManual(true)}
+                                    disabled={marcando}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: 'var(--text-muted)',
+                                      fontSize: '0.83rem',
+                                      cursor: 'pointer',
+                                      textDecoration: 'underline',
+                                      padding: '0.35rem 0.75rem',
+                                    }}
+                                  >
+                                    🔄 ¿No es esta sala o vienes a cubrir una suplencia? Elegir sala manualmente
+                                  </button>
+                                </div>
                               </div>
-                            </div>
+                            ) : null}
+
+                            {/* SELECTOR MANUAL DE CURSO Y AMBIENTE (SI NO HAY SESIÓN O EN MODO SUPLENCIA) */}
+                            {(!sesionSugerida || modoManual) && (
+                              <>
+                                {/* AVISO CONTEXTUAL SI ESTÁ EN MODO SUPLENCIA O SIN SESIÓN PROGRAMADA */}
+                                {modoManual && sesionSugerida ? (
+                                  <div style={{
+                                    background: 'rgba(245, 158, 11, 0.08)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '12px',
+                                    padding: '0.75rem 1rem',
+                                    marginBottom: '1rem',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    gap: '0.5rem',
+                                  }}>
+                                    <div style={{ fontSize: '0.84rem', color: '#fbbf24' }}>
+                                      <strong>🔄 Modo Suplencia / Selección Libre:</strong> Elige a continuación la sala donde prestarás servicio.
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setModoManual(false);
+                                        if (sesionSugerida.ambienteId) setSelectedAmbienteId(sesionSugerida.ambienteId);
+                                        if (sesionSugerida.cursoId) setSelectedCursoId(sesionSugerida.cursoId);
+                                      }}
+                                      style={{
+                                        background: 'rgba(245, 158, 11, 0.2)',
+                                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                                        color: '#fbbf24',
+                                        borderRadius: '6px',
+                                        padding: '0.25rem 0.65rem',
+                                        fontSize: '0.78rem',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      ← Volver a {sesionSugerida.ambienteNombre}
+                                    </button>
+                                  </div>
+                                ) : !sesionSugerida ? (
+                                  <div style={{
+                                    background: 'rgba(56, 189, 248, 0.08)',
+                                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                                    borderRadius: '12px',
+                                    padding: '0.75rem 1rem',
+                                    marginBottom: '1rem',
+                                    fontSize: '0.84rem',
+                                    color: 'var(--text-secondary)',
+                                  }}>
+                                    <span>ℹ️ <strong>Sin clase asignada en SimClic a esta hora:</strong> Si vienes a cubrir un reemplazo o suplencia, selecciona el curso y la sala a continuación:</span>
+                                  </div>
+                                ) : null}
+
+                                {/* SELECCIÓN DE CURSO (LIGADO AL AMBIENTE) */}
+                                <div className={styles.cursoSelectorSection}>
+                                  <div className={styles.roomSectionTitle}>
+                                    1. Selecciona el Curso / Asignatura:
+                                  </div>
+                                  <div className={styles.cursoSelectBox}>
+                                    <select
+                                      id="cursoSelectorKiosco"
+                                      className={styles.cursoSelect}
+                                      value={selectedCursoId ?? ''}
+                                      onChange={(e) => setSelectedCursoId(e.target.value ? Number(e.target.value) : null)}
+                                    >
+                                      <option value="">— Seleccione un curso —</option>
+                                      {cursosList.map((curso) => (
+                                        <option key={curso.id} value={curso.id}>
+                                          {curso.nombre} {curso.codigo ? `(${curso.codigo})` : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <span className={styles.cursoSelectIcon}>▼</span>
+                                  </div>
+                                </div>
 
                             <div className={styles.roomSelectorSection}>
                               <div className={styles.roomSectionTitle}>
@@ -1468,30 +1690,32 @@ export default function KioscoTerminal() {
                               );
                             })()}
 
-                            <button
-                              onClick={() => handleMarcar('ingreso')}
-                              disabled={marcando || !selectedAmbienteId || !selectedCursoId}
-                              className={styles.checkInBtn}
-                            >
-                              {marcando ? (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
-                                  <span className={styles.btnSpinner} />
-                                  <span>Registrando ingreso...</span>
-                                </span>
-                              ) : !selectedCursoId
-                                ? 'Selecciona un curso para continuar'
-                                : !selectedAmbienteId
-                                  ? 'Selecciona una sala para continuar'
-                                  : !selectedAmbienteObj?.ocupada
-                                    ? '🟢 REGISTRAR INGRESO A SALA'
-                                    : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) === 0 && (selectedAmbienteObj.pacientesActivos?.length || 0) > 0
-                                      ? '🟢 INICIAR SIMULACIÓN (CON PACIENTE SIMULADO)'
-                                      : usuarioActual.tipoPersonal === 'paciente_simulado' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
-                                        ? '🟢 INGRESAR COMO PACIENTE SIMULADO'
-                                        : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
-                                          ? '🟢 CONFIRMAR INGRESO (RELEVO / CO-DOCENCIA)'
-                                          : '🟢 REGISTRAR INGRESO A SALA'}
-                            </button>
+                                <button
+                                  onClick={() => handleMarcar('ingreso')}
+                                  disabled={marcando || !selectedAmbienteId || !selectedCursoId}
+                                  className={styles.checkInBtn}
+                                >
+                                  {marcando ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
+                                      <span className={styles.btnSpinner} />
+                                      <span>Registrando ingreso...</span>
+                                    </span>
+                                  ) : !selectedCursoId
+                                    ? 'Selecciona un curso para continuar'
+                                    : !selectedAmbienteId
+                                      ? 'Selecciona una sala para continuar'
+                                      : !selectedAmbienteObj?.ocupada
+                                        ? '🟢 REGISTRAR INGRESO A SALA'
+                                        : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) === 0 && (selectedAmbienteObj.pacientesActivos?.length || 0) > 0
+                                          ? '🟢 INICIAR SIMULACIÓN (CON PACIENTE SIMULADO)'
+                                          : usuarioActual.tipoPersonal === 'paciente_simulado' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
+                                            ? '🟢 INGRESAR COMO PACIENTE SIMULADO'
+                                            : usuarioActual.tipoPersonal === 'docente' && (selectedAmbienteObj.docentesActivos?.length || 0) > 0
+                                              ? '🟢 CONFIRMAR INGRESO (RELEVO / CO-DOCENCIA)'
+                                              : '🟢 REGISTRAR INGRESO A SALA'}
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

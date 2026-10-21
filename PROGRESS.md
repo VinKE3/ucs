@@ -1008,6 +1008,25 @@ src/
   - **Verificación Técnica**:
     - Prueba real contra servidor WebSocket Meteor de SimClic: 1,315 sesiones sincronizadas a través de 7 días (`2026-10-19` a `2026-10-25`) en 1.8 segundos.
     - Tipado TypeScript estricto verificado con `npx tsc --noEmit` (**0 errores**).
+* `feat(kiosco-1tap-suplencias)`: **Hito 62: Preselección Inteligente 1-Tap en Kiosco y Detección Automática de Suplencias**:
+  - **Contexto y Problemática**:
+    - Al ingresar su DNI en el kiosco táctil, los docentes y pacientes simulados debían buscar manualmente su curso y seleccionar su sala en un listado extenso, a pesar de que el sistema ya conocía su programación en SimClic. Además, en la práctica clínica suelen presentarse suplencias imprevistas donde un docente o actor de reserva cubre una sala sin figurar en SimClic oficial, lo cual requería trazabilidad para justificar la inasistencia del titular y remunerar al suplente real.
+  - **Lookup Inteligente con SimClic (`/api/kiosco/lookup/route.ts`)**:
+    - Evaluación en vivo de la programación de hoy (`sesiones_programadas`) cruzando el DNI del docente (titular o co-docente) o paciente simulado (principal o personajes múltiples).
+    - Algoritmo de puntuación temporal y espacial: prioriza la sede física de la terminal y calcula la sesión activa o próxima (ventana de 45 min previos al inicio hasta 10 min antes del fin).
+    - Retorna el objeto `sesionSugerida` con curso, sala oficial, código, horarios, rol y minutos restantes.
+  - **Experiencia de Usuario 1-Tap en Terminal (`KioscoTerminal.tsx`)**:
+    - Tarjeta destacada `⚡ SESIÓN DETECTADA EN SIMCLIC`: muestra el curso, sala oficial, horario y rol.
+    - Botón primario verde de alto impacto: `🟢 CONFIRMAR INGRESO A [SALA]` para marcación inmediata con un solo toque (1-Tap), sin fricción.
+    - Opción de contingencia: `🔄 Elegir sala manualmente / Suplencia`, que despliega el selector libre con advertencia contextual y botón de retorno.
+    - Si el colaborador no tiene clase asignada a esa hora, el sistema le informa con amabilidad y le permite marcar en cualquier sala como suplente.
+  - **Auditoría y Detección Automática de Suplencias (`/api/kiosco/marcar/route.ts`)**:
+    - Cruce automático entre el colaborador que marca en la sala y el titular registrado en SimClic.
+    - Si difieren, etiqueta automáticamente la asistencia con nota contextual: `🔄 Suplencia Docente: Cubriendo a [Titular] en sesión SimClic #[ID]` (o `🔄 Suplencia Paciente Simulado`).
+    - Enlace bidireccional: asocia `sesionesProgramadas.asistenciaId` a la nueva asistencia y marca `estadoUcs = 'en_curso'`. Al marcar salida, actualiza a `finalizada`.
+    - Puntualidad calculada contra la hora real de la clase en SimClic (`horaEntradaProgramada`), reportando si llegó a tiempo o con demora.
+  - **Verificación Técnica**:
+    - Tipado TypeScript estricto verificado con `npx tsc --noEmit` (**0 errores**).
 
 ---
 

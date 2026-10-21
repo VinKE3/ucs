@@ -1,14 +1,8 @@
 import crypto from 'crypto';
 import { db } from '@/db';
-import {
-  sesionesProgramadas,
-  sedes,
-  ambientes,
-  carreras,
-  cursos,
-  usuarios,
-} from '@/db/schema';
-import { eq, ilike } from 'drizzle-orm';
+import { sesionesProgramadas } from '@/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { getCachedCatalogs } from '@/lib/catalogCache';
 
 export type ModoSync = 'dia' | 'semana';
 
@@ -80,14 +74,8 @@ export async function syncSimclicSessions(
     };
   }
 
-  // 1. Cargar catálogos locales de UCS para mapeo ultra-rápido en memoria
-  const [allSedes, allAmbientes, allCarreras, allCursos, allUsuarios] = await Promise.all([
-    db.select().from(sedes),
-    db.select().from(ambientes),
-    db.select().from(carreras),
-    db.select().from(cursos),
-    db.select().from(usuarios),
-  ]);
+  // 1. Cargar catálogos desde el caché en memoria RAM (TTL 15 min, evita consultas repetitivas a Neon)
+  const { allSedes, allAmbientes, allCarreras, allCursos, allUsuarios } = await getCachedCatalogs();
 
   // Helpers de mapeo inteligente
   function resolveSede(campusSimclic?: { code?: string; name?: string }) {
@@ -448,8 +436,58 @@ export async function syncSimclicSessions(
   const detallesReubicadas: SyncResult['detallesReubicadas'] = [];
   const detallesCanceladas: NonNullable<SyncResult['detallesCanceladas']> = [];
 
-  // Pre-cargar todas las sesiones existentes en memoria para evitar cientos de roundtrips HTTP
-  const existingRows = await db.select().from(sesionesProgramadas);
+  // Recolectar fechas del payload recibido para delimitar estrictamente el SELECT en Neon
+  const fechasEnPayload = new Set<string>();
+  for (const s of rawSessions) {
+    const startD = parseMeteorDate(s.startDate, targetDate);
+    fechasEnPayload.add(startD.toLocaleDateString('en-CA', { timeZone: 'America/Lima' }));
+  }
+  if (fechasEnPayload.size === 0) {
+    fechasEnPayload.add(targetDateStr);
+  }
+  const fechasScopeArray = Array.from(fechasEnPayload);
+
+  // Pre-cargar ÚNICAMENTE las sesiones del rango de fechas activo con proyección específica (Zero-Waste Egress)
+  const existingRows = await db
+    .select({
+      id: sesionesProgramadas.id,
+      simclicId: sesionesProgramadas.simclicId,
+      titulo: sesionesProgramadas.titulo,
+      fecha: sesionesProgramadas.fecha,
+      horaInicio: sesionesProgramadas.horaInicio,
+      horaFin: sesionesProgramadas.horaFin,
+      sedeId: sesionesProgramadas.sedeId,
+      sedeNombreSimclic: sesionesProgramadas.sedeNombreSimclic,
+      ambienteId: sesionesProgramadas.ambienteId,
+      ambienteNombreSimclic: sesionesProgramadas.ambienteNombreSimclic,
+      ambienteCodigoSimclic: sesionesProgramadas.ambienteCodigoSimclic,
+      ambienteOriginalNombre: sesionesProgramadas.ambienteOriginalNombre,
+      cursoId: sesionesProgramadas.cursoId,
+      cursoNombreSimclic: sesionesProgramadas.cursoNombreSimclic,
+      cursoCodigoSimclic: sesionesProgramadas.cursoCodigoSimclic,
+      docenteId: sesionesProgramadas.docenteId,
+      docenteNombreSimclic: sesionesProgramadas.docenteNombreSimclic,
+      docenteCorreoSimclic: sesionesProgramadas.docenteCorreoSimclic,
+      docentesJson: sesionesProgramadas.docentesJson,
+      carreraId: sesionesProgramadas.carreraId,
+      carrera: sesionesProgramadas.carrera,
+      carreraCodigo: sesionesProgramadas.carreraCodigo,
+      carreraColor: sesionesProgramadas.carreraColor,
+      escenarioCodigo: sesionesProgramadas.escenarioCodigo,
+      escenarioNombre: sesionesProgramadas.escenarioNombre,
+      prefijo: sesionesProgramadas.prefijo,
+      pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+      pacienteSimuladoCorreo: sesionesProgramadas.pacienteSimuladoCorreo,
+      pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
+      estadoSimclic: sesionesProgramadas.estadoSimclic,
+      estadoUcs: sesionesProgramadas.estadoUcs,
+    })
+    .from(sesionesProgramadas)
+    .where(
+      fechasScopeArray.length === 1
+        ? eq(sesionesProgramadas.fecha, fechasScopeArray[0])
+        : inArray(sesionesProgramadas.fecha, fechasScopeArray)
+    );
   const existingMap = new Map(existingRows.map((r) => [r.simclicId, r]));
 
   // Conjunto de IDs recibidos en el payload actual de SimClic para detección de eliminaciones
@@ -535,7 +573,7 @@ export async function syncSimclicSessions(
     if (existente) {
       if (isCancelledInPayload) {
         // La sesión vino explícitamente marcada como cancelada en SimClic
-        if (existente.estadoUcs !== 'cancelada') {
+        if (existente.estadoUcs !== 'cancelada' || existente.estadoSimclic !== 'Cancelled') {
           canceladas++;
           detallesCanceladas.push({
             simclicId,
@@ -544,43 +582,43 @@ export async function syncSimclicSessions(
             docente: docenteNombreSimclic || 'Sin docente',
             motivo: 'marcada_cancelada',
           });
-        }
 
-        await db
-          .update(sesionesProgramadas)
-          .set({
-            titulo,
-            fecha,
-            horaInicio,
-            horaFin,
-            sedeId: sedeObj?.id || existente.sedeId,
-            sedeNombreSimclic,
-            ambienteId: ambienteObj?.id || existente.ambienteId,
-            ambienteNombreSimclic,
-            ambienteCodigoSimclic,
-            cursoId: cursoObj?.id || existente.cursoId,
-            cursoNombreSimclic,
-            cursoCodigoSimclic,
-            docenteId: docenteIdFinal || existente.docenteId,
-            docenteNombreSimclic,
-            docenteCorreoSimclic,
-            docentesJson: docentesArray,
-            carreraId: carreraObj?.id || existente.carreraId,
-            carrera,
-            carreraCodigo,
-            carreraColor,
-            escenarioCodigo,
-            escenarioNombre,
-            prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
-            pacienteSimuladoNombre,
-            pacienteSimuladoCorreo,
-            pacientesSimuladosJson: pacientesSimuladosArray,
-            estadoSimclic: 'Cancelled',
-            estadoUcs: 'cancelada',
-            ultimaSincronizacion: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(sesionesProgramadas.id, existente.id));
+          await db
+            .update(sesionesProgramadas)
+            .set({
+              titulo,
+              fecha,
+              horaInicio,
+              horaFin,
+              sedeId: sedeObj?.id || existente.sedeId,
+              sedeNombreSimclic,
+              ambienteId: ambienteObj?.id || existente.ambienteId,
+              ambienteNombreSimclic,
+              ambienteCodigoSimclic,
+              cursoId: cursoObj?.id || existente.cursoId,
+              cursoNombreSimclic,
+              cursoCodigoSimclic,
+              docenteId: docenteIdFinal || existente.docenteId,
+              docenteNombreSimclic,
+              docenteCorreoSimclic,
+              docentesJson: docentesArray,
+              carreraId: carreraObj?.id || existente.carreraId,
+              carrera,
+              carreraCodigo,
+              carreraColor,
+              escenarioCodigo,
+              escenarioNombre,
+              prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
+              pacienteSimuladoNombre,
+              pacienteSimuladoCorreo,
+              pacientesSimuladosJson: pacientesSimuladosArray,
+              estadoSimclic: 'Cancelled',
+              estadoUcs: 'cancelada',
+              ultimaSincronizacion: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(sesionesProgramadas.id, existente.id));
+        }
       } else {
         // La sesión está activa en SimClic. Detección de cambios de sala:
         const cambioSala =
@@ -591,7 +629,60 @@ export async function syncSimclicSessions(
             existente.ambienteCodigoSimclic &&
             ambienteCodigoSimclic.trim().toLowerCase() !== existente.ambienteCodigoSimclic.trim().toLowerCase());
 
-        const nuevoEstadoUcs = cambioSala ? 'reubicada' : 'programada';
+        const nuevoEstadoUcs = cambioSala ? 'reubicada' : (existente.estadoUcs === 'cancelada' ? 'programada' : existente.estadoUcs);
+
+        // Dirty Checking en memoria: solo ejecutar db.update si hubo un cambio real en los datos
+        const eqStr = (a?: string | null, b?: string | null) => (a || '').trim() === (b || '').trim();
+
+        const sonDocentesIguales = (a?: any[] | null, b?: any[] | null) => {
+          const arrA = a || [];
+          const arrB = b || [];
+          if (arrA.length !== arrB.length) return false;
+          return arrA.every((docA, idx) => {
+            const docB = arrB[idx];
+            if (!docB) return false;
+            return (
+              (docA.id ?? null) === (docB.id ?? null) &&
+              eqStr(docA.simclicUserId, docB.simclicUserId) &&
+              eqStr(docA.email, docB.email) &&
+              eqStr(docA.rol, docB.rol)
+            );
+          });
+        };
+
+        const sonPsIguales = (a?: any[] | null, b?: any[] | null) => {
+          const arrA = a || [];
+          const arrB = b || [];
+          if (arrA.length !== arrB.length) return false;
+          return arrA.every((psA, idx) => {
+            const psB = arrB[idx];
+            if (!psB) return false;
+            return (
+              (psA.id ?? null) === (psB.id ?? null) &&
+              eqStr(psA.simclicId, psB.simclicId) &&
+              eqStr(psA.email, psB.email)
+            );
+          });
+        };
+
+        const huboCambios =
+          cambioSala ||
+          !eqStr(existente.titulo, titulo) ||
+          !eqStr(existente.fecha, fecha) ||
+          !eqStr(existente.horaInicio, horaInicio) ||
+          !eqStr(existente.horaFin, horaFin) ||
+          !eqStr(existente.docenteNombreSimclic, docenteNombreSimclic) ||
+          !eqStr(existente.docenteCorreoSimclic, docenteCorreoSimclic) ||
+          (existente.docenteId ?? null) !== (docenteIdFinal ?? null) ||
+          !eqStr(existente.estadoSimclic, estadoSimclic) ||
+          !eqStr(existente.estadoUcs, nuevoEstadoUcs) ||
+          !eqStr(existente.pacienteSimuladoNombre, pacienteSimuladoNombre) ||
+          !eqStr(existente.pacienteSimuladoCorreo, pacienteSimuladoCorreo) ||
+          !eqStr(existente.cursoNombreSimclic, cursoNombreSimclic) ||
+          !eqStr(existente.escenarioNombre, escenarioNombre) ||
+          !eqStr(existente.carrera, carrera) ||
+          !sonDocentesIguales(existente.docentesJson, docentesArray) ||
+          !sonPsIguales(existente.pacientesSimuladosJson, pacientesSimuladosArray);
 
         if (cambioSala) {
           reubicadas++;
@@ -601,46 +692,49 @@ export async function syncSimclicSessions(
             salaAnterior: existente.ambienteNombreSimclic || 'Sin sala previa',
             salaNueva: ambienteNombreSimclic,
           });
-        } else {
+        } else if (huboCambios) {
           actualizadas++;
         }
 
-        await db
-          .update(sesionesProgramadas)
-          .set({
-            titulo,
-            fecha,
-            horaInicio,
-            horaFin,
-            sedeId: sedeObj?.id || existente.sedeId,
-            sedeNombreSimclic,
-            ambienteId: ambienteObj?.id || (cambioSala ? null : existente.ambienteId),
-            ambienteNombreSimclic,
-            ambienteCodigoSimclic,
-            ambienteOriginalNombre: cambioSala ? existente.ambienteNombreSimclic : existente.ambienteOriginalNombre,
-            cursoId: cursoObj?.id || existente.cursoId,
-            cursoNombreSimclic,
-            cursoCodigoSimclic,
-            docenteId: docenteIdFinal || existente.docenteId,
-            docenteNombreSimclic,
-            docenteCorreoSimclic,
-            docentesJson: docentesArray,
-            carreraId: carreraObj?.id || existente.carreraId,
-            carrera,
-            carreraCodigo,
-            carreraColor,
-            escenarioCodigo,
-            escenarioNombre,
-            prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
-            pacienteSimuladoNombre,
-            pacienteSimuladoCorreo,
-            pacientesSimuladosJson: pacientesSimuladosArray,
-            estadoSimclic,
-            estadoUcs: nuevoEstadoUcs,
-            ultimaSincronizacion: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(sesionesProgramadas.id, existente.id));
+        // CERO transacciones de escritura a Neon si la sesión no ha cambiado
+        if (huboCambios) {
+          await db
+            .update(sesionesProgramadas)
+            .set({
+              titulo,
+              fecha,
+              horaInicio,
+              horaFin,
+              sedeId: sedeObj?.id || existente.sedeId,
+              sedeNombreSimclic,
+              ambienteId: ambienteObj?.id || (cambioSala ? null : existente.ambienteId),
+              ambienteNombreSimclic,
+              ambienteCodigoSimclic,
+              ambienteOriginalNombre: cambioSala ? existente.ambienteNombreSimclic : existente.ambienteOriginalNombre,
+              cursoId: cursoObj?.id || existente.cursoId,
+              cursoNombreSimclic,
+              cursoCodigoSimclic,
+              docenteId: docenteIdFinal || existente.docenteId,
+              docenteNombreSimclic,
+              docenteCorreoSimclic,
+              docentesJson: docentesArray,
+              carreraId: carreraObj?.id || existente.carreraId,
+              carrera,
+              carreraCodigo,
+              carreraColor,
+              escenarioCodigo,
+              escenarioNombre,
+              prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
+              pacienteSimuladoNombre,
+              pacienteSimuladoCorreo,
+              pacientesSimuladosJson: pacientesSimuladosArray,
+              estadoSimclic,
+              estadoUcs: nuevoEstadoUcs,
+              ultimaSincronizacion: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(sesionesProgramadas.id, existente.id));
+        }
       }
     } else {
       // Sesión nueva

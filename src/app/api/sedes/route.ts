@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { sedes, ambientes, asistencias } from '@/db/schema';
 import { desc, eq, ne, and, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { invalidateCatalogCache } from '@/lib/catalogCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,6 +109,8 @@ export async function POST(request: Request) {
         activo: true,
       })
       .returning();
+
+    invalidateCatalogCache();
 
     return NextResponse.json({ ok: true, sede: nuevaSede });
   } catch (error) {
@@ -215,6 +218,8 @@ export async function PATCH(request: Request) {
     if (!sedeActualizada) {
       return NextResponse.json({ error: 'Sede no encontrada' }, { status: 404 });
     }
+
+    invalidateCatalogCache();
 
     return NextResponse.json({ ok: true, sede: sedeActualizada });
   } catch (error) {

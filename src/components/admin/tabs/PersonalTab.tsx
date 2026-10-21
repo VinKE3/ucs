@@ -84,7 +84,10 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     };
 
     fetchSimclicHoy();
-    const interval = setInterval(fetchSimclicHoy, 3 * 60 * 1000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchSimclicHoy();
+    }, 3 * 60 * 1000);
     return () => {
       isMounted = false;
       clearInterval(interval);

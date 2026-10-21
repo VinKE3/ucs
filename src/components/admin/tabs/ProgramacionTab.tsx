@@ -433,6 +433,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   // Sincronización con SimClic (Manual o en background silencioso)
   const runSyncSimclic = useCallback(
     async (isManual: boolean = false) => {
+      if (!isManual && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
       if (isManual) setSyncing(true);

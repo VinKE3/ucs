@@ -354,22 +354,31 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }, 2500);
 
     const interval = setInterval(() => {
+      // Zero-Waste Egress: Si la pestaña está minimizada o en segundo plano, NO consumir ancho de banda de Neon
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
       triggerGlobalSyncSimclic(true);
     }, 180000); // 3 minutos
 
-    const handleFocus = () => {
-      // Cooldown de 2.5 minutos (150,000 ms) para evitar sincronizaciones constantes si el usuario alterna entre ventanas
-      const now = Date.now();
-      if (now - lastFocusSyncTimestampRef.current < 150000) return;
-      lastFocusSyncTimestampRef.current = now;
-      triggerGlobalSyncSimclic(true);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        // Cooldown de 2.5 minutos (150,000 ms) para evitar sincronizaciones constantes si el usuario alterna entre ventanas
+        const now = Date.now();
+        if (now - lastFocusSyncTimestampRef.current < 150000) return;
+        lastFocusSyncTimestampRef.current = now;
+        triggerGlobalSyncSimclic(true);
+      }
     };
-    window.addEventListener('focus', handleFocus);
+
+    window.addEventListener('focus', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearTimeout(initialTimer);
       clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [triggerGlobalSyncSimclic]);
 

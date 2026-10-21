@@ -4,6 +4,7 @@ import { ambientes, sedes, asistencias, usuarios, cursos } from '@/db/schema';
 import { eq, ne, and, like, or, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { isAmbienteVirtual } from '@/lib/logisticaSimulacion';
+import { invalidateCatalogCache } from '@/lib/catalogCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -205,6 +206,8 @@ export async function POST(request: Request) {
       })
       .returning();
 
+    invalidateCatalogCache();
+
     return NextResponse.json({ ok: true, ambiente: nuevoAmbiente });
   } catch (error) {
     console.error('Error creando ambiente:', error);
@@ -317,6 +320,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
     }
 
+    invalidateCatalogCache();
+
     return NextResponse.json({ ok: true, ambiente: ambienteActualizado });
   } catch (error) {
     console.error('Error actualizando ambiente:', error);
@@ -379,6 +384,8 @@ export async function DELETE(request: Request) {
     if (!ambienteEliminado) {
       return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
     }
+
+    invalidateCatalogCache();
 
     return NextResponse.json({ ok: true, mensaje: 'Sala eliminada exitosamente' });
   } catch (error) {

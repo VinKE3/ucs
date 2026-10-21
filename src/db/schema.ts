@@ -439,6 +439,24 @@ export const sesionesProgramadas = pgTable('sesiones_programadas', {
   pacienteSimuladoNombre: varchar('paciente_simulado_nombre', { length: 250 }),
   pacienteSimuladoCorreo: varchar('paciente_simulado_correo', { length: 255 }),
 
+  // Múltiples Docentes e Instructores (Docente principal, co-docentes, evaluadores)
+  docentesJson: jsonb('docentes_json').$type<Array<{
+    id?: number | null;
+    simclicUserId?: string | null;
+    nombre: string;
+    email?: string | null;
+    rol?: string;
+  }>>().default([]),
+
+  // Múltiples Pacientes Simulados / Actores
+  pacientesSimuladosJson: jsonb('pacientes_simulados_json').$type<Array<{
+    id?: number | null;
+    simclicId?: string | null;
+    nombre: string;
+    email?: string | null;
+    rol?: string | null;
+  }>>().default([]),
+
   estadoSimclic: varchar('estado_simclic', { length: 50 }), // "Booked", "Cancelled", etc.
   estadoUcs: varchar('estado_ucs', { length: 50 }).default('programada').notNull(), // "programada", "en_curso", "finalizada", "reubicada", "cancelada"
 

@@ -177,6 +177,118 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     }) || null;
   }
 
+  function resolvePacienteSimulado(ps?: { username?: string; email?: string; firstName?: string; lastName?: string }) {
+    if (!ps) return null;
+    const email = (ps.username || ps.email || '').toLowerCase().trim();
+    const fullName = `${ps.firstName || ''} ${ps.lastName || ''}`.toLowerCase().trim();
+
+    return allUsuarios.find((u) => {
+      if (u.tipoPersonal !== 'paciente_simulado') return false;
+      if (email && u.correo && u.correo.toLowerCase().trim() === email) return true;
+      const uFullName = `${u.nombres} ${u.apellidos}`.toLowerCase().trim();
+      if (fullName && (uFullName.includes(fullName) || fullName.includes(uFullName))) return true;
+      return false;
+    }) || null;
+  }
+
+  function extraerTodosDocentes(s: any) {
+    const list: Array<{
+      id?: number | null;
+      simclicUserId?: string | null;
+      nombre: string;
+      email?: string | null;
+      rol?: string;
+    }> = [];
+    const seen = new Set<string>();
+
+    function addTeacher(inst: any, defaultRol: string) {
+      if (!inst) return;
+      const email = (inst.username || inst.email || '').trim();
+      const firstName = (inst.firstName || '').trim();
+      const lastName = (inst.lastName || '').trim();
+      const nombre = [firstName, lastName].filter(Boolean).join(' ') || email || 'Docente';
+      const key = (email || nombre).toLowerCase();
+
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+
+      const matchedUser = resolveDocente(inst);
+      const rol = inst.role || inst.rol || defaultRol;
+
+      list.push({
+        id: matchedUser?.id || null,
+        simclicUserId: inst.id ? String(inst.id) : (inst._id ? String(inst._id) : null),
+        nombre,
+        email: email || null,
+        rol,
+      });
+    }
+
+    if (s.leadInstructor) {
+      addTeacher(s.leadInstructor, 'principal');
+    }
+    if (Array.isArray(s.instructors)) {
+      for (const inst of s.instructors) {
+        addTeacher(inst, 'co_docente');
+      }
+    }
+    if (Array.isArray(s.evaluators)) {
+      for (const ev of s.evaluators) {
+        addTeacher(ev, 'evaluador');
+      }
+    }
+    if (Array.isArray(s.coInstructors)) {
+      for (const ci of s.coInstructors) {
+        addTeacher(ci, 'co_docente');
+      }
+    }
+    if (Array.isArray(s.assistants)) {
+      for (const as of s.assistants) {
+        addTeacher(as, 'asistente');
+      }
+    }
+
+    return list;
+  }
+
+  function extraerTodosPacientesSimulados(s: any) {
+    const list: Array<{
+      id?: number | null;
+      simclicId?: string | null;
+      nombre: string;
+      email?: string | null;
+      rol?: string | null;
+    }> = [];
+    const seen = new Set<string>();
+
+    if (Array.isArray(s.standardizedPatients)) {
+      for (const ps of s.standardizedPatients) {
+        if (!ps) continue;
+        const email = (ps.username || ps.email || '').trim();
+        const firstName = (ps.firstName || '').trim();
+        const lastName = (ps.lastName || '').trim();
+        const nombre = [firstName, lastName].filter(Boolean).join(' ') || email || 'Paciente Simulado';
+        const key = (email || nombre).toLowerCase();
+
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+
+        const matchedUser = resolvePacienteSimulado(ps);
+        const rol = ps.character || ps.role || ps.rol || null;
+
+        list.push({
+          id: matchedUser?.id || null,
+          simclicId: ps.id ? String(ps.id) : (ps._id ? String(ps._id) : null),
+          nombre,
+          email: email || null,
+          rol,
+        });
+      }
+    }
+
+    return list;
+  }
+
   // 2. Conectar por WebSocket SockJS a SimClic
   const rawSessions: any[] = await new Promise((resolve, reject) => {
     const serverId = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -359,10 +471,15 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     const ambienteCodigoSimclic = s.mainRoom?.code || '';
     const cursoNombreSimclic = s.courses?.[0]?.name || cursoObj?.nombre || '';
     const cursoCodigoSimclic = s.courses?.[0]?.code || cursoObj?.codigo || '';
-    const docenteNombreSimclic = [s.leadInstructor?.firstName, s.leadInstructor?.lastName]
+    
+    // Extracción enriquecida de docentes (Lead + Co-docentes + Evaluadores)
+    const docentesArray = extraerTodosDocentes(s);
+    const primerDocente = docentesArray[0];
+    const docenteNombreSimclic = primerDocente?.nombre || [s.leadInstructor?.firstName, s.leadInstructor?.lastName]
       .filter(Boolean)
       .join(' ');
-    const docenteCorreoSimclic = s.leadInstructor?.username || '';
+    const docenteCorreoSimclic = primerDocente?.email || s.leadInstructor?.username || '';
+    const docenteIdFinal = primerDocente?.id || docenteObj?.id || null;
     
     const carrera = carreraObj?.nombre || s.degrees?.[0]?.name || '';
     const carreraCodigo = carreraObj?.codigo || s.degrees?.[0]?.code || '';
@@ -371,9 +488,12 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     const escenarioCodigo = s.scenarios?.[0]?.code || '';
     const escenarioNombre = s.scenarios?.[0]?.name || '';
 
+    // Extracción enriquecida de múltiples pacientes simulados (Actores)
+    const pacientesSimuladosArray = extraerTodosPacientesSimulados(s);
+    const primerPs = pacientesSimuladosArray[0];
     const ps = s.standardizedPatients?.[0];
-    const pacienteSimuladoNombre = ps ? [ps.firstName, ps.lastName].filter(Boolean).join(' ') : null;
-    const pacienteSimuladoCorreo = ps?.username || null;
+    const pacienteSimuladoNombre = primerPs?.nombre || (ps ? [ps.firstName, ps.lastName].filter(Boolean).join(' ') : null);
+    const pacienteSimuladoCorreo = primerPs?.email || ps?.username || null;
 
     // Detección de estado de cancelación en el payload de SimClic
     const isCancelledInPayload = Boolean(
@@ -417,9 +537,10 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             cursoId: cursoObj?.id || existente.cursoId,
             cursoNombreSimclic,
             cursoCodigoSimclic,
-            docenteId: docenteObj?.id || existente.docenteId,
+            docenteId: docenteIdFinal || existente.docenteId,
             docenteNombreSimclic,
             docenteCorreoSimclic,
+            docentesJson: docentesArray,
             carreraId: carreraObj?.id || existente.carreraId,
             carrera,
             carreraCodigo,
@@ -429,6 +550,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
             pacienteSimuladoNombre,
             pacienteSimuladoCorreo,
+            pacientesSimuladosJson: pacientesSimuladosArray,
             estadoSimclic: 'Cancelled',
             estadoUcs: 'cancelada',
             ultimaSincronizacion: new Date(),
@@ -475,9 +597,10 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             cursoId: cursoObj?.id || existente.cursoId,
             cursoNombreSimclic,
             cursoCodigoSimclic,
-            docenteId: docenteObj?.id || existente.docenteId,
+            docenteId: docenteIdFinal || existente.docenteId,
             docenteNombreSimclic,
             docenteCorreoSimclic,
+            docentesJson: docentesArray,
             carreraId: carreraObj?.id || existente.carreraId,
             carrera,
             carreraCodigo,
@@ -487,6 +610,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
             pacienteSimuladoNombre,
             pacienteSimuladoCorreo,
+            pacientesSimuladosJson: pacientesSimuladosArray,
             estadoSimclic,
             estadoUcs: nuevoEstadoUcs,
             ultimaSincronizacion: new Date(),
@@ -524,9 +648,10 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
         cursoId: cursoObj?.id || null,
         cursoNombreSimclic,
         cursoCodigoSimclic,
-        docenteId: docenteObj?.id || null,
+        docenteId: docenteIdFinal,
         docenteNombreSimclic,
         docenteCorreoSimclic,
+        docentesJson: docentesArray,
         carreraId: carreraObj?.id || null,
         carrera,
         carreraCodigo,
@@ -536,6 +661,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
         prefijo: prefijo || cursoObj?.prefijo || null,
         pacienteSimuladoNombre,
         pacienteSimuladoCorreo,
+        pacientesSimuladosJson: pacientesSimuladosArray,
         estadoSimclic,
         estadoUcs: isCancelledInPayload ? 'cancelada' : 'programada',
         ultimaSincronizacion: new Date(),

@@ -1598,6 +1598,17 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                     ? '0 0 0 2px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(16, 185, 129, 0.5)'
                                     : '0 3px 8px rgba(0, 0, 0, 0.25)';
 
+                                  const totalDocentes = ses.totalDocentesCount || 1;
+                                  const totalPs = ses.totalPsCount || (ses.pacienteSimuladoNombre ? 1 : 0);
+
+                                  const tooltipDocentes = ses.docentes && ses.docentes.length > 0
+                                    ? ses.docentes.map((d) => `${d.nombre} (${d.rol || 'docente'})${d.presente ? ' [EN SALA]' : ''}`).join(', ')
+                                    : (ses.docenteNombreSimclic || 'Sin asignar');
+
+                                  const tooltipPs = ses.pacientesSimulados && ses.pacientesSimulados.length > 0
+                                    ? ses.pacientesSimulados.map((p) => `${p.nombre}${p.rol ? ` (${p.rol})` : ''}${p.presente ? ' [EN SALA]' : ''}`).join(', ')
+                                    : (ses.pacienteSimuladoNombre || 'Sin PS');
+
                                   return (
                                     <div
                                       key={ses.id}
@@ -1627,7 +1638,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         zIndex: esCancelada ? 5 : esSinMarcar || esEnSala ? 18 : 10,
                                         opacity: esCancelada ? 0.75 : 1,
                                       }}
-                                      title={`[${ses.simclicId}] ${ses.titulo}${esCancelada ? ' (CANCELADA EN SIMCLIC)' : ''}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}\nPS: ${ses.pacienteSimuladoNombre || 'Sin PS'}`}
+                                      title={`[${ses.simclicId}] ${ses.titulo}${esCancelada ? ' (CANCELADA EN SIMCLIC)' : ''}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocentes (${totalDocentes}): ${tooltipDocentes}\nActores PS (${totalPs}): ${tooltipPs}`}
                                       onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'translateY(-2px)';
                                         e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
@@ -1698,8 +1709,22 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                       </div>
 
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.65rem', marginTop: '0.15rem', opacity: 0.95 }}>
-                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          👨‍🏫 {ses.docenteNombreSimclic ? ses.docenteNombreSimclic.split(',')[0] : 'Docente'}
+                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                          <span>👨‍🏫 {ses.docenteNombreSimclic ? ses.docenteNombreSimclic.split(',')[0] : 'Docente'}</span>
+                                          {totalDocentes > 1 && (
+                                            <span
+                                              style={{
+                                                background: 'rgba(255, 255, 255, 0.25)',
+                                                padding: '0.02rem 0.25rem',
+                                                borderRadius: '3px',
+                                                fontWeight: 800,
+                                                fontSize: '0.58rem',
+                                              }}
+                                              title={`Co-docencia: ${totalDocentes} docentes programados`}
+                                            >
+                                              +{totalDocentes - 1} co-doc
+                                            </span>
+                                          )}
                                         </span>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                           {Boolean(ses.ambienteOriginalNombre || ses.estadoUcs === 'reubicada') && (
@@ -1717,11 +1742,25 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                               🔄 Trasladada
                                             </span>
                                           )}
-                                          {ses.pacienteSimuladoNombre && (
+                                          {totalPs > 1 ? (
+                                            <span
+                                              style={{
+                                                background: 'rgba(192, 132, 252, 0.35)',
+                                                border: '1px solid rgba(255, 255, 255, 0.3)',
+                                                padding: '0.05rem 0.3rem',
+                                                borderRadius: '4px',
+                                                fontSize: '0.62rem',
+                                                fontWeight: 700,
+                                              }}
+                                              title={`Elenco de ${totalPs} Pacientes Simulados`}
+                                            >
+                                              🎭 {totalPs} PS
+                                            </span>
+                                          ) : ses.pacienteSimuladoNombre ? (
                                             <span style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '0.05rem 0.3rem', borderRadius: '4px', fontSize: '0.62rem' }}>
                                               🎭 PS
                                             </span>
-                                          )}
+                                          ) : null}
                                         </div>
                                       </div>
 

@@ -161,6 +161,30 @@ export interface AsistenciaAdminItem {
   sesionesProgramadasDia?: SesionProgramadaSimclicItem[];
 }
 
+export interface DocenteProgramadoItem {
+  id?: number | null;
+  simclicUserId?: string | null;
+  nombre: string;
+  email?: string | null;
+  rol?: 'principal' | 'co_docente' | 'evaluador' | 'asistente' | string;
+  presente?: boolean;
+  asistenciaId?: number | null;
+  horaIngreso?: string | null;
+  ambienteNombre?: string | null;
+}
+
+export interface PacienteSimuladoProgramadoItem {
+  id?: number | null;
+  simclicId?: string | null;
+  nombre: string;
+  email?: string | null;
+  rol?: string | null;
+  presente?: boolean;
+  asistenciaId?: number | null;
+  horaIngreso?: string | null;
+  ambienteNombre?: string | null;
+}
+
 export interface SesionProgramadaSimclicItem {
   id: number;
   simclicId: string;
@@ -181,6 +205,8 @@ export interface SesionProgramadaSimclicItem {
   docenteCorreoSimclic: string | null;
   pacienteSimuladoNombre: string | null;
   pacienteSimuladoCorreo: string | null;
+  docentesJson?: DocenteProgramadoItem[] | null;
+  pacientesSimuladosJson?: PacienteSimuladoProgramadoItem[] | null;
   carrera: string | null;
   carreraCodigo: string | null;
   carreraColor: string | null;
@@ -256,6 +282,12 @@ export interface SesionProgramadaTimelineItem extends SesionProgramadaSimclicIte
   asistenciaDocenteId?: number | null;
   asistenciaDocenteHora?: string | null;
   asistenciaDocenteAmbiente?: string | null;
+  docentes?: DocenteProgramadoItem[];
+  pacientesSimulados?: PacienteSimuladoProgramadoItem[];
+  totalDocentesCount?: number;
+  docentesPresentesCount?: number;
+  totalPsCount?: number;
+  psPresentesCount?: number;
 }
 
 export interface ProgramacionDocenteOption {

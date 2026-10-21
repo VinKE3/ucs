@@ -344,179 +344,365 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
           </div>
 
           {/* SECCIÓN 3: PERSONAL INVOLUCRADO Y ESTADO DE MARCACIÓN EN KIOSCO */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.9rem' }}>
-            
-            {/* Docente */}
-            <div
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                padding: '1rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8' }}>
-                  👨‍🏫 Docente Programado
-                </span>
-                {sesion.docentePresente ? (
-                  <span style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#10b981', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                    🟢 En Sala (Marcó)
-                  </span>
-                ) : sesion.estadoEnVivo === 'sin_marcar' ? (
-                  <span style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', color: '#ef4444', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                    🔴 Sin Marcación
-                  </span>
-                ) : (
-                  <span style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                    ⏳ Por Iniciar
-                  </span>
-                )}
-              </div>
+          {(() => {
+            const docentesLista = (sesion.docentes && sesion.docentes.length > 0)
+              ? sesion.docentes
+              : sesion.docenteNombreSimclic
+              ? [{
+                  id: sesion.docenteId,
+                  nombre: sesion.docenteNombreSimclic,
+                  email: sesion.docenteCorreoSimclic,
+                  rol: 'principal',
+                  presente: sesion.docentePresente,
+                  horaIngreso: sesion.asistenciaDocenteHora,
+                  ambienteNombre: sesion.asistenciaDocenteAmbiente,
+                }]
+              : [];
 
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {sesion.docenteNombreSimclic || 'Sin docente asignado'}
-              </div>
-              {sesion.docenteCorreoSimclic && (
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  ✉️ {sesion.docenteCorreoSimclic}
-                </div>
-              )}
+            const psLista = (sesion.pacientesSimulados && sesion.pacientesSimulados.length > 0)
+              ? sesion.pacientesSimulados
+              : sesion.pacienteSimuladoNombre
+              ? [{
+                  nombre: sesion.pacienteSimuladoNombre,
+                  email: sesion.pacienteSimuladoCorreo,
+                  rol: 'Paciente Simulado',
+                  presente: sesion.psPresente,
+                }]
+              : [];
 
-              {sesion.docentePresente && sesion.asistenciaDocenteHora && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.73rem', color: '#00e699', background: 'rgba(0, 230, 153, 0.08)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
-                  ✓ Marcó en Kiosco a las{' '}
-                  <strong>
-                    {new Date(sesion.asistenciaDocenteHora).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })}
-                  </strong>
-                  {sesion.asistenciaDocenteAmbiente && ` en ${sesion.asistenciaDocenteAmbiente}`}
-                </div>
-              )}
-
-              {!sesion.docentePresente && (
-                <div style={{ marginTop: '0.65rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  {docenteTelefono && (
-                    <a
-                      href={`https://wa.me/${docenteTelefono}?text=${encodeURIComponent(
-                        `Estimado(a) ${sesion.docenteNombreSimclic || 'Docente'}, le saludamos de la Clínica de Simulación UCS. Le recordamos que su sesión programada en ${sesion.ambienteNombreSimclic || 'la sala'} (${sesion.horaInicio} - ${sesion.horaFin}) se encuentra próxima o en curso. Por favor no olvide registrar su presencia en el Kiosco.`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.3rem 0.65rem',
-                        borderRadius: '6px',
-                        background: 'rgba(37, 211, 102, 0.15)',
-                        border: '1px solid rgba(37, 211, 102, 0.4)',
-                        color: '#25d366',
-                        fontSize: '0.74rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                      }}
-                      title="Enviar recordatorio por WhatsApp al docente"
-                    >
-                      <span>💬</span> WhatsApp Docente
-                    </a>
-                  )}
-                  {sesion.docenteCorreoSimclic && (
-                    <a
-                      href={`mailto:${sesion.docenteCorreoSimclic}?subject=${encodeURIComponent(
-                        `Recordatorio: Sesión Simulación UCS - ${sesion.ambienteNombreSimclic || ''}`
-                      )}&body=${encodeURIComponent(
-                        `Estimado(a) ${sesion.docenteNombreSimclic || 'Docente'},\n\nLe recordamos registrar su asistencia en el Kiosco de la Clínica de Simulación para su sesión de hoy:\n- Horario: ${sesion.horaInicio} - ${sesion.horaFin}\n- Sala: ${sesion.ambienteNombreSimclic || ''}\n- Curso: ${sesion.cursoNombreSimclic || sesion.titulo}\n\nAtentamente,\nCoordinación de Simulación UCS`
-                      )}`}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        padding: '0.3rem 0.65rem',
-                        borderRadius: '6px',
-                        background: 'rgba(56, 189, 248, 0.12)',
-                        border: '1px solid rgba(56, 189, 248, 0.35)',
-                        color: '#38bdf8',
-                        fontSize: '0.74rem',
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                      }}
-                      title="Enviar correo institucional al docente"
-                    >
-                      <span>✉️</span> Enviar Correo
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Paciente Simulado */}
-            <div
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                padding: '1rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#c084fc' }}>
-                  🎭 Paciente Simulado (PS)
-                </span>
-                {sesion.pacienteSimuladoNombre ? (
-                  sesion.psPresente ? (
-                    <span style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#10b981', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                      🟢 Actor en Sala
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.9rem' }}>
+                
+                {/* Docentes e Instructores (Soporte Multidocente / Co-docencia) */}
+                <div
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    padding: '1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8' }}>
+                      👨‍🏫 Docentes e Instructores ({docentesLista.length})
                     </span>
+                    {docentesLista.length > 1 ? (
+                      <span
+                        style={{
+                          background: (sesion.docentesPresentesCount || 0) === docentesLista.length
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : (sesion.docentesPresentesCount || 0) > 0
+                            ? 'rgba(245, 158, 11, 0.15)'
+                            : 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid ' + ((sesion.docentesPresentesCount || 0) === docentesLista.length ? 'rgba(16, 185, 129, 0.4)' : (sesion.docentesPresentesCount || 0) > 0 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'),
+                          color: (sesion.docentesPresentesCount || 0) === docentesLista.length ? '#10b981' : (sesion.docentesPresentesCount || 0) > 0 ? '#f59e0b' : '#ef4444',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        {sesion.docentesPresentesCount || 0}/{docentesLista.length} en Sala
+                      </span>
+                    ) : sesion.docentePresente ? (
+                      <span style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#10b981', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                        🟢 En Sala (Marcó)
+                      </span>
+                    ) : sesion.estadoEnVivo === 'sin_marcar' ? (
+                      <span style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', color: '#ef4444', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                        🔴 Sin Marcación
+                      </span>
+                    ) : (
+                      <span style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                        ⏳ Por Iniciar
+                      </span>
+                    )}
+                  </div>
+
+                  {docentesLista.length === 0 ? (
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      Sin docente asignado en SimClic
+                    </div>
                   ) : (
-                    <span style={{ background: 'rgba(192, 132, 252, 0.15)', color: '#c084fc', fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                      🎭 Asignado
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                      {docentesLista.map((doc, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            padding: '0.65rem 0.75rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.35rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                {doc.nombre}
+                              </span>
+                              <span
+                                style={{
+                                  background: doc.rol === 'principal' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                                  border: `1px solid ${doc.rol === 'principal' ? 'rgba(56, 189, 248, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
+                                  color: doc.rol === 'principal' ? '#38bdf8' : '#c084fc',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '4px',
+                                  textTransform: 'capitalize',
+                                }}
+                              >
+                                {doc.rol === 'principal' ? '⭐ Principal' : doc.rol === 'co_docente' ? '👥 Co-docente' : doc.rol || 'Docente'}
+                              </span>
+                            </div>
+
+                            {doc.presente ? (
+                              <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                                ✓ En Sala
+                              </span>
+                            ) : (
+                              <span style={{ background: 'rgba(148, 163, 184, 0.12)', color: 'var(--text-muted)', fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                                ⏳ Pendiente
+                              </span>
+                            )}
+                          </div>
+
+                          {doc.email && (
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              ✉️ {doc.email}
+                            </div>
+                          )}
+
+                          {doc.presente && doc.horaIngreso && (
+                            <div style={{ fontSize: '0.72rem', color: '#00e699', background: 'rgba(0, 230, 153, 0.08)', padding: '0.25rem 0.45rem', borderRadius: '5px' }}>
+                              ✓ Marcó en Kiosco:{' '}
+                              <strong>
+                                {new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })}
+                              </strong>
+                              {doc.ambienteNombre && ` (${doc.ambienteNombre})`}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!sesion.docentePresente && (
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                      {docenteTelefono && (
+                        <a
+                          href={`https://wa.me/${docenteTelefono}?text=${encodeURIComponent(
+                            `Estimado(a) ${sesion.docenteNombreSimclic || 'Docente'}, le saludamos de la Clínica de Simulación UCS. Le recordamos que su sesión programada en ${sesion.ambienteNombreSimclic || 'la sala'} (${sesion.horaInicio} - ${sesion.horaFin}) se encuentra próxima o en curso. Por favor no olvide registrar su presencia en el Kiosco.`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.3rem 0.65rem',
+                            borderRadius: '6px',
+                            background: 'rgba(37, 211, 102, 0.15)',
+                            border: '1px solid rgba(37, 211, 102, 0.4)',
+                            color: '#25d366',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                          }}
+                          title="Enviar recordatorio por WhatsApp al docente principal"
+                        >
+                          <span>💬</span> WhatsApp Docente
+                        </a>
+                      )}
+                      {sesion.docenteCorreoSimclic && (
+                        <a
+                          href={`mailto:${sesion.docenteCorreoSimclic}?subject=${encodeURIComponent(
+                            `Recordatorio: Sesión Simulación UCS - ${sesion.ambienteNombreSimclic || ''}`
+                          )}&body=${encodeURIComponent(
+                            `Estimado(a) ${sesion.docenteNombreSimclic || 'Docente'},\n\nLe recordamos registrar su asistencia en el Kiosco de la Clínica de Simulación para su sesión de hoy:\n- Horario: ${sesion.horaInicio} - ${sesion.horaFin}\n- Sala: ${sesion.ambienteNombreSimclic || ''}\n- Curso: ${sesion.cursoNombreSimclic || sesion.titulo}\n\nAtentamente,\nCoordinación de Simulación UCS`
+                          )}`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.3rem 0.65rem',
+                            borderRadius: '6px',
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            border: '1px solid rgba(56, 189, 248, 0.35)',
+                            color: '#38bdf8',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                          }}
+                          title="Enviar correo institucional al docente"
+                        >
+                          <span>✉️</span> Enviar Correo
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Pacientes Simulados / Actores (Soporte Múltiples Actores) */}
+                <div
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    padding: '1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#c084fc' }}>
+                      🎭 Pacientes Simulados / Actores ({psLista.length})
                     </span>
-                  )
-                ) : (
-                  <span style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                    No requerido
-                  </span>
-                )}
-              </div>
+                    {psLista.length > 1 ? (
+                      <span
+                        style={{
+                          background: (sesion.psPresentesCount || 0) === psLista.length
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : (sesion.psPresentesCount || 0) > 0
+                            ? 'rgba(245, 158, 11, 0.15)'
+                            : 'rgba(192, 132, 252, 0.15)',
+                          border: '1px solid ' + ((sesion.psPresentesCount || 0) === psLista.length ? 'rgba(16, 185, 129, 0.4)' : (sesion.psPresentesCount || 0) > 0 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(192, 132, 252, 0.4)'),
+                          color: (sesion.psPresentesCount || 0) === psLista.length ? '#10b981' : (sesion.psPresentesCount || 0) > 0 ? '#f59e0b' : '#c084fc',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        {sesion.psPresentesCount || 0}/{psLista.length} en Sala
+                      </span>
+                    ) : psLista.length === 1 ? (
+                      sesion.psPresente ? (
+                        <span style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#10b981', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                          🟢 Actor en Sala
+                        </span>
+                      ) : (
+                        <span style={{ background: 'rgba(192, 132, 252, 0.15)', color: '#c084fc', fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                          🎭 Asignado
+                        </span>
+                      )
+                    ) : (
+                      <span style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                        No requerido
+                      </span>
+                    )}
+                  </div>
 
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {sesion.pacienteSimuladoNombre || 'Esta sesión no requiere paciente simulado'}
-              </div>
-              {sesion.pacienteSimuladoCorreo && (
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  ✉️ {sesion.pacienteSimuladoCorreo}
-                </div>
-              )}
+                  {psLista.length === 0 ? (
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      Esta sesión no requiere paciente simulado
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                      {psLista.map((p, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            padding: '0.65rem 0.75rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.35rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                {p.nombre}
+                              </span>
+                              {p.rol && (
+                                <span
+                                  style={{
+                                    background: 'rgba(244, 63, 94, 0.15)',
+                                    border: '1px solid rgba(244, 63, 94, 0.35)',
+                                    color: '#fb7185',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    padding: '0.1rem 0.35rem',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  🎭 {p.rol}
+                                </span>
+                              )}
+                            </div>
 
-              {sesion.pacienteSimuladoNombre && !sesion.psPresente && pacienteSimuladoTelefono && (
-                <div style={{ marginTop: '0.65rem' }}>
-                  <a
-                    href={`https://wa.me/${pacienteSimuladoTelefono}?text=${encodeURIComponent(
-                      `Hola ${sesion.pacienteSimuladoNombre}, te saludamos de la Clínica de Simulación UCS. Te recordamos tu participación en el escenario clínico de hoy en ${sesion.ambienteNombreSimclic || 'sala'} (${sesion.horaInicio} - ${sesion.horaFin}).`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      padding: '0.3rem 0.65rem',
-                      borderRadius: '6px',
-                      background: 'rgba(37, 211, 102, 0.15)',
-                      border: '1px solid rgba(37, 211, 102, 0.4)',
-                      color: '#25d366',
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                    }}
-                    title="Enviar WhatsApp al paciente simulado"
-                  >
-                    <span>💬</span> WhatsApp Paciente Simulado
-                  </a>
+                            {p.presente ? (
+                              <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                                ✓ En Sala
+                              </span>
+                            ) : (
+                              <span style={{ background: 'rgba(192, 132, 252, 0.12)', color: '#c084fc', fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                                🎭 Asignado
+                              </span>
+                            )}
+                          </div>
+
+                          {p.email && (
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              ✉️ {p.email}
+                            </div>
+                          )}
+
+                          {p.presente && p.horaIngreso && (
+                            <div style={{ fontSize: '0.72rem', color: '#00e699', background: 'rgba(0, 230, 153, 0.08)', padding: '0.25rem 0.45rem', borderRadius: '5px' }}>
+                              ✓ Marcó en Kiosco:{' '}
+                              <strong>
+                                {new Date(p.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })}
+                              </strong>
+                              {p.ambienteNombre && ` (${p.ambienteNombre})`}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {psLista.length > 0 && !sesion.psPresente && pacienteSimuladoTelefono && (
+                    <div style={{ marginTop: '0.2rem' }}>
+                      <a
+                        href={`https://wa.me/${pacienteSimuladoTelefono}?text=${encodeURIComponent(
+                          `Hola ${sesion.pacienteSimuladoNombre || 'Actor'}, te saludamos de la Clínica de Simulación UCS. Te recordamos tu participación en el escenario clínico de hoy en ${sesion.ambienteNombreSimclic || 'sala'} (${sesion.horaInicio} - ${sesion.horaFin}).`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.65rem',
+                          borderRadius: '6px',
+                          background: 'rgba(37, 211, 102, 0.15)',
+                          border: '1px solid rgba(37, 211, 102, 0.4)',
+                          color: '#25d366',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                        }}
+                        title="Enviar WhatsApp al paciente simulado"
+                      >
+                        <span>💬</span> WhatsApp Paciente Simulado
+                      </a>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* FOOTER DE ACCIONES */}

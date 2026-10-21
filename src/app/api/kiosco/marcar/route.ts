@@ -131,7 +131,21 @@ export async function POST(request: NextRequest) {
               hour: '2-digit',
               minute: '2-digit',
             });
-            notaContextual = `Relevo / co-docencia: Docente ${doc.nombres} ${doc.apellidos} en sala desde ${hora}`;
+            const cantDoc = docentesPrev.length;
+            notaContextual = cantDoc > 1
+              ? `Co-docencia múltiple: ${cantDoc} docentes en sala (último: ${doc.nombres} ${doc.apellidos} desde ${hora})`
+              : `Co-docencia en sala: Docente ${doc.nombres} ${doc.apellidos} presente desde ${hora}`;
+          } else if (user.tipoPersonal === 'paciente_simulado' && pacientesPrev.length > 0) {
+            const pac = pacientesPrev[0];
+            const hora = new Date(pac.horaIngreso).toLocaleTimeString('es-PE', {
+              timeZone: PERU_TIMEZONE,
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            const cantPs = pacientesPrev.length;
+            notaContextual = cantPs > 1
+              ? `Elenco múltiple de Pacientes Simulados: ${cantPs} actores en sala (último: ${pac.nombres} ${pac.apellidos} desde ${hora})`
+              : `Elenco conjunto de Pacientes Simulados: Actor ${pac.nombres} ${pac.apellidos} presente desde ${hora}`;
           } else if (user.tipoPersonal === 'docente' && pacientesPrev.length > 0) {
             const pac = pacientesPrev[0];
             const hora = new Date(pac.horaIngreso).toLocaleTimeString('es-PE', {

@@ -959,6 +959,33 @@ src/
     - Notificación toast en la sincronización manual reportando si se detectaron clases canceladas.
   - **Verificación Técnica**:
     - Compilación estricta con TypeScript `npx tsc --noEmit` completada con 0 errores.
+* `feat(simclic-multidocente-multiactor)`: **Hito 60: Soporte Integral para Múltiples Pacientes Simulados y Co-Docentes por Sesión de SimClic**:
+  - **Contexto y Problemática**:
+    - En evaluaciones complejas, simulaciones quirúrgicas y circuitos ECOE, una sola estación o bloque clínico puede contar con múltiples docentes (titular, evaluador, co-docente) o varios pacientes simulados (ej. paciente + familiar, o relevos de casos). Anteriormente, el sistema solo mapeaba el índice `[0]` de `standardizedPatients` y el `leadInstructor`, dejando invisibles a los docentes secundarios y actores adicionales para el cruce de asistencia en vivo del Kiosco y el panel de administración.
+  - **Persistencia en Neon PostgreSQL (`schema.ts` & `migrate_participantes_simclic.ts`)**:
+    - Nuevas columnas JSONB en `sesiones_programadas`: `docentes_json` y `pacientes_simulados_json`.
+    - Almacenamiento estructurado con `id` local de usuario (vía match exacto/difuso por correo institucional y nombres completos), `simclicUserId` / `simclicId`, `nombre`, `email` y `rol` ('principal', 'co_docente', 'evaluador', o personaje clínico del paciente simulado).
+  - **Motor de Ingesta & Sincronización WebSocket (`simclicSync.ts`)**:
+    - Función extractora `extraerTodosDocentes`: consolida `leadInstructor`, `instructors`, `evaluators`, `coInstructors` y `assistants`, deduplica identificadores y resuelve su usuario local en PostgreSQL.
+    - Función extractora `extraerTodosPacientesSimulados`: recorre el arreglo completo de `s.standardizedPatients`, extrayendo roles/personajes y resolviendo coincidencias contra usuarios de tipo `paciente_simulado`.
+    - Retrocompatibilidad asegurada: las columnas escalares (`docenteNombreSimclic`, `docenteId`, `pacienteSimuladoNombre`, etc.) mantienen al docente y actor primario.
+  - **Cruce de Asistencia en Tiempo Real (`/api/programacion/route.ts`)**:
+    - Evaluación de presencia individualizada por participante contra `asistenciasDia`.
+    - Métricas agregadas por sesión: `totalDocentesCount`, `docentesPresentesCount`, `totalPsCount`, `psPresentesCount`.
+    - Alertas reactivas: si la sesión tiene 2 docentes y solo llegó 1, alerta `👤 1/2 docentes en sala`; si ninguno marcó pasados 10 min, alerta `🚨 0/X docentes (Xm tarde)`.
+    - Métricas globales (`metricas.totalDocentes` y `metricas.totalPs`): contabilizan todos los colaboradores únicos del día, no solo los principales.
+  - **Kiosco Terminal y Concurrencia (`/api/kiosco/marcar/route.ts`)**:
+    - Reconocimiento de co-docencia y elencos múltiples de actores al registrar sala:
+      `Co-docencia múltiple: X docentes en sala (último: ...)` / `Elenco múltiple de Pacientes Simulados: X actores en sala`.
+  - **Experiencia de Usuario en Gantt y Modal de Detalle (`ProgramacionTab.tsx` & `ModalDetalleSesionSimclic.tsx`)**:
+    - **Línea de Tiempo (Gantt)**: Bloques con badge `+1 co-doc` cuando hay co-docencia, y `🎭 X PS` cuando hay más de un actor programado. Tooltip nativo completo que lista a cada participante con su rol y estado `[EN SALA]`.
+    - **Ficha 360° de Sesión (`ModalDetalleSesionSimclic.tsx`)**:
+      - Tarjetas expandidas: "Docentes e Instructores (X)" y "Pacientes Simulados / Actores (X)".
+      - Lista individual con chip de rol (`⭐ Principal`, `👥 Co-docente`, `🎭 Personaje`), estado de presencia (`✓ En Sala` con hora y sala física vs `⏳ Pendiente`) y accesos directos para contacto por WhatsApp o correo.
+  - **Verificación Técnica**:
+    - Migración ejecutada exitosamente en Neon PostgreSQL.
+    - Sincronización en vivo verificada contra Meteor SimClic (185 sesiones procesadas y enriquecidas con JSON de participantes).
+    - Tipado y compilación estricta con TypeScript `npx tsc --noEmit` (**0 errores**).
 
 ---
 

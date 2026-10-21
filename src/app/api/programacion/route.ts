@@ -90,6 +90,7 @@ export async function GET(request: NextRequest) {
         docenteId: sesionesProgramadas.docenteId,
         docenteNombreSimclic: sesionesProgramadas.docenteNombreSimclic,
         docenteCorreoSimclic: sesionesProgramadas.docenteCorreoSimclic,
+        docentesJson: sesionesProgramadas.docentesJson,
         carreraId: sesionesProgramadas.carreraId,
         carrera: sesionesProgramadas.carrera,
         carreraCodigo: sesionesProgramadas.carreraCodigo,
@@ -99,6 +100,7 @@ export async function GET(request: NextRequest) {
         prefijo: sesionesProgramadas.prefijo,
         pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
         pacienteSimuladoCorreo: sesionesProgramadas.pacienteSimuladoCorreo,
+        pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
         estadoSimclic: sesionesProgramadas.estadoSimclic,
         estadoUcs: sesionesProgramadas.estadoUcs,
         ambienteOriginalNombre: sesionesProgramadas.ambienteOriginalNombre,
@@ -145,7 +147,7 @@ export async function GET(request: NextRequest) {
       .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
       .where(and(...condicionesAsistencias, sql`${asistencias.estado} != 'anulado'`));
 
-    // 5. Enriquecer sesiones con estado en vivo del Kiosco
+    // 5. Enriquecer sesiones con estado en vivo del Kiosco (incluyendo múltiples docentes y pacientes simulados)
     const nowMinutes = nowPeru.getHours() * 60 + nowPeru.getMinutes();
     const esHoy = fecha === hoyLima;
 
@@ -162,29 +164,83 @@ export async function GET(request: NextRequest) {
         duracionMinutos = endMins - startMins;
       } catch {}
 
-      // Buscar si el docente o el PS de esta sesión marcaron asistencia hoy
-      const asistenciaDocente = asistenciasDia.find((a) => {
-        if (a.tipoPersonal !== 'docente') return false;
-        if (ses.docenteId && a.usuarioId === ses.docenteId) return true;
-        if (ses.docenteNombreSimclic) {
-          const nomSim = ses.docenteNombreSimclic.toLowerCase();
-          const matchA = a.apellidos && nomSim.includes(a.apellidos.toLowerCase());
-          const matchN = a.nombres && nomSim.includes(a.nombres.toLowerCase());
-          return Boolean(matchA && matchN);
-        }
-        return false;
+      // Reconstruir lista de docentes (Lead + Co-docentes)
+      const rawDocentes = (ses.docentesJson && Array.isArray(ses.docentesJson) && ses.docentesJson.length > 0)
+        ? ses.docentesJson
+        : ses.docenteNombreSimclic
+        ? [{
+            id: ses.docenteId,
+            nombre: ses.docenteNombreSimclic,
+            email: ses.docenteCorreoSimclic,
+            rol: 'principal',
+          }]
+        : [];
+
+      // Evaluar presencia individual para cada docente
+      const docentesEnriquecidos = rawDocentes.map((doc) => {
+        const asist = asistenciasDia.find((a) => {
+          if (a.tipoPersonal !== 'docente') return false;
+          if (doc.id && a.usuarioId === doc.id) return true;
+          if (doc.nombre) {
+            const nomSim = doc.nombre.toLowerCase();
+            const matchA = a.apellidos && nomSim.includes(a.apellidos.toLowerCase());
+            const matchN = a.nombres && nomSim.includes(a.nombres.toLowerCase());
+            return Boolean(matchA && matchN);
+          }
+          return false;
+        });
+
+        return {
+          ...doc,
+          presente: Boolean(asist),
+          asistenciaId: asist?.id || null,
+          horaIngreso: asist?.horaIngreso || null,
+          ambienteNombre: asist?.ambienteNombre || null,
+        };
       });
 
-      const asistenciaPs = asistenciasDia.find((a) => {
-        if (a.tipoPersonal !== 'paciente_simulado') return false;
-        if (ses.pacienteSimuladoNombre) {
-          const nomSim = ses.pacienteSimuladoNombre.toLowerCase();
-          const matchA = a.apellidos && nomSim.includes(a.apellidos.toLowerCase());
-          const matchN = a.nombres && nomSim.includes(a.nombres.toLowerCase());
-          return Boolean(matchA && matchN);
-        }
-        return false;
+      // Reconstruir lista de pacientes simulados (Actores)
+      const rawPs = (ses.pacientesSimuladosJson && Array.isArray(ses.pacientesSimuladosJson) && ses.pacientesSimuladosJson.length > 0)
+        ? ses.pacientesSimuladosJson
+        : ses.pacienteSimuladoNombre
+        ? [{
+            nombre: ses.pacienteSimuladoNombre,
+            email: ses.pacienteSimuladoCorreo,
+            rol: 'Paciente Simulado',
+          }]
+        : [];
+
+      // Evaluar presencia individual para cada paciente simulado
+      const psEnriquecidos = rawPs.map((p) => {
+        const asist = asistenciasDia.find((a) => {
+          if (a.tipoPersonal !== 'paciente_simulado') return false;
+          if (p.id && a.usuarioId === p.id) return true;
+          if (p.nombre) {
+            const nomSim = p.nombre.toLowerCase();
+            const matchA = a.apellidos && nomSim.includes(a.apellidos.toLowerCase());
+            const matchN = a.nombres && nomSim.includes(a.nombres.toLowerCase());
+            return Boolean(matchA && matchN);
+          }
+          return false;
+        });
+
+        return {
+          ...p,
+          presente: Boolean(asist),
+          asistenciaId: asist?.id || null,
+          horaIngreso: asist?.horaIngreso || null,
+          ambienteNombre: asist?.ambienteNombre || null,
+        };
       });
+
+      const totalDocentesCount = docentesEnriquecidos.length;
+      const docentesPresentesCount = docentesEnriquecidos.filter((d) => d.presente).length;
+      const totalPsCount = psEnriquecidos.length;
+      const psPresentesCount = psEnriquecidos.filter((p) => p.presente).length;
+
+      const algunDocentePresente = docentesPresentesCount > 0;
+      const algunPsPresente = psPresentesCount > 0;
+      const primerDocentePresente = docentesEnriquecidos.find((d) => d.presente);
 
       // Detección de sesión cancelada o eliminada
       const esCancelada = ses.estadoUcs === 'cancelada' || ses.estadoSimclic === 'Cancelled';
@@ -199,20 +255,25 @@ export async function GET(request: NextRequest) {
           estadoEnVivo = 'finalizada';
         } else if (nowMinutes >= startMins && nowMinutes < endMins) {
           // Sesión actualmente en curso
-          if (asistenciaDocente?.estado === 'en_curso') {
+          if (algunDocentePresente) {
             estadoEnVivo = 'en_sala';
+            if (totalDocentesCount > 1 && docentesPresentesCount < totalDocentesCount) {
+              alertaTexto = `👤 ${docentesPresentesCount}/${totalDocentesCount} docentes en sala`;
+            }
           } else {
-            // Ya pasaron más de 10 min de inicio y no marcó
+            // Ya pasaron más de 10 min de inicio y ningún docente marcó
             if (nowMinutes - startMins > 10) {
               estadoEnVivo = 'sin_marcar';
-              alertaTexto = `🚨 ${nowMinutes - startMins}m tarde sin marcación`;
+              alertaTexto = totalDocentesCount > 1
+                ? `🚨 0/${totalDocentesCount} docentes (${nowMinutes - startMins}m tarde)`
+                : `🚨 ${nowMinutes - startMins}m tarde sin marcación`;
             } else {
               estadoEnVivo = 'en_sala';
             }
           }
         } else if (startMins - nowMinutes <= 20 && startMins - nowMinutes > 0) {
           // Faltan 20 minutos o menos
-          if (asistenciaDocente) {
+          if (algunDocentePresente) {
             estadoEnVivo = 'en_sala';
           } else {
             estadoEnVivo = 'por_llegar';
@@ -252,11 +313,17 @@ export async function GET(request: NextRequest) {
         duracionMinutos,
         estadoEnVivo,
         alertaTexto,
-        docentePresente: Boolean(asistenciaDocente),
-        psPresente: Boolean(asistenciaPs),
-        asistenciaDocenteId: asistenciaDocente?.id || null,
-        asistenciaDocenteHora: asistenciaDocente?.horaIngreso || null,
-        asistenciaDocenteAmbiente: asistenciaDocente?.ambienteNombre || null,
+        docentePresente: algunDocentePresente,
+        psPresente: algunPsPresente,
+        asistenciaDocenteId: primerDocentePresente?.asistenciaId || null,
+        asistenciaDocenteHora: primerDocentePresente?.horaIngreso || null,
+        asistenciaDocenteAmbiente: primerDocentePresente?.ambienteNombre || null,
+        docentes: docentesEnriquecidos,
+        pacientesSimulados: psEnriquecidos,
+        totalDocentesCount,
+        docentesPresentesCount,
+        totalPsCount,
+        psPresentesCount,
       };
     });
 
@@ -266,13 +333,22 @@ export async function GET(request: NextRequest) {
     const psSet = new Set<string>();
 
     for (const s of sesionesEnriquecidas) {
-      if (s.docenteNombreSimclic) {
+      if (s.docentes && s.docentes.length > 0) {
+        for (const d of s.docentes) {
+          docentesSet.set(d.nombre, {
+            id: d.id || null,
+            nombre: d.nombre,
+            correo: d.email || null,
+          });
+        }
+      } else if (s.docenteNombreSimclic) {
         docentesSet.set(s.docenteNombreSimclic, {
           id: s.docenteId,
           nombre: s.docenteNombreSimclic,
           correo: s.docenteCorreoSimclic,
         });
       }
+
       if (s.cursoNombreSimclic) {
         cursosSet.set(s.cursoNombreSimclic, {
           id: s.cursoId,
@@ -281,7 +357,12 @@ export async function GET(request: NextRequest) {
           carrera: s.carrera,
         });
       }
-      if (s.pacienteSimuladoNombre) {
+
+      if (s.pacientesSimulados && s.pacientesSimulados.length > 0) {
+        for (const p of s.pacientesSimulados) {
+          psSet.add(p.nombre);
+        }
+      } else if (s.pacienteSimuladoNombre) {
         psSet.add(s.pacienteSimuladoNombre);
       }
     }

@@ -59,6 +59,22 @@ export function isSesionVirtual(ses: {
 }
 
 /**
+ * Determina si una sesión está activa y requiere preparación física de ambiente.
+ * Excluye sesiones virtuales y sesiones canceladas / eliminadas en SimClic.
+ */
+export function isSesionActiva(ses: {
+  estadoUcs?: string | null;
+  estadoSimclic?: string | null;
+  ambienteNombreSimclic?: string | null;
+  ambienteCodigoSimclic?: string | null;
+  titulo?: string | null;
+  cursoNombreSimclic?: string | null;
+}): boolean {
+  if (ses.estadoUcs === 'cancelada' || ses.estadoSimclic === 'Cancelled') return false;
+  return !isSesionVirtual(ses);
+}
+
+/**
  * Clasificación y ordenamiento idéntico al SimClic por pisos (Primer Piso / Segundo Piso / etc.)
  */
 export function clasificarPisoYOrden(amb: { nombre: string; codigo?: string | null }): {
@@ -170,9 +186,9 @@ export function analizarLogisticaIntraDia(
   nowMinutes: number = 0,
   esHoy: boolean = true
 ): ResumenLogisticaIntraDia {
-  // Excluir ambientes y clases virtuales de la logística física
+  // Excluir ambientes y clases virtuales o canceladas de la logística física
   ambientes = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
-  sesiones = sesiones.filter((s) => !isSesionVirtual(s));
+  sesiones = sesiones.filter((s) => isSesionActiva(s));
 
   // Mapear sesiones por ambiente
   const mapSesiones = new Map<number, SesionProgramadaTimelineItem[]>();
@@ -431,10 +447,10 @@ export function analizarContinuidadInterDias(
   fechaOrigen: string,
   fechaDestino: string
 ): ResumenContinuidadInterDias {
-  // Excluir ambientes y clases virtuales de la continuidad física
+  // Excluir ambientes y clases virtuales o canceladas de la continuidad física
   ambientes = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
-  sesionesHoy = sesionesHoy.filter((s) => !isSesionVirtual(s));
-  sesionesManana = sesionesManana.filter((s) => !isSesionVirtual(s));
+  sesionesHoy = sesionesHoy.filter((s) => isSesionActiva(s));
+  sesionesManana = sesionesManana.filter((s) => isSesionActiva(s));
 
   const mapHoy = new Map<number, SesionProgramadaTimelineItem[]>();
   for (const s of sesionesHoy) {
@@ -1184,10 +1200,10 @@ export function autoReorganizarSalasOptimas(
   fechaOrigen: string,
   fechaDestino: string
 ): ResultadoAutoReorganizacion {
-  // Excluir ambientes y clases virtuales de la optimización física
+  // Excluir ambientes y clases virtuales o canceladas de la optimización física
   ambientes = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
-  sesionesHoy = sesionesHoy.filter((s) => !isSesionVirtual(s));
-  sesionesMananaOriginales = sesionesMananaOriginales.filter((s) => !isSesionVirtual(s));
+  sesionesHoy = sesionesHoy.filter((s) => isSesionActiva(s));
+  sesionesMananaOriginales = sesionesMananaOriginales.filter((s) => isSesionActiva(s));
 
   // 1. Diagnóstico base sin reubicaciones
   const resumenBase = analizarContinuidadInterDias(

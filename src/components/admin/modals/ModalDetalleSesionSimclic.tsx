@@ -93,19 +93,35 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
             </span>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    background: 'rgba(0, 230, 153, 0.15)',
-                    border: '1px solid rgba(0, 230, 153, 0.4)',
-                    color: '#00e699',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '6px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                  }}
-                >
-                  ✓ Reservada
-                </span>
+                {sesion.estadoUcs === 'cancelada' || (sesion as any).estadoSimclic === 'Cancelled' ? (
+                  <span
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.25)',
+                      border: '1px solid rgba(239, 68, 68, 0.6)',
+                      color: '#f87171',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                    }}
+                  >
+                    🚫 Cancelada en SimClic
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      background: 'rgba(0, 230, 153, 0.15)',
+                      border: '1px solid rgba(0, 230, 153, 0.4)',
+                      color: '#00e699',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    ✓ Reservada
+                  </span>
+                )}
                 {sesion.prefijo && (
                   <span
                     style={{
@@ -144,10 +160,32 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
                   fontWeight: 800,
                   color: '#ffffff',
                   lineHeight: 1.35,
+                  textDecoration: (sesion.estadoUcs === 'cancelada' || (sesion as any).estadoSimclic === 'Cancelled') ? 'line-through' : 'none',
+                  opacity: (sesion.estadoUcs === 'cancelada' || (sesion as any).estadoSimclic === 'Cancelled') ? 0.85 : 1,
                 }}
               >
                 {sesion.titulo}
               </h2>
+              {(sesion.estadoUcs === 'cancelada' || (sesion as any).estadoSimclic === 'Cancelled') && (
+                <div
+                  style={{
+                    marginTop: '0.65rem',
+                    padding: '0.55rem 0.85rem',
+                    background: 'rgba(239, 68, 68, 0.18)',
+                    border: '1px solid rgba(239, 68, 68, 0.45)',
+                    borderRadius: '8px',
+                    color: '#fca5a5',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <span style={{ fontSize: '1rem' }}>⚠️</span>
+                  <span>Esta sesión fue cancelada o eliminada del cronograma oficial de SimClic. La sala asignada se encuentra libre y no genera ausentismos.</span>
+                </div>
+              )}
             </div>
           </div>
 

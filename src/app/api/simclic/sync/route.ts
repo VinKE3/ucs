@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       .orderBy(sesionesProgramadas.horaInicio);
 
     const reubicadas = sesiones.filter((s) => s.estadoUcs === 'reubicada');
+    const canceladas = sesiones.filter((s) => s.estadoUcs === 'cancelada' || s.estadoSimclic === 'Cancelled');
     const ultimaSinc = sesiones[0]?.ultimaSincronizacion || null;
 
     return NextResponse.json({
@@ -29,6 +30,8 @@ export async function GET(request: Request) {
       total: sesiones.length,
       reubicadasCount: reubicadas.length,
       reubicadas,
+      canceladasCount: canceladas.length,
+      canceladas,
       ultimaSincronizacion: ultimaSinc,
       sesiones,
     });

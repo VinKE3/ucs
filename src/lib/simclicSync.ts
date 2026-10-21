@@ -16,6 +16,7 @@ export interface SyncResult {
   creadas: number;
   actualizadas: number;
   reubicadas: number;
+  canceladas: number;
   fecha: string;
   duracionMs: number;
   error?: string;
@@ -24,6 +25,13 @@ export interface SyncResult {
     titulo: string;
     salaAnterior: string;
     salaNueva: string;
+  }>;
+  detallesCanceladas?: Array<{
+    simclicId: string;
+    titulo: string;
+    sala: string;
+    docente: string;
+    motivo: 'eliminada_en_simclic' | 'marcada_cancelada';
   }>;
 }
 
@@ -36,6 +44,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
   const startTime = Date.now();
   const user = process.env.SIMCLIC_USER;
   const password = process.env.SIMCLIC_PASSWORD;
+  const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
 
   if (!user || !password) {
     return {
@@ -44,7 +53,8 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
       creadas: 0,
       actualizadas: 0,
       reubicadas: 0,
-      fecha: targetDate.toISOString().slice(0, 10),
+      canceladas: 0,
+      fecha: targetDateStr,
       duracionMs: 0,
       error: 'Credenciales SIMCLIC_USER o SIMCLIC_PASSWORD no configuradas en .env.local',
     };
@@ -175,15 +185,20 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
 
     const collected: any[] = [];
     let isDone = false;
+    let isSubReady = false;
 
-    // Timeout de seguridad de 12 segundos
+    // Timeout de seguridad de 14 segundos
     const timer = setTimeout(() => {
       if (!isDone) {
         isDone = true;
         try { ws.close(); } catch {}
-        resolve(collected);
+        if (!isSubReady) {
+          reject(new Error('Timeout esperando respuesta de SimClic (suscripción no completada)'));
+        } else {
+          resolve(collected);
+        }
       }
-    }, 12000);
+    }, 14000);
 
     // @ts-ignore
     const ws = new (globalThis.WebSocket as any)(wsUrl, {
@@ -256,6 +271,7 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
           }
 
           if (data.msg === 'ready' && data.subs?.includes('sub-sessions-sync')) {
+            isSubReady = true;
             clearTimeout(timer);
             if (!isDone) {
               isDone = true;
@@ -294,16 +310,22 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
   let creadas = 0;
   let actualizadas = 0;
   let reubicadas = 0;
+  let canceladas = 0;
   const detallesReubicadas: SyncResult['detallesReubicadas'] = [];
+  const detallesCanceladas: NonNullable<SyncResult['detallesCanceladas']> = [];
 
   // Pre-cargar todas las sesiones existentes en memoria para evitar cientos de roundtrips HTTP
   const existingRows = await db.select().from(sesionesProgramadas);
   const existingMap = new Map(existingRows.map((r) => [r.simclicId, r]));
 
+  // Conjunto de IDs recibidos en el payload actual de SimClic para detección de eliminaciones
+  const rawSimclicIds = new Set<string>();
+
   for (const s of rawSessions) {
     const simclicId = String(s.id || s._id);
     const simclicMongoId = String(s._id || '');
     const titulo = s.name || 'Sin título';
+    rawSimclicIds.add(simclicId);
 
     // Formatear fechas de Meteor ($date: ms) en zona horaria local de Perú
     const startD = parseMeteorDate(s.startDate, targetDate);
@@ -353,65 +375,33 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     const pacienteSimuladoNombre = ps ? [ps.firstName, ps.lastName].filter(Boolean).join(' ') : null;
     const pacienteSimuladoCorreo = ps?.username || null;
 
-    const estadoSimclic = s.status || 'Booked';
+    // Detección de estado de cancelación en el payload de SimClic
+    const isCancelledInPayload = Boolean(
+      s.status && (
+        s.status.toLowerCase().includes('cancel') ||
+        s.status.toLowerCase().includes('elimin') ||
+        s.status.toLowerCase().includes('borrad')
+      )
+    );
+
+    const estadoSimclic = isCancelledInPayload ? 'Cancelled' : (s.status || 'Booked');
 
     const existente = existingMap.get(simclicId);
 
     if (existente) {
-      // Detección de traslados/cambios de sala hechos por los técnicos en SimClic
-      const cambioSala =
-        (ambienteNombreSimclic &&
-          existente.ambienteNombreSimclic &&
-          ambienteNombreSimclic !== existente.ambienteNombreSimclic) ||
-        (ambienteCodigoSimclic &&
-          existente.ambienteCodigoSimclic &&
-          ambienteCodigoSimclic.trim().toLowerCase() !== existente.ambienteCodigoSimclic.trim().toLowerCase());
-
-      if (cambioSala) {
-        reubicadas++;
-        detallesReubicadas.push({
-          simclicId,
-          titulo,
-          salaAnterior: existente.ambienteNombreSimclic || 'Sin sala previa',
-          salaNueva: ambienteNombreSimclic,
-        });
-
-        await db
-          .update(sesionesProgramadas)
-          .set({
+      if (isCancelledInPayload) {
+        // La sesión vino explícitamente marcada como cancelada en SimClic
+        if (existente.estadoUcs !== 'cancelada') {
+          canceladas++;
+          detallesCanceladas.push({
+            simclicId,
             titulo,
-            fecha,
-            horaInicio,
-            horaFin,
-            sedeId: sedeObj?.id || existente.sedeId,
-            sedeNombreSimclic,
-            ambienteId: ambienteObj?.id || null,
-            ambienteNombreSimclic,
-            ambienteCodigoSimclic,
-            ambienteOriginalNombre: existente.ambienteNombreSimclic, // Guardar sala previa
-            cursoId: cursoObj?.id || existente.cursoId,
-            cursoNombreSimclic,
-            cursoCodigoSimclic,
-            docenteId: docenteObj?.id || existente.docenteId,
-            docenteNombreSimclic,
-            docenteCorreoSimclic,
-            carreraId: carreraObj?.id || existente.carreraId,
-            carrera,
-            carreraCodigo,
-            carreraColor,
-            escenarioCodigo,
-            escenarioNombre,
-            prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
-            pacienteSimuladoNombre,
-            pacienteSimuladoCorreo,
-            estadoSimclic,
-            estadoUcs: 'reubicada',
-            ultimaSincronizacion: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(sesionesProgramadas.id, existente.id));
-      } else {
-        actualizadas++;
+            sala: ambienteNombreSimclic,
+            docente: docenteNombreSimclic || 'Sin docente',
+            motivo: 'marcada_cancelada',
+          });
+        }
+
         await db
           .update(sesionesProgramadas)
           .set({
@@ -439,14 +429,86 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
             prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
             pacienteSimuladoNombre,
             pacienteSimuladoCorreo,
+            estadoSimclic: 'Cancelled',
+            estadoUcs: 'cancelada',
+            ultimaSincronizacion: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(sesionesProgramadas.id, existente.id));
+      } else {
+        // La sesión está activa en SimClic. Detección de cambios de sala:
+        const cambioSala =
+          (ambienteNombreSimclic &&
+            existente.ambienteNombreSimclic &&
+            ambienteNombreSimclic !== existente.ambienteNombreSimclic) ||
+          (ambienteCodigoSimclic &&
+            existente.ambienteCodigoSimclic &&
+            ambienteCodigoSimclic.trim().toLowerCase() !== existente.ambienteCodigoSimclic.trim().toLowerCase());
+
+        const nuevoEstadoUcs = cambioSala ? 'reubicada' : 'programada';
+
+        if (cambioSala) {
+          reubicadas++;
+          detallesReubicadas.push({
+            simclicId,
+            titulo,
+            salaAnterior: existente.ambienteNombreSimclic || 'Sin sala previa',
+            salaNueva: ambienteNombreSimclic,
+          });
+        } else {
+          actualizadas++;
+        }
+
+        await db
+          .update(sesionesProgramadas)
+          .set({
+            titulo,
+            fecha,
+            horaInicio,
+            horaFin,
+            sedeId: sedeObj?.id || existente.sedeId,
+            sedeNombreSimclic,
+            ambienteId: ambienteObj?.id || (cambioSala ? null : existente.ambienteId),
+            ambienteNombreSimclic,
+            ambienteCodigoSimclic,
+            ambienteOriginalNombre: cambioSala ? existente.ambienteNombreSimclic : existente.ambienteOriginalNombre,
+            cursoId: cursoObj?.id || existente.cursoId,
+            cursoNombreSimclic,
+            cursoCodigoSimclic,
+            docenteId: docenteObj?.id || existente.docenteId,
+            docenteNombreSimclic,
+            docenteCorreoSimclic,
+            carreraId: carreraObj?.id || existente.carreraId,
+            carrera,
+            carreraCodigo,
+            carreraColor,
+            escenarioCodigo,
+            escenarioNombre,
+            prefijo: prefijo || cursoObj?.prefijo || existente.prefijo,
+            pacienteSimuladoNombre,
+            pacienteSimuladoCorreo,
             estadoSimclic,
+            estadoUcs: nuevoEstadoUcs,
             ultimaSincronizacion: new Date(),
             updatedAt: new Date(),
           })
           .where(eq(sesionesProgramadas.id, existente.id));
       }
     } else {
-      creadas++;
+      // Sesión nueva
+      if (isCancelledInPayload) {
+        canceladas++;
+        detallesCanceladas.push({
+          simclicId,
+          titulo,
+          sala: ambienteNombreSimclic,
+          docente: docenteNombreSimclic || 'Sin docente',
+          motivo: 'marcada_cancelada',
+        });
+      } else {
+        creadas++;
+      }
+
       await db.insert(sesionesProgramadas).values({
         simclicId,
         simclicMongoId,
@@ -475,9 +537,36 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
         pacienteSimuladoNombre,
         pacienteSimuladoCorreo,
         estadoSimclic,
-        estadoUcs: 'programada',
+        estadoUcs: isCancelledInPayload ? 'cancelada' : 'programada',
         ultimaSincronizacion: new Date(),
       });
+    }
+  }
+
+  // 4. DETECCIÓN DE SESIONES FANTASMA (Eliminadas o Desprogramadas en SimClic)
+  // Sesiones que existían en BD para esta fecha pero que ya NO figuran en el payload de SimClic
+  const existingForDate = existingRows.filter((r) => r.fecha === targetDateStr);
+  for (const ghost of existingForDate) {
+    if (!rawSimclicIds.has(ghost.simclicId)) {
+      if (ghost.estadoUcs !== 'cancelada') {
+        canceladas++;
+        detallesCanceladas.push({
+          simclicId: ghost.simclicId,
+          titulo: ghost.titulo,
+          sala: ghost.ambienteNombreSimclic || 'Sin sala',
+          docente: ghost.docenteNombreSimclic || 'Sin docente',
+          motivo: 'eliminada_en_simclic',
+        });
+
+        await db
+          .update(sesionesProgramadas)
+          .set({
+            estadoSimclic: 'Cancelled',
+            estadoUcs: 'cancelada',
+            updatedAt: new Date(),
+          })
+          .where(eq(sesionesProgramadas.id, ghost.id));
+      }
     }
   }
 
@@ -489,8 +578,10 @@ export async function syncSimclicSessions(targetDate: Date = new Date()): Promis
     creadas,
     actualizadas,
     reubicadas,
-    fecha: targetDate.toLocaleDateString('en-CA', { timeZone: 'America/Lima' }),
+    canceladas,
+    fecha: targetDateStr,
     duracionMs,
     detallesReubicadas,
+    detallesCanceladas,
   };
 }

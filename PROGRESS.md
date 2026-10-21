@@ -937,6 +937,28 @@ src/
   - **Verificación Técnica**:
     - Migración ejecutada exitosamente en Neon PostgreSQL.
     - Verificación de tipos TypeScript estricto con `npx tsc --noEmit` (0 errores).
+* `feat(simclic-gestion-cancelaciones)`: **Hito 59: Detección y Gestión de Clases Canceladas / Sesiones Fantasma de SimClic**:
+  - **Contexto y Problemática**:
+    - Cuando una sesión se cancela o elimina en SimClic, desaparece de la colección de Meteor (`sessions`) o viene con estatus cancelado/borrado. Anteriormente en UCS Registro, las sesiones ya sincronizadas quedaban como "sesiones fantasma" activas (`estadoUcs = 'programada'`), bloqueando salas físicas en el Gantt, alterando métricas de ocupación e induciendo falsas alertas de tardanza a docentes.
+  - **Sincronización Inteligente & Reconciliación (`simclicSync.ts`)**:
+    - Extensión de `SyncResult` con métricas `canceladas` y `detallesCanceladas` (indicando motivo `eliminada_en_simclic` o `marcada_cancelada`).
+    - Detección reactiva de supresiones: al sincronizar una fecha (`targetDateStr`), el motor compara todos los `simclicId` activos del WebSocket contra los registros existentes en PostgreSQL (`sesiones_programadas`). Las sesiones ausentes en SimClic son marcadas de inmediato con `estadoSimclic: 'Cancelled'`, `estadoUcs: 'cancelada'`.
+    - Detección de estados explícitos en el payload de Meteor (`status` cancelado/eliminado/borrado).
+    - Reactivación automática si una clase cancelada vuelve a habilitarse o reactivarse en SimClic.
+    - Robustecimiento del WebSocket con control estricto `isSubReady` para prevenir deserializaciones truncadas por timeouts prematuros.
+  - **Filtros en el Core de Logística y Métricas (`logisticaSimulacion.ts` & `/api/programacion`)**:
+    - Helper universal `isSesionActiva(ses)` que descarta automáticamente tanto sesiones virtuales como canceladas de los cálculos de transición intra-día, continuidad inter-días y swaps de salas.
+    - Las salas asignadas a sesiones canceladas se liberan de inmediato en la línea de tiempo operativa (`salasOcupadasAhoraSet` no las cuenta).
+    - Descarte automático de falsas alarmas de ausentismo o tardanzas de docentes para sesiones canceladas.
+  - **Experiencia de Usuario en el Timeline Gantt (`ProgramacionTab.tsx` & `ModalDetalleSesionSimclic.tsx`)**:
+    - Por defecto, las clases canceladas se ocultan del Gantt para que la sala figure libre y disponible para otros usos.
+    - Nuevo KPI interactivo en la barra de métricas: `🚫 Canceladas SimClic (X)` que permite filtrar y auditar las cancelaciones del día.
+    - Nuevo botón de filtro `🚫 Canceladas SimClic (X)` en la barra de controles.
+    - Renderizado visual diferenciado al activar el filtro de canceladas: borde discontinuo rojo (`2px dashed #f87171`), fondo translúcido, badge de peligro `🚫 CANCELADA` y título tachado.
+    - En el modal de detalle (`ModalDetalleSesionSimclic.tsx`): banner informativo de alerta indicando que la clase fue dada de baja en SimClic y que el ambiente se encuentra libre.
+    - Notificación toast en la sincronización manual reportando si se detectaron clases canceladas.
+  - **Verificación Técnica**:
+    - Compilación estricta con TypeScript `npx tsc --noEmit` completada con 0 errores.
 
 ---
 

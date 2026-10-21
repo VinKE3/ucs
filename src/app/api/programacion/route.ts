@@ -186,11 +186,15 @@ export async function GET(request: NextRequest) {
         return false;
       });
 
-      // Estado operativo en vivo
-      let estadoEnVivo: 'en_sala' | 'por_llegar' | 'sin_marcar' | 'finalizada' | 'programada' = 'programada';
-      let alertaTexto = '';
+      // Detección de sesión cancelada o eliminada
+      const esCancelada = ses.estadoUcs === 'cancelada' || ses.estadoSimclic === 'Cancelled';
 
-      if (esHoy) {
+      // Estado operativo en vivo
+      let estadoEnVivo: 'en_sala' | 'por_llegar' | 'sin_marcar' | 'finalizada' | 'programada' | 'cancelada' =
+        esCancelada ? 'cancelada' : 'programada';
+      let alertaTexto = esCancelada ? '🚫 Cancelada en SimClic' : '';
+
+      if (esHoy && !esCancelada) {
         if (nowMinutes >= endMins) {
           estadoEnVivo = 'finalizada';
         } else if (nowMinutes >= startMins && nowMinutes < endMins) {
@@ -282,11 +286,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 7. Calcular métricas operativas
+    // 7. Calcular métricas operativas (excluyendo canceladas de ocupación física y ausentismos)
     const salasOcupadasAhoraSet = new Set<number>();
     if (esHoy) {
       for (const s of sesionesEnriquecidas) {
-        if (nowMinutes >= s.startMins && nowMinutes < s.endMins && s.ambienteId) {
+        const isCancel = s.estadoUcs === 'cancelada' || s.estadoSimclic === 'Cancelled';
+        if (!isCancel && nowMinutes >= s.startMins && nowMinutes < s.endMins && s.ambienteId) {
           salasOcupadasAhoraSet.add(s.ambienteId);
         }
       }
@@ -295,14 +300,18 @@ export async function GET(request: NextRequest) {
     const salasLibresAhora = ambientesList.filter((amb) => !salasOcupadasAhoraSet.has(amb.id));
 
     const ausentismosAlerta = sesionesEnriquecidas.filter(
-      (s) => s.estadoEnVivo === 'sin_marcar'
+      (s) => s.estadoEnVivo === 'sin_marcar' && s.estadoUcs !== 'cancelada' && s.estadoSimclic !== 'Cancelled'
     );
 
     const reubicadasAlerta = sesionesEnriquecidas.filter(
-      (s) => s.estadoUcs === 'reubicada' || Boolean(s.ambienteOriginalNombre)
+      (s) => (s.estadoUcs === 'reubicada' || Boolean(s.ambienteOriginalNombre)) && s.estadoUcs !== 'cancelada'
     );
 
-    const sinSalaAlerta = sesionesEnriquecidas.filter((s) => !s.ambienteId);
+    const canceladasAlerta = sesionesEnriquecidas.filter(
+      (s) => s.estadoUcs === 'cancelada' || s.estadoSimclic === 'Cancelled'
+    );
+
+    const sinSalaAlerta = sesionesEnriquecidas.filter((s) => !s.ambienteId && s.estadoUcs !== 'cancelada');
 
     const ultimaSinc = sesionesRaw.find((s) => s.ultimaSincronizacion)?.ultimaSincronizacion || null;
 
@@ -330,6 +339,7 @@ export async function GET(request: NextRequest) {
         ausentismosCount: ausentismosAlerta.length,
         reubicadasCount: reubicadasAlerta.length,
         sinSalaCount: sinSalaAlerta.length,
+        canceladasCount: canceladasAlerta.length,
         ultimaSincronizacion: ultimaSinc ? new Date(ultimaSinc).toISOString() : null,
       },
     });

@@ -249,7 +249,7 @@ export interface SesionProgramadaTimelineItem extends SesionProgramadaSimclicIte
   startMins: number;
   endMins: number;
   duracionMinutos: number;
-  estadoEnVivo: 'en_sala' | 'por_llegar' | 'sin_marcar' | 'finalizada' | 'programada';
+  estadoEnVivo: 'en_sala' | 'por_llegar' | 'sin_marcar' | 'finalizada' | 'programada' | 'cancelada';
   alertaTexto?: string;
   docentePresente?: boolean;
   psPresente?: boolean;
@@ -282,6 +282,7 @@ export interface ProgramacionMetricas {
   ausentismosCount: number;
   reubicadasCount?: number;
   sinSalaCount?: number;
+  canceladasCount?: number;
   ultimaSincronizacion?: string | null;
 }
 

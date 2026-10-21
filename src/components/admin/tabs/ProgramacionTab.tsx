@@ -185,7 +185,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [filtroDocente, setFiltroDocente] = useState<string>('todos');
   const [filtroCurso, setFiltroCurso] = useState<string>('todos');
   const [filtroPs, setFiltroPs] = useState<string>('todos');
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps'>('todos');
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps' | 'canceladas'>('todos');
   const [vistaModo, setVistaModo] = useState<'gantt' | 'libres' | 'logistica'>('gantt');
 
   // Filtro de visualización: Ocultar salas sin actividad hoy
@@ -291,7 +291,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     ];
 
     const rows = sesionesFiltradas.map((s) => {
-      const estadoKiosco = s.docentePresente
+      const estadoKiosco = s.estadoUcs === 'cancelada' || (s as any).estadoSimclic === 'Cancelled'
+        ? 'Cancelada en SimClic'
+        : s.docentePresente
         ? 'En Sala (Marco)'
         : s.estadoEnVivo === 'sin_marcar'
         ? 'Sin Marcacion'
@@ -449,6 +451,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           } else if (data.reubicadas > 0) {
             showToast(`🔄 SimClic: Se detectaron ${data.reubicadas} sesiones trasladadas de sala`, 'info');
           }
+          if (data.canceladas > 0) {
+            showToast(`⚠️ SimClic: Se detectaron ${data.canceladas} sesiones canceladas o eliminadas`, 'warning');
+          }
 
           // Recargar datos en segundo plano usando SIEMPRE la sede y fecha activas en los refs
           const currentSedeId = selectedSedeIdRef.current;
@@ -521,6 +526,14 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return sesiones.filter((ses) => {
       // Excluir clases y ambientes virtuales
       if (isSesionVirtual(ses)) return false;
+
+      // Filtro de Canceladas: Por defecto ocultar canceladas del Gantt para no bloquear salas visualmente
+      const esCancelada = ses.estadoUcs === 'cancelada' || (ses as any).estadoSimclic === 'Cancelled';
+      if (filtroEstado === 'canceladas') {
+        if (!esCancelada) return false;
+      } else {
+        if (esCancelada) return false;
+      }
 
       // 1. Filtro por Docente
       if (filtroDocente !== 'todos') {
@@ -929,6 +942,26 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               </div>
             )}
 
+            {Boolean(metricas.canceladasCount && metricas.canceladasCount > 0) && (
+              <div
+                onClick={() => setFiltroEstado('canceladas')}
+                className={styles.metricItem}
+                style={{
+                  borderLeft: '2px solid #ef4444',
+                  paddingLeft: '1rem',
+                  cursor: 'pointer',
+                  background: filtroEstado === 'canceladas' ? 'rgba(239, 68, 68, 0.12)' : 'transparent',
+                  borderRadius: '6px',
+                }}
+                title="Hacer clic para ver las sesiones canceladas o eliminadas de SimClic"
+              >
+                <span className={styles.metricVal} style={{ color: '#ef4444' }}>
+                  {metricas.canceladasCount}
+                </span>
+                <span className={styles.metricLbl}>🚫 Canceladas SimClic</span>
+              </div>
+            )}
+
             {rotacionesCount > 0 && (
               <div
                 onClick={() => setVistaModo('logistica')}
@@ -1172,6 +1205,21 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           >
             🎭 Con Paciente Simulado ({metricas?.totalPs || 0})
           </button>
+          {Boolean(metricas?.canceladasCount && metricas.canceladasCount > 0) && (
+            <button
+              type="button"
+              onClick={() => setFiltroEstado('canceladas')}
+              className={`${styles.simclicPillBtn} ${filtroEstado === 'canceladas' ? styles.simclicPillBtnActive : ''}`}
+              style={{
+                color: '#f87171',
+                borderColor: filtroEstado === 'canceladas' ? '#ef4444' : 'rgba(239, 68, 68, 0.35)',
+                background: filtroEstado === 'canceladas' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.08)',
+                fontWeight: 700,
+              }}
+            >
+              🚫 Canceladas SimClic ({metricas?.canceladasCount || 0})
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1527,19 +1575,24 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                 {sesionesDeSala.map((ses) => {
                                   const leftPercent = Math.max(0, Math.min(100, ((ses.startMins - 420) / 900) * 100));
                                   const widthPercent = Math.max(1.5, Math.min(100 - leftPercent, (ses.duracionMinutos / 900) * 100));
-                                  const colorBg = ses.carreraColor || '#ffa200';
+                                  const esCancelada = ses.estadoUcs === 'cancelada' || (ses as any).estadoSimclic === 'Cancelled';
+                                  const colorBg = esCancelada ? '#ef4444' : (ses.carreraColor || '#ffa200');
 
-                                  const esEnCurso = esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
+                                  const esEnCurso = !esCancelada && esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
                                   const esSinMarcar = esEnCurso && !ses.docentePresente;
                                   const esEnSala = esEnCurso && ses.docentePresente;
 
-                                  const borderStyle = esSinMarcar
+                                  const borderStyle = esCancelada
+                                    ? '2px dashed #f87171'
+                                    : esSinMarcar
                                     ? '2px solid #ef4444'
                                     : esEnSala
                                     ? '2px solid #10b981'
                                     : '1px solid rgba(255, 255, 255, 0.3)';
 
-                                  const boxShadowStyle = esSinMarcar
+                                  const boxShadowStyle = esCancelada
+                                    ? '0 0 0 1px rgba(239, 68, 68, 0.4)'
+                                    : esSinMarcar
                                     ? '0 0 0 2px rgba(239, 68, 68, 0.5), 0 4px 14px rgba(239, 68, 68, 0.55)'
                                     : esEnSala
                                     ? '0 0 0 2px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(16, 185, 129, 0.5)'
@@ -1555,7 +1608,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         width: `${widthPercent}%`,
                                         top: '6px',
                                         bottom: '6px',
-                                        background: esSinMarcar
+                                        background: esCancelada
+                                          ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(185, 28, 28, 0.45))'
+                                          : esSinMarcar
                                           ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.9))'
                                           : `linear-gradient(135deg, ${colorBg}e6, ${colorBg}cc)`,
                                         border: borderStyle,
@@ -1569,9 +1624,10 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         justifyContent: 'center',
                                         boxShadow: boxShadowStyle,
                                         transition: 'all 0.15s ease',
-                                        zIndex: esSinMarcar || esEnSala ? 18 : 10,
+                                        zIndex: esCancelada ? 5 : esSinMarcar || esEnSala ? 18 : 10,
+                                        opacity: esCancelada ? 0.75 : 1,
                                       }}
-                                      title={`[${ses.simclicId}] ${ses.titulo}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}\nPS: ${ses.pacienteSimuladoNombre || 'Sin PS'}`}
+                                      title={`[${ses.simclicId}] ${ses.titulo}${esCancelada ? ' (CANCELADA EN SIMCLIC)' : ''}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocente: ${ses.docenteNombreSimclic || 'Sin asignar'}\nPS: ${ses.pacienteSimuladoNombre || 'Sin PS'}`}
                                       onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'translateY(-2px)';
                                         e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
@@ -1585,6 +1641,22 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0, overflow: 'hidden' }}>
+                                          {esCancelada && (
+                                            <span
+                                              style={{
+                                                background: '#ef4444',
+                                                color: '#ffffff',
+                                                padding: '0.05rem 0.3rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.58rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap',
+                                                letterSpacing: '0.02em',
+                                              }}
+                                            >
+                                              🚫 CANCELADA
+                                            </span>
+                                          )}
                                           {esSinMarcar && (
                                             <span
                                               style={{
@@ -1616,7 +1688,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                               🟢 EN SALA
                                             </span>
                                           )}
-                                          <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: esCancelada ? 'line-through' : 'none' }}>
                                             #{ses.simclicId} {ses.prefijo ? `[${ses.prefijo}]` : ''} {ses.cursoNombreSimclic || ses.titulo}
                                           </span>
                                         </div>

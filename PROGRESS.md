@@ -1084,6 +1084,7 @@ src/
     - **Widget Flotante & Drawer (`src/components/admin/copilot/UcsCopilotDrawer.tsx`)**:
       - Botón flotante `✨ Copilot UCS` visible para administradores cuando el switch está activo (se oculta automáticamente si el super_admin lo apaga).
       - Drawer conversacional interactivo con chips de sugerencias rápidas, soporte de respuestas Markdown estructuradas (tablas, negritas, listas) y badge de herramientas en ejecución.
+      - **Renderizado Interactivo de Archivos .TXT & Exportación a WhatsApp en 1-Clic**: Detecta bloques de texto formateados y presenta una tarjeta estilizada con botones de acción directa: **"📋 Copiar para WhatsApp"**, **"⬇️ Descargar archivo .txt"** y **"📲 Abrir directamente en WhatsApp"**.
     - **Navegación & Seguridad Exclusiva**:
       - Tab `'gemini_ia'` añadido a `AdminTab` en `src/types/admin.ts`.
       - En `AdminDashboard.tsx` y `AdminNavbar.tsx` (versión escritorio y menú móvil Bottom Sheet), la pestaña solo se muestra y es accesible si `session.rolSistema === 'super_admin' || session.dni === '00000001'`.

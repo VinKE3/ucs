@@ -772,7 +772,8 @@ REGLAS DE RESPUESTA:
 - Responde SIEMPRE en español con tono profesional, amable y ejecutivo.
 - Emplea formato Markdown con viñetas claras, negritas y tablas cuando corresponda para una lectura visual ágil.
 - Si ejecutas una herramienta, menciona claramente el resultado obtenido de manera concisa.
-- NUNCA inventes programación ni asistencias: si la herramienta no devuelve datos, indícalo con franqueza.`,
+- NUNCA inventes programación ni asistencias: si la herramienta no devuelve datos, indícalo con franqueza.
+- Cuando el usuario pida "un txt", "para enviar por wsp", "formato wsp" o un reporte para copiar/compartir, coloca SIEMPRE el texto limpio dentro de un bloque de código \`\`\`text ... \`\`\` con emojis y formato limpio de WhatsApp. La aplicación web detectará ese bloque y le ofrecerá botones interactivos de 1-clic: "📋 Copiar para WhatsApp", "⬇️ Descargar .txt" y "📲 Abrir en WhatsApp".`,
       },
     ],
   };

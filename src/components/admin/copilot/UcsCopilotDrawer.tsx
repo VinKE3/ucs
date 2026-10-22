@@ -22,6 +22,416 @@ const SUGGESTIONS = [
   '🧾 ¿Cómo van las horas de los Pacientes Simulados este mes?',
 ];
 
+const CodeBlockCard: React.FC<{
+  code: string;
+  lang?: string;
+}> = ({ code, lang }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    showToast('📋 Texto copiado para WhatsApp', 'success');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const filename = `programacion_simulacion_${new Date().toISOString().slice(0, 10)}.txt`;
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`💾 Archivo "${filename}" descargado con éxito`, 'success');
+  };
+
+  const handleWhatsApp = () => {
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(code)}`;
+    window.open(url, '_blank');
+  };
+
+  return (
+    <div
+      style={{
+        margin: '0.75rem 0',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        border: '1px solid rgba(56, 189, 248, 0.35)',
+        background: '#0b1329',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
+      }}
+    >
+      {/* HEADER DE LA CAJA DE CÓDIGO / TXT */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
+          padding: '0.5rem 0.75rem',
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ fontSize: '0.9rem' }}>📄</span>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: '#38bdf8',
+              letterSpacing: '0.5px',
+            }}
+          >
+            {lang === 'text' || lang === 'txt' || !lang ? 'Archivo de Texto (.txt) • Listo para WhatsApp' : lang}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          {/* BOTÓN COPIAR */}
+          <button
+            type="button"
+            onClick={handleCopy}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.3rem 0.6rem',
+              borderRadius: '6px',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              background: copied ? 'rgba(16, 185, 129, 0.25)' : 'rgba(56, 189, 248, 0.15)',
+              color: copied ? '#10b981' : '#38bdf8',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            title="Copiar texto al portapapeles"
+          >
+            <span>{copied ? '✓' : '📋'}</span>
+            <span>{copied ? '¡Copiado!' : 'Copiar'}</span>
+          </button>
+
+          {/* BOTÓN DESCARGAR .TXT */}
+          <button
+            type="button"
+            onClick={handleDownload}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.3rem 0.6rem',
+              borderRadius: '6px',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#10b981',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            title="Descargar como archivo de texto .txt"
+          >
+            <span>⬇️</span>
+            <span>Descargar .txt</span>
+          </button>
+
+          {/* BOTÓN ENVIAR A WHATSAPP */}
+          <button
+            type="button"
+            onClick={handleWhatsApp}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.3rem 0.6rem',
+              borderRadius: '6px',
+              border: '1px solid rgba(37, 211, 102, 0.4)',
+              background: 'rgba(37, 211, 102, 0.18)',
+              color: '#25d366',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            title="Abrir en WhatsApp Web o Móvil"
+          >
+            <span>📲</span>
+            <span>WhatsApp</span>
+          </button>
+        </div>
+      </div>
+
+      {/* CONTENIDO TEXTO MONOSPACE */}
+      <pre
+        style={{
+          margin: 0,
+          padding: '0.85rem 1rem',
+          fontSize: '0.82rem',
+          fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+          color: '#f8fafc',
+          lineHeight: 1.55,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          maxHeight: '380px',
+          overflowY: 'auto',
+        }}
+      >
+        {code}
+      </pre>
+    </div>
+  );
+};
+
+function parseInlineFormatting(text: string): React.ReactNode {
+  // Parsear **negrita**
+  const boldParts = text.split(/(\*\*.*?\*\*)/g);
+  return boldParts.map((part, pIdx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={pIdx} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    // Parsear `código inline`
+    const codeParts = part.split(/(`.*?`)/g);
+    return codeParts.map((cPart, cIdx) => {
+      if (cPart.startsWith('`') && cPart.endsWith('`')) {
+        return (
+          <code
+            key={`${pIdx}-${cIdx}`}
+            style={{
+              padding: '0.15rem 0.35rem',
+              borderRadius: '4px',
+              background: 'rgba(56, 189, 248, 0.12)',
+              color: '#0284c7',
+              fontSize: '0.8rem',
+              fontFamily: 'monospace',
+            }}
+          >
+            {cPart.slice(1, -1)}
+          </code>
+        );
+      }
+      return cPart;
+    });
+  });
+}
+
+function renderMarkdownText(raw: string): React.ReactNode {
+  const lines = raw.split('\n');
+  return lines.map((line, idx) => {
+    // Regla horizontal
+    if (line.trim() === '---' || line.trim() === '___') {
+      return (
+        <hr
+          key={idx}
+          style={{
+            margin: '0.5rem 0',
+            border: 'none',
+            borderTop: '1px solid var(--border-color)',
+          }}
+        />
+      );
+    }
+
+    // Encabezado nivel 3
+    if (line.startsWith('### ')) {
+      return (
+        <div
+          key={idx}
+          style={{
+            fontWeight: 800,
+            fontSize: '0.95rem',
+            margin: '0.4rem 0 0.2rem 0',
+            color: 'var(--text-primary)',
+          }}
+        >
+          {parseInlineFormatting(line.replace('### ', ''))}
+        </div>
+      );
+    }
+
+    // Encabezado nivel 2 o 1
+    if (line.startsWith('## ') || line.startsWith('# ')) {
+      return (
+        <div
+          key={idx}
+          style={{
+            fontWeight: 800,
+            fontSize: '1.05rem',
+            margin: '0.5rem 0 0.25rem 0',
+            color: 'var(--text-primary)',
+          }}
+        >
+          {parseInlineFormatting(line.replace(/^#+ /, ''))}
+        </div>
+      );
+    }
+
+    // Viñetas (* item o - item)
+    if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+      return (
+        <div
+          key={idx}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.4rem',
+            margin: '0.15rem 0',
+            paddingLeft: '0.25rem',
+          }}
+        >
+          <span style={{ color: '#38bdf8' }}>•</span>
+          <span>{parseInlineFormatting(line.trim().replace(/^[\*\-] /, ''))}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div key={idx} style={{ minHeight: line.trim() ? undefined : '0.4rem' }}>
+        {parseInlineFormatting(line)}
+      </div>
+    );
+  });
+}
+
+const FormattedMessage: React.FC<{ text: string; isUser: boolean }> = ({ text, isUser }) => {
+  if (isUser) {
+    return <span>{text}</span>;
+  }
+
+  // Separar bloques de código con regex ```lang\n...```
+  const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Texto antes del bloque de código
+    if (match.index > lastIndex) {
+      const textBefore = text.substring(lastIndex, match.index);
+      parts.push(
+        <span key={`txt-${lastIndex}`}>{renderMarkdownText(textBefore)}</span>
+      );
+    }
+
+    const lang = match[1] || 'text';
+    const code = match[2];
+    parts.push(
+      <CodeBlockCard key={`code-${match.index}`} code={code.trim()} lang={lang} />
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Texto restante después del último bloque
+  if (lastIndex < text.length) {
+    const textAfter = text.substring(lastIndex);
+    parts.push(
+      <span key={`txt-${lastIndex}`}>{renderMarkdownText(textAfter)}</span>
+    );
+  }
+
+  // Verificar si hubo bloques de código
+  const hasCodeBlock = /```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/.test(text);
+
+  return (
+    <div>
+      <div>{parts.length > 0 ? parts : renderMarkdownText(text)}</div>
+      {!hasCodeBlock && text.length > 180 && (
+        <div
+          style={{
+            marginTop: '0.6rem',
+            paddingTop: '0.5rem',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            fontSize: '0.72rem',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(text);
+              showToast('📋 Respuesta copiada', 'success');
+            }}
+            style={{
+              padding: '0.25rem 0.5rem',
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}
+          >
+            📋 Copiar texto
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const filename = `consulta_ucs_${new Date().toISOString().slice(0, 10)}.txt`;
+              const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = filename;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              showToast(`💾 Descargado como ${filename}`, 'success');
+            }}
+            style={{
+              padding: '0.25rem 0.5rem',
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}
+          >
+            ⬇️ Descargar .txt
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+              window.open(url, '_blank');
+            }}
+            style={{
+              padding: '0.25rem 0.5rem',
+              borderRadius: '4px',
+              border: '1px solid rgba(37, 211, 102, 0.3)',
+              background: 'rgba(37, 211, 102, 0.1)',
+              color: '#25d366',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}
+          >
+            📲 WhatsApp
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
   session,
 }) => {
@@ -357,13 +767,12 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
                     color: isUser ? '#ffffff' : 'var(--text-primary)',
                     fontSize: '0.875rem',
                     lineHeight: 1.55,
-                    whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                     boxShadow: isUser ? '0 4px 12px rgba(37, 99, 235, 0.25)' : 'none',
                     border: isUser ? 'none' : '1px solid var(--border-color)',
                   }}
                 >
-                  {m.text}
+                  <FormattedMessage text={m.text} isUser={isUser} />
                 </div>
 
                 <div

@@ -530,7 +530,9 @@ export const GeminiAdminTab: React.FC<GeminiAdminTabProps> = ({ session }) => {
                 cursor: 'pointer',
               }}
             >
-              <option value="gemini-3.5-flash">gemini-3.5-flash (Recomendado - Ultrarrápido & Estable)</option>
+              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Recomendado - Alta Disponibilidad & Rápido)</option>
+              <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Estable)</option>
+              <option value="gemini-3.5-flash">gemini-3.5-flash (Flash Estándar)</option>
               <option value="gemini-flash-latest">gemini-flash-latest (Última versión Flash)</option>
               <option value="gemini-pro-latest">gemini-pro-latest (Máximo Razonamiento Pro)</option>
               <option value="gemini-3.8-flash">gemini-3.8-flash (Preview)</option>

@@ -19,6 +19,8 @@ import { getPeruDateString, getPeruTimeString } from '@/lib/peruTime';
 // Gemini 3.8 Flash / Flash Latest: $0.075 / 1M prompt, $0.30 / 1M output
 // Gemini Pro Latest / Pro 3.1: $1.25 / 1M prompt, $5.00 / 1M output
 const PRECIOS_USD = {
+  'gemini-3.5-flash-lite': { input: 0.000000075, output: 0.0000003 },
+  'gemini-3.1-flash-lite': { input: 0.000000075, output: 0.0000003 },
   'gemini-3.8-flash': { input: 0.000000075, output: 0.0000003 },
   'gemini-flash-latest': { input: 0.000000075, output: 0.0000003 },
   'gemini-3.5-flash': { input: 0.000000075, output: 0.0000003 },
@@ -74,7 +76,7 @@ export async function getConfiguracionGemini() {
       .values({
         id: 1,
         habilitado: true,
-        modelo: 'gemini-3.5-flash',
+        modelo: 'gemini-3.5-flash-lite',
         totalInputTokens: 0,
         totalOutputTokens: 0,
         totalTokens: 0,
@@ -94,7 +96,7 @@ export async function getConfiguracionGemini() {
     return {
       id: 1,
       habilitado: true,
-      modelo: 'gemini-3.5-flash',
+      modelo: 'gemini-3.5-flash-lite',
       totalInputTokens: 0,
       totalOutputTokens: 0,
       totalTokens: 0,
@@ -174,7 +176,7 @@ export const GEMINI_TOOLS = [
   {
     name: 'consultar_programacion_dia',
     description:
-      'Consulta las sesiones académicas programadas para una fecha dada (o hoy). Permite filtrar por docente, sala/ambiente, sede o curso.',
+      'Consulta las sesiones académicas programadas para una fecha dada (o hoy). Permite filtrar por sede, docente, sala/ambiente o curso.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -182,6 +184,11 @@ export const GEMINI_TOOLS = [
           type: 'STRING',
           description:
             'Fecha en formato YYYY-MM-DD (ej: 2026-10-21). Si se omite, usa la fecha actual de Perú.',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Nombre de la sede a consultar (ej: "Villa", "Arequipa", "Lima Centro", "Ate", "Chorrillos"). Muy recomendado cuando el usuario menciona una sede.',
         },
         docente: {
           type: 'STRING',
@@ -343,6 +350,12 @@ export async function executeGeminiTool(
         const rows = await query;
 
         let filtered = rows;
+        if (args.sede) {
+          const s = args.sede.toLowerCase();
+          filtered = filtered.filter((r) =>
+            r.sedeNombre?.toLowerCase().includes(s)
+          );
+        }
         if (args.docente) {
           const doc = args.docente.toLowerCase();
           filtered = filtered.filter(
@@ -753,16 +766,23 @@ export async function procesarMensajeGemini({
   const fechaHoyPeru = getPeruDateString();
   const horaActualPeru = getPeruTimeString().slice(0, 5);
 
+  // Calcular fecha de mañana en Perú (YYYY-MM-DD)
+  const [y, m, d] = fechaHoyPeru.split('-').map(Number);
+  const mananaDate = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0));
+  const fechaMananaPeru = mananaDate.toISOString().slice(0, 10);
+
   const systemInstruction = {
     parts: [
       {
         text: `Eres el Copilot IA Oficial de Simulación Clínica de la Universidad Científica del Sur (UCS), Perú.
 Fecha y hora actual en Lima, Perú: ${fechaHoyPeru} a las ${horaActualPeru}.
+Fecha de mañana en Lima, Perú: ${fechaMananaPeru}.
+Si el usuario consulta por "mañana", debes invocar la herramienta con fecha: "${fechaMananaPeru}".
 Usuario actual conectado: ${usuario.nombres} ${usuario.apellidos} (DNI: ${usuario.dni}, Rol: ${usuario.rolSistema}).
 
 TIENES ACCESO A HERRAMIENTAS EN TIEMPO REAL:
 1. 'sincronizar_simclic': Usa esta herramienta cuando el usuario pregunte por sincronizar datos desde SimClic, o si menciona que hicieron cambios en SimClic que no se ven en la app.
-2. 'consultar_programacion_dia': Consulta sesiones de clase, docentes asignados, horarios y materias para hoy o cualquier fecha.
+2. 'consultar_programacion_dia': Consulta sesiones de clase, docentes asignados, horarios y materias para hoy o cualquier fecha. Acepta 'sede' (ej: "Villa"), 'fecha', 'docente', 'sala' y 'curso'.
 3. 'consultar_salas_disponibilidad': Consulta qué ambientes/salas están libres u ocupadas en cada sede.
 4. 'consultar_asistencias_hoy': Consulta marcaciones, quién está en sala, tardanzas y salidas.
 5. 'consultar_pacientes_simulados': Consulta las horas y liquidación de Pacientes Simulados (PS).
@@ -795,9 +815,10 @@ REGLAS DE RESPUESTA:
   let totalOutputTokens = 0;
   const herramientasEjecutadas: string[] = [];
 
-  const endpointUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+  let modeloEfectivo = modelo;
+  let endpointUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modeloEfectivo}:generateContent?key=${apiKey}`;
 
-  // 4. Primera llamada a Gemini
+  // 4. Primera llamada a Gemini (con fallback automático si el modelo seleccionado agotó cuota)
   let res = await fetch(endpointUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -814,8 +835,33 @@ REGLAS DE RESPUESTA:
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error('Error de API Gemini:', res.status, errText);
-    throw new Error(`Google Gemini API error (${res.status}): ${errText}`);
+    console.warn(`Aviso de API Gemini (${res.status}) con modelo ${modeloEfectivo}:`, errText);
+
+    // Fallback inteligente: Si 429 quota y no estábamos en flash-lite, reintentar con flash-lite
+    if (res.status === 429 && modeloEfectivo !== 'gemini-3.5-flash-lite') {
+      console.log('🔄 Cambiando automáticamente a gemini-3.5-flash-lite por cuota excedida...');
+      modeloEfectivo = 'gemini-3.5-flash-lite';
+      endpointUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modeloEfectivo}:generateContent?key=${apiKey}`;
+      res = await fetch(endpointUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction,
+          tools,
+          generationConfig: {
+            temperature: temperatura,
+            maxOutputTokens: 2048,
+          },
+        }),
+      });
+    }
+
+    if (!res.ok) {
+      const errFinal = await res.text();
+      console.error('Error definitivo de API Gemini:', res.status, errFinal);
+      throw new Error(`Google Gemini API error (${res.status}): ${errFinal}`);
+    }
   }
 
   let data = await res.json();
@@ -828,39 +874,43 @@ REGLAS DE RESPUESTA:
   let candidate = data.candidates?.[0];
   let parts = candidate?.content?.parts || [];
 
-  // 5. Verificar si Gemini solicitó ejecutar alguna herramienta
-  let functionCallPart = parts.find((p: any) => p.functionCall);
+  // 5. Bucle multi-turno de ejecución de herramientas (preservando thoughtSignature y candidate.content)
+  let loopTurn = 0;
+  while (loopTurn < 4) {
+    loopTurn++;
+    const functionCallPart = parts.find((p: any) => p.functionCall);
+    if (!functionCallPart) {
+      // Gemini ya produjo una respuesta de texto definitiva
+      break;
+    }
 
-  if (functionCallPart) {
-    const { name, args } = functionCallPart.functionCall;
+    const { name, args, id } = functionCallPart.functionCall;
     herramientasEjecutadas.push(name);
 
-    console.log(`🤖 Gemini llamó a herramienta "${name}" con args:`, args);
+    console.log(`🤖 [Turno ${loopTurn}] Gemini ejecutó herramienta "${name}" con args:`, args);
 
-    // Ejecutar herramienta local
+    // Ejecutar herramienta local conectada a DB/SimClic
     const toolResult = await executeGeminiTool(name, args || {});
 
-    // Agregar respuesta de función al historial
-    contents.push({
-      role: 'model',
-      parts: [functionCallPart],
-    });
+    // Preservar candidate.content completo del modelo (incluye thoughtSignature en Gemini 3.x)
+    contents.push(candidate.content);
 
+    // Agregar la respuesta de la función con role: 'user' e id de la llamada
     contents.push({
       role: 'user',
       parts: [
         {
           functionResponse: {
             name,
-            id: functionCallPart.functionCall.id,
+            id: id || functionCallPart.functionCall.id,
             response: { output: toolResult },
           },
         },
       ],
     });
 
-    // Segunda llamada a Gemini para que genere la respuesta final con los datos de la herramienta
-    const res2 = await fetch(endpointUrl, {
+    // Siguiente llamada a Gemini para que elabore el texto final o invoque otra herramienta si lo necesita
+    const nextRes = await fetch(endpointUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -874,14 +924,18 @@ REGLAS DE RESPUESTA:
       }),
     });
 
-    if (res2.ok) {
-      const data2 = await res2.json();
-      if (data2.usageMetadata) {
-        totalInputTokens += data2.usageMetadata.promptTokenCount || 0;
-        totalOutputTokens += data2.usageMetadata.candidatesTokenCount || 0;
+    if (nextRes.ok) {
+      const nextData = await nextRes.json();
+      if (nextData.usageMetadata) {
+        totalInputTokens += nextData.usageMetadata.promptTokenCount || 0;
+        totalOutputTokens += nextData.usageMetadata.candidatesTokenCount || 0;
       }
-      candidate = data2.candidates?.[0];
+      candidate = nextData.candidates?.[0];
       parts = candidate?.content?.parts || [];
+    } else {
+      const errTextLoop = await nextRes.text();
+      console.error(`Error de API Gemini en turno ${loopTurn}:`, nextRes.status, errTextLoop);
+      break;
     }
   }
 

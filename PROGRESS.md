@@ -1093,6 +1093,22 @@ src/
     - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
     - Bundle de producción validado con `npm run build` (**100% exitoso**).
 
+* `fix(gemini-multiturn-tools)`: **Hito 65: Bucle Multi-Turno en Herramientas Gemini, Preservación de ThoughtSignature, Filtro de Sede y Soporte de Programación para "Mañana"**:
+  - **Diagnóstico & Causa Raíz**:
+    - Al solicitar *"¿Cuál es la programación de mañana en la sede Villa? Genérame un txt para enviarlo por WhatsApp"*, el asistente devolvió *"He completado la solicitud pero no obtuve texto descriptivo."*
+    - **Causa 1**: Incompatibilidad con `thoughtSignature`: La API de Gemini 3.x genera firmas internas de razonamiento (`thoughtSignature`). Al estructurar el turno siguiente con un payload manual en lugar del `candidate.content` original, la API omitía o rechazaba la emisión del texto final.
+    - **Causa 2**: Bucle de herramientas truncado: El servicio contaba con un único `if (functionCallPart)` en lugar de un bucle `while (turn < 4)` multi-turno.
+    - **Causa 3**: Ausencia de parámetro `sede` en `consultar_programacion_dia`: La herramienta no permitía filtrar directamente por campus, devolviendo 192 sesiones de todas las sedes y saturando la respuesta.
+    - **Causa 4**: Cuota del modelo `gemini-3.5-flash`: Alcanzó el límite de 20 peticiones/día de la capa gratuita de Google para esa versión.
+  - **Solución Implementada**:
+    - **Bucle Multi-Turno Robusto (`src/lib/geminiService.ts`)**: Bucle interactivo de hasta 4 turnos que preserva intacto `candidate.content` (con `thoughtSignature`), inyecta `functionResponse` con su `id` respectivo y espera la generación final del texto descriptivo.
+    - **Filtro Nativo de Sede (`consultar_programacion_dia`)**: Se agregó el parámetro `sede` a la especificación de la herramienta y se incorporó el filtrado en `executeGeminiTool`.
+    - **Cálculo de Fechas para Perú**: Se incluyó la fecha de mañana calculada de forma determinística en el prompt del sistema (`Fecha de mañana en Lima, Perú: YYYY-MM-DD`).
+    - **Soporte de Alta Disponibilidad & Fallback Automático**: Se configuró como modelo predeterminado `gemini-3.5-flash-lite` (sin restricciones estrictas de 20 req/día) y se añadió detección de error 429 con conmutación automática. Se añadieron opciones en el selector de `GeminiAdminTab.tsx`.
+  - **Verificación Técnica**:
+    - Prueba integral con la consulta exacta del usuario: Gemini ejecutó `consultar_programacion_dia` con `{ sede: 'Villa', fecha: '2026-10-22' }` y generó en 4.2 segundos el bloque estructurado con los botones interactivos de 1-clic para WhatsApp y descarga de `.txt`.
+    - `npx tsc --noEmit` superado con **0 errores**.
+
 ---
 
 

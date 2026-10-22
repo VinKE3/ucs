@@ -1163,6 +1163,33 @@ src/
   - **Verificación Técnica**:
     - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
 
+* `feat(radar-llegada-ps)`: **Hito 69: Radar Preventivo de Llegada de Pacientes Simulados (PS) con Alerta 15 Minutos y Contacto Rápido por WhatsApp**:
+  - **Contexto & Solicitud del Usuario**:
+    - El equipo de 6 técnicos de la Clínica de Simulación UCS evaluará este sistema frente a una solución rival en Google Sheets + Apps Script desarrollada por 2 compañeros. Dado que el piloto actual se enfoca prioritariamente en **Pacientes Simulados (PS)** y **Técnicos**, el usuario solicitó implementar la **Opción 1: Radar Preventivo de Llegada de Actores con Alerta 15 min** para auditar y anticipar ausencias antes de que inicien las simulaciones.
+  - **Implementación Técnica**:
+    - **Nuevo Componente `RadarLlegadaActores.tsx` (`src/components/admin/tabs/RadarLlegadaActores.tsx`)**:
+      - **Aplanado inteligente de citaciones**: Cruza todas las sesiones activas en SimClic desglosando actores individuales tanto si están en `pacientesSimulados`, `pacientesSimuladosJson` o `pacienteSimuladoNombre`.
+      - **Clasificación Semafórica de Riesgo**:
+        1. 🚨 **Crítico (Rojo)**: Falta <= 15 minutos para el inicio de la simulación o la sesión ya comenzó y el actor aún no marca en el Kiosco.
+        2. 🟡 **Próximo / En Camino (Amarillo)**: Faltan entre 16 y 35 minutos para la citación.
+        3. 🟢 **En Sala (Verde)**: Asistencia ya registrada en Kiosco con indicación de la hora real de ingreso.
+        4. ⚪ **Turno Más Tarde (Azul/Gris)**: Clases programadas a más de 35 minutos.
+        5. 🏁 **Finalizado / Ausente**: Clases concluidas con o sin marcación registrada.
+      - **Tarjetas KPI Interactivas**: Total Citaciones Hoy, Riesgo Crítico (<15m), En Camino (16-35m), En Sala y Turnos Más Tarde con filtrado reactivo en 1 clic.
+      - **Buscador Reactivo y Filtro por Chips**: Búsqueda por nombre de actor, personaje, sala, código o asignatura.
+      - **Contacto en 1 Clic por WhatsApp**:
+        - Botón individual `📲 WhatsApp` que localiza el teléfono del actor en `usuariosList`, pre-redacta un mensaje institucional formal con su hora, aula, caso clínico y sede, y abre WhatsApp Web / móvil sin digitar números.
+        - Botón `📋 Copiar para WhatsApp`: Genera un reporte consolidado ordenado por nivel de urgencia listo para pegar en el grupo de WhatsApp de Coordinación de Simulación.
+      - **Gestión de Contingencias**: Botón `🔄 Registrar Suplente` en tarjetas críticas para activar el modal de asistencia manual y reemplazo en caliente.
+    - **Integración en `ProgramacionTab.tsx`**:
+      - Nuevo modo de vista `'radar_actores'` añadido al selector principal de vistas.
+      - Botón destacado `🎭 Radar Llegada PS` con insignia dinámica de conteo crítico (`🚨 N`).
+      - Píldora de alerta pulsante en la barra superior de métricas cuando existen actores en riesgo (`🚨 N PS en Riesgo (<15m)`).
+      - La métrica superior de `🎭 Pacientes Simulados` ahora es interactiva y conmuta directamente al Radar.
+      - Exclusión limpia de la barra de filtros generales para evitar colisiones visuales con el toolbar del Radar.
+  - **Verificación Técnica**:
+    - Validación completa con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

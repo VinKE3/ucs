@@ -712,6 +712,12 @@ const FormattedMessage: React.FC<{ text: string; isUser: boolean }> = ({ text, i
   );
 };
 
+const getFormattedTime = () => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
   session,
 }) => {
@@ -725,7 +731,7 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
       id: 'welcome',
       sender: 'bot',
       text: `¡Hola **${session.nombres}**! 👋 Soy el Copilot de Simulación Clínica de la UCS.\n\nTengo acceso a herramientas en tiempo real para:\n- 🔄 **Sincronizar con SimClic** al instante.\n- 🔍 **Consultar salas** libres u ocupadas.\n- 📅 **Revisar clases y docentes** de hoy o cualquier fecha.\n- 👥 **Ver asistencias y tardanzas** en vivo.\n- 🧾 **Revisar horas de Pacientes Simulados**.\n\n¿En qué te puedo ayudar hoy?`,
-      timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: getFormattedTime(),
     },
   ]);
 
@@ -769,7 +775,7 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
       id: `u-${Date.now()}`,
       sender: 'user',
       text: query,
-      timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: getFormattedTime(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -813,7 +819,7 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
         herramientas: data.herramientasEjecutadas,
         tokens: data.tokens?.total,
         duracionMs: data.duracionMs,
-        timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: getFormattedTime(),
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -823,7 +829,7 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
         id: `e-${Date.now()}`,
         sender: 'bot',
         text: `⚠️ **Error**: ${err.message || 'No pude procesar la consulta. Intenta nuevamente.'}`,
-        timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: getFormattedTime(),
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
@@ -1038,7 +1044,7 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
                     gap: '0.4rem',
                   }}
                 >
-                  <span>{m.timestamp}</span>
+                  <span suppressHydrationWarning>{m.timestamp}</span>
                   {m.tokens && <span>• {m.tokens} tokens</span>}
                   {m.duracionMs && <span>• {(m.duracionMs / 1000).toFixed(1)}s</span>}
                 </div>

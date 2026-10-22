@@ -13,6 +13,7 @@ import type {
 } from '@/types/admin';
 import { ModalDetalleSesionSimclic } from '@/components/admin/modals/ModalDetalleSesionSimclic';
 import { HubLogisticaSimulacion } from '@/components/admin/tabs/HubLogisticaSimulacion';
+import { RadarLlegadaActores } from '@/components/admin/tabs/RadarLlegadaActores';
 import { analizarLogisticaIntraDia, isAmbienteVirtual, isSesionVirtual } from '@/lib/logisticaSimulacion';
 import { showToast, showAlert, showError } from '@/lib/alerts';
 
@@ -186,7 +187,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [filtroCurso, setFiltroCurso] = useState<string>('todos');
   const [filtroPs, setFiltroPs] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps' | 'canceladas'>('todos');
-  const [vistaModo, setVistaModo] = useState<'gantt' | 'libres' | 'logistica'>('gantt');
+  const [vistaModo, setVistaModo] = useState<'gantt' | 'libres' | 'logistica' | 'radar_actores'>('gantt');
 
   // Filtro de visualización: Ocultar salas sin actividad hoy
   const [soloConActividadHoy, setSoloConActividadHoy] = useState<boolean>(false);
@@ -222,6 +223,37 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   }, [ambientes, sesiones, nowMinutes, esHoy]);
 
   const rotacionesCount = resumenLogisticaIntra.salasConSwapMayor + resumenLogisticaIntra.salasConResetCaso;
+
+  // Conteo en vivo de Actores en Riesgo Crítico (<15 min para iniciar o en curso sin haber marcado en Kiosco)
+  const psRiesgoCount = useMemo(() => {
+    if (!esHoy) return 0;
+    let count = 0;
+    for (const ses of sesiones) {
+      if (ses.estadoUcs === 'cancelada' || (ses as any).estadoSimclic === 'Cancelled') continue;
+      const psItems: any[] = [];
+      if (ses.pacientesSimulados && Array.isArray(ses.pacientesSimulados) && ses.pacientesSimulados.length > 0) {
+        psItems.push(...ses.pacientesSimulados);
+      } else if (ses.pacientesSimuladosJson && Array.isArray(ses.pacientesSimuladosJson) && ses.pacientesSimuladosJson.length > 0) {
+        psItems.push(...ses.pacientesSimuladosJson);
+      } else if (ses.pacienteSimuladoNombre) {
+        psItems.push({
+          nombre: ses.pacienteSimuladoNombre,
+          presente: ses.psPresente,
+        });
+      }
+
+      for (const ps of psItems) {
+        const presente = Boolean(ps.presente || ses.psPresente);
+        if (!presente) {
+          const minsParaInicio = ses.startMins - nowMinutes;
+          if (nowMinutes < ses.endMins && minsParaInicio <= 15) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
+  }, [sesiones, nowMinutes, esHoy]);
 
   // Modal de detalle
   const [sesionSeleccionada, setSesionSeleccionada] = useState<SesionProgramadaTimelineItem | null>(null);
@@ -1003,12 +1035,44 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               <span className={styles.metricLbl}>Docentes en Agenda</span>
             </div>
 
-            <div className={styles.metricItem}>
+            <div
+              onClick={() => setVistaModo('radar_actores')}
+              className={styles.metricItem}
+              style={{
+                cursor: 'pointer',
+                borderRadius: '6px',
+                background: vistaModo === 'radar_actores' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+                padding: '0.2rem 0.5rem',
+                border: vistaModo === 'radar_actores' ? '1px solid #c084fc' : 'none',
+              }}
+              title="Hacer clic para abrir el Radar Preventivo de Llegada de Pacientes Simulados"
+            >
               <span className={styles.metricVal} style={{ color: '#c084fc' }}>
                 {metricas.totalPs}
               </span>
-              <span className={styles.metricLbl}>Pacientes Simulados</span>
+              <span className={styles.metricLbl}>🎭 Pacientes Simulados</span>
             </div>
+
+            {psRiesgoCount > 0 && esHoy && (
+              <div
+                onClick={() => setVistaModo('radar_actores')}
+                className={styles.metricItem}
+                style={{
+                  borderLeft: '2px solid #ef4444',
+                  paddingLeft: '1rem',
+                  cursor: 'pointer',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  borderRadius: '6px',
+                  animation: 'pulse 2s infinite',
+                }}
+                title="Hacer clic para ver los actores en riesgo crítico de inasistencia"
+              >
+                <span className={styles.metricVal} style={{ color: '#ef4444' }}>
+                  {psRiesgoCount}
+                </span>
+                <span className={styles.metricLbl}>🚨 PS en Riesgo (&lt;15m)</span>
+              </div>
+            )}
 
             <div className={styles.metricItem}>
               <span className={styles.metricVal} style={{ color: '#00e699' }}>
@@ -1147,12 +1211,49 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             >
               <span>🛠️</span> Hub Logístico ({rotacionesCount} rotan)
             </button>
+
+            <button
+              type="button"
+              onClick={() => setVistaModo('radar_actores')}
+              style={{
+                padding: '0.4rem 0.85rem',
+                borderRadius: '7px',
+                border: 'none',
+                background: vistaModo === 'radar_actores' ? '#a855f7' : 'transparent',
+                color: vistaModo === 'radar_actores' ? '#ffffff' : 'var(--text-secondary)',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                position: 'relative',
+              }}
+              title="Radar preventivo de llegada y ausentismo de actores / pacientes simulados"
+            >
+              <span>🎭</span> Radar Llegada PS
+              {psRiesgoCount > 0 && esHoy && (
+                <span
+                  style={{
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '0.68rem',
+                    padding: '0.1rem 0.4rem',
+                    borderRadius: '10px',
+                    fontWeight: 800,
+                    marginLeft: '0.2rem',
+                  }}
+                >
+                  {psRiesgoCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       )}
 
       {/* 3. BARRA DE FILTROS AVANZADOS (DOCENTE, CURSO, PS, DISPONIBILIDAD, BUSCADOR) */}
-      {vistaModo !== 'logistica' && (
+      {vistaModo !== 'logistica' && vistaModo !== 'radar_actores' && (
         <>
           <div
             style={{
@@ -2069,10 +2170,27 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             })}
           </div>
         </div>
+      ) : vistaModo === 'radar_actores' ? (
+
+        /* =========================================================================
+           MODO 4: RADAR PREVENTIVO DE LLEGADA DE PACIENTES SIMULADOS
+           ========================================================================= */
+        <RadarLlegadaActores
+          sesiones={sesiones}
+          fecha={fecha}
+          selectedSedeId={selectedSedeId}
+          nombreSede={selectedSede?.nombre || 'Campus Villa'}
+          nowMinutes={nowMinutes}
+          esHoy={esHoy}
+          usuariosList={usuariosList}
+          onVerDetalleSesion={(ses) => setSesionSeleccionada(ses)}
+          onOpenCrearAsistenciaManual={onOpenCrearAsistenciaManual}
+          onIrAGantt={() => setVistaModo('gantt')}
+        />
       ) : (
 
         /* =========================================================================
-           MODO 4: HUB LOGÍSTICO DE TÉCNICOS & RESET DE SALAS
+           MODO 5: HUB LOGÍSTICO DE TÉCNICOS & RESET DE SALAS
            ========================================================================= */
         <HubLogisticaSimulacion
           ambientes={ambientes}

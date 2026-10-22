@@ -24,22 +24,27 @@ const SUGGESTIONS = [
   '🔄 Sincronizar SimClic con las clases de hoy',
 ];
 
-const CodeBlockCard: React.FC<{
-  code: string;
-  lang?: string;
-}> = ({ code, lang }) => {
-  const [copied, setCopied] = useState(false);
+const TableCard: React.FC<{
+  headers: string[];
+  rows: string[][];
+}> = ({ headers, rows }) => {
+  const [downloaded, setDownloaded] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    showToast('📋 Texto copiado para WhatsApp', 'success');
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const handleDownloadExcel = () => {
+    const escapeCsv = (str: string) => {
+      const clean = (str || '').replace(/"/g, '""').trim();
+      if (clean.includes(';') || clean.includes('\n') || clean.includes('"') || clean.includes(',')) {
+        return `"${clean}"`;
+      }
+      return clean;
+    };
 
-  const handleDownload = () => {
-    const filename = `programacion_simulacion_${new Date().toISOString().slice(0, 10)}.txt`;
-    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const headerLine = headers.map(escapeCsv).join(';');
+    const rowLines = rows.map((row) => row.map(escapeCsv).join(';'));
+    const csvContent = '\uFEFF' + [headerLine, ...rowLines].join('\r\n');
+
+    const filename = `Reporte_Copilot_UCS_${new Date().toISOString().slice(0, 10)}.csv`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -48,7 +53,210 @@ const CodeBlockCard: React.FC<{
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast(`💾 Archivo "${filename}" descargado con éxito`, 'success');
+
+    setDownloaded(true);
+    showToast(`📊 Archivo "${filename}" descargado con éxito para Excel`, 'success');
+    setTimeout(() => setDownloaded(false), 2500);
+  };
+
+  const handleCopy = () => {
+    const textTable = [
+      headers.join('\t'),
+      ...rows.map((r) => r.join('\t')),
+    ].join('\n');
+    navigator.clipboard.writeText(textTable);
+    showToast('📋 Tabla copiada (lista para pegar en Excel)', 'success');
+  };
+
+  return (
+    <div
+      style={{
+        margin: '0.85rem 0',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        border: '1px solid rgba(16, 185, 129, 0.35)',
+        background: 'rgba(6, 21, 45, 0.85)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
+          padding: '0.55rem 0.85rem',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.25) 100%)',
+          borderBottom: '1px solid rgba(16, 185, 129, 0.3)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <span style={{ fontSize: '1rem' }}>📊</span>
+          <span
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              color: '#34d399',
+              letterSpacing: '0.3px',
+            }}
+          >
+            Tabla de Datos ({rows.length} {rows.length === 1 ? 'registro' : 'registros'})
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <button
+            type="button"
+            onClick={handleCopy}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              padding: '0.3rem 0.6rem',
+              borderRadius: '6px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: 'var(--text-primary)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+            title="Copiar datos al portapapeles"
+          >
+            📋 Copiar
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadExcel}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '6px',
+              border: '1px solid rgba(16, 185, 129, 0.5)',
+              background: downloaded ? 'rgba(16, 185, 129, 0.4)' : '#059669',
+              color: '#ffffff',
+              fontSize: '0.74rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)',
+              transition: 'all 0.15s',
+            }}
+            title="Descargar tabla directamente en formato CSV compatible con Microsoft Excel"
+          >
+            <span>{downloaded ? '✓' : '📊'}</span>
+            <span>{downloaded ? '¡Descargado!' : 'Descargar en Excel (.csv)'}</span>
+          </button>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto', maxHeight: '380px', overflowY: 'auto' }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '0.8rem',
+            textAlign: 'left',
+          }}
+        >
+          <thead>
+            <tr style={{ background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              {headers.map((h, i) => (
+                <th
+                  key={i}
+                  style={{
+                    padding: '0.55rem 0.75rem',
+                    fontWeight: 700,
+                    color: '#38bdf8',
+                    whiteSpace: 'nowrap',
+                    borderRight: i < headers.length - 1 ? '1px solid rgba(255, 255, 255, 0.06)' : undefined,
+                  }}
+                >
+                  {parseInlineFormatting(h)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rIdx) => (
+              <tr
+                key={rIdx}
+                style={{
+                  background: rIdx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.02)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                }}
+              >
+                {row.map((cell, cIdx) => (
+                  <td
+                    key={cIdx}
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      color: 'var(--text-primary)',
+                      whiteSpace: 'nowrap',
+                      borderRight: cIdx < row.length - 1 ? '1px solid rgba(255, 255, 255, 0.04)' : undefined,
+                    }}
+                  >
+                    {parseInlineFormatting(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const CodeBlockCard: React.FC<{
+  code: string;
+  lang?: string;
+}> = ({ code, lang }) => {
+  const [copied, setCopied] = useState(false);
+
+  const isCsvOrExcel =
+    lang === 'csv' ||
+    lang === 'excel' ||
+    (code.includes(';') && code.includes('\n')) ||
+    (code.split('\n')[0].includes(',') && code.split('\n')[0].toLowerCase().includes('dni'));
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    showToast(isCsvOrExcel ? '📋 Datos CSV copiados' : '📋 Texto copiado para WhatsApp', 'success');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    if (isCsvOrExcel) {
+      const csvData = code.startsWith('\uFEFF') ? code : '\uFEFF' + code;
+      const filename = `Reporte_Copilot_UCS_${new Date().toISOString().slice(0, 10)}.csv`;
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`📊 Archivo "${filename}" descargado con éxito para Excel`, 'success');
+    } else {
+      const filename = `programacion_simulacion_${new Date().toISOString().slice(0, 10)}.txt`;
+      const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`💾 Archivo "${filename}" descargado con éxito`, 'success');
+    }
   };
 
   const handleWhatsApp = () => {
@@ -62,12 +270,14 @@ const CodeBlockCard: React.FC<{
         margin: '0.75rem 0',
         borderRadius: '10px',
         overflow: 'hidden',
-        border: '1px solid rgba(56, 189, 248, 0.35)',
+        border: isCsvOrExcel
+          ? '1px solid rgba(16, 185, 129, 0.45)'
+          : '1px solid rgba(56, 189, 248, 0.35)',
         background: '#0b1329',
         boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
       }}
     >
-      {/* HEADER DE LA CAJA DE CÓDIGO / TXT */}
+      {/* HEADER DE LA CAJA */}
       <div
         style={{
           display: 'flex',
@@ -76,21 +286,29 @@ const CodeBlockCard: React.FC<{
           justifyContent: 'space-between',
           gap: '0.5rem',
           padding: '0.5rem 0.75rem',
-          background: 'rgba(255, 255, 255, 0.05)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          background: isCsvOrExcel
+            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.2) 100%)'
+            : 'rgba(255, 255, 255, 0.05)',
+          borderBottom: isCsvOrExcel
+            ? '1px solid rgba(16, 185, 129, 0.3)'
+            : '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <span style={{ fontSize: '0.9rem' }}>📄</span>
+          <span style={{ fontSize: '0.9rem' }}>{isCsvOrExcel ? '📊' : '📄'}</span>
           <span
             style={{
               fontSize: '0.75rem',
               fontWeight: 700,
-              color: '#38bdf8',
+              color: isCsvOrExcel ? '#34d399' : '#38bdf8',
               letterSpacing: '0.5px',
             }}
           >
-            {lang === 'text' || lang === 'txt' || !lang ? 'Archivo de Texto (.txt) • Listo para WhatsApp' : lang}
+            {isCsvOrExcel
+              ? 'Archivo para Excel (.csv) • Formato Oficial UCS'
+              : lang === 'text' || lang === 'txt' || !lang
+              ? 'Archivo de Texto (.txt) • Listo para WhatsApp'
+              : lang}
           </span>
         </div>
 
@@ -113,13 +331,13 @@ const CodeBlockCard: React.FC<{
               cursor: 'pointer',
               transition: 'all 0.15s',
             }}
-            title="Copiar texto al portapapeles"
+            title="Copiar contenido"
           >
             <span>{copied ? '✓' : '📋'}</span>
             <span>{copied ? '¡Copiado!' : 'Copiar'}</span>
           </button>
 
-          {/* BOTÓN DESCARGAR .TXT */}
+          {/* BOTÓN DESCARGAR */}
           <button
             type="button"
             onClick={handleDownload}
@@ -129,43 +347,47 @@ const CodeBlockCard: React.FC<{
               gap: '0.3rem',
               padding: '0.3rem 0.6rem',
               borderRadius: '6px',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#10b981',
+              border: isCsvOrExcel
+                ? '1px solid rgba(16, 185, 129, 0.6)'
+                : '1px solid rgba(16, 185, 129, 0.35)',
+              background: isCsvOrExcel ? '#059669' : 'rgba(16, 185, 129, 0.15)',
+              color: isCsvOrExcel ? '#ffffff' : '#10b981',
               fontSize: '0.72rem',
-              fontWeight: 700,
+              fontWeight: 800,
               cursor: 'pointer',
               transition: 'all 0.15s',
             }}
-            title="Descargar como archivo de texto .txt"
+            title={isCsvOrExcel ? 'Descargar archivo CSV compatible con Microsoft Excel' : 'Descargar como archivo de texto .txt'}
           >
-            <span>⬇️</span>
-            <span>Descargar .txt</span>
+            <span>{isCsvOrExcel ? '📊' : '⬇️'}</span>
+            <span>{isCsvOrExcel ? 'Descargar en Excel (.csv)' : 'Descargar .txt'}</span>
           </button>
 
           {/* BOTÓN ENVIAR A WHATSAPP */}
-          <button
-            type="button"
-            onClick={handleWhatsApp}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              padding: '0.3rem 0.6rem',
-              borderRadius: '6px',
-              border: '1px solid rgba(37, 211, 102, 0.4)',
-              background: 'rgba(37, 211, 102, 0.18)',
-              color: '#25d366',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            title="Abrir en WhatsApp Web o Móvil"
-          >
-            <span>📲</span>
-            <span>WhatsApp</span>
-          </button>
+          {!isCsvOrExcel && (
+            <button
+              type="button"
+              onClick={handleWhatsApp}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                padding: '0.3rem 0.6rem',
+                borderRadius: '6px',
+                border: '1px solid rgba(37, 211, 102, 0.4)',
+                background: 'rgba(37, 211, 102, 0.18)',
+                color: '#25d366',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              title="Abrir en WhatsApp Web o Móvil"
+            >
+              <span>📲</span>
+              <span>WhatsApp</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -228,12 +450,56 @@ function parseInlineFormatting(text: string): React.ReactNode {
 
 function renderMarkdownText(raw: string): React.ReactNode {
   const lines = raw.split('\n');
-  return lines.map((line, idx) => {
+  const blocks: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Detectar si empieza una tabla Markdown (| ... |)
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+
+      if (tableLines.length >= 2) {
+        const headerCells = tableLines[0]
+          .slice(1, -1)
+          .split('|')
+          .map((c) => c.trim());
+
+        const dataLines = tableLines
+          .slice(1)
+          .filter((l) => !/^\|[\s\-:\:]+\|$/.test(l.replace(/\|/g, '||')));
+
+        const dataRows = dataLines.map((l) =>
+          l
+            .slice(1, -1)
+            .split('|')
+            .map((c) => c.trim())
+        );
+
+        blocks.push(
+          <TableCard
+            key={`table-${i}`}
+            headers={headerCells}
+            rows={dataRows}
+          />
+        );
+        continue;
+      } else {
+        blocks.push(<div key={`line-${i}`}>{parseInlineFormatting(tableLines[0])}</div>);
+        continue;
+      }
+    }
+
     // Regla horizontal
     if (line.trim() === '---' || line.trim() === '___') {
-      return (
+      blocks.push(
         <hr
-          key={idx}
+          key={`hr-${i}`}
           style={{
             margin: '0.5rem 0',
             border: 'none',
@@ -241,13 +507,15 @@ function renderMarkdownText(raw: string): React.ReactNode {
           }}
         />
       );
+      i++;
+      continue;
     }
 
     // Encabezado nivel 3
     if (line.startsWith('### ')) {
-      return (
+      blocks.push(
         <div
-          key={idx}
+          key={`h3-${i}`}
           style={{
             fontWeight: 800,
             fontSize: '0.95rem',
@@ -258,13 +526,15 @@ function renderMarkdownText(raw: string): React.ReactNode {
           {parseInlineFormatting(line.replace('### ', ''))}
         </div>
       );
+      i++;
+      continue;
     }
 
     // Encabezado nivel 2 o 1
     if (line.startsWith('## ') || line.startsWith('# ')) {
-      return (
+      blocks.push(
         <div
-          key={idx}
+          key={`h1-${i}`}
           style={{
             fontWeight: 800,
             fontSize: '1.05rem',
@@ -275,13 +545,15 @@ function renderMarkdownText(raw: string): React.ReactNode {
           {parseInlineFormatting(line.replace(/^#+ /, ''))}
         </div>
       );
+      i++;
+      continue;
     }
 
     // Viñetas (* item o - item)
     if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
-      return (
+      blocks.push(
         <div
-          key={idx}
+          key={`li-${i}`}
           style={{
             display: 'flex',
             alignItems: 'flex-start',
@@ -294,14 +566,20 @@ function renderMarkdownText(raw: string): React.ReactNode {
           <span>{parseInlineFormatting(line.trim().replace(/^[\*\-] /, ''))}</span>
         </div>
       );
+      i++;
+      continue;
     }
 
-    return (
-      <div key={idx} style={{ minHeight: line.trim() ? undefined : '0.4rem' }}>
+    // Línea de texto estándar
+    blocks.push(
+      <div key={`line-${i}`} style={{ minHeight: line.trim() ? undefined : '0.4rem' }}>
         {parseInlineFormatting(line)}
       </div>
     );
-  });
+    i++;
+  }
+
+  return blocks;
 }
 
 const FormattedMessage: React.FC<{ text: string; isUser: boolean }> = ({ text, isUser }) => {

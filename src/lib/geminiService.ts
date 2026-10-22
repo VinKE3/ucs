@@ -1386,6 +1386,9 @@ Usuario actual conectado: ${usuario.nombres} ${usuario.apellidos} (DNI: ${usuari
 📋 REGLAS DE RESPUESTA Y FORMATO:
 - Responde SIEMPRE en español con tono profesional, ejecutivo y empático.
 - Estructura las respuestas con negritas, viñetas y tablas Markdown para una lectura visual ágil.
+- FORMATO EXCEL / REPORTES TABULARES (.CSV): Cuando el usuario consulte por horas, liquidaciones, planilla de honorarios de Pacientes Simulados, horarios o pida "en excel", "descargar excel", "csv", "tabla" o similar:
+  1. Presenta SIEMPRE una TABLA MARKDOWN estructurada con las columnas clave (ej: | Paciente Simulado | DNI | Horas Acumuladas | Tarifa x Hora (S/.) | Monto Total (S/.) | Sesiones | Sede |). Nuestra aplicación web detectará automáticamente la tabla y le ofrecerá de forma nativa e interactiva un botón superior "📊 Descargar en Excel (.csv)" para descargar el archivo compatible con Microsoft Excel con 1 solo clic.
+  2. Si el usuario pide explícitamente "un archivo excel" o "en formato csv", genera ADEMÁS un bloque de código \`\`\`csv ... \`\`\` con columnas delimitadas por punto y coma (;) y cabeceras limpias.
 - FORMATO WHATSAPP (.TXT): Cuando el usuario pida "un mensaje para WhatsApp", "en formato WhatsApp", "un txt", "para enviar por wsp" o para compartir con el equipo o los actores, GENERA UN BLOQUE DE CÓDIGO \`\`\`text ... \`\`\` con:
   * Emojis llamativos al inicio de cada línea (📅, ⏰, 🏥, 🚪, 🎭, 👨‍⚕️, 🔧, 🚨).
   * Formato nativo de WhatsApp (*negrita* con asteriscos, sin tablas HTML/Markdown dentro del bloque).

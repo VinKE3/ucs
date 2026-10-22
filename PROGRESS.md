@@ -1147,6 +1147,22 @@ src/
   - **Verificación Técnica**:
     - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
 
+* `feat(copilot-excel-export)`: **Hito 68: Renderizado Interactivo de Tablas de Datos y Exportación en 1 Clic a Microsoft Excel (.csv) en Copilot**:
+  - **Contexto & Solicitud del Usuario**:
+    - El usuario solicitó que al preguntar al Copilot *"¿Cómo van las horas y liquidación de Pacientes Simulados este mes?"* (o cualquier consulta con datos tabulares), la información no solo se visualice en pantalla sino que se pueda descargar directamente en un archivo Excel.
+  - **Implementación Técnica**:
+    - **Componente `TableCard` con Exportador a Excel (`UcsCopilotDrawer.tsx`)**:
+      - Se implementó un parser de tablas Markdown en el flujo de renderizado del chat que detecta automáticamente cualquier tabla devuelta por la IA.
+      - Renderiza una tabla estilizada de alto contraste adaptada al tema institucional UCS con filas alternadas (efecto cebra) e insignias de conteo de registros.
+      - **Botón `📊 Descargar en Excel (.csv)`**: Genera al vuelo un archivo CSV con delimitador punto y coma (`;`), escape de caracteres especiales y el prefijo byte order mark `\uFEFF` (UTF-8 BOM), garantizando que Microsoft Excel abra el archivo automáticamente en columnas separadas y con tildes y caracteres especiales perfectos.
+      - **Botón `📋 Copiar`**: Copia los datos con tabuladores para pegarlos directamente con `Ctrl + V` en cualquier celda de Excel o Google Sheets.
+    - **Soporte de Bloques `csv` / `excel` en `CodeBlockCard`**:
+      - Si el bloque de código devuelto por Gemini tiene lenguaje `csv`, `excel` o estructura tabular, el encabezado se transforma en una tarjeta verde esmeralda con el botón de descarga para Excel en lugar de WhatsApp.
+    - **Instrucción de Dominio en `geminiService.ts`**:
+      - Se instruyó al Copilot para que ante consultas de horas, liquidaciones, pagos de honorarios de PS o solicitudes de descarga, presente una tabla Markdown completa y/o bloque `csv` para habilitar el botón de exportación en 1 clic.
+  - **Verificación Técnica**:
+    - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

@@ -9,6 +9,7 @@ import {
   carreras,
   usuarios,
   asistencias,
+  turnosProgramadosTecnicos,
 } from '@/db/schema';
 import { eq, and, sql, desc, or, ilike } from 'drizzle-orm';
 import { syncSimclicSessions } from '@/lib/simclicSync';
@@ -251,6 +252,27 @@ export const GEMINI_TOOLS = [
           description: 'Nombre o apellido del paciente simulado.',
         },
       },
+    },
+  },
+  {
+    name: 'consultar_estado_colaborador',
+    description:
+      'Consulta el estado de presencia, asistencia, ubicación (sede y sala) y horario programado de un técnico, docente o colaborador específico por su nombre, apellido o DNI.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        nombreODni: {
+          type: 'STRING',
+          description:
+            'Nombre, apellido o número de DNI del colaborador/técnico a buscar (ej: "Juan", "Rosa Puma", "45678912").',
+        },
+        fecha: {
+          type: 'STRING',
+          description:
+            'Fecha a consultar en formato YYYY-MM-DD. Si se omite, consulta el día de hoy.',
+        },
+      },
+      required: ['nombreODni'],
     },
   },
 ];
@@ -560,6 +582,120 @@ export async function executeGeminiTool(
         };
       }
 
+      case 'consultar_estado_colaborador': {
+        const fechaTarget = args.fecha || hoyPeru;
+        const busqueda = (args.nombreODni || '').trim().toLowerCase();
+
+        // 1. Buscar el usuario
+        const allUsers = await db.select().from(usuarios);
+        const matches = allUsers.filter(
+          (u) =>
+            u.dni?.toLowerCase().includes(busqueda) ||
+            `${u.nombres} ${u.apellidos}`.toLowerCase().includes(busqueda) ||
+            u.nombres?.toLowerCase().includes(busqueda) ||
+            u.apellidos?.toLowerCase().includes(busqueda)
+        );
+
+        if (matches.length === 0) {
+          return {
+            encontrado: false,
+            mensaje: `No se encontró ningún colaborador con el nombre o DNI "${args.nombreODni}".`,
+          };
+        }
+
+        const resultados = [];
+
+        for (const user of matches.slice(0, 5)) {
+          // Asistencia en la fecha
+          const asist = await db
+            .select({
+              id: asistencias.id,
+              horaIngreso: asistencias.horaIngreso,
+              horaSalida: asistencias.horaSalida,
+              estado: asistencias.estado,
+              minutosTardanza: asistencias.minutosTardanza,
+              sedeNombre: sedes.nombre,
+              ambienteNombre: ambientes.nombre,
+            })
+            .from(asistencias)
+            .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+            .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+            .where(
+              and(
+                eq(asistencias.usuarioId, user.id),
+                eq(asistencias.fecha, fechaTarget)
+              )
+            )
+            .orderBy(desc(asistencias.horaIngreso))
+            .limit(1);
+
+          // Si es técnico, buscar su turno programado en la malla mensual
+          let turnoMalla = null;
+          if (user.tipoPersonal === 'tecnico') {
+            const turno = await db
+              .select()
+              .from(turnosProgramadosTecnicos)
+              .where(
+                and(
+                  eq(turnosProgramadosTecnicos.usuarioId, user.id),
+                  eq(turnosProgramadosTecnicos.fecha, fechaTarget)
+                )
+              )
+              .limit(1);
+            if (turno.length > 0) {
+              turnoMalla = turno[0];
+            }
+          }
+
+          const asistActual = asist[0] || null;
+
+          let estadoPresencia = 'NO_HA_MARCADO';
+          if (asistActual) {
+            if (asistActual.estado === 'en_curso') {
+              estadoPresencia = 'EN_TURNO_ACTUALMENTE';
+            } else if (asistActual.estado === 'finalizado') {
+              estadoPresencia = 'TURNO_FINALIZADO';
+            } else {
+              estadoPresencia = asistActual.estado;
+            }
+          }
+
+          resultados.push({
+            colaborador: `${user.nombres} ${user.apellidos}`,
+            dni: user.dni,
+            tipoPersonal: user.tipoPersonal,
+            fechaConsultada: fechaTarget,
+            vinoALaborar: asistActual
+              ? 'SÍ, REGISTRÓ ASISTENCIA'
+              : 'NO HA MARCADO ASISTENCIA HOY',
+            estadoPresencia,
+            horaMarcacionIngreso: asistActual?.horaIngreso || 'Sin registro',
+            horaMarcacionSalida:
+              asistActual?.horaSalida ||
+              (asistActual?.estado === 'en_curso'
+                ? 'Actualmente en sala / en turno'
+                : '--'),
+            sedeActual: asistActual?.sedeNombre || 'No registrada aún',
+            ambienteActual:
+              asistActual?.ambienteNombre || 'Sin sala asignada',
+            tardanzaMinutos: asistActual?.minutosTardanza || 0,
+            horarioProgramado: turnoMalla
+              ? `${turnoMalla.horaEntradaEsperada || user.horaEntradaEsperada || '07:00'} - ${turnoMalla.horaSalidaEsperada || user.horaSalidaEsperada || '16:00'} (${turnoMalla.tipoDia})`
+              : user.horaEntradaEsperada && user.horaSalidaEsperada
+                ? `${user.horaEntradaEsperada} - ${user.horaSalidaEsperada}`
+                : 'Horario estándar',
+            tipoDiaMalla: turnoMalla?.tipoDia || 'laborable',
+            notaTurno: turnoMalla?.nota || null,
+          });
+        }
+
+        return {
+          encontrado: true,
+          totalCoincidencias: resultados.length,
+          colaboradores: resultados,
+        };
+      }
+
       default:
         return { error: `Herramienta desconocida: ${name}` };
     }
@@ -610,7 +746,7 @@ export async function procesarMensajeGemini({
     };
   }
 
-  const modelo = config.modelo || 'gemini-2.5-flash';
+  const modelo = config.modelo || 'gemini-3.5-flash';
   const temperatura = Number(config.temperatura || 0.2);
 
   // 2. Construir Prompt del Sistema con contexto de tiempo real
@@ -630,6 +766,7 @@ TIENES ACCESO A HERRAMIENTAS EN TIEMPO REAL:
 3. 'consultar_salas_disponibilidad': Consulta qué ambientes/salas están libres u ocupadas en cada sede.
 4. 'consultar_asistencias_hoy': Consulta marcaciones, quién está en sala, tardanzas y salidas.
 5. 'consultar_pacientes_simulados': Consulta las horas y liquidación de Pacientes Simulados (PS).
+6. 'consultar_estado_colaborador': Consulta si un técnico, docente o colaborador específico vino a laborar hoy o cualquier fecha, en qué sede y sala se encuentra, a qué hora marcó ingreso/salida y cuál es su horario programado en la malla.
 
 REGLAS DE RESPUESTA:
 - Responde SIEMPRE en español con tono profesional, amable y ejecutivo.

@@ -18,7 +18,7 @@ const SUGGESTIONS = [
   '🔄 Sincronizar SimClic con las clases de hoy',
   '🔍 ¿Qué salas están disponibles en este momento?',
   '👥 ¿Quiénes han marcado asistencia el día de hoy?',
-  '📅 ¿Qué clases están programadas para hoy?',
+  '👨‍🔧 ¿El técnico vino a laborar hoy y en qué sede está?',
   '🧾 ¿Cómo van las horas de los Pacientes Simulados este mes?',
 ];
 

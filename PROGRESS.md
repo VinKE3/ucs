@@ -1054,6 +1054,44 @@ src/
     - Medición en vivo ejecutada: 187 sesiones procesadas en 2.3 segundos con 0 escrituras redundantes.
     - Compilación TypeScript estricta verificada con `npx tsc --noEmit` (**0 errores**).
 
+* `feat(gemini-pro-copilot)`: **Hito 64: Integración de Asistente IA Google Gemini con Function Calling en Vivo y Centro de Control Exclusivo para Super Admin (DNI: 00000001)**:
+  - **Contexto & Solicitud del Usuario**:
+    - Incorporación de un chatbot inteligente conectado a la API de Google Gemini Pro / Flash con capacidad para ejecutar herramientas en tiempo real (sincronizar con SimClic, consultar salas ocupadas/libres, clases programadas, asistencias y horas de Pacientes Simulados).
+    - Creación de un **nuevo Tab exclusivo para el rol `super_admin` (DNI: `00000001`)** en el dashboard de administración para supervisar el consumo acumulado de tokens, auditar consultas y apagar/encender el chatbot a voluntad.
+  - **Implementación Técnica**:
+    - **Tablas de Base de Datos en Neon PostgreSQL (`src/db/schema.ts`)**:
+      - `configuracion_gemini`: Registro maestro singleton con estado (`habilitado`), modelo activo (`gemini-3.5-flash`, `gemini-pro-latest`, etc.), contadores acumulados de tokens de entrada (`total_input_tokens`), tokens de salida (`total_output_tokens`), tokens totales (`total_tokens`), peticiones realizadas (`total_requests`) y costo estimado acumulado en USD (`costo_total_estimado_usd`).
+      - `logs_gemini_requests`: Registro histórico de auditoría por consulta con usuario (`id, dni, nombre`), prompt, respuesta generada, modelo utilizado, tokens consumidos, costo individual en USD, duración en ms, herramientas ejecutadas (`jsonb`) y estado.
+    - **Motor de Inferencia y Herramientas Locales (`src/lib/geminiService.ts`)**:
+      - Conexión directa a Google Generative Language API con soporte de `tools` (Function Calling):
+        1. `sincronizar_simclic`: Ejecuta la sincronización en vivo con SockJS Meteor WebSocket (`syncSimclicSessions`) para cualquier fecha o el día actual.
+        2. `consultar_programacion_dia`: Consulta sesiones, docentes asignados y horarios cruzando `sesionesProgramadas`, `cursos`, `ambientes` y `sedes`.
+        3. `consultar_salas_disponibilidad`: Cruza los 60 ambientes con las sesiones y turnos en curso en el minuto exacto, reportando salas libres vs ocupadas.
+        4. `consultar_asistencias_hoy`: Consulta el personal en turno actual, tardanzas y marcaciones de salida.
+        5. `consultar_pacientes_simulados`: Agrupa y calcula horas acumuladas y montos estimados en S/. para PS en el mes solicitado.
+      - Soporte para roles de API moderna (`role: 'user'` para `functionResponse` con `id` de llamada) y cálculo preciso de costos ($0.075 / 1M prompt en Flash, $0.30 / 1M output).
+    - **APIs REST de Copilot & Seguridad (`src/app/api/copilot/`)**:
+      - `/api/copilot/config`: `GET` y `POST` blindados con validación estricta (`session.rolSistema === 'super_admin' || session.dni === '00000001'`). Permite alternar el switch maestro (`toggle_enabled`), cambiar de modelo o reiniciar los contadores a 0.
+      - `/api/copilot/chat`: Valida autenticación y estado del switch. Si `habilitado === false`, rechaza la solicitud de inmediato garantizando **0 tokens consumidos**.
+      - `/api/copilot/test`: Endpoint para probar latencia y conectividad en 1 clic.
+      - `/api/copilot/status`: Consulta ligera del estado para la interfaz.
+    - **Panel de Control en Frontend (`src/components/admin/tabs/GeminiAdminTab.tsx`)**:
+      - **Master Switch Visual**: Tarjeta interactiva de encendido/apagado global del chatbot con indicadores visuales (Verde En Línea / Rojo Suspendido).
+      - **4 Tarjetas KPI de Consumo**: Total Tokens Consumidos (Prompt vs Output), Costo Estimado ($ USD y S/. Soles al cambio 3.75), Consultas Totales y Modelo Activo.
+      - **Acciones Rápidas**: Probar conexión en vivo con Gemini, recargar datos y reiniciar contadores con confirmación.
+      - **Selector de Modelo**: Conmutación inmediata entre `gemini-3.5-flash`, `gemini-flash-latest`, `gemini-pro-latest` y `gemini-3.8-flash`.
+      - **Tabla de Auditoría de Consultas**: Historial con buscador, visualización de herramientas invocadas, tokens por petición, costo individual y modal con prompt/respuesta completos.
+    - **Widget Flotante & Drawer (`src/components/admin/copilot/UcsCopilotDrawer.tsx`)**:
+      - Botón flotante `✨ Copilot UCS` visible para administradores cuando el switch está activo (se oculta automáticamente si el super_admin lo apaga).
+      - Drawer conversacional interactivo con chips de sugerencias rápidas, soporte de respuestas Markdown estructuradas (tablas, negritas, listas) y badge de herramientas en ejecución.
+    - **Navegación & Seguridad Exclusiva**:
+      - Tab `'gemini_ia'` añadido a `AdminTab` en `src/types/admin.ts`.
+      - En `AdminDashboard.tsx` y `AdminNavbar.tsx` (versión escritorio y menú móvil Bottom Sheet), la pestaña solo se muestra y es accesible si `session.rolSistema === 'super_admin' || session.dni === '00000001'`.
+  - **Verificación Técnica**:
+    - Prueba integral en vivo ejecutada exitosamente: Gemini analizó la pregunta *"¿Qué salas están libres en este momento?"*, ejecutó la herramienta `consultar_salas_disponibilidad`, procesó los 60 ambientes de la base de datos y generó una tabla estructurada de 49 salas libres y 11 ocupadas con registro automático en base de datos (5,204 tokens, $0.000573 USD).
+    - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
+    - Bundle de producción validado con `npm run build` (**100% exitoso**).
+
 ---
 
 

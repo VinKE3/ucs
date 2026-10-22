@@ -31,6 +31,8 @@ import { CursosTab } from '@/components/admin/tabs/CursosTab';
 import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
 import { PlanillaTab } from '@/components/admin/tabs/PlanillaTab';
 import { ProgramacionTab } from '@/components/admin/tabs/ProgramacionTab';
+import { GeminiAdminTab } from '@/components/admin/tabs/GeminiAdminTab';
+import { UcsCopilotDrawer } from '@/components/admin/copilot/UcsCopilotDrawer';
 
 // Modales modulares
 import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
@@ -1249,6 +1251,18 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             >
               📑 Planilla Mensual PS
             </button>
+            {(session.rolSistema === 'super_admin' || session.dni === '00000001') && (
+              <button
+                className={`${styles.tabBtn} ${activeTab === 'gemini_ia' ? styles.activeTab : ''}`}
+                onClick={() => setActiveTab('gemini_ia')}
+                style={{
+                  background: activeTab === 'gemini_ia' ? undefined : 'rgba(168, 85, 247, 0.08)',
+                  borderColor: activeTab === 'gemini_ia' ? undefined : 'rgba(168, 85, 247, 0.35)',
+                }}
+              >
+                🤖 Control Gemini IA 👑
+              </button>
+            )}
           </div>
         </section>
 
@@ -1436,6 +1450,10 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             }}
           />
         )}
+
+        {activeTab === 'gemini_ia' && (session.rolSistema === 'super_admin' || session.dni === '00000001') && (
+          <GeminiAdminTab session={session} />
+        )}
       </main>
 
       {/* MODALES MODULARIZADOS */}
@@ -1612,6 +1630,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           await loadData();
         }}
       />
+      {/* ASISTENTE VIRTUAL COPILOT UCS */}
+      <UcsCopilotDrawer session={session} />
     </div>
   );
 }

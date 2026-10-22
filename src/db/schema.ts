@@ -537,6 +537,47 @@ export type NewTurnoProgramadoTecnico = typeof turnosProgramadosTecnicos.$inferI
 export type BancoCompensatorioTecnico = typeof bancoCompensatoriosTecnicos.$inferSelect;
 export type NewBancoCompensatorioTecnico = typeof bancoCompensatoriosTecnicos.$inferInsert;
 
+// --- 10. TABLA: CONFIGURACIÓN GEMINI IA ---
+export const configuracionGemini = pgTable('configuracion_gemini', {
+  id: serial('id').primaryKey(),
+  habilitado: boolean('habilitado').default(true).notNull(), // Switch maestro para apagar/encender chatbot
+  modelo: varchar('modelo', { length: 80 }).default('gemini-3.8-flash').notNull(),
+  totalInputTokens: integer('total_input_tokens').default(0).notNull(),
+  totalOutputTokens: integer('total_output_tokens').default(0).notNull(),
+  totalTokens: integer('total_tokens').default(0).notNull(),
+  totalRequests: integer('total_requests').default(0).notNull(),
+  costoTotalEstimadoUsd: numeric('costo_total_estimado_usd', { precision: 12, scale: 6 }).default('0.000000').notNull(),
+  temperatura: numeric('temperatura', { precision: 3, scale: 2 }).default('0.2').notNull(),
+  instruccionesSistema: text('instrucciones_sistema'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedByUsuarioId: integer('updated_by_usuario_id').references(() => usuarios.id, { onDelete: 'set null' }),
+});
+
+// --- 11. TABLA: LOGS DE AUDITORÍA Y PETICIONES GEMINI IA ---
+export const logsGeminiRequests = pgTable('logs_gemini_requests', {
+  id: serial('id').primaryKey(),
+  usuarioId: integer('usuario_id').references(() => usuarios.id, { onDelete: 'set null' }),
+  usuarioDni: varchar('usuario_dni', { length: 20 }),
+  usuarioNombre: varchar('usuario_nombre', { length: 150 }),
+  prompt: text('prompt').notNull(),
+  respuesta: text('respuesta'),
+  modelo: varchar('modelo', { length: 80 }).notNull(),
+  inputTokens: integer('input_tokens').default(0).notNull(),
+  outputTokens: integer('output_tokens').default(0).notNull(),
+  totalTokens: integer('total_tokens').default(0).notNull(),
+  costoEstimadoUsd: numeric('costo_estimado_usd', { precision: 10, scale: 6 }).default('0.000000').notNull(),
+  duracionMs: integer('duracion_ms').default(0).notNull(),
+  herramientasEjecutadas: jsonb('herramientas_ejecutadas').default('[]').notNull(),
+  exitoso: boolean('exitoso').default(true).notNull(),
+  errorMensaje: text('error_mensaje'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type ConfiguracionGemini = typeof configuracionGemini.$inferSelect;
+export type NewConfiguracionGemini = typeof configuracionGemini.$inferInsert;
+export type LogGeminiRequest = typeof logsGeminiRequests.$inferSelect;
+export type NewLogGeminiRequest = typeof logsGeminiRequests.$inferInsert;
+
 
 
 

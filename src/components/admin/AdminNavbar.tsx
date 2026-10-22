@@ -291,7 +291,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
         {/* 5. MENÚ MÁS (3 PUNTITOS •••) */}
         <button
           type="button"
-          className={`${styles.bottomNavItem} ${(activeTab === 'sedes' || activeTab === 'cursos' || moreSheetOpen) ? styles.bottomNavItemActive : ''}`}
+          className={`${styles.bottomNavItem} ${(activeTab === 'sedes' || activeTab === 'cursos' || activeTab === 'gemini_ia' || moreSheetOpen) ? styles.bottomNavItemActive : ''}`}
           onClick={() => setMoreSheetOpen(true)}
           aria-label="Más opciones"
         >
@@ -301,12 +301,12 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
               <circle cx="19" cy="12" r="1.5" fill="currentColor" />
               <circle cx="5" cy="12" r="1.5" fill="currentColor" />
             </svg>
-            {(activeTab === 'sedes' || activeTab === 'cursos') && (
+            {(activeTab === 'sedes' || activeTab === 'cursos' || activeTab === 'gemini_ia') && (
               <span className={`${styles.bottomNavBadge} ${styles.bottomNavBadgeActive}`} style={{ width: '8px', height: '8px', minWidth: '8px', padding: 0 }} />
             )}
           </div>
           <span className={styles.bottomNavLabel}>
-            {activeTab === 'sedes' ? 'Sedes' : activeTab === 'cursos' ? 'Cursos' : 'Más'}
+            {activeTab === 'sedes' ? 'Sedes' : activeTab === 'cursos' ? 'Cursos' : activeTab === 'gemini_ia' ? 'Gemini IA' : 'Más'}
           </span>
         </button>
       </nav>
@@ -405,6 +405,30 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             </div>
             <span className={styles.bottomSheetItemBadge}>360°</span>
           </button>
+
+          {/* CONTROL GEMINI IA (EXCLUSIVO SUPER ADMIN) */}
+          {(session.rolSistema === 'super_admin' || session.dni === '00000001') && (
+            <button
+              type="button"
+              className={`${styles.bottomSheetItem} ${activeTab === 'gemini_ia' ? styles.bottomSheetItemActive : ''}`}
+              onClick={() => {
+                setActiveTab('gemini_ia');
+                setMoreSheetOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              <div className={styles.bottomSheetItemLeft}>
+                <div className={styles.bottomSheetItemIcon} style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🤖</span>
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div className={styles.bottomSheetItemTitle}>Control Gemini IA</div>
+                  <div className={styles.bottomSheetItemDesc}>Consumo de tokens, switch de activación y auditoría</div>
+                </div>
+              </div>
+              <span className={styles.bottomSheetItemBadge} style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)', color: '#fff' }}>Super Admin</span>
+            </button>
+          )}
 
           {/* KIOSCO */}
           <Link

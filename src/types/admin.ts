@@ -269,7 +269,7 @@ export interface CategoriaAmbienteItem {
   createdAt?: string;
 }
 
-export type AdminTab = 'sedes' | 'ambientes' | 'programacion' | 'cursos' | 'personal' | 'asistencias' | 'planilla';
+export type AdminTab = 'sedes' | 'ambientes' | 'programacion' | 'cursos' | 'personal' | 'asistencias' | 'planilla' | 'gemini_ia';
 
 export interface SesionProgramadaTimelineItem extends SesionProgramadaSimclicItem {
   startMins: number;
@@ -663,6 +663,41 @@ export interface CompensatorioResumenItem {
   totalCanjeados: number;
   ultimoMovimiento?: string | null;
 }
+
+// --- GEMINI PRO IA COPILOT & CONTROL TYPES ---
+export interface GeminiConfigItem {
+  id: number;
+  habilitado: boolean;
+  modelo: string;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalRequests: number;
+  costoTotalEstimadoUsd: number;
+  costoTotalEstimadoPen: number;
+  temperatura: number;
+  updatedAt: string;
+}
+
+export interface GeminiLogItem {
+  id: number;
+  usuarioId?: number | null;
+  usuarioDni?: string | null;
+  usuarioNombre?: string | null;
+  prompt: string;
+  respuesta?: string | null;
+  modelo: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costoEstimadoUsd: number;
+  duracionMs: number;
+  herramientasEjecutadas: string[];
+  exitoso: boolean;
+  errorMensaje?: string | null;
+  createdAt: string;
+}
+
 
 
 

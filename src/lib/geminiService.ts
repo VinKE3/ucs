@@ -10,10 +10,25 @@ import {
   usuarios,
   asistencias,
   turnosProgramadosTecnicos,
+  bancoCompensatoriosTecnicos,
 } from '@/db/schema';
 import { eq, and, sql, desc, or, ilike } from 'drizzle-orm';
 import { syncSimclicSessions } from '@/lib/simclicSync';
 import { getPeruDateString, getPeruTimeString } from '@/lib/peruTime';
+
+/**
+ * Formatea una fecha o timestamp a hora peruana HH:mm
+ */
+function formatTimestampPeru(val: Date | string | null | undefined): string {
+  if (!val) return '--:--';
+  try {
+    const d = typeof val === 'string' ? new Date(val) : val;
+    if (isNaN(d.getTime())) return typeof val === 'string' ? val.slice(0, 5) : '--:--';
+    return getPeruTimeString(d);
+  } catch {
+    return '--:--';
+  }
+}
 
 // --- COSTOS POR MODELO (Precios oficiales de Google Gemini API por 1M tokens) ---
 // Gemini 3.8 Flash / Flash Latest: $0.075 / 1M prompt, $0.30 / 1M output
@@ -246,17 +261,78 @@ export const GEMINI_TOOLS = [
   {
     name: 'consultar_pacientes_simulados',
     description:
-      'Consulta las asistencias y horas acumuladas de Pacientes Simulados (PS) para liquidación o control de turnos.',
+      'Consulta pacientes simulados (actores). Admite dos modalidades clave: 1) "programados": qué actores están citados para hoy o fechas futuras, qué personaje interpretan, en qué aula, horario y sede para enviarles citación por WhatsApp; 2) "asistencias": reporte de horas efectivamente trabajadas, asistencias y pre-liquidación en Soles (S/.) por mes o rango.',
     parameters: {
       type: 'OBJECT',
       properties: {
+        modo: {
+          type: 'STRING',
+          description:
+            'Modo de consulta: "programados" (agenda futura/hoy en SimClic con personajes y aulas), "asistencias" (horas y liquidación en S/.) o "todos". Predeterminado: "programados" si se consulta fecha de hoy o futuro.',
+        },
+        fecha: {
+          type: 'STRING',
+          description:
+            'Fecha a consultar en formato YYYY-MM-DD (ej: 2026-10-22). Predeterminado: hoy.',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Filtrar por nombre de sede (ej: "Villa", "Ate", "Norte"). Opcional.',
+        },
         mes: {
           type: 'STRING',
-          description: 'Mes en formato YYYY-MM (ej: 2026-10).',
+          description:
+            'Mes en formato YYYY-MM (ej: 2026-10) para el cálculo acumulado de honorarios.',
         },
         nombre: {
           type: 'STRING',
           description: 'Nombre o apellido del paciente simulado.',
+        },
+      },
+    },
+  },
+  {
+    name: 'consultar_equipo_tecnicos',
+    description:
+      'Consulta la cobertura del equipo de técnicos de simulación para hoy o cualquier fecha: turnos asignados por sede, quiénes están en turno activo en sala, quiénes están de descanso (DSO) o compensatorio, tardanzas y saldo de días compensatorios acumulados.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        fecha: {
+          type: 'STRING',
+          description:
+            'Fecha a consultar en formato YYYY-MM-DD (ej: 2026-10-22). Predeterminado: hoy.',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Filtrar por sede (ej: "Villa", "Ate", "Norte"). Opcional.',
+        },
+        nombre: {
+          type: 'STRING',
+          description:
+            'Nombre o apellido de un técnico en particular. Opcional.',
+        },
+      },
+    },
+  },
+  {
+    name: 'consultar_alertas_logisticas',
+    description:
+      'Identifica alertas operativas y logísticas para la coordinación: 1) Cambios de material o simuladores en aulas entre clases (Swaps de curso o Resets de caso con pads e insumos), 2) Sesiones reubicadas o cambiadas de sala en SimClic, 3) Desfases de asistencia (clase donde el docente marcó pero el PS no ha llegado, o viceversa).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        fecha: {
+          type: 'STRING',
+          description:
+            'Fecha a auditar en formato YYYY-MM-DD. Predeterminado: hoy.',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Filtrar por sede (ej: "Villa", "Ate", "Norte"). Opcional.',
         },
       },
     },
@@ -519,79 +595,239 @@ export async function executeGeminiTool(
       }
 
       case 'consultar_pacientes_simulados': {
-        const mesTarget = args.mes || hoyPeru.slice(0, 7); // ej: "2026-10"
-        let query = db
-          .select({
-            usuarioId: asistencias.usuarioId,
-            dni: usuarios.dni,
-            nombres: usuarios.nombres,
-            apellidos: usuarios.apellidos,
-            tarifaHora: usuarios.tarifaHora,
-            fecha: asistencias.fecha,
-            minutosTotales: asistencias.minutosTotales,
-            horaIngreso: asistencias.horaIngreso,
-            horaSalida: asistencias.horaSalida,
-          })
-          .from(asistencias)
-          .leftJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
-          .where(
-            and(
-              eq(usuarios.tipoPersonal, 'paciente_simulado'),
-              sql`SUBSTRING(${asistencias.fecha}, 1, 7) = ${mesTarget}`
-            )
-          );
+        const modo = args.modo || (args.mes && !args.fecha ? 'asistencias' : 'programados');
+        const fechaTarget = args.fecha || hoyPeru;
+        const mesTarget = args.mes || fechaTarget.slice(0, 7);
 
-        const rows = await query;
+        let resultadoProgramados = null;
+        let resultadoAsistencias = null;
 
-        // Agrupar por paciente simulado
-        const resumenMap: Record<
-          number,
-          {
-            nombre: string;
-            dni: string;
-            tarifaHora: number;
-            minutosTotales: number;
-            sesiones: number;
+        // 1. MODO PROGRAMADOS (Agenda de SimClic, citaciones, personajes, salas y cruce con kiosco)
+        if (modo === 'programados' || modo === 'todos') {
+          const querySesiones = db
+            .select({
+              id: sesionesProgramadas.id,
+              fecha: sesionesProgramadas.fecha,
+              horaInicio: sesionesProgramadas.horaInicio,
+              horaFin: sesionesProgramadas.horaFin,
+              titulo: sesionesProgramadas.titulo,
+              docenteNombre: sesionesProgramadas.docenteNombreSimclic,
+              pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
+              pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+              ambienteId: sesionesProgramadas.ambienteId,
+              ambienteNombre: ambientes.nombre,
+              ambienteCodigo: ambientes.codigo,
+              sedeId: sesionesProgramadas.sedeId,
+              sedeNombre: sedes.nombre,
+              cursoNombre: cursos.nombre,
+              escenarioNombre: sesionesProgramadas.escenarioNombre,
+              escenarioCodigo: sesionesProgramadas.escenarioCodigo,
+              estadoUcs: sesionesProgramadas.estadoUcs,
+            })
+            .from(sesionesProgramadas)
+            .leftJoin(ambientes, eq(sesionesProgramadas.ambienteId, ambientes.id))
+            .leftJoin(sedes, eq(sesionesProgramadas.sedeId, sedes.id))
+            .leftJoin(cursos, eq(sesionesProgramadas.cursoId, cursos.id))
+            .where(eq(sesionesProgramadas.fecha, fechaTarget))
+            .orderBy(sesionesProgramadas.horaInicio);
+
+          const sesiones = await querySesiones;
+
+          // Asistencias marcadas por PS hoy en esa fecha para cruzar presencia en tiempo real
+          const asistenciasPS = await db
+            .select({
+              id: asistencias.id,
+              usuarioId: asistencias.usuarioId,
+              ambienteId: asistencias.ambienteId,
+              horaIngreso: asistencias.horaIngreso,
+              horaSalida: asistencias.horaSalida,
+              estado: asistencias.estado,
+              observaciones: asistencias.observaciones,
+              nombres: usuarios.nombres,
+              apellidos: usuarios.apellidos,
+              dni: usuarios.dni,
+            })
+            .from(asistencias)
+            .leftJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+            .where(
+              and(
+                eq(asistencias.fecha, fechaTarget),
+                eq(usuarios.tipoPersonal, 'paciente_simulado')
+              )
+            );
+
+          const listaCitaciones: Array<{
+            actorNombre: string;
+            personajeRol: string;
+            horario: string;
+            curso: string;
+            escenario: string;
+            sala: string;
+            sede: string;
+            docente: string;
+            estadoPresenciaKiosco: string;
+            horaMarcacionIngreso?: string;
+            suplenciaNota?: string;
+          }> = [];
+
+          for (const ses of sesiones) {
+            // Extraer pacientes simulados asignados a esta sesión
+            const listaPS: Array<{ nombre: string; rol?: string | null }> = [];
+            if (ses.pacientesSimuladosJson && Array.isArray(ses.pacientesSimuladosJson) && ses.pacientesSimuladosJson.length > 0) {
+              for (const p of ses.pacientesSimuladosJson) {
+                if (p.nombre) listaPS.push({ nombre: p.nombre, rol: p.rol });
+              }
+            } else if (ses.pacienteSimuladoNombre) {
+              listaPS.push({ nombre: ses.pacienteSimuladoNombre, rol: 'Paciente Estandarizado' });
+            }
+
+            if (listaPS.length === 0) continue; // No requiere PS
+
+            for (const psItem of listaPS) {
+              // Buscar si ya marcó asistencia en el Kiosco
+              const nombreNorm = psItem.nombre.toLowerCase();
+              const marcacion = asistenciasPS.find((a) => {
+                const nombreCompleto = `${a.nombres} ${a.apellidos}`.toLowerCase();
+                return (
+                  nombreCompleto.includes(nombreNorm) ||
+                  nombreNorm.includes(nombreCompleto) ||
+                  (a.ambienteId && a.ambienteId === ses.ambienteId)
+                );
+              });
+
+              let estadoPresenciaKiosco = 'PENDIENTE_DE_INGRESO';
+              let horaMarcacionIngreso: string | undefined = undefined;
+              let suplenciaNota: string | undefined = undefined;
+
+              if (marcacion) {
+                horaMarcacionIngreso = formatTimestampPeru(marcacion.horaIngreso);
+                if (marcacion.estado === 'en_curso') {
+                  estadoPresenciaKiosco = 'PRESENTE_EN_SALA';
+                } else if (marcacion.estado === 'finalizado') {
+                  estadoPresenciaKiosco = 'TURNO_FINALIZADO';
+                }
+                if (marcacion.observaciones && marcacion.observaciones.toLowerCase().includes('suplencia')) {
+                  suplenciaNota = `Suplencia registrada: ${marcacion.nombres} ${marcacion.apellidos} ingresó cubriendo el turno (${marcacion.observaciones}).`;
+                }
+              }
+
+              listaCitaciones.push({
+                actorNombre: psItem.nombre,
+                personajeRol: psItem.rol || 'Paciente Estándar',
+                horario: `${ses.horaInicio} - ${ses.horaFin}`,
+                curso: ses.cursoNombre || ses.titulo,
+                escenario: ses.escenarioNombre || ses.escenarioCodigo || 'Caso clínico general',
+                sala: ses.ambienteCodigo ? `[${ses.ambienteCodigo}] ${ses.ambienteNombre}` : (ses.ambienteNombre || 'Sala sin asignar'),
+                sede: ses.sedeNombre || 'Villa',
+                docente: ses.docenteNombre || 'Docente no asignado',
+                estadoPresenciaKiosco,
+                horaMarcacionIngreso,
+                suplenciaNota,
+              });
+            }
           }
-        > = {};
 
-        for (const r of rows) {
-          if (!r.usuarioId) continue;
-          if (!resumenMap[r.usuarioId]) {
-            resumenMap[r.usuarioId] = {
-              nombre: `${r.nombres} ${r.apellidos}`,
-              dni: r.dni || '',
-              tarifaHora: Number(r.tarifaHora || 35),
-              minutosTotales: 0,
-              sesiones: 0,
-            };
+          // Filtrar por sede si se solicitó
+          let filtradas = listaCitaciones;
+          if (args.sede) {
+            const s = args.sede.toLowerCase();
+            filtradas = filtradas.filter((c) => c.sede.toLowerCase().includes(s));
           }
-          resumenMap[r.usuarioId].minutosTotales += Number(r.minutosTotales || 0);
-          resumenMap[r.usuarioId].sesiones += 1;
+          if (args.nombre) {
+            const n = args.nombre.toLowerCase();
+            filtradas = filtradas.filter((c) => c.actorNombre.toLowerCase().includes(n));
+          }
+
+          resultadoProgramados = {
+            fecha: fechaTarget,
+            totalCitaciones: filtradas.length,
+            presentesEnSala: filtradas.filter((c) => c.estadoPresenciaKiosco === 'PRESENTE_EN_SALA').length,
+            pendientesIngreso: filtradas.filter((c) => c.estadoPresenciaKiosco === 'PENDIENTE_DE_INGRESO').length,
+            citaciones: filtradas,
+          };
         }
 
-        let lista = Object.values(resumenMap).map((ps) => {
-          const horas = Number((ps.minutosTotales / 60).toFixed(2));
-          const montoTotal = Number((horas * ps.tarifaHora).toFixed(2));
-          return {
-            pacienteSimulado: ps.nombre,
-            dni: ps.dni,
-            horasAcumuladas: horas,
-            sesionesParticipadas: ps.sesiones,
-            tarifaHoraSol: `S/. ${ps.tarifaHora.toFixed(2)}`,
-            pagoEstimadoMes: `S/. ${montoTotal.toFixed(2)}`,
-          };
-        });
+        // 2. MODO ASISTENCIAS / HONORARIOS (Cálculo acumulado mensual o histórico)
+        if (modo === 'asistencias' || modo === 'todos') {
+          const query = db
+            .select({
+              usuarioId: asistencias.usuarioId,
+              dni: usuarios.dni,
+              nombres: usuarios.nombres,
+              apellidos: usuarios.apellidos,
+              tarifaHora: usuarios.tarifaHora,
+              fecha: asistencias.fecha,
+              minutosTotales: asistencias.minutosTotales,
+              horaIngreso: asistencias.horaIngreso,
+              horaSalida: asistencias.horaSalida,
+              sedeNombre: sedes.nombre,
+            })
+            .from(asistencias)
+            .leftJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+            .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+            .where(
+              and(
+                eq(usuarios.tipoPersonal, 'paciente_simulado'),
+                sql`SUBSTRING(${asistencias.fecha}, 1, 7) = ${mesTarget}`
+              )
+            );
 
-        if (args.nombre) {
-          const n = args.nombre.toLowerCase();
-          lista = lista.filter((p) => p.pacienteSimulado.toLowerCase().includes(n));
+          const rows = await query;
+          const resumenMap: Record<number, any> = {};
+
+          for (const r of rows) {
+            if (!r.usuarioId) continue;
+            if (!resumenMap[r.usuarioId]) {
+              resumenMap[r.usuarioId] = {
+                nombre: `${r.nombres} ${r.apellidos}`,
+                dni: r.dni || '',
+                tarifaHora: Number(r.tarifaHora || 35),
+                minutosTotales: 0,
+                sesiones: 0,
+                sedes: new Set<string>(),
+              };
+            }
+            resumenMap[r.usuarioId].minutosTotales += Number(r.minutosTotales || 0);
+            resumenMap[r.usuarioId].sesiones += 1;
+            if (r.sedeNombre) resumenMap[r.usuarioId].sedes.add(r.sedeNombre);
+          }
+
+          let lista = Object.values(resumenMap).map((ps: any) => {
+            const horas = Number((ps.minutosTotales / 60).toFixed(2));
+            const montoTotal = Number((horas * ps.tarifaHora).toFixed(2));
+            return {
+              pacienteSimulado: ps.nombre,
+              dni: ps.dni,
+              horasAcumuladas: horas,
+              sesionesParticipadas: ps.sesiones,
+              sedes: Array.from(ps.sedes).join(', ') || 'Villa',
+              tarifaHoraSol: `S/. ${ps.tarifaHora.toFixed(2)}`,
+              pagoEstimadoMes: `S/. ${montoTotal.toFixed(2)}`,
+            };
+          });
+
+          if (args.nombre) {
+            const n = args.nombre.toLowerCase();
+            lista = lista.filter((p) => p.pacienteSimulado.toLowerCase().includes(n));
+          }
+          if (args.sede) {
+            const s = args.sede.toLowerCase();
+            lista = lista.filter((p) => p.sedes.toLowerCase().includes(s));
+          }
+
+          resultadoAsistencias = {
+            mes: mesTarget,
+            totalPacientesConTurno: lista.length,
+            resumenPlanillaPS: lista,
+          };
         }
 
         return {
+          modo,
+          fecha: fechaTarget,
           mes: mesTarget,
-          totalPacientesConTurno: lista.length,
-          resumenPlanillaPS: lista,
+          ...(resultadoProgramados ? { programacionCitaciones: resultadoProgramados } : {}),
+          ...(resultadoAsistencias ? { honorariosMensuales: resultadoAsistencias } : {}),
         };
       }
 
@@ -709,6 +945,339 @@ export async function executeGeminiTool(
         };
       }
 
+      case 'consultar_equipo_tecnicos': {
+        const fechaTarget = args.fecha || hoyPeru;
+
+        // 1. Obtener todos los técnicos activos
+        const tecnicos = await db
+          .select({
+            id: usuarios.id,
+            dni: usuarios.dni,
+            nombres: usuarios.nombres,
+            apellidos: usuarios.apellidos,
+            correo: usuarios.correo,
+            telefono: usuarios.telefono,
+            horaEntradaEsperada: usuarios.horaEntradaEsperada,
+            horaSalidaEsperada: usuarios.horaSalidaEsperada,
+            toleranciaMinutos: usuarios.toleranciaMinutos,
+          })
+          .from(usuarios)
+          .where(and(eq(usuarios.tipoPersonal, 'tecnico'), eq(usuarios.activo, true)))
+          .orderBy(usuarios.apellidos);
+
+        // 2. Obtener la programación de la malla de técnicos para la fecha
+        const turnosMalla = await db
+          .select()
+          .from(turnosProgramadosTecnicos)
+          .where(eq(turnosProgramadosTecnicos.fecha, fechaTarget));
+
+        // 3. Obtener asistencias registradas para la fecha
+        const asistenciasFecha = await db
+          .select({
+            id: asistencias.id,
+            usuarioId: asistencias.usuarioId,
+            horaIngreso: asistencias.horaIngreso,
+            horaSalida: asistencias.horaSalida,
+            estado: asistencias.estado,
+            minutosTardanza: asistencias.minutosTardanza,
+            sedeId: asistencias.sedeId,
+            sedeNombre: sedes.nombre,
+            ambienteNombre: ambientes.nombre,
+          })
+          .from(asistencias)
+          .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+          .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+          .where(eq(asistencias.fecha, fechaTarget));
+
+        // 4. Obtener todos los movimientos del banco de compensatorios para calcular saldo acumulado
+        const compensatorios = await db
+          .select({
+            usuarioId: bancoCompensatoriosTecnicos.usuarioId,
+            dias: bancoCompensatoriosTecnicos.dias,
+          })
+          .from(bancoCompensatoriosTecnicos);
+
+        const saldosCompensatoriosMap: Record<number, number> = {};
+        for (const mov of compensatorios) {
+          if (!mov.usuarioId) continue;
+          saldosCompensatoriosMap[mov.usuarioId] =
+            (saldosCompensatoriosMap[mov.usuarioId] || 0) + Number(mov.dias || 0);
+        }
+
+        // 5. Cruzar datos por técnico
+        const listaReporte = tecnicos.map((tec) => {
+          const turno = turnosMalla.find((t) => t.usuarioId === tec.id);
+          const asist = asistenciasFecha.find((a) => a.usuarioId === tec.id);
+          const saldoCompensatorio = saldosCompensatoriosMap[tec.id] || 0;
+
+          const tipoDia = turno?.tipoDia || 'laborable';
+          const horaEntradaProg = turno?.horaEntradaEsperada || tec.horaEntradaEsperada || '13:00';
+          const horaSalidaProg = turno?.horaSalidaEsperada || tec.horaSalidaEsperada || '22:00';
+
+          let estadoOperativo = 'PROGRAMADO_POR_INGRESAR';
+          if (tipoDia === 'descanso') {
+            estadoOperativo = 'DESCANSO_SEMANAL_DSO';
+          } else if (tipoDia === 'descanso_compensatorio') {
+            estadoOperativo = 'DESCANSO_COMPENSATORIO';
+          } else if (asist) {
+            if (asist.estado === 'en_curso') {
+              estadoOperativo = 'EN_TURNO_ACTIVO';
+            } else if (asist.estado === 'finalizado') {
+              estadoOperativo = 'JORNADA_FINALIZADA';
+            }
+          } else if (fechaTarget === hoyPeru) {
+            if (horaPeru > horaEntradaProg) {
+              estadoOperativo = 'PENDIENTE_MARCACION_ATRASADO';
+            }
+          }
+
+          return {
+            tecnico: `${tec.nombres} ${tec.apellidos}`,
+            dni: tec.dni,
+            telefono: tec.telefono || 'Sin teléfono',
+            tipoDia,
+            horarioProgramado: `${horaEntradaProg} - ${horaSalidaProg}`,
+            notaMalla: turno?.nota || null,
+            estadoOperativo,
+            horaIngresoReal: formatTimestampPeru(asist?.horaIngreso),
+            horaSalidaReal: formatTimestampPeru(asist?.horaSalida),
+            tardanzaMinutos: asist?.minutosTardanza || 0,
+            sedeActual: asist?.sedeNombre || 'No registrada en kiosco',
+            saldoDiasCompensatorios: saldoCompensatorio,
+          };
+        });
+
+        // Filtrar
+        let filtrados = listaReporte;
+        if (args.nombre) {
+          const n = args.nombre.toLowerCase();
+          filtrados = filtrados.filter((t) => t.tecnico.toLowerCase().includes(n));
+        }
+        if (args.sede) {
+          const s = args.sede.toLowerCase();
+          filtrados = filtrados.filter((t) => t.sedeActual.toLowerCase().includes(s));
+        }
+
+        const totalTecnicos = filtrados.length;
+        const enTurnoActivo = filtrados.filter((t) => t.estadoOperativo === 'EN_TURNO_ACTIVO').length;
+        const enDescanso = filtrados.filter((t) =>
+          t.estadoOperativo.includes('DESCANSO')
+        ).length;
+        const conTardanza = filtrados.filter((t) => (t.tardanzaMinutos || 0) > 0).length;
+        const pendientesAtrasados = filtrados.filter((t) =>
+          t.estadoOperativo === 'PENDIENTE_MARCACION_ATRASADO'
+        ).length;
+
+        return {
+          fecha: fechaTarget,
+          resumenKPI: {
+            totalTecnicos,
+            enTurnoActivo,
+            enDescanso,
+            conTardanza,
+            pendientesAtrasados,
+          },
+          coberturaTecnicos: filtrados,
+        };
+      }
+
+      case 'consultar_alertas_logisticas': {
+        const fechaTarget = args.fecha || hoyPeru;
+
+        // 1. Obtener sesiones de la fecha
+        const querySes = db
+          .select({
+            id: sesionesProgramadas.id,
+            fecha: sesionesProgramadas.fecha,
+            horaInicio: sesionesProgramadas.horaInicio,
+            horaFin: sesionesProgramadas.horaFin,
+            titulo: sesionesProgramadas.titulo,
+            ambienteId: sesionesProgramadas.ambienteId,
+            ambienteNombre: ambientes.nombre,
+            ambienteCodigo: ambientes.codigo,
+            sedeId: sesionesProgramadas.sedeId,
+            sedeNombre: sedes.nombre,
+            cursoId: sesionesProgramadas.cursoId,
+            cursoNombre: cursos.nombre,
+            escenarioNombre: sesionesProgramadas.escenarioNombre,
+            escenarioCodigo: sesionesProgramadas.escenarioCodigo,
+            docenteNombre: sesionesProgramadas.docenteNombreSimclic,
+            pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+            pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
+            estadoUcs: sesionesProgramadas.estadoUcs,
+          })
+          .from(sesionesProgramadas)
+          .leftJoin(ambientes, eq(sesionesProgramadas.ambienteId, ambientes.id))
+          .leftJoin(sedes, eq(sesionesProgramadas.sedeId, sedes.id))
+          .leftJoin(cursos, eq(sesionesProgramadas.cursoId, cursos.id))
+          .where(eq(sesionesProgramadas.fecha, fechaTarget))
+          .orderBy(sesionesProgramadas.horaInicio);
+
+        let sesiones = await querySes;
+
+        if (args.sede) {
+          const s = args.sede.toLowerCase();
+          sesiones = sesiones.filter((ses) => ses.sedeNombre?.toLowerCase().includes(s));
+        }
+
+        // Excluir virtuales
+        sesiones = sesiones.filter(
+          (s) =>
+            s.ambienteNombre &&
+            !s.ambienteNombre.toUpperCase().includes('VIRTUAL') &&
+            (!s.ambienteCodigo || !s.ambienteCodigo.toUpperCase().includes('VIRT'))
+        );
+
+        // A. Transiciones entre bloques de sala (Swaps mayores y Resets de caso)
+        const sesionesPorSala: Record<number, typeof sesiones> = {};
+        for (const ses of sesiones) {
+          if (!ses.ambienteId) continue;
+          if (!sesionesPorSala[ses.ambienteId]) sesionesPorSala[ses.ambienteId] = [];
+          sesionesPorSala[ses.ambienteId].push(ses);
+        }
+
+        const alertasTransiciones: Array<{
+          sala: string;
+          sede: string;
+          tipoAlerta: 'SWAP_MAYOR' | 'RESET_CASO';
+          horarioCambio: string;
+          ventanaDisponibleMinutos: number;
+          bloqueSaliente: { curso: string; caso: string; docente: string; horario: string };
+          bloqueEntrante: { curso: string; caso: string; docente: string; horario: string };
+          instruccionTecnica: string;
+        }> = [];
+
+        for (const [ambIdStr, sesList] of Object.entries(sesionesPorSala)) {
+          sesList.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+
+          for (let i = 0; i < sesList.length - 1; i++) {
+            const s1 = sesList[i];
+            const s2 = sesList[i + 1];
+
+            const [h1, m1] = s1.horaFin.split(':').map(Number);
+            const [h2, m2] = s2.horaInicio.split(':').map(Number);
+            const fin1Min = h1 * 60 + m1;
+            const ini2Min = h2 * 60 + m2;
+            const ventanaMin = ini2Min - fin1Min;
+
+            const curso1 = s1.cursoNombre || s1.titulo || 'Curso A';
+            const curso2 = s2.cursoNombre || s2.titulo || 'Curso B';
+            const caso1 = s1.escenarioNombre || s1.escenarioCodigo || 'Caso 1';
+            const caso2 = s2.escenarioNombre || s2.escenarioCodigo || 'Caso 2';
+
+            const salaStr = s1.ambienteCodigo
+              ? `[${s1.ambienteCodigo}] ${s1.ambienteNombre}`
+              : s1.ambienteNombre || `Sala ${ambIdStr}`;
+
+            if (curso1 !== curso2) {
+              alertasTransiciones.push({
+                sala: salaStr,
+                sede: s1.sedeNombre || 'Villa',
+                tipoAlerta: 'SWAP_MAYOR',
+                horarioCambio: `${s1.horaFin} -> ${s2.horaInicio}`,
+                ventanaDisponibleMinutos: ventanaMin,
+                bloqueSaliente: { curso: curso1, caso: caso1, docente: s1.docenteNombre || 'N/A', horario: `${s1.horaInicio}-${s1.horaFin}` },
+                bloqueEntrante: { curso: curso2, caso: caso2, docente: s2.docenteNombre || 'N/A', horario: `${s2.horaInicio}-${s2.horaFin}` },
+                instruccionTecnica: `🚨 SWAP MAYOR: Cambio de simulador/maqueta de "${curso1}" a "${curso2}". Requiere cambio integral en la ventana de ${ventanaMin} min.`,
+              });
+            } else if (caso1 !== caso2) {
+              alertasTransiciones.push({
+                sala: salaStr,
+                sede: s1.sedeNombre || 'Villa',
+                tipoAlerta: 'RESET_CASO',
+                horarioCambio: `${s1.horaFin} -> ${s2.horaInicio}`,
+                ventanaDisponibleMinutos: ventanaMin,
+                bloqueSaliente: { curso: curso1, caso: caso1, docente: s1.docenteNombre || 'N/A', horario: `${s1.horaInicio}-${s1.horaFin}` },
+                bloqueEntrante: { curso: curso2, caso: caso2, docente: s2.docenteNombre || 'N/A', horario: `${s2.horaInicio}-${s2.horaFin}` },
+                instruccionTecnica: `🔄 RESET DE CASO: Mismo curso (${curso1}), pero cambia el caso a "${caso2}". Requiere reposición de insumos/pads en ${ventanaMin} min.`,
+              });
+            }
+          }
+        }
+
+        // B. Sesiones reubicadas
+        const alertasReubicadas = sesiones
+          .filter((s) => s.estadoUcs === 'reubicada')
+          .map((s) => ({
+            sala: s.ambienteCodigo ? `[${s.ambienteCodigo}] ${s.ambienteNombre}` : s.ambienteNombre,
+            sede: s.sedeNombre,
+            horario: `${s.horaInicio} - ${s.horaFin}`,
+            curso: s.cursoNombre || s.titulo,
+            docente: s.docenteNombre,
+            motivo: 'Sesión marcada como reubicada en SimClic/Kiosco.',
+          }));
+
+        // C. Desfases de asistencia en vivo (solo para hoy)
+        const alertasDesfaseAsistencia: Array<any> = [];
+        if (fechaTarget === hoyPeru) {
+          const asistenciasHoy = await db
+            .select({
+              usuarioId: asistencias.usuarioId,
+              ambienteId: asistencias.ambienteId,
+              tipoPersonal: usuarios.tipoPersonal,
+              nombres: usuarios.nombres,
+              apellidos: usuarios.apellidos,
+              estado: asistencias.estado,
+              horaIngreso: asistencias.horaIngreso,
+            })
+            .from(asistencias)
+            .leftJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+            .where(eq(asistencias.fecha, hoyPeru));
+
+          for (const ses of sesiones) {
+            const [hIni, mIni] = ses.horaInicio.split(':').map(Number);
+            const [hFin, mFin] = ses.horaFin.split(':').map(Number);
+            const [hAct, mAct] = horaPeru.split(':').map(Number);
+            const iniMins = hIni * 60 + mIni;
+            const finMins = hFin * 60 + mFin;
+            const actMins = hAct * 60 + mAct;
+
+            if (actMins >= iniMins - 15 && actMins <= finMins) {
+              const asistenciasSala = asistenciasHoy.filter((a) => a.ambienteId === ses.ambienteId);
+              const docentePresente = asistenciasSala.some((a) => a.tipoPersonal === 'docente' && a.estado === 'en_curso');
+              const psPresente = asistenciasSala.some((a) => a.tipoPersonal === 'paciente_simulado' && a.estado === 'en_curso');
+              const requierePs =
+                (ses.pacientesSimuladosJson && ses.pacientesSimuladosJson.length > 0) ||
+                Boolean(ses.pacienteSimuladoNombre);
+
+              if (docentePresente && requierePs && !psPresente) {
+                alertasDesfaseAsistencia.push({
+                  sala: ses.ambienteCodigo ? `[${ses.ambienteCodigo}] ${ses.ambienteNombre}` : ses.ambienteNombre,
+                  sede: ses.sedeNombre,
+                  horario: `${ses.horaInicio} - ${ses.horaFin}`,
+                  curso: ses.cursoNombre || ses.titulo,
+                  docente: ses.docenteNombre,
+                  psEsperado: ses.pacienteSimuladoNombre || (ses.pacientesSimuladosJson || []).map((p) => p.nombre).join(', '),
+                  desfase: '⚠️ DOCENTE EN SALA, PERO PACIENTE SIMULADO NO HA MARCADO EN KIOSCO.',
+                });
+              } else if (!docentePresente && psPresente) {
+                alertasDesfaseAsistencia.push({
+                  sala: ses.ambienteCodigo ? `[${ses.ambienteCodigo}] ${ses.ambienteNombre}` : ses.ambienteNombre,
+                  sede: ses.sedeNombre,
+                  horario: `${ses.horaInicio} - ${ses.horaFin}`,
+                  curso: ses.cursoNombre || ses.titulo,
+                  docenteEsperado: ses.docenteNombre,
+                  desfase: '⚠️ PACIENTE SIMULADO EN SALA, PERO DOCENTE AÚN NO HA MARCADO.',
+                });
+              }
+            }
+          }
+        }
+
+        return {
+          fecha: fechaTarget,
+          resumen: {
+            totalSwapsMayores: alertasTransiciones.filter((t) => t.tipoAlerta === 'SWAP_MAYOR').length,
+            totalResetsCaso: alertasTransiciones.filter((t) => t.tipoAlerta === 'RESET_CASO').length,
+            totalReubicadas: alertasReubicadas.length,
+            totalDesfasesAsistencia: alertasDesfaseAsistencia.length,
+          },
+          alertasTransicionesEntreClases: alertasTransiciones,
+          alertasDesfaseEnVivo: alertasDesfaseAsistencia,
+          alertasReubicadas,
+        };
+      }
+
       default:
         return { error: `Herramienta desconocida: ${name}` };
     }
@@ -774,26 +1343,55 @@ export async function procesarMensajeGemini({
   const systemInstruction = {
     parts: [
       {
-        text: `Eres el Copilot IA Oficial de Simulación Clínica de la Universidad Científica del Sur (UCS), Perú.
+        text: `Eres el Copilot IA Oficial de Simulación Clínica y Operaciones de la Universidad Científica del Sur (UCS), Perú.
 Fecha y hora actual en Lima, Perú: ${fechaHoyPeru} a las ${horaActualPeru}.
 Fecha de mañana en Lima, Perú: ${fechaMananaPeru}.
 Si el usuario consulta por "mañana", debes invocar la herramienta con fecha: "${fechaMananaPeru}".
 Usuario actual conectado: ${usuario.nombres} ${usuario.apellidos} (DNI: ${usuario.dni}, Rol: ${usuario.rolSistema}).
 
-TIENES ACCESO A HERRAMIENTAS EN TIEMPO REAL:
-1. 'sincronizar_simclic': Usa esta herramienta cuando el usuario pregunte por sincronizar datos desde SimClic, o si menciona que hicieron cambios en SimClic que no se ven en la app.
-2. 'consultar_programacion_dia': Consulta sesiones de clase, docentes asignados, horarios y materias para hoy o cualquier fecha. Acepta 'sede' (ej: "Villa"), 'fecha', 'docente', 'sala' y 'curso'.
-3. 'consultar_salas_disponibilidad': Consulta qué ambientes/salas están libres u ocupadas en cada sede.
-4. 'consultar_asistencias_hoy': Consulta marcaciones, quién está en sala, tardanzas y salidas.
-5. 'consultar_pacientes_simulados': Consulta las horas y liquidación de Pacientes Simulados (PS).
-6. 'consultar_estado_colaborador': Consulta si un técnico, docente o colaborador específico vino a laborar hoy o cualquier fecha, en qué sede y sala se encuentra, a qué hora marcó ingreso/salida y cuál es su horario programado en la malla.
+🏢 CONOCIMIENTO DE DOMINIO Y OPERACIONES UCS:
+- Campus / Sedes:
+  * Sede Villa (Chorrillos): Campus principal de simulación clínica con dos niveles físicos:
+    - 1er Piso: Salas de Alta Fidelidad 1 al 5, Hospitalización 1 y 2, Consultorios 1 al 4, Microbiología, Habilidades 4.
+    - 2do Piso: Consultorios 5 al 8, Habilidades 1, 2, 3 y 5, Ecografías, Auditorio, Estaciones ECOE (01 al 10) y Observación ECOE.
+  * Sede Ate: 4to Piso (B-4xx).
+  * Sede Norte: 8vo y 9no Piso (C-8xx, C-9xx).
+  * Ambientes Virtuales ("VIRTUAL - VILLA", "Virtual - Norte", código VIRT): No requieren soporte técnico físico ni salas.
+- Pacientes Simulados (PS / Actores):
+  * Interpretan roles clínicos (ej: Pediatría, Gineco-Obstetricia, Shock, Dolor Torácico, Familiares).
+  * Programados en SimClic con nombre, horario, sala, docente y personaje asignado.
+  * Tarifa base de honorarios: ~S/. 35.00/hora (o tarifa de curso si aplica).
+  * Marcan en el Kiosco con DNI. Admite suplencias si un actor asiste por otro.
+- Técnicos de Simulación:
+  * Turnos: Habitual tarde (13:00 - 22:00), mañana (07:00 - 16:00), eventos/guardias en fin de semana.
+  * Tolerancia: 10 minutos de gracia.
+  * Descanso Semanal Obligatorio (DSO) y Banco de Días Compensatorios acumulados por coberturas especiales.
+- Logística de Salas:
+  * SWAP MAYOR: Cuando una sala física termina un curso e inicia otro diferente (ej: de Pediatría a Cirugía). Requiere cambio integral de simuladores/maquetas.
+  * RESET DE CASO: Mismo curso pero cambio de escenario clínico (requiere reposición de pads, insumos, sondas).
+  * DESFASE DE ASISTENCIA: Casos donde el docente marcó pero el PS no ha llegado (o viceversa).
 
-REGLAS DE RESPUESTA:
-- Responde SIEMPRE en español con tono profesional, amable y ejecutivo.
-- Emplea formato Markdown con viñetas claras, negritas y tablas cuando corresponda para una lectura visual ágil.
-- Si ejecutas una herramienta, menciona claramente el resultado obtenido de manera concisa.
-- NUNCA inventes programación ni asistencias: si la herramienta no devuelve datos, indícalo con franqueza.
-- Cuando el usuario pida "un txt", "para enviar por wsp", "formato wsp" o un reporte para copiar/compartir, coloca SIEMPRE el texto limpio dentro de un bloque de código \`\`\`text ... \`\`\` con emojis y formato limpio de WhatsApp. La aplicación web detectará ese bloque y le ofrecerá botones interactivos de 1-clic: "📋 Copiar para WhatsApp", "⬇️ Descargar .txt" y "📲 Abrir en WhatsApp".`,
+🛠️ HERRAMIENTAS EN TIEMPO REAL:
+1. 'consultar_pacientes_simulados':
+   - 'programados': Citaciones de PS para hoy o fechas futuras (actores citados, personajes, horarios, aulas, docentes y si ya marcaron en Kiosco).
+   - 'asistencias': Horas efectivas trabajadas y pre-liquidación en Soles (S/.) por mes.
+2. 'consultar_equipo_tecnicos': Cobertura de técnicos para hoy o cualquier fecha (turnos programados, en sala activos, descansos DSO, tardanzas y saldo de días compensatorios).
+3. 'consultar_alertas_logisticas': Detecta cambios de material en salas (swaps mayores, resets de caso, ventanas en minutos), sesiones reubicadas y desfases de asistencia (docente sin PS o PS sin docente).
+4. 'consultar_programacion_dia': Consulta la malla completa de sesiones SimClic (docentes, cursos, aulas, horarios) para hoy o fechas futuras.
+5. 'consultar_salas_disponibilidad': Ocupación de ambientes en vivo (libres vs ocupadas en el minuto actual).
+6. 'consultar_asistencias_hoy': Marcaciones en general del día (quién está en sala, tardanzas, salidas).
+7. 'consultar_estado_colaborador': Búsqueda puntual de una persona por nombre o DNI.
+8. 'sincronizar_simclic': Sincronización WebSocket en vivo con la plataforma SimClic si hay cambios recientes.
+
+📋 REGLAS DE RESPUESTA Y FORMATO:
+- Responde SIEMPRE en español con tono profesional, ejecutivo y empático.
+- Estructura las respuestas con negritas, viñetas y tablas Markdown para una lectura visual ágil.
+- FORMATO WHATSAPP (.TXT): Cuando el usuario pida "un mensaje para WhatsApp", "en formato WhatsApp", "un txt", "para enviar por wsp" o para compartir con el equipo o los actores, GENERA UN BLOQUE DE CÓDIGO \`\`\`text ... \`\`\` con:
+  * Emojis llamativos al inicio de cada línea (📅, ⏰, 🏥, 🚪, 🎭, 👨‍⚕️, 🔧, 🚨).
+  * Formato nativo de WhatsApp (*negrita* con asteriscos, sin tablas HTML/Markdown dentro del bloque).
+  * Líneas limpias y fáciles de leer en un celular.
+  * La aplicación web detectará automáticamente el bloque y mostrará botones interactivos de 1-clic: "📋 Copiar para WhatsApp", "⬇️ Descargar .txt" y "📲 Abrir en WhatsApp".
+- Precisión absoluta: Basa siempre tus respuestas en los datos retornados por las herramientas. Si no hay datos, indícalo claramente sin inventar.`,
       },
     ],
   };

@@ -16,11 +16,12 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  '🔄 Sincronizar SimClic con las clases de hoy',
+  '🎭 ¿Qué pacientes simulados vienen mañana y en qué salas? Formato WhatsApp',
+  '🔧 ¿Cuál es la cobertura y rol de turnos de los técnicos hoy?',
+  '🚨 ¿Hay alertas logísticas o cambios de material (swaps/resets) hoy en Villa?',
+  '🧾 ¿Cómo van las horas y liquidación de Pacientes Simulados este mes?',
   '🔍 ¿Qué salas están disponibles en este momento?',
-  '👥 ¿Quiénes han marcado asistencia el día de hoy?',
-  '👨‍🔧 ¿El técnico vino a laborar hoy y en qué sede está?',
-  '🧾 ¿Cómo van las horas de los Pacientes Simulados este mes?',
+  '🔄 Sincronizar SimClic con las clases de hoy',
 ];
 
 const CodeBlockCard: React.FC<{

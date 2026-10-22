@@ -1118,8 +1118,34 @@ src/
       - En móviles (<= 768px): se eleva automáticamente a `bottom: calc(82px + env(safe-area-inset-bottom, 0px)); right: 16px;`, flotando limpiamente por encima de la barra de navegación sin bloquear ningún icono ni etiqueta.
       - En pantallas ultra compactas (<= 380px): padding y tipografía ajustados proporcionalmente.
     - Se integró soporte para `env(safe-area-inset-bottom, 0px)` en el pie del drawer para evitar superposición con la barra de gestos de iOS/Android.
+* `feat(gemini-domain-enrichment)`: **Hito 67: Enriquecimiento de IA Copilot para Coordinación de Pacientes Simulados (PS), Técnicos y Logística de Simulación**:
+  - **Contexto & Solicitud del Usuario**:
+    - El usuario consultó cómo "entrenar" al Copilot para que no se quede corto con las respuestas y sea capaz de responder con precisión las preguntas críticas que realizan diariamente la Coordinadora de Pacientes Simulados (PS) y el Coordinador de Técnicos de Simulación.
+  - **Implementación Técnica**:
+    - **Inyección de Dominio y Operaciones UCS en `geminiService.ts`**:
+      - Se incorporó la cartografía de la Clínica de Simulación: distribución por pisos de la Sede Villa (1er Piso con Alta Fidelidad 1-5, Hospitalización 1-2, Consultorios 1-4; 2do Piso con Consultorios 5-8, Habilidades 1-3 y 5, Ecografías, Auditorio y ECOE), Ate (Piso 4) y Norte (Pisos 8-9).
+      - Se definieron los perfiles de Pacientes Simulados (personajes, tarifas base S/. 35.00/h, suplencias en Kiosco).
+      - Se definieron las reglas operativas de técnicos (horarios habituales 07:00-16:00 y 13:00-22:00, 10 min de tolerancia, DSO y Banco de Días Compensatorios).
+      - Se formalizó la taxonomía logística: **SWAP MAYOR** (cambio de curso y simulador/maqueta) vs. **RESET DE CASO** (mismo curso, reposición de insumos/pads/sondas) y desfases de asistencia.
+    - **Herramienta Ampliada: `consultar_pacientes_simulados`**:
+      - Ahora admite modo dual:
+        1. `programados` (default para hoy o fechas futuras): Cruza `sesionesProgramadas` de SimClic extrayendo nombre del actor, personaje/rol asignado, horario, curso, escenario clínico, aula, sede, docente a cargo y cruce en vivo con `asistencias` (`PRESENTE_EN_SALA`, `PENDIENTE_DE_INGRESO`, notas de suplencia). Permite generar citaciones directas para WhatsApp.
+        2. `asistencias`: Reporte de horas acumuladas y pre-liquidación en Soles (S/.) por mes o rango.
+    - **Nueva Herramienta: `consultar_equipo_tecnicos`**:
+      - Devuelve la cobertura completa de técnicos para hoy o cualquier fecha:
+        - Turno asignado en la malla (`turnosProgramadosTecnicos`: laborable, DSO, descanso compensatorio, notas).
+        - Marcación real en Kiosco (`asistencias`: ingreso, salida, sede, sala, tardanza en minutos).
+        - Saldo acumulado en el Banco de Días Compensatorios (`bancoCompensatoriosTecnicos`).
+        - KPIs consolidados: Total técnicos, En turno activo, En descanso, Con tardanza y Pendientes atrasados.
+    - **Nueva Herramienta: `consultar_alertas_logisticas`**:
+      - Audita las sesiones programadas del día y detecta automáticamente:
+        1. **Transiciones entre bloques de sala**: Alertas de `SWAP_MAYOR` y `RESET_CASO` calculando la ventana disponible en minutos entre clases para el técnico.
+        2. **Desfases de asistencia en vivo**: Sesiones activas donde el docente ya marcó en Kiosco pero el PS no ha ingresado (o viceversa).
+        3. **Reubicaciones**: Sesiones marcadas con cambio de aula en SimClic.
+    - **Chips de Sugerencia Actualizados en Frontend (`UcsCopilotDrawer.tsx`)**:
+      - Se integraron accesos rápidos directos a las preguntas de coordinación de PS, técnicos y alertas de sala con formato WhatsApp.
   - **Verificación Técnica**:
-    - `npx tsc --noEmit` (**0 errores**).
+    - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
 
 ---
 

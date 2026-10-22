@@ -1109,6 +1109,18 @@ src/
     - Prueba integral con la consulta exacta del usuario: Gemini ejecutó `consultar_programacion_dia` con `{ sede: 'Villa', fecha: '2026-10-22' }` y generó en 4.2 segundos el bloque estructurado con los botones interactivos de 1-clic para WhatsApp y descarga de `.txt`.
     - `npx tsc --noEmit` superado con **0 errores**.
 
+* `style(copilot-mobile)`: **Hito 66: Posicionamiento Responsivo Móvil del Botón Flotante Copilot**:
+  - **Contexto & Solicitud del Usuario**:
+    - En la versión móvil, el botón flotante `✨ Copilot UCS` se superponía sobre la barra de navegación inferior (`.bottomNav`), tapando las pestañas de Planilla PS y Sedes/Más.
+  - **Implementación Técnica**:
+    - Se creó [copilot.module.css](file:///c:/UCS_Registro/src/components/admin/copilot/copilot.module.css) con reglas de media query adaptativas:
+      - En desktop (> 768px): mantiene su posición fija estándar (`bottom: 24px; right: 24px`).
+      - En móviles (<= 768px): se eleva automáticamente a `bottom: calc(82px + env(safe-area-inset-bottom, 0px)); right: 16px;`, flotando limpiamente por encima de la barra de navegación sin bloquear ningún icono ni etiqueta.
+      - En pantallas ultra compactas (<= 380px): padding y tipografía ajustados proporcionalmente.
+    - Se integró soporte para `env(safe-area-inset-bottom, 0px)` en el pie del drawer para evitar superposición con la barra de gestos de iOS/Android.
+  - **Verificación Técnica**:
+    - `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

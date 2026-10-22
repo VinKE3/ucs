@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { SessionPayload } from '@/lib/auth';
 import { showToast } from '@/lib/alerts';
+import styles from './copilot.module.css';
 
 interface Message {
   id: string;
@@ -558,35 +559,8 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 990,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            padding: '0.75rem 1.25rem',
-            borderRadius: '999px',
-            border: 'none',
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%)',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            boxShadow: '0 8px 25px rgba(59, 130, 246, 0.45), 0 0 0 1px rgba(255,255,255,0.2)',
-            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-3px) scale(1.03)';
-            e.currentTarget.style.boxShadow =
-              '0 12px 30px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(255,255,255,0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow =
-              '0 8px 25px rgba(59, 130, 246, 0.45), 0 0 0 1px rgba(255,255,255,0.2)';
-          }}
+          className={styles.copilotTriggerButton}
+          aria-label="Abrir Asistente Copilot UCS"
         >
           <span style={{ fontSize: '1.25rem' }}>✨</span>
           <span>Copilot UCS</span>
@@ -870,7 +844,7 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
         {/* INPUT FOOTER */}
         <div
           style={{
-            padding: '0.75rem 1rem',
+            padding: '0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px))',
             borderTop: '1px solid var(--border-color)',
             background: 'var(--card-bg, #ffffff)',
           }}

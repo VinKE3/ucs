@@ -1,0 +1,58 @@
+/* ==========================================================================
+   ESTILOS DEDICADOS PARA UCS COPILOT (BOTÓN FLOTANTE & DRAWER RESPONSIVO)
+   ========================================================================== */
+
+.copilotTriggerButton {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 990;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.copilotTriggerButton:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.copilotTriggerButton:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* 📱 ADAPTACIÓN PARA VERSIÓN MÓVIL Y TABLET PEQUEÑA (<= 768px):
+   Se eleva el botón flotante para que NO tape la barra de navegación inferior (BottomNav).
+   BottomNav mide aprox. 62px, por lo que 82px + safe-area deja un margen holgado y perfecto. */
+@media (max-width: 768px) {
+  .copilotTriggerButton {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    padding: 0.65rem 1.05rem;
+    font-size: 0.88rem;
+    gap: 0.5rem;
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* En teléfonos muy estrechos (<= 380px) */
+@media (max-width: 380px) {
+  .copilotTriggerButton {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    right: 12px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.82rem;
+  }
+}

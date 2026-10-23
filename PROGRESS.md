@@ -1201,8 +1201,10 @@ src/
       - En el ciclo de fondo periódico ahora solo se sincroniza `Hoy` (en vez de `Hoy` + `Mañana`), reduciendo a la mitad el payload por ciclo.
       - El cooldown de re-enfoque de ventana de navegador se aumentó de 2.5 min a 10 min.
       - El badge visual en la barra superior se actualizó a `🟢 Auto-sync activo (15m)`.
-    - **Botón `🔄 Actualizar SimClic` Activo**:
-      - Permanece disponible para refresco manual instantáneo y seguro en 1 clic de la fecha activa con consumo mínimo de egress (<0.3 MB).
+    - **Optimización de la Consulta Pública de Aulas (`src/app/consulta/page.tsx`)**:
+      - Se eliminó el bucle de auto-sincronización que ejecutaba `POST /api/simclic/sync` cada 3 minutos y al reenfocar en la vista pública.
+      - La página ahora opera en modo de **solo lectura limpia de Postgres** (`loadData`), consumiendo una fracción ínfima de datos (<0.04 MB por consulta).
+      - La sincronización pesada de SimClic solo se activa si un usuario hace clic deliberadamente en el botón manual `🔄 Actualizar`.
   - **Verificación Técnica**:
     - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
 

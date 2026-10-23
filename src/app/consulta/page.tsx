@@ -235,42 +235,39 @@ export default function ConsultaPublicaPage() {
     [fecha, loadData]
   );
 
-  // Sincronizar bajo demanda desde SimClic
+  // Sincronizar bajo demanda desde SimClic (activado manualmente por el botón Actualizar)
   const handleSyncFromSimclic = () => {
     runBackgroundSync(false);
   };
 
-  // Auto-sync silencioso cada 3 minutos y al reenfocar la ventana cuando es la fecha de hoy
+  // Recarga silenciosa de solo lectura cada 15 minutos en segundo plano (Zero-Waste: solo lee de la BD, no escribe en SimClic)
   useEffect(() => {
     const hoy = getHoyLima();
     if (fecha !== hoy) return;
 
     let lastFocusSync = Date.now();
 
-    const initialTimer = setTimeout(() => {
-      runBackgroundSync(true);
-    }, 2500);
-
     const interval = setInterval(() => {
-      runBackgroundSync(true);
-    }, 180000); // 3 minutos
+      // Si la pestaña está oculta, no hacer nada
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      loadData(true);
+    }, 900000); // 15 minutos (solo lectura ligera de BD)
 
     const handleFocus = () => {
       const now = Date.now();
-      // Throttle de al menos 60 segundos entre re-enfoques para evitar sobrecargar al cambiar de pestañas
-      if (now - lastFocusSync > 60000) {
+      // Throttle de al menos 10 minutos entre re-enfoques
+      if (now - lastFocusSync > 600000) {
         lastFocusSync = now;
-        runBackgroundSync(true);
+        loadData(true);
       }
     };
     window.addEventListener('focus', handleFocus);
 
     return () => {
-      clearTimeout(initialTimer);
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [fecha, runBackgroundSync]);
+  }, [fecha, loadData]);
 
   // Filtrado de Docentes según Sede y Query
   const filteredDocentes = useMemo(() => {

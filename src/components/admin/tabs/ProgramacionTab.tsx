@@ -934,7 +934,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               }}
             />
             <span style={{ fontWeight: 600 }}>
-              {autoSyncEnabled ? 'Auto-sync activo (3m)' : 'Auto-sync pausado'}
+              {autoSyncEnabled ? 'Auto-sync activo (15m)' : 'Auto-sync pausado'}
             </span>
             {(lastGlobalSyncTime || lastSyncTime) && (
               <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
@@ -986,36 +986,38 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             {syncing ? 'Sincronizando...' : 'Actualizar SimClic'}
           </button>
 
-          {/* BOTÓN SINCRONIZAR SEMANA SIMCLIC */}
-          <button
-            type="button"
-            onClick={runSyncSemana}
-            disabled={syncing || syncingSemana}
-            className={styles.secondaryActionBtn}
-            style={{
-              padding: '0.45rem 0.95rem',
-              fontSize: '0.82rem',
-              borderColor: 'rgba(56, 189, 248, 0.4)',
-              color: '#38bdf8',
-              background: 'rgba(56, 189, 248, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              whiteSpace: 'nowrap',
-            }}
-            title="Sincronizar preventivamente toda la semana académica (Lunes a Domingo) desde SimClic"
-          >
-            <span
+          {/* BOTÓN SINCRONIZAR SEMANA SIMCLIC: OCULTO TEMPORALMENTE HASTA EL PRÓXIMO MES PARA AHORRO DE ANCHO DE BANDA */}
+          {false && (
+            <button
+              type="button"
+              onClick={runSyncSemana}
+              disabled={syncing || syncingSemana}
+              className={styles.secondaryActionBtn}
               style={{
-                display: 'inline-block',
-                transform: syncingSemana ? 'rotate(360deg)' : 'none',
-                transition: 'transform 0.8s ease',
+                padding: '0.45rem 0.95rem',
+                fontSize: '0.82rem',
+                borderColor: 'rgba(56, 189, 248, 0.4)',
+                color: '#38bdf8',
+                background: 'rgba(56, 189, 248, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                whiteSpace: 'nowrap',
               }}
+              title="Sincronizar preventivamente toda la semana académica (Lunes a Domingo) desde SimClic"
             >
-              📅
-            </span>
-            {syncingSemana ? 'Sincronizando Semana...' : 'Sincronizar Semana'}
-          </button>
+              <span
+                style={{
+                  display: 'inline-block',
+                  transform: syncingSemana ? 'rotate(360deg)' : 'none',
+                  transition: 'transform 0.8s ease',
+                }}
+              >
+                📅
+              </span>
+              {syncingSemana ? 'Sincronizando Semana...' : 'Sincronizar Semana'}
+            </button>
+          )}
         </div>
       </div>
 

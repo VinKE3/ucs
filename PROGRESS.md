@@ -1190,6 +1190,22 @@ src/
   - **Verificación Técnica**:
     - Validación completa con `npx tsc --noEmit` (**0 errores**).
 
+* `perf(neon-egress-optimization)`: **Hito 70: Optimización de Cuota de Red en Neon DB y Ocultamiento Preventivo de Sincronización Semanal**:
+  - **Contexto**:
+    - El proyecto alcanzó el 91.3% de su cuota de transferencia mensual de red (5 GB) en el plan gratuito de Neon debido a ciclos frecuentes de sincronización en segundo plano y sincronizaciones masivas de semanas completas.
+  - **Implementación Técnica**:
+    - **Ocultamiento del Botón `📅 Sincronizar Semana`**:
+      - Se retiró de la barra de herramientas de `ProgramacionTab.tsx` para evitar descargas pesadas de 7 días continuos en Postgres hasta el siguiente ciclo de facturación.
+    - **Optimización de Auto-Sync en Segundo Plano (`AdminDashboard.tsx`)**:
+      - El intervalo de sondeo automático se amplió de 3 minutos a **15 minutos** (reducción del 80% en frecuencia).
+      - En el ciclo de fondo periódico ahora solo se sincroniza `Hoy` (en vez de `Hoy` + `Mañana`), reduciendo a la mitad el payload por ciclo.
+      - El cooldown de re-enfoque de ventana de navegador se aumentó de 2.5 min a 10 min.
+      - El badge visual en la barra superior se actualizó a `🟢 Auto-sync activo (15m)`.
+    - **Botón `🔄 Actualizar SimClic` Activo**:
+      - Permanece disponible para refresco manual instantáneo y seguro en 1 clic de la fecha activa con consumo mínimo de egress (<0.3 MB).
+  - **Verificación Técnica**:
+    - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

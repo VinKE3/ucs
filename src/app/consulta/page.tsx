@@ -15,6 +15,7 @@ interface EspejoDocente {
   horaInicio: string;
   horaFin: string;
   escenarioNombre: string | null;
+  pacienteSimuladoNombre?: string | null;
 }
 
 interface SesionConsulta {
@@ -943,6 +944,14 @@ export default function ConsultaPublicaPage() {
                                               <span>🩺</span>
                                               <span>
                                                 <strong className={styles.mirrorCaseStrong}>Caso:</strong> {esp.escenarioNombre}
+                                              </span>
+                                            </div>
+                                          )}
+                                          {esp.pacienteSimuladoNombre && (
+                                            <div className={styles.mirrorActor}>
+                                              <span>🎭</span>
+                                              <span>
+                                                <strong className={styles.mirrorActorStrong}>PS:</strong> {esp.pacienteSimuladoNombre}
                                               </span>
                                             </div>
                                           )}

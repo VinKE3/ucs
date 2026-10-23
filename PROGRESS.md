@@ -1222,6 +1222,23 @@ src/
   - **Verificación Técnica**:
     - Validación completa con `npx tsc --noEmit` (**0 errores**).
 
+* `feat(consulta-espejos-ps)`: **Hito 72: Visualización de Pacientes Simulados (PS) en Docentes Espejo de Consulta Pública (`/consulta`)**:
+  - **Contexto & Solicitud del Usuario**:
+    - En la vista pública de consulta de aulas (`/consulta`), la tarjeta principal de la clase mostraba al Paciente Simulado asignado (`🎭 Actor / Paciente Simulado: ...`), pero en la sección inferior de "Docentes Espejo en Paralelo", las tarjetas de clases compañeras solo mostraban el docente, la sala y el caso, omitiendo el actor/PS asignado a cada espejo.
+  - **Implementación Técnica**:
+    - **Backend REST (`src/app/api/consulta/route.ts`)**:
+      - Se incluyó `pacientesSimuladosJson` en la consulta `rawSessionsAll` para sesiones con múltiples actores.
+      - Se añadió resolución unificada de nombre de PS en `enrichedSessions`.
+      - Se enriqueció el payload de `espejos` con el atributo `pacienteSimuladoNombre` de cada sesión paralela.
+    - **Frontend de Consulta (`src/app/consulta/page.tsx`)**:
+      - Se expandió la interfaz `EspejoDocente` con `pacienteSimuladoNombre?: string | null`.
+      - En el renderizado de `mirrorCard`, se agregó la insignia condicional con icono `🎭 PS: [Nombre del Actor]`.
+    - **Estilos Adaptados (`src/app/consulta/consulta.module.css`)**:
+      - Clases `.mirrorActor` y `.mirrorActorStrong` con diseño en píldora fucsia/púrpura de alto contraste y compatibilidad total con Modo Claro (`#fdf4ff`, border `#f0abfc`, text `#86198f`) y Modo Oscuro (`rgba(168, 85, 247, 0.15)`, text `#c084fc`).
+  - **Verificación Técnica**:
+    - Verificación directa contra la base de datos para la fecha 23/10/2026: se comprobó que las clases de Simulación Quirúrgica paralelas (13:40-15:20) asocian a Neldo Ernesto Tapia Silva y Leo Gerardo Gómez Ferrua en sus respectivos espejos.
+    - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

@@ -75,6 +75,7 @@ export async function GET(request: Request) {
         escenarioNombre: sesionesProgramadas.escenarioNombre,
         prefijo: sesionesProgramadas.prefijo,
         pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+        pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
         estadoUcs: sesionesProgramadas.estadoUcs,
       })
       .from(sesionesProgramadas)
@@ -125,8 +126,16 @@ export async function GET(request: Request) {
 
       const estadoTiempo = calcularEstadoHorario(s.horaInicio, s.horaFin, s.fecha);
 
+      // Resolver nombre del Paciente Simulado (PS)
+      const psNombre = s.pacienteSimuladoNombre || (
+        Array.isArray(s.pacientesSimuladosJson) && s.pacientesSimuladosJson.length > 0
+          ? s.pacientesSimuladosJson.map((p: any) => p.nombre).filter(Boolean).join(', ')
+          : null
+      );
+
       return {
         ...s,
+        pacienteSimuladoNombre: psNombre,
         docenteDni: docenteInfo?.dni || null,
         docenteTelefono: docenteInfo?.telefono || null,
         docenteNombreCompleto: docenteInfo ? `${docenteInfo.nombres} ${docenteInfo.apellidos}` : s.docenteNombre,
@@ -183,6 +192,7 @@ export async function GET(request: Request) {
           horaInicio: espejo.horaInicio,
           horaFin: espejo.horaFin,
           escenarioNombre: espejo.escenarioNombre || espejo.titulo || null,
+          pacienteSimuladoNombre: espejo.pacienteSimuladoNombre || null,
         }));
 
       return {

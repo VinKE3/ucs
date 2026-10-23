@@ -1031,6 +1031,37 @@
   color: var(--ucs-blue-sky);
 }
 
+.mirrorActor {
+  font-size: 0.81rem;
+  line-height: 1.35;
+  margin-top: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  padding: 0.22rem 0.6rem;
+  border-radius: 7px;
+  background: #fdf4ff;
+  border: 1px solid #f0abfc;
+  color: #86198f;
+  width: fit-content;
+}
+
+:global([data-theme="dark"]) .mirrorActor {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+}
+
+.mirrorActorStrong {
+  font-weight: 800;
+  color: #7e22ce;
+}
+
+:global([data-theme="dark"]) .mirrorActorStrong {
+  color: #d8b4fe;
+}
+
 .mirrorRoomBadgeWrapper {
   display: flex;
   flex-direction: column;

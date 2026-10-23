@@ -1208,6 +1208,20 @@ src/
   - **Verificación Técnica**:
     - Compilación estricta validada con `npx tsc --noEmit` (**0 errores**).
 
+* `feat(consulta-ergonomic-navigation)`: **Hito 71: Navegación Ergonómica y Búsqueda Continua en Consulta de Aulas (`/consulta`)**:
+  - **Contexto**:
+    - Al consultar un docente con múltiples bloques de clase (o docentes espejo en paralelo), el técnico o recepcionista debía scrollear una gran distancia hacia arriba para buscar al siguiente docente que llegaba al counter.
+  - **Implementación Técnica**:
+    - **Botón Flotante «🔍 Buscar otro docente» (FAB)**:
+      - Aparece con animación suave en la esquina inferior derecha cuando el usuario baja más de 250px en la página.
+      - Al hacer clic: regresa de la vista individual, realiza un scroll suave al tope y coloca el cursor listo en la caja de búsqueda.
+    - **Atajo de Teclado con Tecla `Escape` (`Esc`) o `/`**:
+      - Presionar `Esc` desde cualquier punto del detalle del docente reinicia la consulta y enfoca automáticamente el input del buscador sin necesidad de tocar el mouse.
+    - **Tarjeta de Cierre al Pie de la Última Clase**:
+      - Justo debajo de la última clase y docentes espejo, se renderiza una tarjeta con los botones `🔍 Buscar otro docente` y `⬆️ Volver arriba`.
+  - **Verificación Técnica**:
+    - Validación completa con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

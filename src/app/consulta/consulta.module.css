@@ -1800,3 +1800,143 @@
   }
 }
 
+/* ==========================================================================
+   BOTÓN FLOTANTE "NUEVA BÚSQUEDA" (FAB) Y TARJETA DE CIERRE DE CLASES
+   ========================================================================== */
+@keyframes fabFloatIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.floatingSearchBtn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 90, 0, 0.45);
+  background: linear-gradient(135deg, #ff5a00 0%, #e04f00 100%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.86rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  box-shadow: 0 8px 25px rgba(255, 90, 0, 0.42);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fabFloatIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floatingSearchBtn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(255, 90, 0, 0.55);
+}
+
+.floatingSearchBtn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.floatingKbd {
+  font-size: 0.68rem;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  font-family: var(--font-geist-mono, monospace);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.docenteFooterCard {
+  margin-top: 2rem;
+  padding: 1.35rem 1.6rem;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.15rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+}
+
+:global([data-theme="light"]) .docenteFooterCard {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.docenteFooterInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.docenteFooterTitle {
+  font-weight: 800;
+  font-size: 0.98rem;
+  color: var(--text-primary);
+}
+
+.docenteFooterSubtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.docenteFooterActions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.docenteFooterSearchBtn {
+  padding: 0.55rem 1.15rem;
+  border-radius: 10px;
+  border: none;
+  background: var(--ucs-orange, #ff5a00);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 3px 12px rgba(255, 90, 0, 0.35);
+  transition: all 0.15s ease;
+}
+
+.docenteFooterSearchBtn:hover {
+  background: #e04f00;
+  transform: translateY(-1px);
+}
+
+.docenteFooterTopBtn {
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+.docenteFooterTopBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--ucs-blue-sky);
+}
+
+

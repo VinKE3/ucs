@@ -87,6 +87,57 @@ export default function ConsultaPublicaPage() {
   const [selectedDocenteId, setSelectedDocenteId] = useState<string | null>(null);
   const [selectedCursoNombre, setSelectedCursoNombre] = useState<string | null>(null);
 
+  // Referencia al input de búsqueda para enfoque automático
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [showScrollTopBtn, setShowScrollTopBtn] = useState(false);
+
+  // Función omnicanal: limpiar selección, subir suavemente y enfocar buscador
+  const handleNuevaBusqueda = useCallback(() => {
+    setSelectedDocenteId(null);
+    setSelectedCursoNombre(null);
+    setSearchQuery('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    }, 120);
+  }, []);
+
+  // Monitor de scroll para mostrar el botón flotante solo al bajar más de 250px
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTopBtn(window.scrollY > 250);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Atajos de teclado: 'Escape' para reiniciar y enfocar buscador, '/' o 'Ctrl+K' para buscar directo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Tecla Escape: regresa a la lista y enfoca el buscador
+      if (e.key === 'Escape') {
+        if (selectedDocenteId || selectedCursoNombre || searchQuery || window.scrollY > 100) {
+          e.preventDefault();
+          handleNuevaBusqueda();
+        }
+      }
+
+      // Tecla '/' o 'Ctrl+K' / 'Cmd+K': enfoca el buscador si no está ya escribiendo en un input
+      if (
+        (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        handleNuevaBusqueda();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedDocenteId, selectedCursoNombre, searchQuery, handleNuevaBusqueda]);
+
   // Modo de visualización del directorio de docentes: 'cards' o 'table'
   const [docenteViewMode, setDocenteViewMode] = useState<'cards' | 'table'>('cards');
 
@@ -576,6 +627,7 @@ export default function ConsultaPublicaPage() {
           <div className={styles.searchBoxWrapper}>
             <span className={styles.searchIcon}>🔍</span>
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Busca por Apellido, Nombre o DNI (ej: Mendoza, Silva, 99000001)..."
               value={searchQuery}
@@ -591,6 +643,7 @@ export default function ConsultaPublicaPage() {
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedDocenteId(null);
+                  searchInputRef.current?.focus();
                 }}
                 className={styles.clearBtn}
                 title="Limpiar búsqueda"
@@ -677,10 +730,7 @@ export default function ConsultaPublicaPage() {
                     {/* Botón para volver a la lista si se seleccionó individualmente */}
                     <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <button
-                        onClick={() => {
-                          setSelectedDocenteId(null);
-                          setSearchQuery('');
-                        }}
+                        onClick={handleNuevaBusqueda}
                         style={{
                           background: 'transparent',
                           border: 'none',
@@ -918,6 +968,36 @@ export default function ConsultaPublicaPage() {
                         </div>
                       );
                     })}
+                    </div>
+
+                    {/* TARJETA DE CIERRE AL FINAL DE LAS CLASES DEL DOCENTE */}
+                    <div className={styles.docenteFooterCard}>
+                      <div className={styles.docenteFooterInfo}>
+                        <div className={styles.docenteFooterTitle}>
+                          🏁 Fin de la programación de hoy ({currentDocente.totalClases} {currentDocente.totalClases === 1 ? 'clase' : 'clases'})
+                        </div>
+                        <div className={styles.docenteFooterSubtitle}>
+                          ¿Llegó otro docente a consultar? Presiona el botón o usa la tecla <strong>Esc</strong> en tu teclado.
+                        </div>
+                      </div>
+
+                      <div className={styles.docenteFooterActions}>
+                        <button
+                          type="button"
+                          onClick={handleNuevaBusqueda}
+                          className={styles.docenteFooterSearchBtn}
+                        >
+                          <span>🔍</span> Buscar otro docente
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                          className={styles.docenteFooterTopBtn}
+                        >
+                          <span>⬆️</span> Volver arriba
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1318,6 +1398,20 @@ export default function ConsultaPublicaPage() {
           </>
         )}
       </main>
+
+      {/* BOTÓN FLOTANTE "BUSCAR OTRO DOCENTE" (FAB) AL SCROLLEAR */}
+      {showScrollTopBtn && (
+        <button
+          type="button"
+          onClick={handleNuevaBusqueda}
+          className={styles.floatingSearchBtn}
+          title="Buscar otro docente o aula (o presiona la tecla Esc)"
+        >
+          <span>🔍</span>
+          <span>{currentDocente ? 'Buscar otro docente' : 'Subir al buscador'}</span>
+          <span className={styles.floatingKbd}>Esc</span>
+        </button>
+      )}
     </div>
   );
 }

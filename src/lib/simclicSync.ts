@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { db } from '@/db';
 import { sesionesProgramadas } from '@/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, or } from 'drizzle-orm';
 import { getCachedCatalogs } from '@/lib/catalogCache';
 
 export type ModoSync = 'dia' | 'semana';
@@ -436,9 +436,12 @@ export async function syncSimclicSessions(
   const detallesReubicadas: SyncResult['detallesReubicadas'] = [];
   const detallesCanceladas: NonNullable<SyncResult['detallesCanceladas']> = [];
 
-  // Recolectar fechas del payload recibido para delimitar estrictamente el SELECT en Neon
+  // Recolectar fechas y simclicIds del payload recibido para delimitar estrictamente el SELECT en Neon
   const fechasEnPayload = new Set<string>();
+  const payloadSimclicIds: string[] = [];
   for (const s of rawSessions) {
+    const sId = String(s.id || s._id);
+    if (sId) payloadSimclicIds.push(sId);
     const startD = parseMeteorDate(s.startDate, targetDate);
     fechasEnPayload.add(startD.toLocaleDateString('en-CA', { timeZone: 'America/Lima' }));
   }
@@ -447,7 +450,7 @@ export async function syncSimclicSessions(
   }
   const fechasScopeArray = Array.from(fechasEnPayload);
 
-  // Pre-cargar ÚNICAMENTE las sesiones del rango de fechas activo con proyección específica (Zero-Waste Egress)
+  // Pre-cargar sesiones del rango de fechas activo Y además cualquier sesión existente con los mismos simclicId (incluso si fue reprogramada desde otra fecha)
   const existingRows = await db
     .select({
       id: sesionesProgramadas.id,
@@ -484,7 +487,14 @@ export async function syncSimclicSessions(
     })
     .from(sesionesProgramadas)
     .where(
-      fechasScopeArray.length === 1
+      payloadSimclicIds.length > 0
+        ? or(
+            fechasScopeArray.length === 1
+              ? eq(sesionesProgramadas.fecha, fechasScopeArray[0])
+              : inArray(sesionesProgramadas.fecha, fechasScopeArray),
+            inArray(sesionesProgramadas.simclicId, payloadSimclicIds)
+          )
+        : fechasScopeArray.length === 1
         ? eq(sesionesProgramadas.fecha, fechasScopeArray[0])
         : inArray(sesionesProgramadas.fecha, fechasScopeArray)
     );
@@ -751,39 +761,77 @@ export async function syncSimclicSessions(
         creadas++;
       }
 
-      await db.insert(sesionesProgramadas).values({
-        simclicId,
-        simclicMongoId,
-        titulo,
-        fecha,
-        horaInicio,
-        horaFin,
-        sedeId: sedeObj?.id || null,
-        sedeNombreSimclic,
-        ambienteId: ambienteObj?.id || null,
-        ambienteNombreSimclic,
-        ambienteCodigoSimclic,
-        cursoId: cursoObj?.id || null,
-        cursoNombreSimclic,
-        cursoCodigoSimclic,
-        docenteId: docenteIdFinal,
-        docenteNombreSimclic,
-        docenteCorreoSimclic,
-        docentesJson: docentesArray,
-        carreraId: carreraObj?.id || null,
-        carrera,
-        carreraCodigo,
-        carreraColor,
-        escenarioCodigo,
-        escenarioNombre,
-        prefijo: prefijo || cursoObj?.prefijo || null,
-        pacienteSimuladoNombre,
-        pacienteSimuladoCorreo,
-        pacientesSimuladosJson: pacientesSimuladosArray,
-        estadoSimclic,
-        estadoUcs: isCancelledInPayload ? 'cancelada' : 'programada',
-        ultimaSincronizacion: new Date(),
-      });
+      await db
+        .insert(sesionesProgramadas)
+        .values({
+          simclicId,
+          simclicMongoId,
+          titulo,
+          fecha,
+          horaInicio,
+          horaFin,
+          sedeId: sedeObj?.id || null,
+          sedeNombreSimclic,
+          ambienteId: ambienteObj?.id || null,
+          ambienteNombreSimclic,
+          ambienteCodigoSimclic,
+          cursoId: cursoObj?.id || null,
+          cursoNombreSimclic,
+          cursoCodigoSimclic,
+          docenteId: docenteIdFinal,
+          docenteNombreSimclic,
+          docenteCorreoSimclic,
+          docentesJson: docentesArray,
+          carreraId: carreraObj?.id || null,
+          carrera,
+          carreraCodigo,
+          carreraColor,
+          escenarioCodigo,
+          escenarioNombre,
+          prefijo: prefijo || cursoObj?.prefijo || null,
+          pacienteSimuladoNombre,
+          pacienteSimuladoCorreo,
+          pacientesSimuladosJson: pacientesSimuladosArray,
+          estadoSimclic,
+          estadoUcs: isCancelledInPayload ? 'cancelada' : 'programada',
+          ultimaSincronizacion: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: sesionesProgramadas.simclicId,
+          set: {
+            simclicMongoId,
+            titulo,
+            fecha,
+            horaInicio,
+            horaFin,
+            sedeId: sedeObj?.id || null,
+            sedeNombreSimclic,
+            ambienteId: ambienteObj?.id || null,
+            ambienteNombreSimclic,
+            ambienteCodigoSimclic,
+            cursoId: cursoObj?.id || null,
+            cursoNombreSimclic,
+            cursoCodigoSimclic,
+            docenteId: docenteIdFinal,
+            docenteNombreSimclic,
+            docenteCorreoSimclic,
+            docentesJson: docentesArray,
+            carreraId: carreraObj?.id || null,
+            carrera,
+            carreraCodigo,
+            carreraColor,
+            escenarioCodigo,
+            escenarioNombre,
+            prefijo: prefijo || cursoObj?.prefijo || null,
+            pacienteSimuladoNombre,
+            pacienteSimuladoCorreo,
+            pacientesSimuladosJson: pacientesSimuladosArray,
+            estadoSimclic,
+            estadoUcs: isCancelledInPayload ? 'cancelada' : 'programada',
+            ultimaSincronizacion: new Date(),
+            updatedAt: new Date(),
+          },
+        });
     }
   }
 

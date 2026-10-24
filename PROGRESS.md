@@ -1239,6 +1239,17 @@ src/
     - Verificación directa contra la base de datos para la fecha 23/10/2026: se comprobó que las clases de Simulación Quirúrgica paralelas (13:40-15:20) asocian a Neldo Ernesto Tapia Silva y Leo Gerardo Gómez Ferrua en sus respectivos espejos.
     - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
 
+* `fix(simclic-sync-rescheduled)`: **Hito 73: Corrección de Sincronización SimClic para Sesiones Reprogramadas y Carga Incompleta de Días Futuros**:
+  - **Diagnóstico & Causa Raíz**:
+    - Al consultar la programación de "Mañana" (24/10/2026), solo se visualizaban las primeras 36 clases (07:00 a 09:30 AM), quedando vacío el resto del día hasta las 22:00.
+    - **Causa Raíz**: Conflicto de unicidad en Postgres (`sesiones_programadas_simclic_id_key`). Una sesión (`simclic_id = 76855`) de Posgrado había sido reprogramada en SimClic desde una fecha anterior (17/10) hacia el 24/10. La consulta de precarga en `simclicSync.ts` solo buscaba registros con `fecha = '2026-10-24'`. Al no encontrarla en ese día, el motor intentó un `INSERT` con el mismo `simclic_id`, lanzando una excepción `duplicate key value` que abortó el bucle de sincronización e impidió guardar las 169 sesiones restantes del día.
+  - **Solución Implementada**:
+    - **Ampliación del Scope de Detección (`src/lib/simclicSync.ts`)**: Se ajustó la consulta de `existingRows` para buscar por las fechas del payload O por cualquiera de los `simclicId` que vienen en la sincronización (`inArray(simclicId, payloadSimclicIds)`). Esto permite detectar inmediatamente sesiones reprogramadas entre distintas semanas y tratarlas como actualizaciones de fecha y sala en lugar de inserciones duplicadas.
+    - **Blindaje con `onConflictDoUpdate`**: En el bloque `db.insert(sesionesProgramadas)`, se añadió `.onConflictDoUpdate({ target: sesionesProgramadas.simclicId, set: { ... } })`, garantizando tolerancia total a fallos y reubicaciones concurrentes.
+  - **Verificación Técnica**:
+    - Sincronización ejecutada en vivo para el 24/10/2026: **205 sesiones sincronizadas con éxito** (169 en Villa, 28 en Norte, 8 en Ate), cubriendo todos los turnos continuos desde las 07:00 hasta las 22:00.
+    - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

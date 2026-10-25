@@ -1314,6 +1314,14 @@ src/
     - Migración ejecutada con éxito en Neon Postgres (`migrate_soporte_salas.ts`).
     - Homogenización visual de la pestaña `🚨 Alertas SOS & Salas`: adopción nativa de `.tabBtn` y `.activeTab` con acento naranja UCS (`#ff5a00`) idéntico a las demás pestañas.
     - Corrección de botones de acción (`Recargar` y `Exportar Excel`): aplicación de `.secondaryActionBtn` y `.actionBtn` con bordes redondeados, tonos UCS y badges de contador.
+    - **Rediseño de Alto Contraste del PIN Maestro de Salas**:
+      - Sustitución del pill grisáceo de bajo contraste por una credencial de seguridad en Azul Marino Profundo (`#06152d`) con borde exterior Naranja UCS (`#ff5a00`) y sombra de elevación.
+      - Tipografía monoespaciada de 1.5rem en blanco puro (`#ffffff`) con text-shadow para máxima legibilidad (>16:1 contraste AAA).
+      - Modo oculto con balas de seguridad de alto contraste en tono ámbar cálido (`● ● ● ●`).
+      - Botón interactivo `[ 📋 Copiar ]` al portapapeles y clic directo en el PIN para alternar visualización.
+    - **Soporte Completo de Theme Switch (Claro / Oscuro) en `/sala` y `/guardia`**:
+      - Integrado el componente `<ThemeToggle />` oficial en la barra superior tanto de la terminal de aula ([`/sala`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/page.tsx)) como de la central de guardia ([`/guardia`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/page.tsx)).
+      - Creados estilos institucionales dedicados (`:global([data-theme="light"])`) en [`sala.module.css`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/sala.module.css) y [`guardia.module.css`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/guardia.module.css) con fondos limpios (`#f4f6fa`), tarjetas en blanco puro con sombras de elevación, isotipo UCS en color marino original y títulos en Azul Marino Profundo (`#06152d`).
     - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

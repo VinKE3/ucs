@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './guardia.module.css';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface IncidenciaItem {
   id: number;
@@ -286,6 +287,8 @@ export default function GuardiaTecnicosPage() {
               (Cambiar)
             </button>
           </div>
+
+          <ThemeToggle />
         </div>
       </header>
 

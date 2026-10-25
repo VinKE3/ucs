@@ -35,6 +35,9 @@
 .brandLogo {
   height: 38px;
   width: auto;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+  transition: filter 0.3s ease;
 }
 
 .headerTitle {
@@ -400,4 +403,103 @@
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* ==========================================================================
+   SOPORTE DE TEMA CLARO INSTITUCIONAL (LIGHT MODE) - ALTO CONTRASTE UCS
+   ========================================================================== */
+:global([data-theme="light"]) .guardiaContainer {
+  background: #f4f6fa;
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .brandLogo {
+  filter: none;
+  opacity: 1;
+}
+
+:global([data-theme="light"]) .guardiaHeader {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 4px 20px -2px rgba(6, 21, 45, 0.08);
+}
+
+:global([data-theme="light"]) .headerTitle {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .headerSubtitle {
+  color: var(--text-muted, #64748b);
+}
+
+:global([data-theme="light"]) .clockBadge {
+  background: rgba(13, 52, 108, 0.08);
+  border-color: rgba(13, 52, 108, 0.2);
+  color: #0d346c;
+}
+
+:global([data-theme="light"]) .userBadge {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .columnCard {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 4px 16px -2px rgba(6, 21, 45, 0.06);
+}
+
+:global([data-theme="light"]) .columnHeader {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .incidentCard {
+  background: #f8fafc;
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 2px 8px rgba(6, 21, 45, 0.04);
+}
+
+:global([data-theme="light"]) .incidentRoom {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .incidentDesc {
+  color: var(--text-secondary, #334155);
+}
+
+:global([data-theme="light"]) .incidentTeacher {
+  color: var(--text-muted, #64748b);
+}
+
+:global([data-theme="light"]) .emptyState {
+  color: #94a3b8;
+}
+
+:global([data-theme="light"]) .modalCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #06152d;
+  box-shadow: 0 20px 60px rgba(6, 21, 45, 0.25);
+}
+
+:global([data-theme="light"]) .modalTitle {
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .solutionOption {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .solutionOption:hover {
+  background: rgba(13, 52, 108, 0.08);
+  border-color: #0d346c;
+}
+
+:global([data-theme="light"]) .btnCancel {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
 }

@@ -38,6 +38,9 @@
   height: 40px;
   width: auto;
   object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+  transition: filter 0.3s ease;
 }
 
 .roomTitle {
@@ -499,4 +502,199 @@
   border-radius: 8px;
   font-size: 0.8rem;
   margin-top: 1rem;
+}
+
+/* ==========================================================================
+   SOPORTE DE TEMA CLARO INSTITUCIONAL (LIGHT MODE) - ALTO CONTRASTE UCS
+   ========================================================================== */
+:global([data-theme="light"]) .salaContainer {
+  background: radial-gradient(circle at 50% 0%, #e8eef6 0%, #f4f6fa 100%);
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .brandLogo {
+  filter: none;
+  opacity: 1;
+}
+
+:global([data-theme="light"]) .salaHeader {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 4px 20px -2px rgba(6, 21, 45, 0.08);
+}
+
+:global([data-theme="light"]) .roomTitle {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .roomSubtitle {
+  color: var(--text-muted, #64748b);
+}
+
+:global([data-theme="light"]) .clockBadge {
+  background: rgba(13, 52, 108, 0.08);
+  border-color: rgba(13, 52, 108, 0.2);
+  color: #0d346c;
+}
+
+:global([data-theme="light"]) .onlineBadge {
+  background: rgba(4, 120, 87, 0.1);
+  color: #047857;
+  border-color: rgba(4, 120, 87, 0.25);
+}
+
+:global([data-theme="light"]) .onlineDot {
+  background: #047857;
+  box-shadow: 0 0 8px rgba(4, 120, 87, 0.4);
+}
+
+:global([data-theme="light"]) .sessionCard {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-left: 5px solid #0d346c;
+  box-shadow: 0 4px 16px -2px rgba(6, 21, 45, 0.06);
+}
+
+:global([data-theme="light"]) .sessionTeacher {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .sessionCourse {
+  color: var(--text-secondary, #334155);
+}
+
+:global([data-theme="light"]) .careerTag {
+  background: rgba(13, 52, 108, 0.1);
+  color: #0d346c;
+}
+
+:global([data-theme="light"]) .sessionTime {
+  color: #0d346c;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .buttonsTitle {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .buttonsSubtitle {
+  color: var(--text-muted, #64748b);
+}
+
+:global([data-theme="light"]) .touchButton {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-bottom: 4px solid var(--btn-color, #ef4444);
+  box-shadow: 0 4px 16px -2px rgba(6, 21, 45, 0.07);
+}
+
+:global([data-theme="light"]) .touchButton:hover {
+  background: #f8fafc;
+  border-color: var(--btn-color, #ef4444);
+  box-shadow: 0 10px 25px -4px rgba(6, 21, 45, 0.15);
+}
+
+:global([data-theme="light"]) .buttonLabel {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .buttonBadge {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .salaFooter {
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .btnUnlink {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .btnUnlink:hover {
+  color: #dc2626;
+}
+
+:global([data-theme="light"]) .alertCardActive {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(254, 242, 242, 0.95) 100%);
+  border: 2px solid #ef4444;
+  color: #06152d;
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.2);
+}
+
+:global([data-theme="light"]) .alertCardActive .alertTitle {
+  color: #dc2626;
+}
+
+:global([data-theme="light"]) .alertCardActive .alertDesc {
+  color: #1e293b;
+}
+
+:global([data-theme="light"]) .alertCardActive .alertTimer {
+  color: #b91c1c;
+}
+
+:global([data-theme="light"]) .alertCardEnCamino {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(240, 253, 244, 0.95) 100%);
+  border: 2px solid #059669;
+  color: #06152d;
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2);
+}
+
+:global([data-theme="light"]) .alertCardEnCamino .alertTitle {
+  color: #047857;
+}
+
+:global([data-theme="light"]) .alertCardEnCamino .alertDesc {
+  color: #1e293b;
+}
+
+:global([data-theme="light"]) .btnCancelAlert {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:global([data-theme="light"]) .btnCancelAlert:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+:global([data-theme="light"]) .pairingCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 20px 60px rgba(6, 21, 45, 0.25);
+}
+
+:global([data-theme="light"]) .pairingTitle {
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .pairingSubtitle {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .formLabel {
+  color: #334155;
+}
+
+:global([data-theme="light"]) .formSelect,
+:global([data-theme="light"]) .formInput {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .chipBtn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+:global([data-theme="light"]) .chipBtn:hover {
+  background: #e2e8f0;
+  color: #06152d;
 }

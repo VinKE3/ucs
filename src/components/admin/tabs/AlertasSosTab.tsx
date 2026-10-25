@@ -941,33 +941,35 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
           {/* PANEL DE CONFIGURACIÓN DEL PIN MAESTRO */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(13, 52, 108, 0.25), rgba(16, 185, 129, 0.1))',
-              border: '1px solid rgba(13, 52, 108, 0.4)',
-              borderRadius: '12px',
-              padding: '1.25rem',
-              marginBottom: '1.5rem',
+              background: 'var(--bg-secondary, #ffffff)',
+              border: '1px solid var(--border-color)',
+              borderLeft: '5px solid #ff5a00',
+              borderRadius: '14px',
+              padding: '1.25rem 1.5rem',
+              marginBottom: '1.75rem',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               flexWrap: 'wrap',
-              gap: '1rem',
+              gap: '1.25rem',
+              boxShadow: 'var(--shadow-card)',
             }}
           >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>🔐</span>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🔐</span>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                   PIN Maestro de Activación de Salas
                 </h3>
               </div>
-              <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Este código permite vincular y autorizar cualquier PC o Laptop de simulación en <code>/sala</code>.
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                Este código autoriza la conexión de cualquier PC o Laptop de simulación en <code style={{ padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'var(--pill-bg)', color: '#ff5a00', fontWeight: 700 }}>/sala</code>.
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               {editandoPin ? (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <input
                     type="text"
                     maxLength={6}
@@ -975,25 +977,28 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                     onChange={(e) => setNuevoPin(e.target.value.replace(/\D/g, ''))}
                     placeholder="Nuevo PIN"
                     style={{
-                      width: '110px',
-                      padding: '0.4rem 0.6rem',
-                      borderRadius: '6px',
-                      border: '1px solid var(--primary-color)',
-                      background: 'var(--input-bg)',
-                      color: 'var(--text-primary)',
-                      fontWeight: 800,
-                      fontSize: '1rem',
-                      letterSpacing: '2px',
+                      width: '130px',
+                      padding: '0.45rem 0.6rem',
+                      borderRadius: '8px',
+                      border: '2px solid #ff5a00',
+                      background: '#06152d',
+                      color: '#ffffff',
+                      fontWeight: 900,
+                      fontSize: '1.25rem',
+                      letterSpacing: '4px',
                       textAlign: 'center',
+                      fontFamily: 'ui-monospace, monospace',
+                      boxShadow: '0 0 10px rgba(255, 90, 0, 0.2)',
                     }}
+                    autoFocus
                   />
                   <button
                     type="button"
                     className={styles.actionBtn}
                     onClick={handleGuardarPin}
-                    style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
+                    style={{ padding: '0.45rem 0.95rem', fontSize: '0.85rem' }}
                   >
-                    Guardar
+                    💾 Guardar
                   </button>
                   <button
                     type="button"
@@ -1002,39 +1007,109 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       setEditandoPin(false);
                       setNuevoPin('');
                     }}
-                    style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
+                    style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}
                   >
                     Cancelar
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  {/* CAJA DEL PIN DE SEGURIDAD DE ALTO CONTRASTE */}
                   <div
+                    onClick={() => setMostrarPin(!mostrarPin)}
+                    title={mostrarPin ? 'Clic para ocultar PIN' : 'Clic para revelar PIN'}
                     style={{
-                      fontSize: '1.3rem',
-                      fontWeight: 900,
-                      letterSpacing: '4px',
-                      padding: '0.4rem 1rem',
-                      borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid var(--border-color)',
-                      color: '#10b981',
-                      fontFamily: 'monospace',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.45rem 1.25rem',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #06152d 0%, #0c203f 100%)',
+                      border: '2px solid #ff5a00',
+                      boxShadow: '0 4px 14px rgba(6, 21, 45, 0.25), 0 0 0 1px rgba(255, 90, 0, 0.2)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                     }}
                   >
-                    {mostrarPin ? config.pin_maestro_salas : '••••'}
+                    <span style={{ fontSize: '1.15rem' }}>🔑</span>
+                    <span
+                      style={{
+                        fontSize: '1.5rem',
+                        fontWeight: 900,
+                        letterSpacing: mostrarPin ? '6px' : '4px',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        lineHeight: 1,
+                        minWidth: '84px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {mostrarPin ? (
+                        <span style={{ color: '#ffffff', letterSpacing: '6px', textShadow: '0 0 8px rgba(255, 255, 255, 0.4)' }}>
+                          {config.pin_maestro_salas}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#ff9248', fontSize: '1.4rem', letterSpacing: '5px' }}>
+                          ● ● ● ●
+                        </span>
+                      )}
+                    </span>
                   </div>
 
+                  {/* BOTÓN VER / OCULTAR PIN */}
                   <button
                     type="button"
                     className={styles.secondaryActionBtn}
                     onClick={() => setMostrarPin(!mostrarPin)}
                     title={mostrarPin ? 'Ocultar PIN' : 'Ver PIN'}
-                    style={{ padding: '0.4rem 0.75rem' }}
+                    style={{
+                      padding: '0.45rem 0.85rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card, #ffffff)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                    }}
                   >
-                    {mostrarPin ? '🙈' : '👁️'}
+                    <span style={{ fontSize: '1.05rem' }}>{mostrarPin ? '🙈' : '👁️'}</span>
+                    <span>{mostrarPin ? 'Ocultar' : 'Ver PIN'}</span>
                   </button>
 
+                  {/* BOTÓN COPIAR PIN */}
+                  <button
+                    type="button"
+                    className={styles.secondaryActionBtn}
+                    onClick={() => {
+                      if (navigator.clipboard) {
+                        navigator.clipboard.writeText(config.pin_maestro_salas);
+                        showToast('¡PIN maestro copiado al portapapeles!', 'success');
+                      }
+                    }}
+                    title="Copiar PIN al portapapeles"
+                    style={{
+                      padding: '0.45rem 0.85rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card, #ffffff)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ fontSize: '1.05rem' }}>📋</span>
+                    <span>Copiar</span>
+                  </button>
+
+                  {/* BOTÓN CAMBIAR PIN */}
                   <button
                     type="button"
                     className={styles.actionBtn}
@@ -1042,9 +1117,9 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       setNuevoPin(config.pin_maestro_salas || '2026');
                       setEditandoPin(true);
                     }}
-                    style={{ padding: '0.4rem 0.95rem', fontSize: '0.85rem' }}
+                    style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}
                   >
-                    ✏️ Cambiar PIN
+                    <span>✏️</span> Cambiar PIN
                   </button>
                 </div>
               )}

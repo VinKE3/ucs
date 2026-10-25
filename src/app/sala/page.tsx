@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './sala.module.css';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface TerminalInfo {
   id: number;
@@ -341,6 +342,7 @@ export default function SalaTerminalPage() {
             <span className={styles.onlineDot} />
             {online ? 'En Línea' : 'Reconectando...'}
           </div>
+          <ThemeToggle />
         </div>
       </header>
 

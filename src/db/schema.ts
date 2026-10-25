@@ -578,6 +578,45 @@ export type NewConfiguracionGemini = typeof configuracionGemini.$inferInsert;
 export type LogGeminiRequest = typeof logsGeminiRequests.$inferSelect;
 export type NewLogGeminiRequest = typeof logsGeminiRequests.$inferInsert;
 
+// --- 12. TABLA: INCIDENCIAS DE SALA (Botón de Ayuda / SOS Salas) ---
+export const incidenciasSala = pgTable('incidencias_sala', {
+  id: serial('id').primaryKey(),
+  sedeId: integer('sede_id')
+    .notNull()
+    .references(() => sedes.id, { onDelete: 'cascade' }),
+  ambienteId: integer('ambiente_id')
+    .notNull()
+    .references(() => ambientes.id, { onDelete: 'cascade' }),
+
+  // Categoría de falla rápida y descripción
+  categoria: varchar('categoria', { length: 50 }).notNull(), // 'proyeccion', 'audio', 'red', 'computadora', 'simulador', 'otro'
+  descripcion: text('descripcion'), // Opcional, texto libre si el docente escribió algo
+
+  // Contexto automático del momento
+  docenteNombre: varchar('docente_nombre', { length: 255 }),
+  cursoNombre: varchar('curso_nombre', { length: 255 }),
+
+  // Flujo de estados: 'pendiente' -> 'en_camino' -> 'resuelto' | 'cancelado'
+  estado: varchar('estado', { length: 20 }).default('pendiente').notNull(),
+
+  // Preparado para el futuro: asignación individual si la jefatura lo requiere
+  tecnicoId: integer('tecnico_id').references(() => usuarios.id, { onDelete: 'set null' }),
+  tecnicoNombre: varchar('tecnico_nombre', { length: 150 }),
+
+  // Causa real encontrada para estadísticas y reportes
+  motivoResolucion: varchar('motivo_resolucion', { length: 100 }), // 'cable_hdmi', 'duplicar_pantalla', 'reinicio_pc', 'equipo_danado', 'falsa_alarma', 'otro'
+  notaResolucion: text('nota_resolucion'),
+
+  // Marcas de tiempo para SLA y auditoría
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  atendidoAt: timestamp('atendido_at'), // Momento en que el técnico pulsó "En camino"
+  resueltoAt: timestamp('resuelto_at'), // Momento en que se marcó "Resuelto"
+});
+
+export type IncidenciaSala = typeof incidenciasSala.$inferSelect;
+export type NewIncidenciaSala = typeof incidenciasSala.$inferInsert;
+
+
 
 
 

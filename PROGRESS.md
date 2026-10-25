@@ -1250,6 +1250,40 @@ src/
     - Sincronización ejecutada en vivo para el 24/10/2026: **205 sesiones sincronizadas con éxito** (169 en Villa, 28 en Norte, 8 en Ate), cubriendo todos los turnos continuos desde las 07:00 hasta las 22:00.
     - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
 
+* `feat(sos-salas-backend)`: **Hito 74: Fase 1 del Sistema de Asistencia Técnica / Botón SOS en Salas (Base de Datos & Motor de Caché Cero-Consumo en Neon)**:
+  - **Contexto & Filosofía de Operación**:
+    - Se diseñó el sistema de reporte y despacho de incidencias técnicas en aulas (proyector sin señal, audio, internet, PC, simuladores) para la Clínica de Simulación UCS.
+    - **Modo Operativo de Equipo (Opción A)**: El equipo de 6 técnicos opera desde una ventana fija en una de las 3 PCs de la oficina técnica. Ante una alerta, un solo clic (`🏃 En camino`) silencia la alarma y cambia el estado a amarillo sin demorar al técnico con formularios ni logins individuales. Al regresar, un solo clic (`✅ Resolver`) cierra el ticket.
+    - **Preparación Arquitectónica para el Futuro**: La tabla y la API ya cuentan con las columnas `tecnico_id` (FK `usuarios.id`) y `tecnico_nombre` (pre-poblado con `'Equipo de Técnicos'`), de modo que si la jefatura en el futuro solicita atribución individual por colaborador, se activa de inmediato sin migraciones de base de datos ni quiebres de código.
+  - **Protección de Cuota Neon Tech (Zero-Egress & Zero-Compute en Reposo)**:
+    - **Motor de Caché en Memoria RAM (`src/lib/incidenciasMemoryCache.ts`)**: Mantiene en memoria de Node.js la lista de alertas activas y una marca de tiempo/versión (`version`).
+    - **Endpoint de Sondeo Ultra-Ligero (`GET /api/incidencias/poll`)**: Las PCs de guardia de la oficina consultan cada 4-5s enviando su versión actual (`?v=timestamp`). Si no hay nuevas alertas ni cambios de estado, el servidor responde en 1 milisegundo desde memoria RAM con `{ changed: false }` (**< 35 bytes de payload y 0 consultas SQL a Neon Postgres**), eliminando cualquier riesgo de saturar la cuota gratuita de 5 GB.
+    - **Anti-Spam / Idempotencia de Sala**: Si un docente envía múltiples clics de alerta desde la misma aula, el backend detecta si ya existe una alerta activa (`pendiente` o `en_camino`) para ese `ambienteId` y devuelve la existente en lugar de duplicarla.
+  - **Estructura de Base de Datos Creada (`src/db/schema.ts` & `src/db/migrate_incidencias.ts`)**:
+    - **Tabla `incidencias_sala`**:
+      - `id`: Serial primario.
+      - `sede_id` & `ambiente_id`: FK con `ON DELETE CASCADE`.
+      - `categoria`: Tipo de falla (`'proyeccion'`, `'audio'`, `'red'`, `'computadora'`, `'simulador'`, `'otro'`).
+      - `descripcion`: Texto libre opcional.
+      - `docente_nombre` & `curso_nombre`: Contexto de la sesión en curso.
+      - `estado`: `'pendiente'` | `'en_camino'` | `'resuelto'` | `'cancelado'`.
+      - `tecnico_id` & `tecnico_nombre`: Asignación técnica extensible.
+      - `motivo_resolucion` & `nota_resolucion`: Diagnóstico de cierre (`'cable_hdmi'`, `'duplicar_pantalla'`, `'reinicio_pc'`, etc.).
+      - `created_at`, `atendido_at`, `resuelto_at`: Medición exacta de SLA de reacción y resolución.
+      - Índices Postgres creados en `estado`, `ambiente_id` y `created_at DESC`.
+  - **Endpoints API Implementados**:
+    - `POST /api/incidencias`: Registro de alerta desde el aula con deduplicación por sala y notificación en memoria RAM.
+    - `GET /api/incidencias`: Consulta de incidencias activas o histórico (`?all=true`) o consulta de estado de aula (`?ambienteId=N`).
+    - `GET /api/incidencias/poll`: Sondeo de bajo impacto para la PC de guardia.
+    - `PATCH /api/incidencias` y `PATCH /api/incidencias/[id]`: Transición atómica de estados (`en_camino`, `resolver`, `cancelar`).
+  - **Verificación Técnica**:
+    - Migración ejecutada con éxito en Neon Postgres (`src/db/migrate_incidencias.ts`).
+    - Inspección directa de columnas e índices en base de datos.
+    - Validación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**).
+  - **Próximos Pasos (Fase 2 & 3)**:
+    - *Fase 2*: Landing del aula (`/ayuda` o `/sos`) con enrolamiento mediante PIN técnico, persistencia dual (cookie + localStorage + enlace de escritorio auto-reparable) y 6 botones táctiles de 1 toque.
+    - *Fase 3*: Pantalla de Central de Guardia para la oficina de técnicos (`/guardia` o Tab Admin) con Web Worker anti-suspensión de pestañas minimizadas, Web Audio API chime persistente cada 15s y Notificaciones Nativas de Windows.
+
 ---
 
 

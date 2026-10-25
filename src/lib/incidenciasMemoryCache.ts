@@ -8,6 +8,8 @@ export interface IncidenciaEnMemoria {
   sedeNombre: string;
   ambienteId: number;
   ambienteNombre: string;
+  terminalId?: number | null;
+  terminalNombre?: string | null;
   categoria: string;
   descripcion: string | null;
   docenteNombre: string | null;
@@ -56,6 +58,8 @@ export async function syncActiveIncidenciasFromDb(): Promise<IncidenciaEnMemoria
         sedeNombre: sedes.nombre,
         ambienteId: incidenciasSala.ambienteId,
         ambienteNombre: ambientes.nombre,
+        terminalId: incidenciasSala.terminalId,
+        terminalNombre: incidenciasSala.terminalNombre,
         categoria: incidenciasSala.categoria,
         descripcion: incidenciasSala.descripcion,
         docenteNombre: incidenciasSala.docenteNombre,

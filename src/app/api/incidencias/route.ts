@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sedeId, ambienteId, categoria, descripcion, docenteNombre, cursoNombre } = body;
+    const { sedeId, ambienteId, terminalId, terminalNombre, categoria, descripcion, docenteNombre, cursoNombre } = body;
 
     if (!sedeId || !ambienteId || !categoria) {
       return NextResponse.json(
@@ -131,6 +131,8 @@ export async function POST(req: NextRequest) {
       .values({
         sedeId: Number(sedeId),
         ambienteId: Number(ambienteId),
+        terminalId: terminalId ? Number(terminalId) : null,
+        terminalNombre: terminalNombre ? String(terminalNombre).trim() : null,
         categoria: String(categoria).trim(),
         descripcion: descripcion ? String(descripcion).trim() : null,
         docenteNombre: docenteNombre ? String(docenteNombre).trim() : null,
@@ -147,6 +149,8 @@ export async function POST(req: NextRequest) {
       sedeNombre: sedeRow.nombre,
       ambienteId: inserted.ambienteId,
       ambienteNombre: ambienteRow.nombre,
+      terminalId: inserted.terminalId,
+      terminalNombre: inserted.terminalNombre,
       categoria: inserted.categoria,
       descripcion: inserted.descripcion,
       docenteNombre: inserted.docenteNombre,

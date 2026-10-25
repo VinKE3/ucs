@@ -32,6 +32,7 @@ import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
 import { PlanillaTab } from '@/components/admin/tabs/PlanillaTab';
 import { ProgramacionTab } from '@/components/admin/tabs/ProgramacionTab';
 import { GeminiAdminTab } from '@/components/admin/tabs/GeminiAdminTab';
+import { AlertasSosTab } from '@/components/admin/tabs/AlertasSosTab';
 import { UcsCopilotDrawer } from '@/components/admin/copilot/UcsCopilotDrawer';
 
 // Modales modulares
@@ -1250,6 +1251,14 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
                 🤖 Control Gemini IA 👑
               </button>
             )}
+            {(session.rolSistema === 'super_admin' || session.rolSistema === 'admin' || session.dni === '00000001') && (
+              <button
+                className={`${styles.tabBtn} ${activeTab === 'alertas_sos' ? styles.activeTab : ''}`}
+                onClick={() => setActiveTab('alertas_sos')}
+              >
+                🚨 Alertas SOS & Salas
+              </button>
+            )}
           </div>
         </section>
 
@@ -1440,6 +1449,14 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'gemini_ia' && (session.rolSistema === 'super_admin' || session.dni === '00000001') && (
           <GeminiAdminTab session={session} />
+        )}
+
+        {activeTab === 'alertas_sos' && (session.rolSistema === 'super_admin' || session.rolSistema === 'admin' || session.dni === '00000001') && (
+          <AlertasSosTab
+            session={session}
+            sedesList={sedesList}
+            ambientesList={ambientesList}
+          />
         )}
       </main>
 

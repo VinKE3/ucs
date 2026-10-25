@@ -1280,9 +1280,41 @@ src/
     - Migración ejecutada con éxito en Neon Postgres (`src/db/migrate_incidencias.ts`).
     - Inspección directa de columnas e índices en base de datos.
     - Validación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**).
-  - **Próximos Pasos (Fase 2 & 3)**:
-    - *Fase 2*: Landing del aula (`/ayuda` o `/sos`) con enrolamiento mediante PIN técnico, persistencia dual (cookie + localStorage + enlace de escritorio auto-reparable) y 6 botones táctiles de 1 toque.
-    - *Fase 3*: Pantalla de Central de Guardia para la oficina de técnicos (`/guardia` o Tab Admin) con Web Worker anti-suspensión de pestañas minimizadas, Web Audio API chime persistente cada 15s y Notificaciones Nativas de Windows.
+
+---
+
+### Hito 75: Ecosistema Completo de Asistencia Técnica en Salas (Tab Admin, Terminales Multi-PC, PIN Maestro, Botones Dinámicos, Aula `/sala` y Central de Guardia `/guardia`)
+- **Fecha**: 25 de Octubre, 2026
+- **Objetivo**: Desarrollar la arquitectura integral de soporte en simulación solicitada: nuevo Tab Admin con KPIs y exportación Excel, soporte de múltiples PCs/laptops por ambiente, configuración de PIN maestro, gestor de botones de asistencia personalizables, pantalla táctil de aula para docentes y central de monitoreo de guardia en tiempo real con cero consumo de egress en Neon Tech.
+- **Implementación Técnica**:
+  - **Base de Datos & Esquema (`schema.ts` & `migrate_soporte_salas.ts`)**:
+    - `terminales_sala`: Soporte para vincular $N$ dispositivos por ambiente (`ambiente_id`, `sede_id`, `token` único, `nombre`, `tipo_dispositivo`, `activo`, `ultimo_acceso`).
+    - `categorias_incidencia`: Catálogo dinámico de botones de sala con `nombre`, `icono`, `color`, `tipo`, `prioridad`, `orden` y switch `activo`.
+    - `configuracion_sistema`: Almacén de configuraciones globales (`pin_maestro_salas`, `modo_tecnicos`, `sonido_alerta_habilitado`).
+    - Columnas añadidas a `incidencias_sala`: `terminal_id` y `terminal_nombre`.
+  - **Vista 1: Tab de Administrador (`AlertasSosTab.tsx` en `AdminDashboard.tsx`)**:
+    - Acceso exclusivo para roles `admin` y `super_admin` con botón destacado en barra de pestañas y mobile sheet.
+    - **Sub-Tab Métricas & Historial**: Tarjetas KPI (Total alertas hoy, Resueltas, SLA de respuesta promedio, Tiempo total de resolución), Top 5 salas con mayor frecuencia de llamados, distribución de categorías y tabla detallada con filtros.
+    - **Exportación Excel (.xlsx / CSV UTF-8)**: Descarga directa con formato ejecutivo y codificación `\uFEFF` para apertura nativa en Microsoft Excel.
+    - **Sub-Tab Terminales & PIN**: Visualización y edición del PIN maestro con validación numérica y matriz de salas con switch para habilitar/deshabilitar o desvincular PCs individualmente.
+    - **Sub-Tab Botones de Asistencia**: Gestor modular para crear o editar botones táctiles (ej: *Pilas para intercomunicador*, *Hojas de asistencia*, *Simulador trabado*) con selector visual de colores y emojis.
+  - **Vista 2: Pantalla de Aula / Docente (`/sala`)**:
+    - Modal de vinculación con PIN Maestro ejecutado una sola vez por equipo físico, persistente en `localStorage`.
+    - Detección automática en vivo de la clase en curso (docente, curso, horario, carrera).
+    - Grid de botones táctiles gigantes de 1 toque con feedback visual inmediato.
+    - Banner de estado en vivo (*"🚨 Alerta enviada"*, *"🏃 Asistencia en camino"* con nombre del técnico asignado).
+    - Botón de cancelación inmediata (*"Presioné por error"*) activo durante los primeros 35 segundos.
+  - **Vista 3: Central de Guardia para Técnicos (`/guardia`)**:
+    - Optimizado para pantalla fija en la oficina de soporte.
+    - Sondeo en memoria RAM ultra-rápido (`/api/incidencias/poll`) con <35 bytes y 0 consultas a Postgres cuando no hay cambios.
+    - Alerta sonora sintetizada en tiempo real mediante **Web Audio API** (doble tono 880Hz -> 1174Hz) sin descargas de archivos de audio.
+    - Operativa de 1 clic: **"🏃 Vamos en camino"** y modal de resolución rápida con motivos estructurados (*Reinicio de simulador*, *Cable HDMI*, *Pilas cambiadas*, etc.).
+    - Preparado con selector de identificación express por DNI para asignación individual futura.
+  - **Verificación Técnica & Pulido Visual**:
+    - Migración ejecutada con éxito en Neon Postgres (`migrate_soporte_salas.ts`).
+    - Homogenización visual de la pestaña `🚨 Alertas SOS & Salas`: adopción nativa de `.tabBtn` y `.activeTab` con acento naranja UCS (`#ff5a00`) idéntico a las demás pestañas.
+    - Corrección de botones de acción (`Recargar` y `Exportar Excel`): aplicación de `.secondaryActionBtn` y `.actionBtn` con bordes redondeados, tonos UCS y badges de contador.
+    - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---
 

@@ -603,6 +603,10 @@ export const incidenciasSala = pgTable('incidencias_sala', {
   tecnicoId: integer('tecnico_id').references(() => usuarios.id, { onDelete: 'set null' }),
   tecnicoNombre: varchar('tecnico_nombre', { length: 150 }),
 
+  // Terminal/dispositivo físico de donde provino la solicitud
+  terminalId: integer('terminal_id'),
+  terminalNombre: varchar('terminal_nombre', { length: 120 }),
+
   // Causa real encontrada para estadísticas y reportes
   motivoResolucion: varchar('motivo_resolucion', { length: 100 }), // 'cable_hdmi', 'duplicar_pantalla', 'reinicio_pc', 'equipo_danado', 'falsa_alarma', 'otro'
   notaResolucion: text('nota_resolucion'),
@@ -615,6 +619,56 @@ export const incidenciasSala = pgTable('incidencias_sala', {
 
 export type IncidenciaSala = typeof incidenciasSala.$inferSelect;
 export type NewIncidenciaSala = typeof incidenciasSala.$inferInsert;
+
+// --- 13. TABLA: TERMINALES DE SALA (Multi-PC/Laptop por Ambiente) ---
+export const terminalesSala = pgTable('terminales_sala', {
+  id: serial('id').primaryKey(),
+  sedeId: integer('sede_id')
+    .notNull()
+    .references(() => sedes.id, { onDelete: 'cascade' }),
+  ambienteId: integer('ambiente_id')
+    .notNull()
+    .references(() => ambientes.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 100 }).notNull().unique(), // UUID secreto guardado en localStorage/cookie
+  nombre: varchar('nombre', { length: 120 }).notNull(), // Ej: "PC Principal Docente", "Laptop Simulador 1", "PC 2 Debriefing"
+  tipoDispositivo: varchar('tipo_dispositivo', { length: 50 }).default('pc').notNull(), // 'pc', 'laptop', 'tablet'
+  activo: boolean('activo').default(true).notNull(), // Habilitar o deshabilitar remotamente desde el Admin
+  ultimoAcceso: timestamp('ultimo_acceso').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type TerminalSala = typeof terminalesSala.$inferSelect;
+export type NewTerminalSala = typeof terminalesSala.$inferInsert;
+
+// --- 14. TABLA: CATEGORÍAS DE INCIDENCIA / BOTONES DE ASISTENCIA DINÁMICOS ---
+export const categoriasIncidencia = pgTable('categorias_incidencia', {
+  id: serial('id').primaryKey(),
+  nombre: varchar('nombre', { length: 150 }).notNull(), // Ej: "Simulador Bloqueado", "Pilas / Intercomunicador"
+  icono: varchar('icono', { length: 50 }).default('🚨').notNull(), // Emoji o icono visual
+  color: varchar('color', { length: 50 }).default('#ef4444').notNull(), // HEX o clase visual
+  tipo: varchar('tipo', { length: 50 }).default('tecnico').notNull(), // 'tecnico', 'logistico', 'urgencia'
+  prioridad: varchar('prioridad', { length: 50 }).default('normal').notNull(), // 'alta', 'normal', 'baja'
+  orden: integer('orden').default(1).notNull(),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type CategoriaIncidencia = typeof categoriasIncidencia.$inferSelect;
+export type NewCategoriaIncidencia = typeof categoriasIncidencia.$inferInsert;
+
+// --- 15. TABLA: CONFIGURACIÓN GLOBAL DEL SISTEMA (PIN Maestro, etc.) ---
+export const configuracionSistema = pgTable('configuracion_sistema', {
+  clave: varchar('clave', { length: 100 }).primaryKey(), // Ej: 'pin_maestro_salas', 'modo_tecnicos'
+  valor: text('valor').notNull(),
+  descripcion: text('descripcion'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type ConfiguracionSistema = typeof configuracionSistema.$inferSelect;
+export type NewConfiguracionSistema = typeof configuracionSistema.$inferInsert;
+
 
 
 

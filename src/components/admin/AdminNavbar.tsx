@@ -430,6 +430,30 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
             </button>
           )}
 
+          {/* ALERTAS SOS & SALAS (ADMIN / SUPER ADMIN) */}
+          {(session.rolSistema === 'super_admin' || session.rolSistema === 'admin' || session.dni === '00000001') && (
+            <button
+              type="button"
+              className={`${styles.bottomSheetItem} ${activeTab === 'alertas_sos' ? styles.bottomSheetItemActive : ''}`}
+              onClick={() => {
+                setActiveTab('alertas_sos');
+                setMoreSheetOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              <div className={styles.bottomSheetItemLeft}>
+                <div className={styles.bottomSheetItemIcon} style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🚨</span>
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div className={styles.bottomSheetItemTitle}>Alertas SOS & Salas</div>
+                  <div className={styles.bottomSheetItemDesc}>Métricas, PIN de activación y terminales multi-PC</div>
+                </div>
+              </div>
+              <span className={styles.bottomSheetItemBadge} style={{ background: '#ef4444', color: '#fff' }}>SOS</span>
+            </button>
+          )}
+
           {/* KIOSCO */}
           <Link
             href="/"

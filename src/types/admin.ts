@@ -269,7 +269,7 @@ export interface CategoriaAmbienteItem {
   createdAt?: string;
 }
 
-export type AdminTab = 'sedes' | 'ambientes' | 'programacion' | 'cursos' | 'personal' | 'asistencias' | 'planilla' | 'gemini_ia';
+export type AdminTab = 'sedes' | 'ambientes' | 'programacion' | 'cursos' | 'personal' | 'asistencias' | 'planilla' | 'gemini_ia' | 'alertas_sos';
 
 export interface SesionProgramadaTimelineItem extends SesionProgramadaSimclicItem {
   startMins: number;
@@ -697,6 +697,71 @@ export interface GeminiLogItem {
   errorMensaje?: string | null;
   createdAt: string;
 }
+
+// --- SOPORTE TÉCNICO Y ALERTAS EN SALAS ---
+export interface TerminalSalaItem {
+  id: number;
+  sedeId: number;
+  sedeNombre?: string;
+  ambienteId: number;
+  ambienteNombre?: string;
+  ambienteCodigo?: string;
+  token: string;
+  nombre: string;
+  tipoDispositivo: 'pc' | 'laptop' | 'tablet';
+  activo: boolean;
+  ultimoAcceso: string | null;
+  createdAt: string;
+}
+
+export interface CategoriaIncidenciaItem {
+  id: number;
+  nombre: string;
+  icono: string;
+  color: string;
+  tipo: 'tecnico' | 'logistico' | 'urgencia';
+  prioridad: 'alta' | 'normal' | 'baja';
+  orden: number;
+  activo: boolean;
+  createdAt: string;
+}
+
+export interface IncidenciaAdminItem {
+  id: number;
+  sedeId: number;
+  sedeNombre: string;
+  ambienteId: number;
+  ambienteNombre: string;
+  terminalId?: number | null;
+  terminalNombre?: string | null;
+  categoria: string;
+  descripcion: string | null;
+  docenteNombre: string | null;
+  cursoNombre: string | null;
+  estado: 'pendiente' | 'en_camino' | 'resuelto' | 'cancelado';
+  tecnicoId: number | null;
+  tecnicoNombre: string | null;
+  motivoResolucion: string | null;
+  notaResolucion: string | null;
+  createdAt: string;
+  atendidoAt: string | null;
+  resueltoAt: string | null;
+  tiempoRespuestaMinutos?: number | null;
+  tiempoResolucionMinutos?: number | null;
+}
+
+export interface IncidenciasMetricsData {
+  totalHoy: number;
+  pendientesHoy: number;
+  enCaminoHoy: number;
+  resueltasHoy: number;
+  tiempoPromedioRespuestaMins: number;
+  tiempoPromedioResolucionMins: number;
+  topAmbientes: Array<{ ambienteNombre: string; sedeNombre: string; total: number }>;
+  distribucionCategorias: Array<{ categoria: string; total: number; color?: string; icono?: string }>;
+  topTecnicos: Array<{ tecnicoNombre: string; total: number }>;
+}
+
 
 
 

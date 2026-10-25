@@ -16,6 +16,8 @@ interface IncidenciaItem {
   descripcion: string | null;
   docenteNombre: string | null;
   cursoNombre: string | null;
+  casoNombre?: string | null;
+  pacienteSimuladoNombre?: string | null;
   estado: 'pendiente' | 'en_camino' | 'resuelto' | 'cancelado';
   tecnicoId: number | null;
   tecnicoNombre: string | null;
@@ -166,41 +168,53 @@ export default function GuardiaTecnicosPage() {
 
   // 4. Acción: "Vamos en Camino"
   const handleVoyEnCamino = async (inc: IncidenciaItem) => {
+    // Actualizar localmente de inmediato para feedback instantáneo (0ms)
+    setIncidenciasActivas((prev) =>
+      prev.map((i) =>
+        i.id === inc.id
+          ? { ...i, estado: 'en_camino', tecnicoNombre: tecnicoNombre || 'Equipo de Técnicos' }
+          : i
+      )
+    );
+
     try {
       const res = await fetch(`/api/incidencias/${inc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          accion: 'en_camino',
           estado: 'en_camino',
           tecnicoNombre: tecnicoNombre || 'Equipo de Técnicos',
         }),
       });
 
       const data = await res.json();
-      if (data.success) {
-        // Actualizar localmente de inmediato para feedback instantáneo
-        setIncidenciasActivas((prev) =>
-          prev.map((i) =>
-            i.id === inc.id
-              ? { ...i, estado: 'en_camino', tecnicoNombre: tecnicoNombre || 'Equipo de Técnicos' }
-              : i
-          )
-        );
+      if (!data.success) {
+        console.warn('Reintentando sincronización de incidencias activas...');
+        pollIncidencias();
       }
     } catch (err) {
       console.error('Error al marcar en camino:', err);
+      pollIncidencias();
     }
   };
 
   // 5. Acción: "Resolver Incidencia"
   const handleConfirmarResolucion = async (motivo: string) => {
     if (!incidenciaAResolver) return;
+    const targetId = incidenciaAResolver.id;
+
+    // Optimistic update
+    setIncidenciasActivas((prev) => prev.filter((i) => i.id !== targetId));
+    setIncidenciaAResolver(null);
+    setNotaPersonalizada('');
 
     try {
-      const res = await fetch(`/api/incidencias/${incidenciaAResolver.id}`, {
+      const res = await fetch(`/api/incidencias/${targetId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          accion: 'resolver',
           estado: 'resuelto',
           motivoResolucion: motivo,
           notaResolucion: notaPersonalizada ? notaPersonalizada.trim() : null,
@@ -210,13 +224,13 @@ export default function GuardiaTecnicosPage() {
 
       const data = await res.json();
       if (data.success) {
-        setIncidenciasActivas((prev) => prev.filter((i) => i.id !== incidenciaAResolver.id));
-        setIncidenciaAResolver(null);
-        setNotaPersonalizada('');
         fetchResueltasHoy();
+      } else {
+        pollIncidencias();
       }
     } catch (err) {
       console.error('Error al resolver incidencia:', err);
+      pollIncidencias();
     }
   };
 
@@ -353,8 +367,18 @@ export default function GuardiaTecnicosPage() {
                     {inc.cursoNombre && (
                       <div className={styles.courseName}>📚 {inc.cursoNombre}</div>
                     )}
+                    {inc.casoNombre && (
+                      <div className={styles.caseBadge}>
+                        <span>🩺 Caso:</span> {inc.casoNombre}
+                      </div>
+                    )}
+                    {inc.pacienteSimuladoNombre && (
+                      <div className={styles.psBadge}>
+                        <span>🎭 PS:</span> {inc.pacienteSimuladoNombre}
+                      </div>
+                    )}
                     {inc.descripcion && (
-                      <div style={{ color: '#fef08a', marginTop: '0.2rem' }}>
+                      <div className={styles.incidentDesc}>
                         "{inc.descripcion}"
                       </div>
                     )}
@@ -416,7 +440,7 @@ export default function GuardiaTecnicosPage() {
                   </div>
                 </div>
 
-                <div className={styles.categoryTag} style={{ background: 'rgba(245, 158, 11, 0.15)' }}>
+                <div className={`${styles.categoryTag} ${styles.categoryTagEnCamino}`}>
                   <span>{inc.categoria}</span>
                 </div>
 
@@ -426,6 +450,21 @@ export default function GuardiaTecnicosPage() {
                   </div>
                   {inc.cursoNombre && (
                     <div className={styles.courseName}>📚 {inc.cursoNombre}</div>
+                  )}
+                  {inc.casoNombre && (
+                    <div className={styles.caseBadge}>
+                      <span>🩺 Caso:</span> {inc.casoNombre}
+                    </div>
+                  )}
+                  {inc.pacienteSimuladoNombre && (
+                    <div className={styles.psBadge}>
+                      <span>🎭 PS:</span> {inc.pacienteSimuladoNombre}
+                    </div>
+                  )}
+                  {inc.descripcion && (
+                    <div className={styles.incidentDesc}>
+                      "{inc.descripcion}"
+                    </div>
                   )}
                 </div>
 
@@ -472,33 +511,21 @@ export default function GuardiaTecnicosPage() {
               const hora = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
               return (
-                <div
-                  key={inc.id}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    borderRadius: '10px',
-                    padding: '0.8rem 1rem',
-                    marginBottom: '0.6rem',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
+                <div key={inc.id} className={styles.resolvedCard}>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#ffffff' }}>
+                    <div className={styles.resolvedRoom}>
                       📍 {inc.ambienteNombre}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    <div className={styles.resolvedMeta}>
                       {inc.categoria} • Atendió: {inc.tecnicoNombre || 'Equipo Guardia'}
                     </div>
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981' }}>
+                    <div className={styles.resolvedTime}>
                       {hora}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                    <div className={styles.resolvedReason}>
                       {inc.motivoResolucion || 'Solucionado'}
                     </div>
                   </div>
@@ -627,19 +654,7 @@ export default function GuardiaTecnicosPage() {
                 placeholder="DNI del técnico (8 dígitos)"
                 value={dniInput}
                 onChange={(e) => setDniInput(e.target.value.replace(/\D/g, ''))}
-                style={{
-                  width: '100%',
-                  padding: '0.6rem 0.8rem',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  color: '#ffffff',
-                  fontSize: '1.1rem',
-                  textAlign: 'center',
-                  fontWeight: 800,
-                  letterSpacing: '2px',
-                  boxSizing: 'border-box',
-                }}
+                className={styles.dniInput}
                 autoFocus
               />
 

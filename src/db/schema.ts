@@ -595,6 +595,8 @@ export const incidenciasSala = pgTable('incidencias_sala', {
   // Contexto automático del momento
   docenteNombre: varchar('docente_nombre', { length: 255 }),
   cursoNombre: varchar('curso_nombre', { length: 255 }),
+  casoNombre: varchar('caso_nombre', { length: 255 }),
+  pacienteSimuladoNombre: varchar('paciente_simulado_nombre', { length: 255 }),
 
   // Flujo de estados: 'pendiente' -> 'en_camino' -> 'resuelto' | 'cancelado'
   estado: varchar('estado', { length: 20 }).default('pendiente').notNull(),

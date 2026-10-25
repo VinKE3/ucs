@@ -29,6 +29,8 @@ interface SesionActiva {
   titulo: string;
   cursoNombre: string | null;
   docenteNombre: string | null;
+  escenarioNombre?: string | null;
+  pacienteSimuladoNombre?: string | null;
   horaInicio: string;
   horaFin: string;
   carrera: string | null;
@@ -245,6 +247,8 @@ export default function SalaTerminalPage() {
           categoria: cat.nombre,
           docenteNombre: sesionActual?.docenteNombre || null,
           cursoNombre: sesionActual?.cursoNombre || null,
+          casoNombre: sesionActual?.escenarioNombre || sesionActual?.titulo || null,
+          pacienteSimuladoNombre: sesionActual?.pacienteSimuladoNombre || null,
         }),
       });
 
@@ -358,6 +362,20 @@ export default function SalaTerminalPage() {
               <span className={styles.careerTag}>{sesionActual.carrera}</span>
             )}
           </div>
+          {(sesionActual?.escenarioNombre || sesionActual?.pacienteSimuladoNombre) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.4rem', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+              {sesionActual.escenarioNombre && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#ff5a00', fontWeight: 800 }}>
+                  <span>🩺 Caso:</span> {sesionActual.escenarioNombre}
+                </span>
+              )}
+              {sesionActual.pacienteSimuladoNombre && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#10b981', fontWeight: 800 }}>
+                  <span>🎭 Paciente Simulado:</span> {sesionActual.pacienteSimuladoNombre}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {sesionActual && (

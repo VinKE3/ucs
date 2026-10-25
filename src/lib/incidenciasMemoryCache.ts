@@ -14,6 +14,8 @@ export interface IncidenciaEnMemoria {
   descripcion: string | null;
   docenteNombre: string | null;
   cursoNombre: string | null;
+  casoNombre?: string | null;
+  pacienteSimuladoNombre?: string | null;
   estado: 'pendiente' | 'en_camino' | 'resuelto' | 'cancelado';
   tecnicoId: number | null;
   tecnicoNombre: string | null;
@@ -64,6 +66,8 @@ export async function syncActiveIncidenciasFromDb(): Promise<IncidenciaEnMemoria
         descripcion: incidenciasSala.descripcion,
         docenteNombre: incidenciasSala.docenteNombre,
         cursoNombre: incidenciasSala.cursoNombre,
+        casoNombre: incidenciasSala.casoNombre,
+        pacienteSimuladoNombre: incidenciasSala.pacienteSimuladoNombre,
         estado: incidenciasSala.estado,
         tecnicoId: incidenciasSala.tecnicoId,
         tecnicoNombre: incidenciasSala.tecnicoNombre,

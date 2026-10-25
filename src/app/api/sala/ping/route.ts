@@ -101,6 +101,8 @@ export async function POST(req: NextRequest) {
             titulo: sesionActual.titulo,
             cursoNombre: sesionActual.cursoNombreSimclic,
             docenteNombre: sesionActual.docenteNombreSimclic,
+            escenarioNombre: sesionActual.escenarioNombre || sesionActual.titulo || null,
+            pacienteSimuladoNombre: sesionActual.pacienteSimuladoNombre || (sesionActual.pacientesSimuladosJson?.[0]?.nombre) || null,
             horaInicio: sesionActual.horaInicio,
             horaFin: sesionActual.horaFin,
             carrera: sesionActual.carrera,

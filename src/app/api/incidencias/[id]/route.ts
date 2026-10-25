@@ -18,7 +18,8 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { accion, tecnicoId, tecnicoNombre, motivoResolucion, notaResolucion } = body;
+    const { accion, estado, tecnicoId, tecnicoNombre, motivoResolucion, notaResolucion } = body;
+    const effectiveAccion = accion || (estado === 'en_camino' ? 'en_camino' : estado === 'resuelto' ? 'resolver' : estado === 'cancelado' ? 'cancelar' : null);
 
     // Buscar registro existente
     const [existing] = await db
@@ -28,10 +29,14 @@ export async function PATCH(
         sedeNombre: sedes.nombre,
         ambienteId: incidenciasSala.ambienteId,
         ambienteNombre: ambientes.nombre,
+        terminalId: incidenciasSala.terminalId,
+        terminalNombre: incidenciasSala.terminalNombre,
         categoria: incidenciasSala.categoria,
         descripcion: incidenciasSala.descripcion,
         docenteNombre: incidenciasSala.docenteNombre,
         cursoNombre: incidenciasSala.cursoNombre,
+        casoNombre: incidenciasSala.casoNombre,
+        pacienteSimuladoNombre: incidenciasSala.pacienteSimuladoNombre,
         estado: incidenciasSala.estado,
         tecnicoId: incidenciasSala.tecnicoId,
         tecnicoNombre: incidenciasSala.tecnicoNombre,
@@ -58,14 +63,14 @@ export async function PATCH(
     let nuevoTecnicoNombre = tecnicoNombre || existing.tecnicoNombre || 'Equipo de Técnicos';
     let nuevoTecnicoId = tecnicoId ? Number(tecnicoId) : existing.tecnicoId;
 
-    if (accion === 'en_camino') {
+    if (effectiveAccion === 'en_camino') {
       nuevoEstado = 'en_camino';
       nuevoAtendidoAt = now;
-    } else if (accion === 'resolver') {
+    } else if (effectiveAccion === 'resolver') {
       nuevoEstado = 'resuelto';
       nuevoResueltoAt = now;
       if (!nuevoAtendidoAt) nuevoAtendidoAt = now;
-    } else if (accion === 'cancelar') {
+    } else if (effectiveAccion === 'cancelar') {
       nuevoEstado = 'cancelado';
       nuevoResueltoAt = now;
     } else {
@@ -97,10 +102,14 @@ export async function PATCH(
       sedeNombre: existing.sedeNombre,
       ambienteId: updated.ambienteId,
       ambienteNombre: existing.ambienteNombre,
+      terminalId: updated.terminalId || existing.terminalId,
+      terminalNombre: updated.terminalNombre || existing.terminalNombre,
       categoria: updated.categoria,
       descripcion: updated.descripcion,
       docenteNombre: updated.docenteNombre,
       cursoNombre: updated.cursoNombre,
+      casoNombre: updated.casoNombre || existing.casoNombre,
+      pacienteSimuladoNombre: updated.pacienteSimuladoNombre || existing.pacienteSimuladoNombre,
       estado: updated.estado as IncidenciaEnMemoria['estado'],
       tecnicoId: updated.tecnicoId,
       tecnicoNombre: updated.tecnicoNombre,

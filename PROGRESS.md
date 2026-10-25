@@ -1322,6 +1322,14 @@ src/
     - **Soporte Completo de Theme Switch (Claro / Oscuro) en `/sala` y `/guardia`**:
       - Integrado el componente `<ThemeToggle />` oficial en la barra superior tanto de la terminal de aula ([`/sala`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/page.tsx)) como de la central de guardia ([`/guardia`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/page.tsx)).
       - Creados estilos institucionales dedicados (`:global([data-theme="light"])`) en [`sala.module.css`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/sala.module.css) y [`guardia.module.css`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/guardia.module.css) con fondos limpios (`#f4f6fa`), tarjetas en blanco puro con sombras de elevación, isotipo UCS en color marino original y títulos en Azul Marino Profundo (`#06152d`).
+      - **Blindaje de Alto Contraste en `/guardia` para Tema Claro**: Corregidos selectores de tarjetas Kanban (pendientes y en curso), nombres de salas (`.roomTag`) en Azul Marino Profundo (`#06152d`), insignias de categoría (`.categoryTag`) en credencial navy sólida con tipografía blanca nítida, cronómetro en badge crimson legible, y contenedor de contexto del docente/curso con fondo contrastado (`#f1f5f9`) y tipografía oscura (`#06152d` y `#0d346c`), eliminando textos blancos sobre fondos claros.
+    - **Inclusión de Caso Clínico y Paciente Simulado (PS) en Alertas SOS**:
+      - Agregadas las columnas `caso_nombre` y `paciente_simulado_nombre` a la tabla `incidencias_sala` en Neon PostgreSQL y sincronizadas con la memoria RAM (`IncidenciaEnMemoria`).
+      - Detección algorítmica automática en `/api/incidencias`: al emitir una alerta, el sistema extrae de inmediato el Caso / Escenario (`escenarioNombre` / `titulo`) y el Paciente Simulado programado (`pacienteSimuladoNombre`) de la clase en curso.
+      - Tarjetas enriquecidas con insignias visuales de alto contraste (`.caseBadge` en naranja institucional y `.psBadge` en verde clínico) tanto en la pantalla de aula ([`/sala`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/page.tsx)) como en la central de guardia ([`/guardia`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/page.tsx)).
+    - **Corrección de Acción "Vamos en Camino" / "Resolver"**:
+      - El endpoint `PATCH /api/incidencias/[id]` ahora soporta indistintamente `accion: 'en_camino' | 'resolver'` y `estado: 'en_camino' | 'resuelto'`.
+      - Se implementó actualización optimista inmediata (0ms): al hacer clic en *"Vamos en Camino"*, la tarjeta se desplaza inmediatamente a la columna *"En Camino / En Atención"* y notifica en vivo a la pantalla de la sala.
     - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { incidenciasSala, sedes, ambientes } from '@/db/schema';
-import { eq, inArray, desc, and } from 'drizzle-orm';
+import { incidenciasSala, sedes, ambientes, sesionesProgramadas } from '@/db/schema';
+import { eq, inArray, desc, and, asc } from 'drizzle-orm';
 import {
   updateIncidentInMemory,
   getActiveIncidentForAmbiente,
@@ -45,10 +45,14 @@ export async function GET(req: NextRequest) {
           sedeNombre: sedes.nombre,
           ambienteId: incidenciasSala.ambienteId,
           ambienteNombre: ambientes.nombre,
+          terminalId: incidenciasSala.terminalId,
+          terminalNombre: incidenciasSala.terminalNombre,
           categoria: incidenciasSala.categoria,
           descripcion: incidenciasSala.descripcion,
           docenteNombre: incidenciasSala.docenteNombre,
           cursoNombre: incidenciasSala.cursoNombre,
+          casoNombre: incidenciasSala.casoNombre,
+          pacienteSimuladoNombre: incidenciasSala.pacienteSimuladoNombre,
           estado: incidenciasSala.estado,
           tecnicoId: incidenciasSala.tecnicoId,
           tecnicoNombre: incidenciasSala.tecnicoNombre,
@@ -94,7 +98,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sedeId, ambienteId, terminalId, terminalNombre, categoria, descripcion, docenteNombre, cursoNombre } = body;
+    const {
+      sedeId,
+      ambienteId,
+      terminalId,
+      terminalNombre,
+      categoria,
+      descripcion,
+      docenteNombre,
+      cursoNombre,
+      casoNombre,
+      pacienteSimuladoNombre,
+    } = body;
 
     if (!sedeId || !ambienteId || !categoria) {
       return NextResponse.json(
@@ -125,7 +140,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Insertar en Postgres
+    // 3. Auto-detectar caso y paciente simulado de la sesión programada de hoy si no se enviaron
+    let finalCaso = casoNombre ? String(casoNombre).trim() : null;
+    let finalPs = pacienteSimuladoNombre ? String(pacienteSimuladoNombre).trim() : null;
+    let finalDocente = docenteNombre ? String(docenteNombre).trim() : null;
+    let finalCurso = cursoNombre ? String(cursoNombre).trim() : null;
+
+    if (!finalCaso || !finalPs || !finalDocente || !finalCurso) {
+      const hoyLima = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+      const sesionesHoy = await db
+        .select()
+        .from(sesionesProgramadas)
+        .where(
+          and(
+            eq(sesionesProgramadas.ambienteId, Number(ambienteId)),
+            eq(sesionesProgramadas.fecha, hoyLima),
+            inArray(sesionesProgramadas.estadoUcs, ['programada', 'en_curso', 'finalizada'])
+          )
+        )
+        .orderBy(asc(sesionesProgramadas.horaInicio));
+
+      if (sesionesHoy.length > 0) {
+        const horaActual = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour12: false });
+        const s =
+          sesionesHoy.find((ses) => ses.horaInicio <= horaActual && ses.horaFin >= horaActual) ||
+          sesionesHoy[0];
+
+        if (!finalCaso) finalCaso = s.escenarioNombre || s.titulo || null;
+        if (!finalPs) finalPs = s.pacienteSimuladoNombre || (s.pacientesSimuladosJson?.[0]?.nombre) || null;
+        if (!finalDocente) finalDocente = s.docenteNombreSimclic || null;
+        if (!finalCurso) finalCurso = s.cursoNombreSimclic || null;
+      }
+    }
+
+    // 4. Insertar en Postgres
     const [inserted] = await db
       .insert(incidenciasSala)
       .values({
@@ -135,14 +183,16 @@ export async function POST(req: NextRequest) {
         terminalNombre: terminalNombre ? String(terminalNombre).trim() : null,
         categoria: String(categoria).trim(),
         descripcion: descripcion ? String(descripcion).trim() : null,
-        docenteNombre: docenteNombre ? String(docenteNombre).trim() : null,
-        cursoNombre: cursoNombre ? String(cursoNombre).trim() : null,
+        docenteNombre: finalDocente,
+        cursoNombre: finalCurso,
+        casoNombre: finalCaso,
+        pacienteSimuladoNombre: finalPs,
         estado: 'pendiente',
         tecnicoNombre: 'Equipo de Técnicos',
       })
       .returning();
 
-    // 4. Armar el objeto en memoria y actualizar la caché RAM
+    // 5. Armar el objeto en memoria y actualizar la caché RAM
     const memoryIncident: IncidenciaEnMemoria = {
       id: inserted.id,
       sedeId: inserted.sedeId,
@@ -155,6 +205,8 @@ export async function POST(req: NextRequest) {
       descripcion: inserted.descripcion,
       docenteNombre: inserted.docenteNombre,
       cursoNombre: inserted.cursoNombre,
+      casoNombre: inserted.casoNombre,
+      pacienteSimuladoNombre: inserted.pacienteSimuladoNombre,
       estado: 'pendiente',
       tecnicoId: inserted.tecnicoId,
       tecnicoNombre: inserted.tecnicoNombre,

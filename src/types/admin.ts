@@ -760,6 +760,10 @@ export interface IncidenciasMetricsData {
   topAmbientes: Array<{ ambienteNombre: string; sedeNombre: string; total: number }>;
   distribucionCategorias: Array<{ categoria: string; total: number; color?: string; icono?: string }>;
   topTecnicos: Array<{ tecnicoNombre: string; total: number }>;
+  distribucionHoras?: Array<{ hora: number; label: string; total: number }>;
+  tasaResolucionPorcentaje?: number;
+  slaCumplimiento?: { rapido: number; regular: number; demorado: number };
+  rangoPeriodoLabel?: string;
 }
 
 

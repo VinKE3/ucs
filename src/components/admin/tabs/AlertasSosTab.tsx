@@ -13,6 +13,9 @@ import type {
   IncidenciaAdminItem,
   IncidenciasMetricsData,
 } from '@/types/admin';
+import { GraficoDonaMotivos } from './sos/GraficoDonaMotivos';
+import { GraficoHorasPunta } from './sos/GraficoHorasPunta';
+import { exportarExcelSosConGraficos } from '@/lib/excelSosExporter';
 
 interface AlertasSosTabProps {
   session?: SessionPayload;
@@ -44,10 +47,22 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     sonido_alerta_habilitado: 'true',
   });
 
-  // Filtros de métricas / historial
+  // Filtros de período y sede
+  const hoyDateStr = useMemo(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' }), []);
+  const [tipoPeriodo, setTipoPeriodo] = useState<'hoy' | 'ayer' | 'semana' | 'mes' | 'todos' | 'custom'>('hoy');
+  const [fechaDesde, setFechaDesde] = useState<string>(hoyDateStr);
+  const [fechaHasta, setFechaHasta] = useState<string>(hoyDateStr);
+  const [filtroSede, setFiltroSede] = useState<number | 'todas'>('todas');
+  const [filtroCategoria, setFiltroCategoria] = useState<string>('todas');
+  const [filtroSla, setFiltroSla] = useState<'todos' | 'rapido' | 'regular' | 'demorado'>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [busquedaHistorial, setBusquedaHistorial] = useState('');
   const [selectedSedeTerminales, setSelectedSedeTerminales] = useState<number | 'todas'>('todas');
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [filasPorPagina, setFilasPorPagina] = useState(10);
 
   // Estados de edición de PIN
   const [mostrarPin, setMostrarPin] = useState(false);
@@ -66,13 +81,22 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     orden: 1,
   });
 
-  // Carga inicial
-  const fetchData = async () => {
+  // Carga de datos con parámetros
+  const fetchData = async (overrideDesde?: string, overrideHasta?: string, overrideSede?: number | 'todas') => {
     try {
       setLoading(true);
+      const d = overrideDesde !== undefined ? overrideDesde : fechaDesde;
+      const h = overrideHasta !== undefined ? overrideHasta : fechaHasta;
+      const s = overrideSede !== undefined ? overrideSede : filtroSede;
+
+      const params = new URLSearchParams();
+      if (d) params.append('desde', d);
+      if (h) params.append('hasta', h);
+      if (s !== 'todas') params.append('sedeId', s.toString());
+
       const [resConfig, resMetricas] = await Promise.all([
         fetch('/api/admin/soporte/config'),
-        fetch('/api/admin/soporte/metricas'),
+        fetch(`/api/admin/soporte/metricas?${params.toString()}`),
       ]);
 
       const dataConfig = await resConfig.json();
@@ -99,6 +123,41 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Manejo de atajos rápidos de fecha
+  const handleSeleccionarPeriodo = (tipo: 'hoy' | 'ayer' | 'semana' | 'mes' | 'todos') => {
+    setTipoPeriodo(tipo);
+    const now = new Date();
+    const formatLocal = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+
+    let desde = '';
+    let hasta = formatLocal(now);
+
+    if (tipo === 'hoy') {
+      desde = hasta;
+    } else if (tipo === 'ayer') {
+      const ayer = new Date(now);
+      ayer.setDate(ayer.getDate() - 1);
+      desde = formatLocal(ayer);
+      hasta = formatLocal(ayer);
+    } else if (tipo === 'semana') {
+      const inicioSemana = new Date(now);
+      const day = inicioSemana.getDay() || 7;
+      inicioSemana.setDate(inicioSemana.getDate() - day + 1);
+      desde = formatLocal(inicioSemana);
+    } else if (tipo === 'mes') {
+      const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+      desde = formatLocal(inicioMes);
+    } else if (tipo === 'todos') {
+      desde = '';
+      hasta = '';
+    }
+
+    setFechaDesde(desde);
+    setFechaHasta(hasta);
+    fetchData(desde, hasta, filtroSede);
+  };
+
 
   // --- GESTIÓN DE PIN ---
   const handleGuardarPin = async () => {
@@ -307,88 +366,85 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     }
   };
 
-  // --- EXPORTAR A EXCEL (CSV UTF-8 COMPATIBLE CON EXCEL) ---
-  const handleExportarExcel = () => {
-    if (incidenciasList.length === 0) {
-      showError('Sin datos', 'No hay incidencias para exportar.');
+  // --- EXPORTAR A EXCEL (.XLSX CON DASHBOARD EJECUTIVO Y GRÁFICOS INCRUSTADOS) ---
+  const handleExportarExcel = async () => {
+    if (incidenciasFiltradas.length === 0) {
+      showError('Sin datos', 'No hay incidencias en el período o filtros seleccionados para exportar.');
       return;
     }
 
-    const fechaHoy = new Date().toLocaleDateString('es-PE');
-    const headers = [
-      'UNIVERSIDAD CIENTÍFICA DEL SUR - CLÍNICA DE SIMULACIÓN MÉDICA',
-      'REPORTE OFICIAL DE ASISTENCIA TÉCNICA E INCIDENCIAS EN SALA (SOS)',
-      `Fecha de Emisión: ${fechaHoy}`,
-      `Total Incidencias: ${incidenciasList.length}`,
-      `Tiempo Promedio de Respuesta: ${metricas?.tiempoPromedioRespuestaMins || 0} min`,
-      '',
-      'ID',
-      'Fecha Registro',
-      'Hora Registro',
-      'Sede',
-      'Ambiente / Sala',
-      'Dispositivo Emisor',
-      'Categoría de Auxilio',
-      'Docente en Sala',
-      'Curso / Asignatura',
-      'Estado',
-      'Técnico Asignado',
-      'Tiempo Respuesta (min)',
-      'Tiempo Resolución (min)',
-      'Motivo Solución',
-      'Nota Resolución',
-    ];
+    try {
+      setExportingExcel(true);
+      showToast('Generando libro de Excel con gráficos y dashboard ejecutivo...', 'info');
 
-    const rows = incidenciasList.map((inc) => {
-      const d = new Date(inc.createdAt);
-      const fechaStr = d.toLocaleDateString('es-PE');
-      const horaStr = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+      let labelRango = 'Hoy';
+      if (tipoPeriodo === 'ayer') labelRango = 'Ayer';
+      else if (tipoPeriodo === 'semana') labelRango = 'Esta Semana';
+      else if (tipoPeriodo === 'mes') labelRango = 'Mes en Curso';
+      else if (tipoPeriodo === 'todos') labelRango = 'Histórico Completo';
+      else if (fechaDesde && fechaHasta) labelRango = `${fechaDesde} al ${fechaHasta}`;
 
-      return [
-        inc.id,
-        `"${fechaStr}"`,
-        `"${horaStr}"`,
-        `"${inc.sedeNombre}"`,
-        `"${inc.ambienteNombre}"`,
-        `"${inc.terminalNombre || 'PC Principal'}"`,
-        `"${inc.categoria}"`,
-        `"${inc.docenteNombre || 'No identificado'}"`,
-        `"${inc.cursoNombre || 'No especificado'}"`,
-        `"${inc.estado.toUpperCase()}"`,
-        `"${inc.tecnicoNombre || 'Equipo de Guardia'}"`,
-        inc.tiempoRespuestaMinutos !== null ? inc.tiempoRespuestaMinutos : '',
-        inc.tiempoResolucionMinutos !== null ? inc.tiempoResolucionMinutos : '',
-        `"${inc.motivoResolucion || ''}"`,
-        `"${(inc.notaResolucion || inc.descripcion || '').replace(/"/g, '""')}"`,
-      ].join(';');
-    });
+      const sedeNombre =
+        filtroSede === 'todas'
+          ? 'Todas las Sedes'
+          : sedesList.find((s) => s.id === filtroSede)?.nombre || 'Sede Seleccionada';
 
-    const csvContent = '\uFEFF' + [headers.join('\n'), rows.join('\n')].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `UCS_Reporte_SOS_Salas_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Reporte Excel descargado con éxito', 'success');
+      await exportarExcelSosConGraficos({
+        incidencias: incidenciasFiltradas,
+        metricas,
+        filtroRangoTexto: labelRango,
+        sedeNombreFiltro: sedeNombre,
+      });
+
+      showToast('Excel descargado con éxito', 'success');
+    } catch (err) {
+      console.error('Error al generar Excel con gráficos:', err);
+      showError('Error al exportar', 'Ocurrió un problema al generar el libro de Excel.');
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
-  // Filtrado de incidencias
+  // Filtrado reactivo de incidencias
   const incidenciasFiltradas = useMemo(() => {
     return incidenciasList.filter((inc) => {
       if (filtroEstado !== 'todos' && inc.estado !== filtroEstado) return false;
+      if (filtroCategoria !== 'todas' && inc.categoria !== filtroCategoria) return false;
+
+      // Filtro de SLA
+      if (filtroSla !== 'todos') {
+        const tr = inc.tiempoRespuestaMinutos;
+        if (tr === null || tr === undefined) return false;
+        if (filtroSla === 'rapido' && tr >= 5) return false;
+        if (filtroSla === 'regular' && (tr < 5 || tr > 10)) return false;
+        if (filtroSla === 'demorado' && tr <= 10) return false;
+      }
+
+      // Búsqueda por texto libre
       if (busquedaHistorial) {
         const q = busquedaHistorial.toLowerCase();
         const matchAmbiente = inc.ambienteNombre.toLowerCase().includes(q);
         const matchDocente = (inc.docenteNombre || '').toLowerCase().includes(q);
         const matchCat = inc.categoria.toLowerCase().includes(q);
         const matchTec = (inc.tecnicoNombre || '').toLowerCase().includes(q);
-        return matchAmbiente || matchDocente || matchCat || matchTec;
+        const matchCurso = (inc.cursoNombre || '').toLowerCase().includes(q);
+        const matchNota = (inc.notaResolucion || inc.descripcion || '').toLowerCase().includes(q);
+        return matchAmbiente || matchDocente || matchCat || matchTec || matchCurso || matchNota;
       }
       return true;
     });
-  }, [incidenciasList, filtroEstado, busquedaHistorial]);
+  }, [incidenciasList, filtroEstado, filtroCategoria, filtroSla, busquedaHistorial]);
+
+  // Reset a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroEstado, filtroCategoria, filtroSla, busquedaHistorial, tipoPeriodo, fechaDesde, fechaHasta, filtroSede]);
+
+  // Cálculo de paginación
+  const totalPaginas = Math.ceil(incidenciasFiltradas.length / filasPorPagina) || 1;
+  const indiceInicio = (paginaActual - 1) * filasPorPagina;
+  const indiceFin = Math.min(indiceInicio + filasPorPagina, incidenciasFiltradas.length);
+  const incidenciasPaginadas = incidenciasFiltradas.slice(indiceInicio, indiceFin);
 
   // Terminales filtradas por Sede
   const terminalesFiltradas = useMemo(() => {
@@ -483,7 +539,9 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
           <button
             type="button"
             className={styles.secondaryActionBtn}
-            onClick={fetchData}
+            onClick={() => {
+              fetchData();
+            }}
             title="Recargar datos de soporte"
             disabled={loading}
             style={{
@@ -503,6 +561,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
             type="button"
             className={styles.secondaryActionBtn}
             onClick={handleExportarExcel}
+            disabled={exportingExcel || loading}
             style={{
               padding: '0.5rem 1rem',
               fontSize: '0.84rem',
@@ -514,12 +573,14 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               color: '#10b981',
               background: 'rgba(16, 185, 129, 0.1)',
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: exportingExcel || loading ? 'not-allowed' : 'pointer',
+              opacity: exportingExcel || loading ? 0.7 : 1,
               transition: 'all 0.2s ease',
             }}
-            title="Descargar reporte en formato CSV para Microsoft Excel"
+            title="Descargar libro Excel profesional (.xlsx) con Dashboard Ejecutivo y Gráficos"
           >
-            <span>📥</span> Exportar Excel ({incidenciasList.length})
+            <span>{exportingExcel ? '⏳' : '📊'}</span>
+            {exportingExcel ? 'Generando Excel...' : `Exportar Excel (${incidenciasFiltradas.length})`}
           </button>
         </div>
       </div>
@@ -529,7 +590,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
         style={{
           display: 'flex',
           gap: '0.5rem',
-          marginBottom: '1.5rem',
+          marginBottom: '1.25rem',
           borderBottom: '1px solid var(--border-color)',
           paddingBottom: '0.5rem',
         }}
@@ -597,16 +658,178 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
       {/* ============================================================== */}
       {subTab === 'metricas' && (
         <div>
+          {/* BARRA DE FILTRO DE FECHAS Y PERÍODOS */}
+          <div
+            style={{
+              background: 'var(--card-bg)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '0.9rem 1.15rem',
+              marginBottom: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span>📅</span> Período:
+                </span>
+
+                {/* BOTONES RÁPIDOS DE FECHA */}
+                {[
+                  { id: 'hoy', label: 'Hoy' },
+                  { id: 'ayer', label: 'Ayer' },
+                  { id: 'semana', label: 'Esta Semana' },
+                  { id: 'mes', label: 'Mes Actual' },
+                  { id: 'todos', label: 'Histórico Completo' },
+                ].map((item) => {
+                  const isActive = tipoPeriodo === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSeleccionarPeriodo(item.id as any)}
+                      style={{
+                        padding: '0.3rem 0.7rem',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        background: isActive ? '#0d346c' : 'rgba(255, 255, 255, 0.04)',
+                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                        border: isActive ? '1px solid #38bdf8' : '1px solid var(--border-color)',
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* SELECTOR DE SEDE / CAMPUS */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  🏛️ Campus:
+                </span>
+                <select
+                  value={filtroSede}
+                  onChange={(e) => {
+                    const val = e.target.value === 'todas' ? 'todas' : parseInt(e.target.value, 10);
+                    setFiltroSede(val);
+                    fetchData(fechaDesde, fechaHasta, val);
+                  }}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="todas">Todos los Campus</option>
+                  {sedesList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* RANGO PERSONALIZADO DE FECHAS */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                flexWrap: 'wrap',
+                paddingTop: '0.6rem',
+                borderTop: '1px dashed var(--border-color)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Desde:</label>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => {
+                    setFechaDesde(e.target.value);
+                    setTipoPeriodo('custom');
+                  }}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Hasta:</label>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => {
+                    setFechaHasta(e.target.value);
+                    setTipoPeriodo('custom');
+                  }}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fetchData(fechaDesde, fechaHasta, filtroSede)}
+                disabled={loading}
+                style={{
+                  padding: '0.32rem 0.85rem',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #0d346c 0%, #06152d 100%)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <span>🔍</span> Filtrar Fechas
+              </button>
+
+              {/* ETIQUETA INFORMATIVA DEL FILTRO ACTIVO */}
+              <div style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--ucs-blue-sky)', fontWeight: 600 }}>
+                {metricas?.rangoPeriodoLabel || 'Mostrando datos del período'} • {incidenciasFiltradas.length} alertas encontradas
+              </div>
+            </div>
+          </div>
+
           {/* TARJETAS KPI EJECUTIVAS */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
               gap: '1rem',
-              marginBottom: '1.5rem',
+              marginBottom: '1.25rem',
             }}
           >
-            {/* KPI 1 */}
+            {/* KPI 1: ALERTAS */}
             <div
               style={{
                 background: 'var(--card-bg)',
@@ -616,18 +839,18 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 borderLeft: '4px solid #ef4444',
               }}
             >
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                🚨 ALERTAS HOY
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                🚨 TOTAL ALERTAS
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ef4444', margin: '0.3rem 0' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ef4444', margin: '0.2rem 0' }}>
                 {metricas?.totalHoy ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {metricas?.pendientesHoy ?? 0} pendientes • {metricas?.enCaminoHoy ?? 0} en camino
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                {metricas?.pendientesHoy ?? 0} pendientes • {metricas?.enCaminoHoy ?? 0} en curso
               </div>
             </div>
 
-            {/* KPI 2 */}
+            {/* KPI 2: RESUELTAS Y TASA */}
             <div
               style={{
                 background: 'var(--card-bg)',
@@ -637,18 +860,32 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 borderLeft: '4px solid #10b981',
               }}
             >
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                ✅ RESUELTAS HOY
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                  ✅ RESUELTAS
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '0.15rem 0.45rem',
+                    borderRadius: '6px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                  }}
+                >
+                  {metricas?.tasaResolucionPorcentaje ?? 0}% efectividad
+                </span>
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#10b981', margin: '0.3rem 0' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#10b981', margin: '0.2rem 0' }}>
                 {metricas?.resueltasHoy ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Atendidas satisfactoriamente
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Atendidas y cerradas con éxito
               </div>
             </div>
 
-            {/* KPI 3 */}
+            {/* KPI 3: TIEMPO RESPUESTA */}
             <div
               style={{
                 background: 'var(--card-bg)',
@@ -658,18 +895,18 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 borderLeft: '4px solid #3b82f6',
               }}
             >
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
                 ⏱️ RESPUESTA PROMEDIO
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#3b82f6', margin: '0.3rem 0' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#3b82f6', margin: '0.2rem 0' }}>
                 {metricas?.tiempoPromedioRespuestaMins ?? 0} <span style={{ fontSize: '0.9rem' }}>min</span>
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Tiempo hasta "En camino"
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Desde alerta hasta "En camino"
               </div>
             </div>
 
-            {/* KPI 4 */}
+            {/* KPI 4: RESOLUCIÓN TOTAL */}
             <div
               style={{
                 background: 'var(--card-bg)',
@@ -679,25 +916,78 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 borderLeft: '4px solid #8b5cf6',
               }}
             >
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
                 🛠️ RESOLUCIÓN TOTAL
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#8b5cf6', margin: '0.3rem 0' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#8b5cf6', margin: '0.2rem 0' }}>
                 {metricas?.tiempoPromedioResolucionMins ?? 0} <span style={{ fontSize: '0.9rem' }}>min</span>
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                 Tiempo hasta solución final
               </div>
             </div>
           </div>
 
-          {/* DISTRIBUCIÓN POR CATEGORÍAS & TOP AMBIENTES */}
+          {/* GRID DE GRÁFICOS VISUALES */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: '1.25rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            {/* GRÁFICO 1: DONA DE DISTRIBUCIÓN POR MOTIVO */}
+            <div
+              style={{
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  🎛️ Distribución por Motivo de Asistencia
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {metricas?.distribucionCategorias?.length || 0} tipos de alerta
+                </span>
+              </div>
+              <GraficoDonaMotivos
+                distribucion={metricas?.distribucionCategorias || []}
+                totalGeneral={metricas?.totalHoy || incidenciasList.length}
+              />
+            </div>
+
+            {/* GRÁFICO 2: HORAS PUNTA DE INCIDENCIAS */}
+            <div
+              style={{
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  ⏱️ Horarios Punta de Alertas SOS
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Turno Clínico (07:00 a 22:00)
+                </span>
+              </div>
+              <GraficoHorasPunta distribucionHoras={metricas?.distribucionHoras || []} />
+            </div>
+          </div>
+
+          {/* GRID DE RANKINGS: TOP SALAS & TÉCNICOS */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
               gap: '1.25rem',
-              marginBottom: '1.5rem',
+              marginBottom: '1.25rem',
             }}
           >
             {/* TOP AMBIENTES */}
@@ -713,11 +1003,11 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 📍 Salas con Mayor Frecuencia de Alertas
               </h3>
               {(!metricas?.topAmbientes || metricas.topAmbientes.length === 0) ? (
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                  Aún no hay registros de incidencias para calcular el ranking.
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                  Sin incidencias registradas en el período.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {metricas.topAmbientes.map((amb, idx) => (
                     <div
                       key={idx}
@@ -726,22 +1016,24 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         fontSize: '0.85rem',
-                        padding: '0.4rem 0.6rem',
+                        padding: '0.45rem 0.65rem',
                         borderRadius: '6px',
                         background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid var(--border-color)',
                       }}
                     >
                       <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                         {idx + 1}. {amb.ambienteNombre}{' '}
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           ({amb.sedeNombre})
                         </span>
                       </span>
                       <span
                         style={{
                           fontWeight: 800,
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '10px',
+                          fontSize: '0.75rem',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '8px',
                           background: 'rgba(239, 68, 68, 0.15)',
                           color: '#ef4444',
                         }}
@@ -754,7 +1046,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               )}
             </div>
 
-            {/* DISTRIBUCIÓN POR CATEGORÍA */}
+            {/* TOP TÉCNICOS DE SOPORTE */}
             <div
               style={{
                 background: 'var(--card-bg)',
@@ -764,40 +1056,42 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               }}
             >
               <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 800 }}>
-                🎛️ Motivos de Asistencia Más Solicitados
+                👨‍🔧 Atención por Técnico de Soporte
               </h3>
-              {(!metricas?.distribucionCategorias || metricas.distribucionCategorias.length === 0) ? (
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                  No hay incidencias reportadas en el período.
+              {(!metricas?.topTecnicos || metricas.topTecnicos.length === 0) ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                  Aún no hay técnicos asignados a alertas resueltas en el período.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {metricas.distribucionCategorias.map((cat, idx) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {metricas.topTecnicos.map((tec, idx) => (
                     <div
                       key={idx}
                       style={{
                         display: 'flex',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.45rem 0.8rem',
-                        borderRadius: '8px',
-                        background: 'rgba(255, 255, 255, 0.04)',
+                        fontSize: '0.85rem',
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.03)',
                         border: '1px solid var(--border-color)',
                       }}
                     >
-                      <span>{cat.icono || '🚨'}</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{cat.categoria}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {idx + 1}. {tec.tecnicoNombre}
+                      </span>
                       <span
                         style={{
-                          fontSize: '0.75rem',
                           fontWeight: 800,
-                          background: cat.color || '#3b82f6',
-                          color: '#fff',
-                          padding: '0.1rem 0.45rem',
-                          borderRadius: '10px',
+                          fontSize: '0.75rem',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '8px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
                         }}
                       >
-                        {cat.total}
+                        {tec.total} resuelta{tec.total > 1 ? 's' : ''}
                       </span>
                     </div>
                   ))}
@@ -806,7 +1100,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
             </div>
           </div>
 
-          {/* TABLA DE HISTORIAL DETALLADO */}
+          {/* TABLA DE HISTORIAL DETALLADO CON PAGINACIÓN Y FILTROS */}
           <div
             style={{
               background: 'var(--card-bg)',
@@ -815,6 +1109,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               padding: '1.25rem',
             }}
           >
+            {/* BARRA DE FILTROS SECUNDARIOS Y BÚSQUEDA */}
             <div
               style={{
                 display: 'flex',
@@ -825,15 +1120,20 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 marginBottom: '1rem',
               }}
             >
-              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
-                📋 Historial de Incidencias ({incidenciasFiltradas.length})
-              </h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
+                  📋 Historial de Incidencias ({incidenciasFiltradas.length})
+                </h3>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  Mostrando página {paginaActual} de {totalPaginas}
+                </span>
+              </div>
 
-              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                 {/* BUSCADOR */}
                 <input
                   type="text"
-                  placeholder="Buscar por sala, docente o motivo..."
+                  placeholder="Buscar sala, docente, técnico..."
                   value={busquedaHistorial}
                   onChange={(e) => setBusquedaHistorial(e.target.value)}
                   style={{
@@ -842,36 +1142,99 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                     border: '1px solid var(--border-color)',
                     background: 'var(--input-bg)',
                     color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    minWidth: '220px',
+                    fontSize: '0.82rem',
+                    minWidth: '200px',
                   }}
                 />
+
+                {/* FILTRO CATEGORÍA */}
+                <select
+                  value={filtroCategoria}
+                  onChange={(e) => setFiltroCategoria(e.target.value)}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <option value="todas">Todos los Motivos</option>
+                  {categoriasList.map((cat) => (
+                    <option key={cat.id} value={cat.nombre}>
+                      {cat.icono} {cat.nombre}
+                    </option>
+                  ))}
+                </select>
+
+                {/* FILTRO SLA */}
+                <select
+                  value={filtroSla}
+                  onChange={(e) => setFiltroSla(e.target.value as any)}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <option value="todos">Todos los Tiempos</option>
+                  <option value="rapido">🟢 Rápido (&lt; 5 min)</option>
+                  <option value="regular">🟡 Aceptable (5 - 10 min)</option>
+                  <option value="demorado">🔴 Demorado (&gt; 10 min)</option>
+                </select>
 
                 {/* FILTRO ESTADO */}
                 <select
                   value={filtroEstado}
                   onChange={(e) => setFiltroEstado(e.target.value)}
                   style={{
-                    padding: '0.4rem 0.8rem',
+                    padding: '0.4rem 0.75rem',
                     borderRadius: '6px',
                     border: '1px solid var(--border-color)',
                     background: 'var(--input-bg)',
                     color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
+                    fontSize: '0.82rem',
                   }}
                 >
                   <option value="todos">Todos los Estados</option>
-                  <option value="pendiente">Pendientes 🚨</option>
-                  <option value="en_camino">En Camino 🏃</option>
-                  <option value="resuelto">Resueltos ✅</option>
-                  <option value="cancelado">Cancelados ❌</option>
+                  <option value="pendiente">🚨 Pendientes</option>
+                  <option value="en_camino">🏃 En Camino</option>
+                  <option value="resuelto">✅ Resueltos</option>
+                  <option value="cancelado">❌ Cancelados</option>
+                </select>
+
+                {/* FILAS POR PÁGINA */}
+                <select
+                  value={filasPorPagina}
+                  onChange={(e) => {
+                    setFilasPorPagina(parseInt(e.target.value, 10));
+                    setPaginaActual(1);
+                  }}
+                  style={{
+                    padding: '0.4rem 0.6rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem',
+                  }}
+                  title="Cantidad de registros por página"
+                >
+                  <option value={10}>10 / pág</option>
+                  <option value={25}>25 / pág</option>
+                  <option value={50}>50 / pág</option>
+                  <option value={100}>100 / pág</option>
                 </select>
               </div>
             </div>
 
             {incidenciasFiltradas.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                No se encontraron incidencias con los filtros aplicados.
+              <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
+                No se encontraron incidencias con los filtros aplicados en este período.
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
@@ -881,14 +1244,15 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       <th style={{ padding: '0.6rem' }}>Hora / Fecha</th>
                       <th style={{ padding: '0.6rem' }}>Sala / Dispositivo</th>
                       <th style={{ padding: '0.6rem' }}>Motivo de Asistencia</th>
-                      <th style={{ padding: '0.6rem' }}>Docente</th>
+                      <th style={{ padding: '0.6rem' }}>Docente / Curso</th>
                       <th style={{ padding: '0.6rem' }}>Estado</th>
-                      <th style={{ padding: '0.6rem' }}>Atención</th>
+                      <th style={{ padding: '0.6rem' }}>Técnico Atendió</th>
+                      <th style={{ padding: '0.6rem' }}>SLA / Rapidez</th>
                       <th style={{ padding: '0.6rem' }}>Solución / Nota</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {incidenciasFiltradas.slice(0, 50).map((inc) => {
+                    {incidenciasPaginadas.map((inc) => {
                       const d = new Date(inc.createdAt);
                       const hora = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
                       const fecha = d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' });
@@ -902,6 +1266,57 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                           ? '#10b981'
                           : '#6b7280';
 
+                      // Badge de SLA
+                      let slaBadge = <span style={{ color: 'var(--text-muted)' }}>—</span>;
+                      if (inc.tiempoRespuestaMinutos !== null && inc.tiempoRespuestaMinutos !== undefined) {
+                        if (inc.tiempoRespuestaMinutos < 5) {
+                          slaBadge = (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '6px',
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                color: '#10b981',
+                                fontWeight: 700,
+                              }}
+                            >
+                              🟢 {inc.tiempoRespuestaMinutos}m (Rápido)
+                            </span>
+                          );
+                        } else if (inc.tiempoRespuestaMinutos <= 10) {
+                          slaBadge = (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '6px',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                color: '#f59e0b',
+                                fontWeight: 700,
+                              }}
+                            >
+                              🟡 {inc.tiempoRespuestaMinutos}m (Normal)
+                            </span>
+                          );
+                        } else {
+                          slaBadge = (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '6px',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#ef4444',
+                                fontWeight: 700,
+                              }}
+                            >
+                              🔴 {inc.tiempoRespuestaMinutos}m (Demorado)
+                            </span>
+                          );
+                        }
+                      }
+
                       return (
                         <tr
                           key={inc.id}
@@ -912,13 +1327,13 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                         >
                           <td style={{ padding: '0.6rem', whiteSpace: 'nowrap' }}>
                             <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{hora}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{fecha}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{fecha}</div>
                           </td>
                           <td style={{ padding: '0.6rem' }}>
                             <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                               {inc.ambienteNombre}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                               {inc.terminalNombre || 'PC Aula'} • {inc.sedeNombre}
                             </div>
                           </td>
@@ -938,7 +1353,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                           <td style={{ padding: '0.6rem' }}>
                             <div style={{ fontWeight: 600 }}>{inc.docenteNombre || 'No especificado'}</div>
                             {inc.cursoNombre && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                                 {inc.cursoNombre}
                               </div>
                             )}
@@ -961,11 +1376,14 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                           </td>
                           <td style={{ padding: '0.6rem' }}>
                             <div style={{ fontWeight: 600 }}>{inc.tecnicoNombre || 'Equipo Guardia'}</div>
-                            {inc.tiempoRespuestaMinutos !== null && (
-                              <div style={{ fontSize: '0.75rem', color: '#10b981' }}>
-                                Llegó en {inc.tiempoRespuestaMinutos}m
+                            {inc.tiempoResolucionMinutos !== null && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                Solución: {inc.tiempoResolucionMinutos}m
                               </div>
                             )}
+                          </td>
+                          <td style={{ padding: '0.6rem', whiteSpace: 'nowrap' }}>
+                            {slaBadge}
                           </td>
                           <td style={{ padding: '0.6rem', maxWidth: '240px' }}>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -977,6 +1395,106 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* CONTROLES DE PAGINACIÓN */}
+            {incidenciasFiltradas.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  marginTop: '1rem',
+                  paddingTop: '0.75rem',
+                  borderTop: '1px solid var(--border-color)',
+                }}
+              >
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Mostrando {indiceInicio + 1} - {indiceFin} de {incidenciasFiltradas.length} alertas
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPaginaActual(1)}
+                    disabled={paginaActual === 1}
+                    style={{
+                      padding: '0.35rem 0.6rem',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-color)',
+                      color: paginaActual === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: paginaActual === 1 ? 'not-allowed' : 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                    }}
+                    title="Primera página"
+                  >
+                    ⏮
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
+                    disabled={paginaActual === 1}
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-color)',
+                      color: paginaActual === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: paginaActual === 1 ? 'not-allowed' : 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    ◀ Anterior
+                  </button>
+
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, padding: '0 0.4rem', color: 'var(--text-primary)' }}>
+                    {paginaActual} / {totalPaginas}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginas))}
+                    disabled={paginaActual === totalPaginas}
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-color)',
+                      color: paginaActual === totalPaginas ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Siguiente ▶
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaginaActual(totalPaginas)}
+                    disabled={paginaActual === totalPaginas}
+                    style={{
+                      padding: '0.35rem 0.6rem',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-color)',
+                      color: paginaActual === totalPaginas ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                    }}
+                    title="Última página"
+                  >
+                    ⏭
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -1382,8 +1382,21 @@ src/
         - **Cuerpo con Scroll Interno Suave (`flex: 1; overflow-y: auto`)**: Todo el contenido intermedio (Ficha, atajos, horas y justificación) se desplaza suavemente si el espacio del monitor es reducido.
         - **Layout de 2 Columnas para Fechas**: Las fechas de *Ingreso Real* y *Salida Real* se redistribuyeron en un grid de 2 columnas paralelas (`repeat(auto-fit, minmax(230px, 1fr))`), reduciendo en ~120px la altura total del modal y evitando scrolls innecesarios en la gran mayoría de monitores.
         - **Protección Global en `admin.module.css`**: Establecido `max-height: 92vh; overflow: hidden;` en `.modal` y `overflow-y: auto` en `.modalBackdrop`.
-      - **Validación Robusta en Handler Padre (`AdminDashboard.tsx`)**: Ante cualquier intento de confirmación con motivo en blanco, se dispara un diálogo informativo SweetAlert2 (`showError`) impidiendo envíos incompletos y garantizando trazabilidad total de auditoría.
-    - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+    - **Hito 79: Analítica Avanzada, Filtros Temporales, Paginación y Exportador Excel (.xlsx) con Gráficos Incrustados en Alertas SOS (`AlertasSosTab.tsx`, `excelSosExporter.ts`, `metricas/route.ts`)**:
+      - **Filtros Temporales Inteligentes & Selector de Sede**:
+        - Botonera rápida de períodos: `📅 Hoy`, `⏪ Ayer`, `📆 Esta Semana`, `🗓️ Este Mes`, y `♾️ Todas las Fechas`.
+        - Selector de rango personalizado libre con fechas `Desde` y `Hasta` para auditar cualquier día o evento específico.
+        - Filtro reactivo por Campus/Sede (`Todas las Sedes`, `Campus Villa`, `Campus Norte`, `Campus Ate`).
+      - **Analítica Visual y Gráficos Interactivos en Frontend**:
+        - **Gráfico de Dona SVG (`GraficoDonaMotivos.tsx`)**: Distribución porcentual por motivos de llamado (Llamado a Soporte, Falla de Audio/Video, Simulador Fallando, Insumos Médicos, etc.) con tooltip interactivo al pasar el cursor y totalizador central.
+        - **Gráfico de Barras SVG (`GraficoHorasPunta.tsx`)**: Histograma de volumen de alertas por franja horaria clínica de 07:00 a 22:00, con detección y resaltado dinámico de la hora pico más crítica.
+      - **Semáforo SLA de Atención y Paginación Inteligente**:
+        - Métrica KPI de cumplimiento SLA: Rápido (<5 min, verde), Regular (5-10 min, amarillo), Demorado (>10 min, rojo) y tasa de efectividad de resolución (%).
+        - Paginador dinámico en la tabla de incidencias con selector de 10, 25, 50 o 100 filas por página, navegación `◀ Anterior` / `Siguiente ▶` e indicador de páginas.
+      - **Generador de Reportes Profesionales en Microsoft Excel (`exceljs`) con Gráficos Embebidos**:
+        - **Hoja 1 ("Dashboard Ejecutivo")**: Membrete oficial de la Universidad Científica del Sur (`#0d346c`), 4 tarjetas KPI formateadas (Total, Resueltas, Tiempo Promedio de Respuesta y Tasa de Resolución), tabla resumen de distribución por motivos, ranking de salas con mayor incidencia, y **ambos gráficos (Dona y Horas Punta) incrustados en alta resolución como imágenes PNG** generadas dinámicamente en Canvas.
+        - **Hoja 2 ("Detalle Incidencias")**: Matriz de 16 columnas con formato condicional, cabecera azul institucional, estados en verde/naranja/rojo, semáforo SLA de atención y autofiltros automáticos de Excel en cada columna.
+      - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---
 

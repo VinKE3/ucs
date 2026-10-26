@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { incidenciasSala, sedes, ambientes, categoriasIncidencia } from '@/db/schema';
-import { eq, desc, sql, gte } from 'drizzle-orm';
+import { eq, desc, sql, gte, lte, and } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -18,12 +18,32 @@ export async function GET(req: NextRequest) {
     const desdeStr = searchParams.get('desde');
     const hastaStr = searchParams.get('hasta');
 
-    // 1. Obtener fecha de hoy en zona horaria Perú (YYYY-MM-DD)
-    const hoyLima = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-    const inicioHoy = new Date(`${hoyLima}T00:00:00-05:00`);
+    // 1. Construir condiciones de filtrado
+    const conditions = [];
 
-    // 2. Traer las incidencias de los últimos 30 días (o filtradas) para métricas
-    const rows = await db
+    if (sedeIdStr && sedeIdStr !== 'todas') {
+      const sId = parseInt(sedeIdStr, 10);
+      if (!isNaN(sId)) {
+        conditions.push(eq(incidenciasSala.sedeId, sId));
+      }
+    }
+
+    if (desdeStr) {
+      const fechaDesde = new Date(`${desdeStr}T00:00:00-05:00`);
+      if (!isNaN(fechaDesde.getTime())) {
+        conditions.push(gte(incidenciasSala.createdAt, fechaDesde));
+      }
+    }
+
+    if (hastaStr) {
+      const fechaHasta = new Date(`${hastaStr}T23:59:59-05:00`);
+      if (!isNaN(fechaHasta.getTime())) {
+        conditions.push(lte(incidenciasSala.createdAt, fechaHasta));
+      }
+    }
+
+    // 2. Traer incidencias filtradas
+    let baseQuery = db
       .select({
         id: incidenciasSala.id,
         sedeId: incidenciasSala.sedeId,
@@ -48,18 +68,21 @@ export async function GET(req: NextRequest) {
       .from(incidenciasSala)
       .innerJoin(sedes, eq(incidenciasSala.sedeId, sedes.id))
       .innerJoin(ambientes, eq(incidenciasSala.ambienteId, ambientes.id))
-      .orderBy(desc(incidenciasSala.createdAt))
-      .limit(300);
+      .orderBy(desc(incidenciasSala.createdAt));
+
+    const rows = conditions.length > 0
+      ? await baseQuery.where(and(...conditions)).limit(1000)
+      : await baseQuery.limit(500);
 
     // 3. Catálogo de categorías para obtener color e icono
     const cats = await db.select().from(categoriasIncidencia);
     const catMap = new Map(cats.map((c) => [c.nombre.toLowerCase().trim(), c]));
 
-    // 4. Procesar estadísticas
-    let totalHoy = 0;
-    let pendientesHoy = 0;
-    let enCaminoHoy = 0;
-    let resueltasHoy = 0;
+    // 4. Procesar estadísticas para el período
+    let totalPeriodo = 0;
+    let pendientes = 0;
+    let enCamino = 0;
+    let resueltas = 0;
 
     let sumaTiemposRespuesta = 0;
     let countTiemposRespuesta = 0;
@@ -67,19 +90,42 @@ export async function GET(req: NextRequest) {
     let sumaTiemposResolucion = 0;
     let countTiemposResolucion = 0;
 
+    // SLA: rapido (< 5 min), regular (5 - 10 min), demorado (> 10 min)
+    let slaRapido = 0;
+    let slaRegular = 0;
+    let slaDemorado = 0;
+
     const ambientesCountMap = new Map<string, { ambienteNombre: string; sedeNombre: string; total: number }>();
     const categoriasCountMap = new Map<string, number>();
     const tecnicosCountMap = new Map<string, number>();
 
+    // Inicializar 24 horas para horas punta
+    const horasCount = Array.from({ length: 24 }, (_, i) => ({
+      hora: i,
+      label: `${i.toString().padStart(2, '0')}:00`,
+      total: 0,
+    }));
+
     const incidenciasConTiempos = rows.map((r) => {
       const createdDate = new Date(r.createdAt);
-      const isToday = createdDate >= inicioHoy;
+      totalPeriodo++;
 
-      if (isToday) {
-        totalHoy++;
-        if (r.estado === 'pendiente') pendientesHoy++;
-        if (r.estado === 'en_camino') enCaminoHoy++;
-        if (r.estado === 'resuelto') resueltasHoy++;
+      if (r.estado === 'pendiente') pendientes++;
+      if (r.estado === 'en_camino') enCamino++;
+      if (r.estado === 'resuelto') resueltas++;
+
+      // Registrar hora punta en horario Perú (UTC-5)
+      try {
+        const horaPeru = parseInt(
+          new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', hour: 'numeric', hour12: false }).format(createdDate),
+          10
+        ) % 24;
+        if (!isNaN(horaPeru) && horasCount[horaPeru]) {
+          horasCount[horaPeru].total++;
+        }
+      } catch {
+        const h = createdDate.getHours();
+        if (horasCount[h]) horasCount[h].total++;
       }
 
       // Tiempo de respuesta (minutos desde created hasta atendido)
@@ -89,9 +135,13 @@ export async function GET(req: NextRequest) {
         const diffMs = atendidoDate.getTime() - createdDate.getTime();
         if (diffMs >= 0) {
           tiempoRespuestaMinutos = Math.round((diffMs / (1000 * 60)) * 10) / 10;
-          if (tiempoRespuestaMinutos <= 120) { // filtrar valores atípicos absurdos
+          if (tiempoRespuestaMinutos <= 120) {
             sumaTiemposRespuesta += tiempoRespuestaMinutos;
             countTiemposRespuesta++;
+
+            if (tiempoRespuestaMinutos < 5) slaRapido++;
+            else if (tiempoRespuestaMinutos <= 10) slaRegular++;
+            else slaDemorado++;
           }
         }
       }
@@ -173,18 +223,30 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
+    const tasaResolucionPorcentaje = totalPeriodo > 0 
+      ? Math.round((resueltas / totalPeriodo) * 100) 
+      : 0;
+
     return NextResponse.json({
       success: true,
       metricas: {
-        totalHoy,
-        pendientesHoy,
-        enCaminoHoy,
-        resueltasHoy,
+        totalHoy: totalPeriodo,
+        pendientesHoy: pendientes,
+        enCaminoHoy: enCamino,
+        resueltasHoy: resueltas,
         tiempoPromedioRespuestaMins,
         tiempoPromedioResolucionMins,
         topAmbientes,
         distribucionCategorias,
         topTecnicos,
+        distribucionHoras: horasCount,
+        tasaResolucionPorcentaje,
+        slaCumplimiento: {
+          rapido: slaRapido,
+          regular: slaRegular,
+          demorado: slaDemorado,
+        },
+        rangoPeriodoLabel: desdeStr && hastaStr ? `${desdeStr} al ${hastaStr}` : 'Período Completo',
       },
       incidencias: incidenciasConTiempos,
     });
@@ -193,3 +255,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Error interno al consultar métricas' }, { status: 500 });
   }
 }
+

@@ -35,6 +35,7 @@ export default function CentralSoportePage() {
 
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [horaLocal, setHoraLocal] = useState('');
+  const [mobileTab, setMobileTab] = useState<'pendientes' | 'en_camino' | 'resueltas'>('pendientes');
 
   // Identificación del técnico de soporte
   const [tecnicoNombre, setTecnicoNombre] = useState<string>('Equipo de Soporte');
@@ -128,8 +129,12 @@ export default function CentralSoportePage() {
 
           // Verificar si hay nuevas pendientes para hacer sonar la alarma
           const pendientesActuales = data.activeList.filter((i: IncidenciaItem) => i.estado === 'pendiente').length;
-          if (pendientesActuales > lastPendienteCountRef.current && soundEnabled) {
-            playChime();
+          if (pendientesActuales > lastPendienteCountRef.current) {
+            if (soundEnabled) {
+              playChime();
+            }
+            // En móvil, si entra una nueva alerta, llevar automáticamente a la pestaña de pendientes
+            setMobileTab('pendientes');
           }
           lastPendienteCountRef.current = pendientesActuales;
         } else if (!data.changed) {
@@ -264,66 +269,91 @@ export default function CentralSoportePage() {
 
   return (
     <main className={styles.guardiaContainer}>
-      {/* 1. NAVBAR DE CENTRAL DE SOPORTE */}
-      <header className={styles.guardiaHeader}>
-        <div className={styles.brandGroup}>
-          <img src="/logoucs.png" alt="Universidad Científica del Sur" className={styles.brandLogo} />
-          <div>
+      <div className={styles.contentWrapper}>
+        {/* 1. NAVBAR DE CENTRAL DE SOPORTE */}
+        <header className={styles.guardiaHeader}>
+          <div className={styles.brandGroup}>
+            <img src="/logoucs.png" alt="Universidad Científica del Sur" className={styles.brandLogo} />
             <h1 className={styles.headerTitle}>
-              <span>🛠️</span> Central de Soporte y Operaciones en Salas
+              <span>🛠️</span> Central de Soporte
             </h1>
-            <p className={styles.headerSubtitle}>
-              Monitoreo en tiempo real de llamadas SOS y solicitudes de asistencia en simulación clínica.
-            </p>
           </div>
-        </div>
 
-        <div className={styles.headerControls}>
-          <div className={styles.clockBadge}>{horaLocal}</div>
+          <div className={styles.headerControls}>
+            <div className={styles.clockBadge}>{horaLocal}</div>
 
-          <button
-            type="button"
-            className={`${styles.btnSoundToggle} ${soundEnabled ? styles.btnSoundToggleActive : ''}`}
-            onClick={toggleSound}
-          >
-            {soundEnabled ? '🔔 Alerta Sonora Activa' : '🔕 Activar Sonido'}
-          </button>
-
-          <div className={styles.userBadge}>
-            <span>👤</span>
-            <strong>{tecnicoNombre}</strong>
             <button
               type="button"
-              className={styles.btnLoginDni}
-              onClick={() => setShowDniModal(true)}
+              className={`${styles.btnSoundToggle} ${soundEnabled ? styles.btnSoundToggleActive : ''}`}
+              onClick={toggleSound}
+              title={soundEnabled ? 'Silenciar alarma' : 'Activar sonido de alarma'}
             >
-              (Cambiar)
+              {soundEnabled ? '🔔 Alarma On' : '🔕 Activar Sonido'}
             </button>
-          </div>
 
-          <ThemeToggle />
-        </div>
-      </header>
+            <div className={styles.userBadge}>
+              <span>👤</span>
+              <strong className={styles.userBadgeName}>{tecnicoNombre}</strong>
+              <button
+                type="button"
+                className={styles.btnLoginDni}
+                onClick={() => setShowDniModal(true)}
+              >
+                (Cambiar)
+              </button>
+            </div>
 
-      {/* 2. TABLERO KANBAN DE LLAMADAS */}
-      <div className={styles.columnsContainer}>
-        {/* COLUMNA 1: PENDIENTES DE ATENCIÓN (ROJO) */}
-        <section className={styles.columnCard}>
-          <div className={styles.columnHeader}>
-            <h2 className={styles.columnTitle} style={{ color: '#ef4444' }}>
-              <span>🚨</span> Pendientes de Atención
-            </h2>
-            <span
-              className={styles.columnBadge}
-              style={{
-                background: pendientes.length > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                color: pendientes.length > 0 ? '#ef4444' : '#94a3b8',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-              }}
-            >
-              {pendientes.length} ambiente{pendientes.length === 1 ? '' : 's'}
-            </span>
+            <ThemeToggle />
           </div>
+        </header>
+
+        {/* SELECTOR SEGMENTADO PARA SMARTPHONES / MÓVILES */}
+        <nav className={styles.mobileTabBar} aria-label="Filtro de columnas móvil">
+          <button
+            type="button"
+            className={`${styles.mobileTabBtn} ${mobileTab === 'pendientes' ? styles.mobileTabBtnActivePendiente : ''}`}
+            onClick={() => setMobileTab('pendientes')}
+          >
+            <span>🚨 Pendientes</span>
+            <span className={styles.mobileTabBadge}>{pendientes.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.mobileTabBtn} ${mobileTab === 'en_camino' ? styles.mobileTabBtnActiveEnCamino : ''}`}
+            onClick={() => setMobileTab('en_camino')}
+          >
+            <span>🏃 En Curso</span>
+            <span className={styles.mobileTabBadge}>{enCamino.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.mobileTabBtn} ${mobileTab === 'resueltas' ? styles.mobileTabBtnActiveResuelta : ''}`}
+            onClick={() => setMobileTab('resueltas')}
+          >
+            <span>✅ Resueltas</span>
+            <span className={styles.mobileTabBadge}>{resueltasRecientes.length}</span>
+          </button>
+        </nav>
+
+        {/* 2. TABLERO KANBAN DE LLAMADAS */}
+        <div className={styles.columnsContainer}>
+          {/* COLUMNA 1: PENDIENTES DE ATENCIÓN (ROJO) */}
+          <section className={`${styles.columnCard} ${styles.columnPendientes} ${mobileTab !== 'pendientes' ? styles.hideOnMobile : ''}`}>
+            <div className={styles.columnHeader}>
+              <h2 className={styles.columnTitle} style={{ color: '#ef4444' }}>
+                <span>🚨</span> Pendientes de Atención
+              </h2>
+              <span
+                className={styles.columnBadge}
+                style={{
+                  background: pendientes.length > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                  color: pendientes.length > 0 ? '#ef4444' : '#94a3b8',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                {pendientes.length} ambiente{pendientes.length === 1 ? '' : 's'}
+              </span>
+            </div>
 
           {pendientes.length === 0 ? (
             <div className={styles.emptyState}>
@@ -399,7 +429,7 @@ export default function CentralSoportePage() {
         </section>
 
         {/* COLUMNA 2: EN CAMINO / ATENDIENDO (ÁMBAR) */}
-        <section className={styles.columnCard}>
+        <section className={`${styles.columnCard} ${styles.columnEnCamino} ${mobileTab !== 'en_camino' ? styles.hideOnMobile : ''}`}>
           <div className={styles.columnHeader}>
             <h2 className={styles.columnTitle} style={{ color: '#f59e0b' }}>
               <span>🏃</span> En Camino / En Atención
@@ -482,7 +512,7 @@ export default function CentralSoportePage() {
         </section>
 
         {/* COLUMNA 3: RESUELTAS RECIENTEMENTE (VERDE) */}
-        <section className={styles.columnCard}>
+        <section className={`${styles.columnCard} ${styles.columnResueltas} ${mobileTab !== 'resueltas' ? styles.hideOnMobile : ''}`}>
           <div className={styles.columnHeader}>
             <h2 className={styles.columnTitle} style={{ color: '#10b981' }}>
               <span>✅</span> Resueltas Hoy
@@ -534,6 +564,7 @@ export default function CentralSoportePage() {
           )}
         </section>
       </div>
+    </div>
 
       {/* ============================================================== */}
       {/* MODAL PARA RESOLVER INCIDENCIA                                 */}

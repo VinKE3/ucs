@@ -1352,6 +1352,18 @@ src/
         - Badges destacados con borde y fondo translúcido para Caso Clínico (`.caseBadge` en naranja) y Paciente Simulado (`.psBadge` en verde clínico).
         - Reloj de clase (`.sessionTime`) enmarcado como credencial destacada (`font-size: 1.35rem; font-weight: 900; padding: 0.75rem 1.35rem;`).
       - Soporte estricto para modo Claro y Oscuro con contraste AAA.
+    - **Hito 76: Rediseño Premium y Adaptabilidad Responsive para Celular en Central de Soporte (`/central-soporte`)**:
+      - **Contenedor Centrado y Estética Desktop**:
+        - Envoltorio `.contentWrapper` con `max-width: 1560px; margin: 0 auto;` para centrado simétrico y balance visual en monitores de alta resolución (1080p, 2K y ultra-wide).
+        - Grid Kanban de 3 columnas (`Pendientes`, `En Camino`, `Resueltas`) con altura y presencia visual uniforme (`min-height: 520px; border-radius: 18px;`).
+        - Tarjetas de incidencias resueltas (`.resolvedCard`) rediseñadas con badges nítidos de hora, motivo de solución estructurado y micro-interacción hover.
+      - **Experiencia Móvil de Primer Nivel para Smartphones de Técnicos**:
+        - **Barra Segmentada Móvil (`.mobileTabBar`)**: Visible únicamente en pantallas `<= 900px` con selector estilo app móvil de 3 pestañas (`🚨 Pendientes (X)`, `🏃 En Curso (Y)`, `✅ Resueltas (Z)`), sticky en la parte superior para navegación con una sola mano.
+        - **Auto-Switch Reactivo a Pendientes**: Si entra una alerta SOS nueva mientras el técnico consulta otra pestaña en su teléfono, la interfaz conmuta automáticamente a la pestaña de pendientes para atención inmediata.
+        - **Header Móvil Compacto & Título Simplificado**: Logo institucional colocado arriba y título conciso *"🛠️ Central de Soporte"* ubicado debajo de forma vertical, eliminando la compresión lateral contra el logo y permitiendo lectura clara sin desbordes.
+        - **Botones Touch-Friendly para el Pulgar**: Botones *"🏃 Vamos en Camino"* y *"✅ Marcar Resuelto"* con altura mínima de `48px`, tipografía destacada y esquinas ergonómicas.
+        - **Modales Adaptados a Pantalla Táctil**: Modales con `max-height: 90vh; overflow-y: auto;` y opciones de solución táctiles de `44px` mínimas.
+      - **Soporte Completo de Tema Claro / Oscuro**: Alto contraste en badges, tarjetas Kanban y barra segmentada móvil.
     - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

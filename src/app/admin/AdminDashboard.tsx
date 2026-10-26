@@ -587,7 +587,11 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
   const handleConfirmCerrarTurno = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAsistencia || !motivoCierre.trim()) return;
+    if (!selectedAsistencia) return;
+    if (!motivoCierre.trim()) {
+      showError('Justificación Requerida', 'Debes ingresar un motivo o justificación de auditoría para regularizar el turno.');
+      return;
+    }
     setActionAsistLoading(true);
     try {
       const res = await fetch('/api/asistencias', {

@@ -1372,6 +1372,17 @@ src/
       - Corregido el valor inicial de `mesSeleccionado` y `anioSeleccionado` que estaba fijado estáticamente en Septiembre (índice 8) desde la fase de pruebas iniciales.
       - Implementado cálculo dinámico en tiempo real (`new Date().getMonth()` y `new Date().getFullYear()`) para que al abrir la pestaña se cargue siempre de manera automática el mes corriente (Octubre en este momento, y los meses subsiguientes en el futuro).
       - Rango de fechas por defecto sincronizado con el primer y último día del mes en curso.
+    - **Hito 78: Validación Interactiva, Feedback Visual y Prevención de Desbordamiento en Modal de Regularización (`ModalCerrarTurno.tsx` & `admin.module.css`)**:
+      - **Eliminación del bloqueo silencioso**: El botón *"Confirmar y Regularizar Turno"* ya no está deshabilitado de forma opaca y silenciosa cuando falta la justificación. Ahora responde al clic de inmediato evaluando las reglas de auditoría.
+      - **Feedback Visual y Foco Automático**: Si el motivo está vacío al hacer clic en el botón, el modal enfoca automáticamente el `textarea` (`textareaRef.current?.focus()`), activa una animación sutil de sacudida (`shakeAnim`), resalta el borde en rojo (`#ef4444`) con sombra de advertencia, y despliega un banner de alerta visible: *"🚨 Debes ingresar un motivo o justificación de auditoría para regularizar el turno"*.
+      - **Chips de Justificación Rápida de 1 Clic**: Añadida una botonera de motivos frecuentes para que el usuario pueda justificar en un solo toque sin tener que redactar manualmente (*"Colaborador omitió marcar entrada al llegar"*, *"Colaborador omitió marcar salida al retirarse"*, etc.).
+      - **Solución al Desbordamiento Vertical (Pérdida de Título y Botones)**:
+        - **Header Fijo (`flexShrink: 0`)**: El título *"⏱️ Regularización y Cierre de Turno"* y la *"✕"* de cierre permanecen siempre anclados en la parte superior.
+        - **Footer Fijo (`flexShrink: 0`)**: Los botones *"Cancelar"* y *"Confirmar y Regularizar Turno"* permanecen siempre visibles y anclados al pie del modal sin desbordarse fuera de la pantalla.
+        - **Cuerpo con Scroll Interno Suave (`flex: 1; overflow-y: auto`)**: Todo el contenido intermedio (Ficha, atajos, horas y justificación) se desplaza suavemente si el espacio del monitor es reducido.
+        - **Layout de 2 Columnas para Fechas**: Las fechas de *Ingreso Real* y *Salida Real* se redistribuyeron en un grid de 2 columnas paralelas (`repeat(auto-fit, minmax(230px, 1fr))`), reduciendo en ~120px la altura total del modal y evitando scrolls innecesarios en la gran mayoría de monitores.
+        - **Protección Global en `admin.module.css`**: Establecido `max-height: 92vh; overflow: hidden;` en `.modal` y `overflow-y: auto` en `.modalBackdrop`.
+      - **Validación Robusta en Handler Padre (`AdminDashboard.tsx`)**: Ante cualquier intento de confirmación con motivo en blanco, se dispara un diálogo informativo SweetAlert2 (`showError`) impidiendo envíos incompletos y garantizando trazabilidad total de auditoría.
     - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

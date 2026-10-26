@@ -1,0 +1,787 @@
+/* ESTILOS PARA LA TERMINAL DE SALA (PANTALLA DE AULA / DOCENTE) */
+.salaContainer {
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 0%, #0d2b52 0%, #061528 100%);
+  color: #f1f5f9;
+  font-family: var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  position: relative;
+  overflow-x: hidden;
+  align-items: center;
+}
+
+/* ENVOLTORIO CENTRADO EN PANTALLAS ANCHAS */
+.contentWrapper {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: flex-start;
+  gap: 1.5rem;
+}
+
+/* HEADER SUPERIOR */
+.salaHeader {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: rgba(13, 52, 108, 0.35);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.brandInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brandLogo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+  transition: filter 0.3s ease;
+}
+
+.roomTitle {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.roomSubtitle {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.2rem 0 0;
+}
+
+.headerStatus {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.clockBadge {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #38bdf8;
+  font-family: 'Courier New', Courier, monospace;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.onlineBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.onlineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* CARD DE CLASE ACTUAL (AMPLIADA Y DESTACADA) */
+.sessionCard {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 1.6rem 2.25rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  border-left: 6px solid #38bdf8;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.sessionDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sessionTeacher {
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  letter-spacing: -0.01em;
+}
+
+.sessionCourse {
+  font-size: 1.15rem;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+}
+
+.careerTag {
+  font-size: 0.85rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 8px;
+  font-weight: 800;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+.caseBadge {
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.psBadge {
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sessionTime {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 0.75rem 1.35rem;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ÁREA DE ALERTA ACTIVA EN SALA */
+.alertCardActive {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(13, 52, 108, 0.4) 100%);
+  border: 2px solid #ef4444;
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.25);
+  animation: pulseCard 2.5s infinite;
+}
+
+.alertCardEnCamino {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(13, 52, 108, 0.4) 100%);
+  border: 2px solid #10b981;
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  box-shadow: 0 0 35px rgba(16, 185, 129, 0.25);
+}
+
+@keyframes pulseCard {
+  0%, 100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 45px rgba(239, 68, 68, 0.45); }
+}
+
+.alertIconBig {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.alertContent {
+  flex: 1;
+  min-width: 250px;
+}
+
+.alertTitle {
+  font-size: 1.5rem;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.alertDesc {
+  font-size: 1rem;
+  color: #e2e8f0;
+  margin: 0.35rem 0 0;
+}
+
+.alertTimer {
+  font-size: 0.9rem;
+  color: #fca5a5;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.btnCancelAlert {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btnCancelAlert:hover {
+  background: rgba(239, 68, 68, 0.8);
+  border-color: #ef4444;
+}
+
+/* SECCIÓN PRINCIPAL DE BOTONES DE AUXILIO */
+.buttonsSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.buttonsHeader {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.buttonsTitle {
+  font-size: 1.5rem;
+  font-weight: 900;
+  margin: 0;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.buttonsSubtitle {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  margin: 0.35rem 0 0;
+  text-align: center;
+}
+
+/* GRID DE BOTONES TÁCTILES */
+.buttonsGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .buttonsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .buttonsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .buttonsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.touchButton {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 1.75rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  border-bottom: 5px solid var(--btn-color, #ef4444);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.touchButton:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+  border-color: var(--btn-color, #ef4444);
+}
+
+.touchButton:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.buttonIcon {
+  font-size: 3.2rem;
+  margin-bottom: 0.85rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.buttonLabel {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.35;
+}
+
+.buttonBadge {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+/* FOOTER */
+.salaFooter {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.8rem;
+  color: #64748b;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.btnUnlink {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.2rem 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.btnUnlink:hover {
+  color: #ef4444;
+}
+
+/* MODAL DE VINCULACIÓN CON PIN */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 10, 20, 0.85);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 9999;
+}
+
+.pairingCard {
+  background: #0b1f3b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 2.2rem;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.pairingHeader {
+  margin-bottom: 1.5rem;
+}
+
+.pairingIcon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.pairingTitle {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0;
+}
+
+.pairingSubtitle {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.35rem 0 0;
+}
+
+.pinInputContainer {
+  margin: 1.5rem 0;
+}
+
+.pinInput {
+  width: 180px;
+  font-size: 2rem;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 12px;
+  padding: 0.6rem;
+  border-radius: 12px;
+  border: 2px solid var(--primary-color, #00e699);
+  background: rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.pinInput:focus {
+  box-shadow: 0 0 20px rgba(0, 230, 153, 0.4);
+}
+
+.formGroup {
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.formLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  margin-bottom: 0.35rem;
+}
+
+.formSelect, .formInput {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  font-size: 0.9rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.quickChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.chipBtn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.chipBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.btnSubmitPairing {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #00e699 0%, #059669 100%);
+  color: #032b1d;
+  font-weight: 900;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.2s ease;
+}
+
+.btnSubmitPairing:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 230, 153, 0.4);
+}
+
+.errorMessage {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 0.6rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-top: 1rem;
+}
+
+/* ==========================================================================
+   SOPORTE DE TEMA CLARO INSTITUCIONAL (LIGHT MODE) - ALTO CONTRASTE UCS
+   ========================================================================== */
+:global([data-theme="light"]) .salaContainer {
+  background: radial-gradient(circle at 50% 0%, #e8eef6 0%, #f4f6fa 100%);
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .brandLogo {
+  filter: none;
+  opacity: 1;
+}
+
+:global([data-theme="light"]) .salaHeader {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 4px 20px -2px rgba(6, 21, 45, 0.08);
+}
+
+:global([data-theme="light"]) .roomTitle {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .roomSubtitle {
+  color: var(--text-muted, #64748b);
+}
+
+:global([data-theme="light"]) .clockBadge {
+  background: rgba(13, 52, 108, 0.08);
+  border-color: rgba(13, 52, 108, 0.2);
+  color: #0d346c;
+}
+
+:global([data-theme="light"]) .onlineBadge {
+  background: rgba(4, 120, 87, 0.1);
+  color: #047857;
+  border-color: rgba(4, 120, 87, 0.25);
+}
+
+:global([data-theme="light"]) .onlineDot {
+  background: #047857;
+  box-shadow: 0 0 8px rgba(4, 120, 87, 0.4);
+}
+
+:global([data-theme="light"]) .sessionCard {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-left: 6px solid #0d346c;
+  box-shadow: 0 6px 24px -2px rgba(6, 21, 45, 0.08);
+}
+
+:global([data-theme="light"]) .sessionTeacher {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .sessionCourse {
+  color: var(--text-secondary, #334155);
+}
+
+:global([data-theme="light"]) .careerTag {
+  background: rgba(13, 52, 108, 0.1);
+  color: #0d346c;
+}
+
+:global([data-theme="light"]) .caseBadge {
+  background: rgba(234, 88, 12, 0.1);
+  color: #c2410c;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+}
+
+:global([data-theme="light"]) .psBadge {
+  background: rgba(4, 120, 87, 0.1);
+  color: #047857;
+  border: 1px solid rgba(4, 120, 87, 0.3);
+}
+
+:global([data-theme="light"]) .sessionTime {
+  color: #0d346c;
+  background: rgba(13, 52, 108, 0.06);
+  border: 1px solid rgba(13, 52, 108, 0.18);
+}
+
+:global([data-theme="light"]) .buttonsTitle {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .buttonsSubtitle {
+  color: var(--text-muted, #64748b);
+}
+
+:global([data-theme="light"]) .touchButton {
+  background: #ffffff;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-bottom: 5px solid var(--btn-color, #ef4444);
+  box-shadow: 0 4px 16px -2px rgba(6, 21, 45, 0.07);
+}
+
+:global([data-theme="light"]) .touchButton:hover {
+  background: #f8fafc;
+  border-color: var(--btn-color, #ef4444);
+  box-shadow: 0 10px 25px -4px rgba(6, 21, 45, 0.15);
+}
+
+:global([data-theme="light"]) .buttonLabel {
+  color: var(--text-primary, #06152d);
+}
+
+:global([data-theme="light"]) .buttonBadge {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+:global([data-theme="light"]) .salaFooter {
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .btnUnlink {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .btnUnlink:hover {
+  color: #dc2626;
+}
+
+:global([data-theme="light"]) .alertCardActive {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(254, 242, 242, 0.95) 100%);
+  border: 2px solid #ef4444;
+  color: #06152d;
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.2);
+}
+
+:global([data-theme="light"]) .alertCardActive .alertTitle {
+  color: #dc2626;
+}
+
+:global([data-theme="light"]) .alertCardActive .alertDesc {
+  color: #1e293b;
+}
+
+:global([data-theme="light"]) .alertCardActive .alertTimer {
+  color: #b91c1c;
+}
+
+:global([data-theme="light"]) .alertCardEnCamino {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(240, 253, 244, 0.95) 100%);
+  border: 2px solid #059669;
+  color: #06152d;
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2);
+}
+
+:global([data-theme="light"]) .alertCardEnCamino .alertTitle {
+  color: #047857;
+}
+
+:global([data-theme="light"]) .alertCardEnCamino .alertDesc {
+  color: #1e293b;
+}
+
+:global([data-theme="light"]) .btnCancelAlert {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:global([data-theme="light"]) .btnCancelAlert:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+:global([data-theme="light"]) .pairingCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 20px 60px rgba(6, 21, 45, 0.25);
+}
+
+:global([data-theme="light"]) .pairingTitle {
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .pairingSubtitle {
+  color: #64748b;
+}
+
+:global([data-theme="light"]) .formLabel {
+  color: #334155;
+}
+
+:global([data-theme="light"]) .formSelect,
+:global([data-theme="light"]) .formInput {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #06152d;
+}
+
+:global([data-theme="light"]) .chipBtn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+:global([data-theme="light"]) .chipBtn:hover {
+  background: #e2e8f0;
+  color: #06152d;
+}

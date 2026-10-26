@@ -18,6 +18,8 @@
   --bg-card-hover: rgba(17, 50, 102, 0.85);
   --bg-elevated: #0f2d5c;
   --bg-input: rgba(6, 18, 38, 0.85);
+  --card-bg: var(--bg-card);
+  --input-bg: var(--bg-input);
   --border-color: rgba(255, 255, 255, 0.12);
   --border-glow: rgba(255, 90, 0, 0.35);
 
@@ -44,6 +46,8 @@
   --bg-card-hover: #f1f5f9;
   --bg-elevated: #ffffff;
   --bg-input: #ffffff;
+  --card-bg: var(--bg-card);
+  --input-bg: var(--bg-input);
   --border-color: #cbd5e1;
   --border-glow: rgba(255, 90, 0, 0.3);
   --ucs-clinical-green: #047857;   /* Verde médico de alta visibilidad para tema claro */
@@ -69,6 +73,8 @@
   --bg-card-hover: rgba(17, 50, 102, 0.85);
   --bg-elevated: #0f2d5c;
   --bg-input: rgba(6, 18, 38, 0.85);
+  --card-bg: var(--bg-card);
+  --input-bg: var(--bg-input);
   --border-color: rgba(255, 255, 255, 0.12);
   --border-glow: rgba(255, 90, 0, 0.35);
 

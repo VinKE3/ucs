@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import { showError, showToast, confirmDelete } from '@/lib/alerts';
 import type { SessionPayload } from '@/lib/auth';
@@ -26,6 +27,11 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<'metricas' | 'terminales' | 'categorias'>('metricas');
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Datos
   const [metricas, setMetricas] = useState<IncidenciasMetricsData | null>(null);
@@ -429,7 +435,51 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <a
+            href="/asistencia-ambiente"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.secondaryActionBtn}
+            style={{
+              padding: '0.5rem 0.95rem',
+              fontSize: '0.84rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 700,
+              color: '#38bdf8',
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              background: 'rgba(56, 189, 248, 0.08)',
+            }}
+            title="Abrir terminal táctil de aula en nueva pestaña"
+          >
+            <span>🖥️</span> Terminal Aula
+          </a>
+          <a
+            href="/central-soporte"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.secondaryActionBtn}
+            style={{
+              padding: '0.5rem 0.95rem',
+              fontSize: '0.84rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 700,
+              color: '#ff5a00',
+              borderColor: 'rgba(255, 90, 0, 0.4)',
+              background: 'rgba(255, 90, 0, 0.08)',
+            }}
+            title="Abrir tablero Kanban de la Central de Soporte en vivo"
+          >
+            <span>🚨</span> Central Soporte
+          </a>
           <button
             type="button"
             className={styles.secondaryActionBtn}
@@ -963,7 +1013,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                 </h3>
               </div>
               <p style={{ margin: '0.35rem 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                Este código autoriza la conexión de cualquier PC o Laptop de simulación en <code style={{ padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'var(--pill-bg)', color: '#ff5a00', fontWeight: 700 }}>/sala</code>.
+                Este código autoriza la conexión de cualquier PC o Laptop de simulación en <code style={{ padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'var(--pill-bg)', color: '#ff5a00', fontWeight: 700 }}>/asistencia-ambiente</code>.
               </p>
             </div>
 
@@ -1186,7 +1236,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>💻</span>
               <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem' }}>No hay terminales vinculadas aún</p>
               <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem' }}>
-                Abre <code>/sala</code> en la PC o Laptop del aula e ingresa el PIN maestro para que aparezca aquí.
+                Abre <code>/asistencia-ambiente</code> en la PC o Laptop del aula e ingresa el PIN maestro para que aparezca aquí.
               </p>
             </div>
           ) : (
@@ -1347,7 +1397,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               <div
                 key={cat.id}
                 style={{
-                  background: 'var(--card-bg)',
+                  background: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '12px',
                   padding: '1.2rem',
@@ -1356,11 +1406,13 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                   justifyContent: 'space-between',
                   borderTop: `4px solid ${cat.color}`,
                   opacity: cat.activo ? 1 : 0.6,
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.06)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '1.6rem' }}>{cat.icono}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '1.75rem', lineHeight: 1 }}>{cat.icono}</span>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                         {cat.nombre}
@@ -1386,7 +1438,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                     type="button"
                     onClick={() => handleToggleCategoriaActiva(cat)}
                     style={{
-                      padding: '0.3rem 0.6rem',
+                      padding: '0.35rem 0.75rem',
                       borderRadius: '6px',
                       border: 'none',
                       fontSize: '0.75rem',
@@ -1394,8 +1446,12 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       cursor: 'pointer',
                       background: cat.activo ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.2)',
                       color: cat.activo ? '#10b981' : '#9ca3af',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
                     }}
                   >
+                    <span>{cat.activo ? '●' : '○'}</span>
                     {cat.activo ? 'Activo en Salas' : 'Oculto'}
                   </button>
 
@@ -1404,7 +1460,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       type="button"
                       className={styles.secondaryActionBtn}
                       onClick={() => handleOpenModalCategoria(cat)}
-                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
                       title="Editar botón"
                     >
                       ✏️
@@ -1413,7 +1469,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       type="button"
                       className={styles.secondaryActionBtn}
                       onClick={() => handleEliminarCategoria(cat)}
-                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', color: '#ef4444' }}
+                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem', color: '#ef4444' }}
                       title="Eliminar botón"
                     >
                       🗑️
@@ -1427,41 +1483,63 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* MODAL CREAR / EDITAR BOTÓN DE ASISTENCIA                        */}
+      {/* MODAL CREAR / EDITAR BOTÓN DE ASISTENCIA (PORTAL A BODY)       */}
       {/* ============================================================== */}
-      {showModalCategoria && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalCard} style={{ maxWidth: '480px' }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 800 }}>
-              {categoriaEditando ? '✏️ Editar Botón de Sala' : '➕ Nuevo Botón de Asistencia'}
-            </h3>
+      {showModalCategoria && mounted && typeof document !== 'undefined' && createPortal(
+        <div
+          className={styles.modalBackdrop}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModalCategoria(false);
+            }
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}
+        >
+          <div className={styles.modal} style={{ maxWidth: '520px', background: 'var(--bg-card, #ffffff)' }}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>
+                {categoriaEditando ? '✏️ Editar Botón de Asistencia' : '➕ Nuevo Botón de Asistencia'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowModalCategoria(false)}
+                className={styles.closeBtn}
+                title="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handleGuardarCategoria}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>
-                  Nombre del Botón / Motivo:
+            <form onSubmit={handleGuardarCategoria} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Nombre del Botón / Motivo: *
                 </label>
                 <input
                   type="text"
                   required
+                  autoFocus
                   placeholder="Ej: Pilas / Intercomunicador, Simulador Bloqueado..."
                   value={formCat.nombre}
                   onChange={(e) => setFormCat({ ...formCat, nombre: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.55rem 0.8rem',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--input-bg)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                  }}
+                  className={styles.inputField}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+              <div className={styles.formGrid}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>
                     Icono / Emoji:
                   </label>
                   <input
@@ -1469,30 +1547,25 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                     maxLength={4}
                     value={formCat.icono}
                     onChange={(e) => setFormCat({ ...formCat, icono: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '0.55rem',
-                      textAlign: 'center',
-                      fontSize: '1.3rem',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--input-bg)',
-                      color: 'var(--text-primary)',
-                    }}
+                    className={styles.inputField}
+                    style={{ textAlign: 'center', fontSize: '1.4rem' }}
                   />
-                  <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.4rem' }}>
+                  <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
                     {['🤖', '🎤', '🖥️', '🔋', '📝', '🚨', '🩺', '📶'].map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
                         onClick={() => setFormCat({ ...formCat, icono: emoji })}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: 'none',
-                          borderRadius: '4px',
+                          background: formCat.icono === emoji ? 'rgba(255, 90, 0, 0.15)' : 'var(--bg-input)',
+                          border: formCat.icono === emoji ? '1.5px solid #ff5a00' : '1px solid var(--border-color)',
+                          borderRadius: '6px',
                           cursor: 'pointer',
-                          padding: '0.2rem',
+                          padding: '0.25rem 0.45rem',
+                          fontSize: '1.1rem',
+                          transition: 'all 0.15s ease',
                         }}
+                        title={`Seleccionar ${emoji}`}
                       >
                         {emoji}
                       </button>
@@ -1500,9 +1573,9 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>
-                    Color Visual:
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>
+                    Color Distintivo:
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input
@@ -1510,49 +1583,56 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                       value={formCat.color}
                       onChange={(e) => setFormCat({ ...formCat, color: e.target.value })}
                       style={{
-                        width: '40px',
-                        height: '40px',
-                        border: 'none',
-                        borderRadius: '6px',
+                        width: '42px',
+                        height: '42px',
+                        border: '1.5px solid var(--border-color)',
+                        borderRadius: '8px',
                         cursor: 'pointer',
-                        background: 'transparent',
+                        padding: '2px',
+                        background: 'var(--bg-input)',
                       }}
+                      title="Seleccionar color"
                     />
                     <input
                       type="text"
                       value={formCat.color}
                       onChange={(e) => setFormCat({ ...formCat, color: e.target.value })}
-                      style={{
-                        width: '90px',
-                        padding: '0.4rem',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--input-bg)',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.85rem',
-                      }}
+                      className={styles.inputField}
+                      style={{ fontFamily: 'monospace', fontWeight: 600 }}
+                      placeholder="#3b82f6"
                     />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.4rem' }}>
+                    {['#ff5a00', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#f59e0b'].map((col) => (
+                      <button
+                        key={col}
+                        type="button"
+                        onClick={() => setFormCat({ ...formCat, color: col })}
+                        style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '6px',
+                          background: col,
+                          border: formCat.color === col ? '2px solid var(--text-primary)' : '1px solid rgba(0,0,0,0.15)',
+                          cursor: 'pointer',
+                          boxShadow: formCat.color === col ? '0 0 0 2px #ff5a00' : 'none',
+                        }}
+                        title={`Seleccionar ${col}`}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+              <div className={styles.formGrid}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>
                     Tipo de Requerimiento:
                   </label>
                   <select
                     value={formCat.tipo}
                     onChange={(e) => setFormCat({ ...formCat, tipo: e.target.value as any })}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--input-bg)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                    }}
+                    className={styles.select}
                   >
                     <option value="tecnico">Técnico (Equipos / Software)</option>
                     <option value="logistico">Logístico (Pilas / Papel / Insumos)</option>
@@ -1560,8 +1640,8 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label}>
                     Posición / Orden:
                   </label>
                   <input
@@ -1569,23 +1649,42 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
                     min={1}
                     value={formCat.orden}
                     onChange={(e) => setFormCat({ ...formCat, orden: parseInt(e.target.value) || 1 })}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--input-bg)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                    }}
+                    className={styles.inputField}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+              {/* Vista previa viva del botón */}
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-color)',
+                  borderTop: `4px solid ${formCat.color || '#ff5a00'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}
+              >
+                <span style={{ fontSize: '1.6rem' }}>{formCat.icono || '🚨'}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Vista Previa en Pantalla de Sala:
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                    {formCat.nombre || 'Nombre del botón...'}
+                  </div>
+                  <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
+                    Tipo: <strong style={{ textTransform: 'capitalize' }}>{formCat.tipo}</strong> • Orden #{formCat.orden}
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
                 <button
                   type="button"
-                  className={styles.secondaryActionBtn}
+                  className={styles.cancelBtn}
                   onClick={() => setShowModalCategoria(false)}
                 >
                   Cancelar
@@ -1596,7 +1695,8 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

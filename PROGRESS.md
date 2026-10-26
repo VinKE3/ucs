@@ -1327,9 +1327,31 @@ src/
       - Agregadas las columnas `caso_nombre` y `paciente_simulado_nombre` a la tabla `incidencias_sala` en Neon PostgreSQL y sincronizadas con la memoria RAM (`IncidenciaEnMemoria`).
       - Detección algorítmica automática en `/api/incidencias`: al emitir una alerta, el sistema extrae de inmediato el Caso / Escenario (`escenarioNombre` / `titulo`) y el Paciente Simulado programado (`pacienteSimuladoNombre`) de la clase en curso.
       - Tarjetas enriquecidas con insignias visuales de alto contraste (`.caseBadge` en naranja institucional y `.psBadge` en verde clínico) tanto en la pantalla de aula ([`/sala`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/page.tsx)) como en la central de guardia ([`/guardia`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/page.tsx)).
-    - **Corrección de Acción "Vamos en Camino" / "Resolver"**:
-      - El endpoint `PATCH /api/incidencias/[id]` ahora soporta indistintamente `accion: 'en_camino' | 'resolver'` y `estado: 'en_camino' | 'resuelto'`.
-      - Se implementó actualización optimista inmediata (0ms): al hacer clic en *"Vamos en Camino"*, la tarjeta se desplaza inmediatamente a la columna *"En Camino / En Atención"* y notifica en vivo a la pantalla de la sala.
+    - **Estandarización y Rediseño Visual del Modal de Botones de Sala (`AlertasSosTab.tsx`)**:
+      - Reemplazada la estructura anterior por el patrón estándar de modales del sistema administrativo (`styles.modalBackdrop` + `styles.modal`), exactamente idéntico a [`ModalCrearSede.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalCrearSede.tsx) y [`ModalCrearAmbiente.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalCrearAmbiente.tsx).
+      - Fondo difuminado de pantalla completa con `backdrop-filter: blur(8px)` y oscurecimiento semi-transparente institucional, cerrable al hacer clic en el backdrop exterior o con el botón `✕` (`styles.closeBtn`).
+      - Tarjeta de modal centrada con contenedor blanco sólido en tema claro (`background: var(--bg-card)`), bordes nítidos (`border: 1.5px solid var(--border-color)`), bordes redondeados (`16px`) y sombra de elevación (`0 25px 50px -12px rgba(0, 0, 0, 0.5)`), eliminando la transparencia indeseada.
+      - Encabezado con título claro (`styles.modalTitle`) en Azul Marino UCS profundo (`#06152d` en claro, `#ffffff` en oscuro) y texto secundario legible.
+      - Campos de formulario con clases oficiales (`styles.fieldGroup`, `styles.label`, `styles.inputField`, `styles.select`, `styles.formGrid`), selector de emojis rápidos interactivos, paleta de colores con muestras rápidas y **tarjeta de vista previa en tiempo real** del botón en sala.
+      - Pie de modal con botones estándar: `styles.cancelBtn` para *"Cancelar"* y `styles.actionBtn` (naranja institucional Científica) para *"Crear Botón"* / *"Guardar Cambios"*.
+      - **Renombrado Oficial de Rutas Operativas y Redirección Transparente**:
+        - `/sala` ➔ [`/asistencia-ambiente`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/asistencia-ambiente/page.tsx): Terminal táctil para docentes en consultorios y ambientes de simulación clínica.
+        - `/guardia` ➔ [`/central-soporte`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/central-soporte/page.tsx): Centro neurálgico de monitoreo de alertas e incidencias en vivo con tablero Kanban y alarmas sonoras.
+        - Redirección automática transparente implementada en [`/sala`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/sala/page.tsx) y [`/guardia`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/app/guardia/page.tsx) para preservar retrocompatibilidad con marcadores existentes.
+        - Agregados botones de lanzamiento directo en la barra superior de [`AlertasSosTab.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/AlertasSosTab.tsx) (`[ 🖥️ Terminal Aula ]` y `[ 🚨 Central Soporte ]`) y actualizada la documentación del PIN de activación.
+    - **Hito 75: Centrado de Pantalla y Rediseño Ampliado de Tarjeta Docente en `/asistencia-ambiente`**:
+      - **Centrado y Balance Visual en Monitores Anchos**:
+        - Creado contenedor envolvente `.contentWrapper` con `max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;`.
+        - Centrado el encabezado de auxilio (`.buttonsHeader` con `text-align: center; align-items: center; justify-content: center;`).
+        - Grid de botones táctiles (`.buttonsGrid`) adaptado a `repeat(6, 1fr)` en monitores de escritorio para una distribución simétrica y perfectamente equilibrada (con media queries a 3, 2 y 1 columna en pantallas reducidas).
+        - Botones táctiles (`.touchButton`) ampliados a `padding: 1.75rem 1.2rem;` con iconos de `3.2rem`, etiquetas en `1.12rem` y sombras de elevación para fácil interacción touch.
+      - **Tarjeta Docente Ampliada y Destacada (`.sessionCard`)**:
+        - Padding aumentado a `1.6rem 2.25rem` con borde lateral acentuado (`border-left: 6px solid #38bdf8` en oscuro y `#0d346c` en claro) y esquinas redondeadas de `18px`.
+        - Nombre del docente (`.sessionTeacher`) aumentado a `1.55rem` con `font-weight: 900` e isotipo médico 👨‍⚕️.
+        - Curso y carrera (`.sessionCourse`, `.careerTag`) ampliados para legibilidad desde la distancia del aula.
+        - Badges destacados con borde y fondo translúcido para Caso Clínico (`.caseBadge` en naranja) y Paciente Simulado (`.psBadge` en verde clínico).
+        - Reloj de clase (`.sessionTime`) enmarcado como credencial destacada (`font-size: 1.35rem; font-weight: 900; padding: 0.75rem 1.35rem;`).
+      - Soporte estricto para modo Claro y Oscuro con contraste AAA.
     - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

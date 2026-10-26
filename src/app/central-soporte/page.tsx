@@ -42,6 +42,7 @@ export default function CentralSoportePage() {
   const [showDniModal, setShowDniModal] = useState(false);
   const [dniInput, setDniInput] = useState('');
   const [dniError, setDniError] = useState<string | null>(null);
+  const [validatingDni, setValidatingDni] = useState(false);
 
   // Modal para resolver incidencia
   const [incidenciaAResolver, setIncidenciaAResolver] = useState<IncidenciaItem | null>(null);
@@ -50,6 +51,18 @@ export default function CentralSoportePage() {
   // Audio Context ref
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastPendienteCountRef = useRef(0);
+
+  // Cargar técnico guardado previamente en el navegador/celular
+  useEffect(() => {
+    try {
+      const savedTech = localStorage.getItem('ucs_tecnico_nombre');
+      if (savedTech) {
+        setTecnicoNombre(savedTech);
+      }
+    } catch {
+      // Ignorar restricciones de almacenamiento
+    }
+  }, []);
 
   // 1. Reloj en vivo
   useEffect(() => {
@@ -73,7 +86,7 @@ export default function CentralSoportePage() {
         ctx.resume();
       }
 
-      // Tono de atención doble (880Hz -> 1174Hz)
+      // Tono de atención doble clínico (880Hz -> 1174Hz)
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -83,18 +96,31 @@ export default function CentralSoportePage() {
       osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.15); // Nota Re6
 
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.35, now + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      gain.gain.linearRampToValueAtTime(0.4, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.8);
+      osc.stop(now + 0.85);
     } catch (e) {
       console.warn('AudioContext bloqueado por el navegador:', e);
     }
   }, []);
+
+  // 2.1 Alarma combinada: Sonido Web Audio + Vibración háptica en celulares
+  const triggerAlarm = useCallback(() => {
+    playChime();
+    try {
+      if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+        // Patrón de vibración táctil para el bolsillo: vibra 300ms, pausa 100ms, vibra 300ms
+        navigator.vibrate([300, 100, 300]);
+      }
+    } catch {
+      // Ignorar restricciones de vibración
+    }
+  }, [playChime]);
 
   // Habilitar audio con clic de usuario
   const toggleSound = () => {
@@ -105,12 +131,55 @@ export default function CentralSoportePage() {
       if (audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume();
       }
-      playChime();
+      triggerAlarm();
       setSoundEnabled(true);
     } else {
       setSoundEnabled(false);
     }
   };
+
+  // 2.2 Loop recurrente cada 6.5 segundos mientras existan alertas pendientes sin atender
+  useEffect(() => {
+    const pendientesCount = incidenciasActivas.filter((i) => i.estado === 'pendiente').length;
+
+    // Si no hay incidencias pendientes o el sonido está silenciado, se detiene el loop de inmediato
+    if (pendientesCount === 0 || !soundEnabled) {
+      return;
+    }
+
+    // Sonar de inmediato
+    triggerAlarm();
+
+    // Bucle sonoro recurrente cada 6.5 segundos
+    const alarmInterval = setInterval(() => {
+      triggerAlarm();
+    }, 6500);
+
+    return () => clearInterval(alarmInterval);
+  }, [incidenciasActivas, soundEnabled, triggerAlarm]);
+
+  // 2.3 Parpadeo dinámico del título de la pestaña del navegador para PC y móvil en segundo plano
+  useEffect(() => {
+    const pendientesCount = incidenciasActivas.filter((i) => i.estado === 'pendiente').length;
+
+    if (pendientesCount === 0) {
+      document.title = 'Central de Soporte - UCS';
+      return;
+    }
+
+    let toggle = false;
+    const tabInterval = setInterval(() => {
+      toggle = !toggle;
+      document.title = toggle
+        ? `🚨 (${pendientesCount}) ¡ALERTA SOS! - Central Soporte`
+        : '🛠️ Central de Soporte - UCS';
+    }, 1400);
+
+    return () => {
+      clearInterval(tabInterval);
+      document.title = 'Central de Soporte - UCS';
+    };
+  }, [incidenciasActivas]);
 
   // 3. Sondeo Zero-Egress en Memoria RAM (/api/incidencias/poll)
   const pollIncidencias = useCallback(async () => {
@@ -127,12 +196,9 @@ export default function CentralSoportePage() {
           setIncidenciasActivas(data.activeList);
           setCacheVersion(data.version);
 
-          // Verificar si hay nuevas pendientes para hacer sonar la alarma
+          // Verificar si hay nuevas pendientes para auto-cambiar de tab en móvil
           const pendientesActuales = data.activeList.filter((i: IncidenciaItem) => i.estado === 'pendiente').length;
           if (pendientesActuales > lastPendienteCountRef.current) {
-            if (soundEnabled) {
-              playChime();
-            }
             // En móvil, si entra una nueva alerta, llevar automáticamente a la pestaña de pendientes
             setMobileTab('pendientes');
           }
@@ -145,13 +211,14 @@ export default function CentralSoportePage() {
     } catch (e) {
       console.error('Error en poll de central-soporte:', e);
     }
-  }, [cacheVersion, soundEnabled, playChime]);
+  }, [cacheVersion]);
 
   useEffect(() => {
     pollIncidencias();
     const interval = setInterval(pollIncidencias, 3500); // Sondeo cada 3.5 segundos
     return () => clearInterval(interval);
   }, [pollIncidencias]);
+
 
   // Cargar histórico de resueltas hoy
   const fetchResueltasHoy = async () => {
@@ -243,23 +310,34 @@ export default function CentralSoportePage() {
   const handleLoginDni = async (e: React.FormEvent) => {
     e.preventDefault();
     setDniError(null);
-    if (!dniInput.trim()) return;
+    const dniClean = dniInput.trim();
+    if (!dniClean) return;
 
+    setValidatingDni(true);
     try {
-      const res = await fetch('/api/personal');
+      const res = await fetch('/api/tecnicos/identificar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dni: dniClean }),
+      });
       const data = await res.json();
-      if (data.usuarios) {
-        const found = data.usuarios.find((u: any) => u.dni === dniInput.trim());
-        if (found) {
-          setTecnicoNombre(`${found.nombres} ${found.apellidos}`);
-          setShowDniModal(false);
-          setDniInput('');
-        } else {
-          setDniError('DNI no encontrado en el sistema.');
+      if (data.success && data.tecnico) {
+        const nombreCompleto = data.tecnico.nombre;
+        setTecnicoNombre(nombreCompleto);
+        try {
+          localStorage.setItem('ucs_tecnico_nombre', nombreCompleto);
+        } catch {
+          // Ignorar restricciones locales
         }
+        setShowDniModal(false);
+        setDniInput('');
+      } else {
+        setDniError(data.error || 'DNI no encontrado en el sistema.');
       }
     } catch {
-      setDniError('Error al validar DNI.');
+      setDniError('Error de conexión al validar DNI.');
+    } finally {
+      setValidatingDni(false);
     }
   };
 
@@ -286,9 +364,9 @@ export default function CentralSoportePage() {
               type="button"
               className={`${styles.btnSoundToggle} ${soundEnabled ? styles.btnSoundToggleActive : ''}`}
               onClick={toggleSound}
-              title={soundEnabled ? 'Silenciar alarma' : 'Activar sonido de alarma'}
+              title={soundEnabled ? 'Silenciar alarma recurrente' : 'Activar alarma sonora recurrente cada 6.5s'}
             >
-              {soundEnabled ? '🔔 Alarma On' : '🔕 Activar Sonido'}
+              {soundEnabled ? '🔔 Alarma On (6s)' : '🔕 Activar Alarma'}
             </button>
 
             <div className={styles.userBadge}>
@@ -699,21 +777,30 @@ export default function CentralSoportePage() {
                   type="button"
                   className={styles.btnCancel}
                   onClick={() => setShowDniModal(false)}
+                  disabled={validatingDni}
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   className={styles.btnCancel}
+                  disabled={validatingDni}
                   onClick={() => {
+                    try {
+                      localStorage.removeItem('ucs_tecnico_nombre');
+                    } catch {}
                     setTecnicoNombre('Equipo de Soporte');
                     setShowDniModal(false);
                   }}
                 >
                   Usar Modo Global
                 </button>
-                <button type="submit" className={styles.btnResolver}>
-                  Ingresar
+                <button
+                  type="submit"
+                  className={styles.btnResolver}
+                  disabled={validatingDni}
+                >
+                  {validatingDni ? 'Verificando...' : 'Ingresar'}
                 </button>
               </div>
             </form>

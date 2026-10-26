@@ -1362,8 +1362,16 @@ src/
         - **Auto-Switch Reactivo a Pendientes**: Si entra una alerta SOS nueva mientras el técnico consulta otra pestaña en su teléfono, la interfaz conmuta automáticamente a la pestaña de pendientes para atención inmediata.
         - **Header Móvil Compacto & Título Simplificado**: Logo institucional colocado arriba y título conciso *"🛠️ Central de Soporte"* ubicado debajo de forma vertical, eliminando la compresión lateral contra el logo y permitiendo lectura clara sin desbordes.
         - **Botones Touch-Friendly para el Pulgar**: Botones *"🏃 Vamos en Camino"* y *"✅ Marcar Resuelto"* con altura mínima de `48px`, tipografía destacada y esquinas ergonómicas.
-        - **Modales Adaptados a Pantalla Táctil**: Modales con `max-height: 90vh; overflow-y: auto;` y opciones de solución táctiles de `44px` mínimas.
+        - **Identificación Rápida por DNI & Persistencia Local (`/api/tecnicos/identificar`)**: Creado endpoint específico para validar la identidad de los colaboradores de soporte por DNI en la base de datos sin requerir sesión administrativa previa. Además, se guarda el nombre en `localStorage` (`ucs_tecnico_nombre`) para que el técnico no tenga que volver a ingresar su DNI cada vez que abre la central en su celular.
+        - **Protocolo Clínico de Alarma Recurrente & Vibración Háptica**:
+          - Bucle sonoro recurrente cada **6.5 segundos** mediante Web Audio API sintetizada mientras existan alertas en estado `pendiente`.
+          - Integración con **Vibration API** (`navigator.vibrate([300, 100, 300])`) para hacer vibrar físicamente el celular del técnico en el bolsillo.
+          - **Silenciamiento instantáneo**: En el instante en que el técnico pulsa *"🏃 Vamos en camino"*, la alarma sonora y la vibración se detienen en 0ms.
       - **Soporte Completo de Tema Claro / Oscuro**: Alto contraste en badges, tarjetas Kanban y barra segmentada móvil.
+    - **Hito 77: Inicialización Dinámica del Período en Planilla Mensual de Pacientes Simulados (`PlanillaTab.tsx`)**:
+      - Corregido el valor inicial de `mesSeleccionado` y `anioSeleccionado` que estaba fijado estáticamente en Septiembre (índice 8) desde la fase de pruebas iniciales.
+      - Implementado cálculo dinámico en tiempo real (`new Date().getMonth()` y `new Date().getFullYear()`) para que al abrir la pestaña se cargue siempre de manera automática el mes corriente (Octubre en este momento, y los meses subsiguientes en el futuro).
+      - Rango de fechas por defecto sincronizado con el primer y último día del mes en curso.
     - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

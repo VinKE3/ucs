@@ -55,14 +55,25 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = ({
   restriccionesList: restriccionesProp = [],
   onOpenKardex,
 }) => {
-  // Año y mes seleccionados (Por defecto Septiembre 2026 para la demostración de los 8 PS)
-  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(2026);
-  const [mesSeleccionado, setMesSeleccionado] = useState<number>(8); // 8 = Septiembre
+  // Año y mes seleccionados (inicializado dinámicamente con el mes y año en curso)
+  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(() => new Date().getFullYear());
+  const [mesSeleccionado, setMesSeleccionado] = useState<number>(() => new Date().getMonth());
 
   // Tipo de corte contable: Mes completo, 1ra Quincena, 2da Quincena o Personalizado
   const [corteTipo, setCorteTipo] = useState<'mes_completo' | 'quincena_1' | 'quincena_2' | 'personalizado'>('mes_completo');
-  const [fechaDesdeManual, setFechaDesdeManual] = useState<string>('2026-09-01');
-  const [fechaHastaManual, setFechaHastaManual] = useState<string>('2026-09-30');
+  const [fechaDesdeManual, setFechaDesdeManual] = useState<string>(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  });
+  const [fechaHastaManual, setFechaHastaManual] = useState<string>(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const ultimoDia = new Date(y, m + 1, 0).getDate();
+    return `${y}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+  });
 
   // Filtros reactivos
   const [busqueda, setBusqueda] = useState('');

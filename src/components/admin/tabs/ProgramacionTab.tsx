@@ -16,6 +16,7 @@ import { HubLogisticaSimulacion } from '@/components/admin/tabs/HubLogisticaSimu
 import { RadarLlegadaActores } from '@/components/admin/tabs/RadarLlegadaActores';
 import { analizarLogisticaIntraDia, isAmbienteVirtual, isSesionVirtual } from '@/lib/logisticaSimulacion';
 import { showToast, showAlert, showError } from '@/lib/alerts';
+import { exportarExcelProgramacionConGraficos } from '@/lib/excelProgramacionExporter';
 
 interface ProgramacionTabProps {
   sedesList: SedeAdminItem[];
@@ -295,6 +296,32 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       return () => clearTimeout(timer);
     }
   }, [esHoy, vistaModo, loading, scrollToHoraActual]);
+
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  // Exportar el cronograma del día a Microsoft Excel (.xlsx) con Dashboard y Gráficos
+  const handleExportarCronogramaExcel = async () => {
+    if (sesionesFiltradas.length === 0) {
+      showError('Sin datos', 'No hay sesiones programadas para exportar con los filtros seleccionados.');
+      return;
+    }
+
+    try {
+      setExportingExcel(true);
+      await exportarExcelProgramacionConGraficos({
+        sesiones: sesionesFiltradas,
+        ambientes,
+        sede: selectedSede,
+        fecha,
+      });
+      showToast('Cronograma Excel (.xlsx) generado con éxito', 'success');
+    } catch (err) {
+      console.error('Error al exportar cronograma Excel:', err);
+      showError('Error al exportar', 'Ocurrió un problema al generar el libro de Excel.');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   // Exportar el cronograma del día en formato CSV (Excel)
   const handleExportarCronogramaCSV = () => {
@@ -943,10 +970,11 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             )}
           </div>
 
-          {/* BOTÓN EXPORTAR CRONOGRAMA */}
+          {/* BOTÓN EXPORTAR CRONOGRAMA (.XLSX) */}
           <button
             type="button"
-            onClick={handleExportarCronogramaCSV}
+            onClick={handleExportarCronogramaExcel}
+            disabled={exportingExcel}
             className={styles.secondaryActionBtn}
             style={{
               padding: '0.45rem 0.85rem',
@@ -958,11 +986,33 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               alignItems: 'center',
               gap: '0.35rem',
               whiteSpace: 'nowrap',
+              fontWeight: 700,
+              cursor: exportingExcel ? 'not-allowed' : 'pointer',
+              opacity: exportingExcel ? 0.7 : 1,
             }}
-            title="Descargar cronograma completo en formato CSV para Microsoft Excel"
+            title="Descargar cronograma completo en formato profesional Microsoft Excel (.xlsx) con Dashboard y Gráficos"
+          >
+            <span>{exportingExcel ? '⏳' : '📊'}</span>
+            <span>{exportingExcel ? 'Generando Excel...' : `Exportar Excel (${sesionesFiltradas.length})`}</span>
+          </button>
+
+          {/* BOTÓN CSV SECUNDARIO */}
+          <button
+            type="button"
+            onClick={handleExportarCronogramaCSV}
+            className={styles.secondaryActionBtn}
+            style={{
+              padding: '0.45rem 0.65rem',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              whiteSpace: 'nowrap',
+            }}
+            title="Descargar versión ligera en archivo CSV"
           >
             <span>📥</span>
-            <span>Exportar ({sesionesFiltradas.length})</span>
+            <span>CSV</span>
           </button>
 
           {/* BOTÓN SINCRONIZAR SIMCLIC (DÍA) */}

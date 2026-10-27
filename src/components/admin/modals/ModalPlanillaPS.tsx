@@ -3,6 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, UsuarioItem, CursoAdminItem } from '@/types/admin';
+import { exportarExcelPlanillaConGraficos } from '@/lib/excelPlanillaExporter';
+import { showAlert, showError, showToast } from '@/lib/alerts';
 
 interface ModalPlanillaPSProps {
   isOpen: boolean;
@@ -348,68 +350,31 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
     year: 'numeric',
   });
 
-  // Exportación formal a Excel (CSV con membrete adaptado al corte)
-  const handleExportarExcelFinanzas = () => {
+  const [exportandoExcel, setExportandoExcel] = useState<boolean>(false);
+
+  // Exportación ejecutiva a Microsoft Excel (.xlsx con Dashboard y Gráficos)
+  const handleExportarExcelFinanzas = async () => {
     if (actoresPlanilla.length === 0) {
-      alert('No hay actores con horas para exportar en el período seleccionado.');
+      showAlert('Sin datos', 'No hay actores con horas para exportar en el período seleccionado.', 'info');
       return;
     }
 
-    const headers = [
-      'UNIVERSIDAD CIENTÍFICA DEL SUR - CLÍNICA DE SIMULACIÓN',
-      'PLANILLA CONSOLIDADA DE HONORARIOS DE PACIENTES SIMULADOS (ACTORES)',
-      `Período Contable: ${labelPeriodo}`,
-      `Fecha de Emisión: ${fechaHoy}`,
-      `Presupuesto Total a Pagar: S/. ${kpisPlanilla.totalMontoGral.toFixed(2)}`,
-      '',
-      'DNI',
-      'Apellidos',
-      'Nombres',
-      'Correo Electrónico',
-      'N° Sesiones',
-      'Horas Netas (Decimal)',
-      'Horas (Formato)',
-      'Tarifa Base (S/.)',
-      'Cursos y Estaciones Realizadas',
-      'TOTAL A PAGAR (S/.)',
-      'Estado Liquidación',
-    ];
-
-    const rows = actoresPlanilla.map((a) => {
-      const detalleCursos = Array.from(a.cursosMap.values())
-        .map((c) => `${c.cursoNombre} (${c.horas.toFixed(1)}h × S/.${c.tarifa.toFixed(2)} = S/.${c.subtotal.toFixed(2)})`)
-        .join(' | ');
-
-      return [
-        a.dni,
-        `"${a.apellidos}"`,
-        `"${a.nombres}"`,
-        `"${a.correo || ''}"`,
-        a.totalSesiones,
-        a.horasDecimal.toFixed(2),
-        `"${a.horasFormato}"`,
-        a.tarifaHoraBase ? a.tarifaHoraBase.toFixed(2) : 'Por curso',
-        `"${detalleCursos}"`,
-        a.totalAPagar.toFixed(2),
-        a.estadoPlanilla === 'listo' ? 'Listo para Pago' : 'Turno en Curso',
-      ].join(';');
-    });
-
-    const csvContent = '\uFEFF' + [
-      headers.join(';'),
-      ...rows,
-      '',
-      `"TOTAL GENERAL";"";"";"";${actoresPlanilla.reduce((acc, c) => acc + c.totalSesiones, 0)};${kpisPlanilla.totalHorasDecimal};"${kpisPlanilla.totalHorasFormato}";"";"";${kpisPlanilla.totalMontoGral.toFixed(2)};"Resumen Finanzas"`,
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Planilla_PS_${slugCorte}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      setExportandoExcel(true);
+      await exportarExcelPlanillaConGraficos({
+        actores: actoresPlanilla,
+        kpis: kpisPlanilla,
+        labelPeriodo,
+        slugCorte,
+        fechaEmision: fechaHoy,
+      });
+      showToast('Planilla Excel (.xlsx) generada con éxito', 'success');
+    } catch (err) {
+      console.error('Error al exportar planilla Excel:', err);
+      showError('Error al exportar', 'Ocurrió un problema al generar el libro de Excel.');
+    } finally {
+      setExportandoExcel(false);
+    }
   };
 
   const handleImprimir = () => {
@@ -506,6 +471,7 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
             <button
               type="button"
               onClick={handleExportarExcelFinanzas}
+              disabled={exportandoExcel}
               style={{
                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 color: '#ffffff',
@@ -514,15 +480,18 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                 borderRadius: '8px',
                 fontSize: '0.84rem',
                 fontWeight: 700,
-                cursor: 'pointer',
+                cursor: exportandoExcel ? 'not-allowed' : 'pointer',
+                opacity: exportandoExcel ? 0.7 : 1,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.45rem',
                 boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                transition: 'all 0.2s ease',
               }}
-              title={`Exportar planilla de ${labelCorteCorto}`}
+              title={`Exportar libro Excel (.xlsx) con Dashboard y Gráficos de ${labelCorteCorto}`}
             >
-              <span>📥</span> Exportar Excel ({labelCorteCorto})
+              <span>{exportandoExcel ? '⏳' : '📊'}</span>
+              {exportandoExcel ? 'Generando Excel...' : `Exportar Excel (.xlsx) (${labelCorteCorto})`}
             </button>
 
             <button

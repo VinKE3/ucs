@@ -1397,6 +1397,30 @@ src/
         - **Hoja 1 ("Dashboard Ejecutivo")**: Membrete oficial de la Universidad Científica del Sur (`#0d346c`), 4 tarjetas KPI formateadas (Total, Resueltas, Tiempo Promedio de Respuesta y Tasa de Resolución), tabla resumen de distribución por motivos, ranking de salas con mayor incidencia, y **ambos gráficos (Dona y Horas Punta) incrustados en alta resolución como imágenes PNG** generadas dinámicamente en Canvas.
         - **Hoja 2 ("Detalle Incidencias")**: Matriz de 16 columnas con formato condicional, cabecera azul institucional, estados en verde/naranja/rojo, semáforo SLA de atención y autofiltros automáticos de Excel en cada columna.
       - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+    - **Hito 80: Estandarización de Reportes Ejecutivos en Microsoft Excel (.xlsx) con Gráficos Incrustados en Planilla PS e Historial de Asistencias (`excelPlanillaExporter.ts`, `excelAsistenciasExporter.ts`, `PlanillaTab.tsx`, `ModalPlanillaPS.tsx`, `AsistenciasTab.tsx`)**:
+      - **📑 Planilla Mensual de Pacientes Simulados (`excelPlanillaExporter.ts`)**:
+        - **Hoja 1 ("Dashboard Ejecutivo")**: Membrete oficial de la UCS (`#0d346c`), 4 tarjetas KPI con paleta institucional (Presupuesto Total a Pagar en S/., Actores Convocados, Horas de Simulación y Asignaturas Cubiertas), tabla de distribución del gasto por curso/estación, tabla de top actores con mayor carga y honorarios, y **2 gráficos incrustados en alta resolución**:
+          - Gráfico 1: Dona de distribución presupuestal por curso (montos y porcentajes con total central en soles `S/.`).
+          - Gráfico 2: Barras horizontales del ranking de actores con mayor participación y honorarios acumulados.
+        - **Hoja 2 ("Planilla Consolidada")**: Matriz de 12 columnas para Finanzas/RRHH (DNI, Apellidos, Nombres, Correo, N° Sesiones, Horas Decimales, Horas Formato, Tarifa Base, Cursos Realizados, Total a Pagar en S/., Estado de Liquidación), formato de moneda peruana `S/. #,##0.00`, estilo de fila alternada y fila final de `TOTAL GENERAL` con sumas automáticas.
+        - **Hoja 3 ("Detalle de Sesiones")**: Trazabilidad completa de cada una de las sesiones individuales de simulación (Fecha, Actor, DNI, Sede, Sala, Curso, Horas, Tarifa aplicada, Subtotal y Observaciones de Auditoría).
+        - Integrado tanto en la pestaña principal ([`PlanillaTab.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/PlanillaTab.tsx)) como en el modal de cortes quincenales ([`ModalPlanillaPS.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/modals/ModalPlanillaPS.tsx)) con feedback reactivo de carga (`⏳ Generando Excel...`).
+      - **⏱️ Historial de Asistencias (`excelAsistenciasExporter.ts`)**:
+        - **Hoja 1 ("Dashboard Ejecutivo")**: Membrete UCS, 4 tarjetas KPI (Total Turnos, Horas Efectivas Totales, Colaboradores Activos, Duración Promedio por Turno), tabla de distribución por Rol de personal, tabla de volumen de horas por Campus/Sede, y **2 gráficos incrustados en alta resolución**:
+          - Gráfico 1: Dona de distribución de horas efectivas por Rol (Docentes, Técnicos, Actores, Administrativos).
+          - Gráfico 2: Barras de volumen de horas por Campus (Campus Villa, Campus Norte, Campus Ate).
+        - **Hoja 2 ("Resumen por Colaborador")**: Matriz de 16 columnas con DNI, Nombres, Rol, Turno Asignado, Días Asistidos, Total Turnos, Horas Netas, Tardanzas y Sobretiempos acumulados, Topes y Tarifas.
+        - **Hoja 3 ("Turnos Auditados")**: Sábana completa de turnos con diagnóstico SimClic (cobertura de bloques, desfases de ingreso, retiros anticipados, cambios de sala y justificaciones de auditoría) con formato condicional y autofiltros en todas las columnas.
+      - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+    - **Hito 81: Generador Ejecutivo de Microsoft Excel (.xlsx) con Gráficos para Programación y Logística SimClic (`excelProgramacionExporter.ts`, `ProgramacionTab.tsx`)**:
+      - **📅 Reporte Ejecutivo de Cronograma y Logística SimClic (`excelProgramacionExporter.ts`)**:
+        - **Hoja 1 ("Dashboard Ejecutivo")**: Membrete oficial de la UCS (`#0d346c`), 4 tarjetas KPI (Sesiones Programadas, Horas de Simulación del Día, Salas Utilizadas en Clínica y Docentes/Actores Convocados), tabla de distribución por Carrera Médica (Sesiones, Horas, % Carga, Prioridad), tabla de Top Aulas con Mayor Demanda y **2 gráficos embebidos en alta definición**:
+          - Gráfico 1: Dona de distribución académica de horas por Carrera Médica (Medicina Humana, Obstetricia, Estomatología, etc.) con total central de horas de simulación.
+          - Gráfico 2: Histograma de barras de volumen simultáneo por franja horaria clínica de 07:00 a 22:00 con detección y resalte de la hora pico.
+        - **Hoja 2 ("Cronograma Detallado")**: Matriz de 19 columnas (ID SimClic, Fecha, Hora Inicio/Fin, Duración, Sala Asignada, Código, Carrera, Curso, Escenario, Docente, Correo, Paciente Simulado, Estado Kiosco, Indicador de Reubicación y Sala Original SimClic) con estilos cebra, formato condicional y autofiltros en todas las columnas.
+        - **Hoja 3 ("Auditoría de Reubicaciones y Traslados")**: Padrón exclusivo de todas las sesiones trasladadas o cambiadas de ambiente vs su sala original de SimClic, indicando horario, docente, asignatura y diagnóstico logístico.
+        - Botonera dual en [`ProgramacionTab.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/ProgramacionTab.tsx) con botón principal `📊 Exportar Excel ({total})` con feedback reactivo de carga (`⏳ Generando Excel...`) y botón secundario `📥 CSV`.
+      - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---
 

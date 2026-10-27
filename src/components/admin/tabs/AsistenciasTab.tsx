@@ -4,8 +4,9 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
-import { showAlert } from '@/lib/alerts';
+import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAuditoriaProgramacion';
+import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
 
 import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion } from '@/lib/simclicAudit';
 export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion };
@@ -464,6 +465,39 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
     return resumenColaboradores.slice(inicioIndexResumen, finIndexResumen);
   }, [resumenColaboradores, inicioIndexResumen, finIndexResumen, itemsPorPaginaResumen]);
 
+  const [exportandoExcel, setExportandoExcel] = useState(false);
+
+  // Exportar a Microsoft Excel (.xlsx) con Dashboard Ejecutivo, Gráficos, Resumen y Auditoría SimClic
+  const handleExportarExcelCompleto = async () => {
+    if (asistenciasConFiltroSimclic.length === 0 && resumenColaboradores.length === 0) {
+      showAlert('Sin asistencias', 'No hay registros de asistencia con los filtros seleccionados para exportar.', 'info');
+      return;
+    }
+
+    try {
+      setExportandoExcel(true);
+      const sedeObj = sedesList.find((s) => String(s.id) === asistFiltroSede);
+      const sedeNombre = asistFiltroSede === 'todas' ? 'Todas las Sedes' : (sedeObj?.nombre || asistFiltroSede);
+      const rolNombre = asistFiltroTipo === 'todos' ? 'Todos los Roles' : asistFiltroTipo.toUpperCase();
+
+      await exportarExcelAsistenciasConGraficos({
+        asistencias: asistenciasConFiltroSimclic,
+        resumenColaboradores,
+        evaluarCumplimientoSimclic,
+        filtroFechaDesde: asistFiltroFechaDesde,
+        filtroFechaHasta: asistFiltroFechaHasta,
+        filtroSedeNombre: sedeNombre,
+        filtroRolNombre: rolNombre,
+      });
+      showToast('Libro Excel (.xlsx) generado con éxito', 'success');
+    } catch (err) {
+      console.error('Error al exportar asistencias a Excel:', err);
+      showError('Error al exportar', 'Ocurrió un problema al generar el libro de Excel.');
+    } finally {
+      setExportandoExcel(false);
+    }
+  };
+
   const handleExportResumenCsv = () => {
     if (resumenColaboradores.length === 0) {
       showAlert('Sin horas registradas', 'No hay colaboradores con horas registradas en el período actual.', 'info');
@@ -730,11 +764,47 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
             )}
 
             <button
-              onClick={modoVista === 'resumen' ? handleExportResumenCsv : handleExportDetalleAuditadoCsv}
+              type="button"
+              onClick={handleExportarExcelCompleto}
+              disabled={exportandoExcel}
               className={styles.exportBtn}
-              title="Descargar reporte completo en Excel (CSV UTF-8 con diagnóstico SimClic)"
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '0.5rem 1.05rem',
+                borderRadius: '8px',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: exportandoExcel ? 'not-allowed' : 'pointer',
+                opacity: exportandoExcel ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                transition: 'all 0.2s ease',
+              }}
+              title="Descargar libro Excel profesional (.xlsx) con Dashboard Ejecutivo, Gráficos, Resumen y Auditoría SimClic"
             >
-              <span>📥</span> {modoVista === 'resumen' ? 'Exportar Resumen (CSV)' : 'Descargar Excel (CSV)'}
+              <span>{exportandoExcel ? '⏳' : '📊'}</span>
+              {exportandoExcel ? 'Generando Excel...' : `Exportar Excel (.xlsx) (${asistenciasConFiltroSimclic.length})`}
+            </button>
+
+            <button
+              type="button"
+              onClick={modoVista === 'resumen' ? handleExportResumenCsv : handleExportDetalleAuditadoCsv}
+              className={styles.secondaryActionBtn}
+              style={{
+                padding: '0.48rem 0.75rem',
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                borderRadius: '8px',
+              }}
+              title="Descargar versión ligera en archivo CSV clásico"
+            >
+              <span>📥</span> CSV
             </button>
           </div>
         </div>

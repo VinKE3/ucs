@@ -12,6 +12,7 @@ import type {
 import type { SessionPayload } from '@/lib/auth';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalCronogramaTecnico } from '@/components/admin/modals/ModalCronogramaTecnico';
+import { exportarExcelCastingConGraficos } from '@/lib/excelCastingExporter';
 
 interface PersonalTabProps {
   usuariosList: UsuarioItem[];
@@ -272,6 +273,39 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
       .catch(() => {
         showError('Error al copiar', 'No se pudo copiar automáticamente al portapapeles.');
       });
+  };
+
+  const [exportandoCastingExcel, setExportandoCastingExcel] = useState(false);
+
+  // Exportar el Dossier de Casting / Convocatoria ECOE a Microsoft Excel (.xlsx) con Dashboard y Gráficos
+  const handleExportarConvocatoriaExcel = async () => {
+    if (actoresConvocatoria.length === 0) {
+      showAlert('Sin actores seleccionados', 'No hay pacientes simulados que cumplan los criterios seleccionados.', 'info');
+      return;
+    }
+
+    try {
+      setExportandoCastingExcel(true);
+      const rangoNombre = rangosList.find((r) => r.id === Number(filtroRangoEdadId))?.nombre || 'Todos los Rangos';
+      const espNombre = especialidadesList.find((e) => e.id === Number(filtroEspecialidadId))?.nombre || 'Todas las Especialidades';
+      const restExcluida = restriccionesList.find((r) => r.id === Number(filtroRestriccionExcluirId))?.nombre || 'Ninguna restricción excluida';
+
+      await exportarExcelCastingConGraficos({
+        actores: actoresConvocatoria,
+        rangosList,
+        especialidadesList,
+        restriccionesList,
+        filtroRangoNombre: rangoNombre,
+        filtroEspecialidadNombre: espNombre,
+        filtroRestriccionNombre: restExcluida,
+      });
+      showToast('Dossier de Convocatoria ECOE (.xlsx) generado con éxito', 'success');
+    } catch (err) {
+      console.error('Error al exportar convocatoria casting a Excel:', err);
+      showError('Error al exportar', 'Ocurrió un problema al generar el libro de Excel.');
+    } finally {
+      setExportandoCastingExcel(false);
+    }
   };
 
   const handleExportarConvocatoriaCSV = () => {
@@ -820,27 +854,53 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
 
               <button
                 type="button"
+                onClick={handleExportarConvocatoriaExcel}
+                disabled={actoresConvocatoria.length === 0 || exportandoCastingExcel}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  border: 'none',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  padding: '0.42rem 0.9rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: actoresConvocatoria.length === 0 || exportandoCastingExcel ? 'not-allowed' : 'pointer',
+                  opacity: actoresConvocatoria.length === 0 || exportandoCastingExcel ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                  transition: 'all 0.2s ease',
+                }}
+                title="Descargar Dossier Ejecutivo formal en Microsoft Excel (.xlsx) con Dashboard, Gráficos y Salvaguarda Médica"
+              >
+                <span>{exportandoCastingExcel ? '⏳' : '📊'}</span>
+                <span>{exportandoCastingExcel ? 'Generando Excel...' : `Exportar Dossier Excel (${actoresConvocatoria.length})`}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleExportarConvocatoriaCSV}
                 disabled={actoresConvocatoria.length === 0}
                 style={{
-                  background: 'rgba(34, 197, 94, 0.15)',
-                  border: '1px solid #22c55e',
-                  color: '#4ade80',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#cbd5e1',
                   borderRadius: '6px',
-                  padding: '0.4rem 0.8rem',
+                  padding: '0.42rem 0.65rem',
                   fontSize: '0.78rem',
                   fontWeight: 600,
                   cursor: actoresConvocatoria.length === 0 ? 'not-allowed' : 'pointer',
                   opacity: actoresConvocatoria.length === 0 ? 0.5 : 1,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.35rem',
+                  gap: '0.25rem',
                   transition: 'all 0.2s ease',
                 }}
-                title="Descargar archivo Excel / CSV con todos los detalles de los actores preseleccionados"
+                title="Descargar versión ligera en archivo CSV plano"
               >
                 <span>📥</span>
-                <span>Exportar Lista (CSV)</span>
+                <span>CSV</span>
               </button>
             </div>
           </div>

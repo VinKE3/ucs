@@ -1419,7 +1419,15 @@ src/
           - Gráfico 2: Histograma de barras de volumen simultáneo por franja horaria clínica de 07:00 a 22:00 con detección y resalte de la hora pico.
         - **Hoja 2 ("Cronograma Detallado")**: Matriz de 19 columnas (ID SimClic, Fecha, Hora Inicio/Fin, Duración, Sala Asignada, Código, Carrera, Curso, Escenario, Docente, Correo, Paciente Simulado, Estado Kiosco, Indicador de Reubicación y Sala Original SimClic) con estilos cebra, formato condicional y autofiltros en todas las columnas.
         - **Hoja 3 ("Auditoría de Reubicaciones y Traslados")**: Padrón exclusivo de todas las sesiones trasladadas o cambiadas de ambiente vs su sala original de SimClic, indicando horario, docente, asignatura y diagnóstico logístico.
-        - Botonera dual en [`ProgramacionTab.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/ProgramacionTab.tsx) con botón principal `📊 Exportar Excel ({total})` con feedback reactivo de carga (`⏳ Generando Excel...`) y botón secundario `📥 CSV`.
+      - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+    - **Hito 82: Dossier Ejecutivo de Casting ECOE en Microsoft Excel (.xlsx) con Gráficos y Salvaguarda Médica (`excelCastingExporter.ts`, `PersonalTab.tsx`)**:
+      - **🎭 Dossier de Convocatoria de Casting ECOE (`excelCastingExporter.ts`)**:
+        - **Hoja 1 ("Dashboard Convocatoria")**: Membrete oficial de la UCS (`#0d346c`), subtítulo con filtros activos de casting (Rango de Edad, Especialidad/Caso y Restricciones excluidas), 4 tarjetas KPI (Actores Convocados, Edad Promedio, Tarifa Base Promedio y Aptos sin Restricciones), tabla de Cobertura por Especialidad / Casos Clínicos, tabla de Rangos Etarios y **2 gráficos incrustados en alta definición**:
+          - Gráfico 1: Dona de cobertura de Especialidades Médicas (Pediatría, Cirugía, Urgencias, etc.) con total de habilidades clínicas cubiertas.
+          - Gráfico 2: Barras de distribución por Rango Etario y Biotipo con resalte del grupo más abundante.
+        - **Hoja 2 ("Padrón Convocados ECOE")**: Matriz de 16 columnas con DNI, Apellidos, Nombres, Celular, Correo, Edad Real, Rango Etario, Género, Biotipo, Tarifa/Hora (en `S/. #,##0.00`), Tope Semanal, Especialidades Dominadas, Restricciones Físicas (resaltadas en rojo suave), Disponibilidad y Contacto de Emergencia, con autofiltros en todas las columnas.
+        - **Hoja 3 ("Salvaguarda Médica ECOE")**: Matriz institucional de protección ética y física del paciente simulado requerida en auditorías ASPEFEM / SINEACE (detallando procedimientos y maniobras contraindicadas durante el examen clínico).
+        - Botonera dual en [`PersonalTab.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/PersonalTab.tsx) dentro del buscador de casting con botón principal `📊 Exportar Dossier Excel ({total})` con feedback reactivo (`⏳ Generando Excel...`) y botón secundario `📥 CSV`.
       - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
 ---

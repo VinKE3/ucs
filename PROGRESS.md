@@ -1430,6 +1430,22 @@ src/
         - Botonera dual en [`PersonalTab.tsx`](file:///c:/Users/kejem/OneDrive/Escritorio/ucs/src/components/admin/tabs/PersonalTab.tsx) dentro del buscador de casting con botón principal `📊 Exportar Dossier Excel ({total})` con feedback reactivo (`⏳ Generando Excel...`) y botón secundario `📥 CSV`.
       - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
 
+    - **Hito 83: Corrección de Contraste y Legibilidad en Modo Claro para el Hub Logístico y Gantt de Transiciones (`HubLogisticaSimulacion.tsx`)**:
+      - **Contexto**:
+        - En el modo claro del Hub Logístico (Gantt de Transiciones Intra-Día), el texto con la hora y duración de las transiciones (`19:00 (70m)`, `19:45 (0m)`) utilizaba color blanco `#ffffff` sobre fondos claros (amarillo/rojo pastel), resultando prácticamente invisible e ilegible. Asimismo, el nombre de los docentes dentro de los bloques de clase tenía `color: rgba(255, 255, 255, 0.65)`, perdiendo legibilidad contra los fondos de curso.
+      - **Implementación Técnica**:
+        - Integración de `useTheme` desde `ThemeProvider` en `HubLogisticaSimulacion.tsx` para detectar activamente el tema (`isLight`).
+        - **Marcadores de Transición (SWAP y RESET)**:
+          - Eliminado el color blanco `#ffffff` en tema claro.
+          - En `RESET` (amarillo): Título en `#b45309` (ámbar profundo) y hora en `#78350f` (ámbar oscuro/marrón) con fondo `#fef9c3` y borde `#d97706` (> 9:1 de ratio de contraste AAA).
+          - En `SWAP` (rojo): Título en `#dc2626` y hora en `#7f1d1d` (carmesí profundo) con fondo `#fee2e2` y borde `#dc2626` (> 8:1 de contraste).
+          - En transiciones concluidas (`esPasada`): Fondo `#f1f5f9` con borde discontinuo `#94a3b8` y texto en `#334155` y `#475569`, elevando la opacidad a 0.85 para máxima nitidez.
+        - **Nombres de Docente en Clases**: Sustituido el blanco translúcido por `color: isLight ? '#334155' : 'rgba(255, 255, 255, 0.75)'` con `fontWeight: isLight ? 600 : 500`.
+        - **Nombre de Escenario Clínico**: Acentuado a `#0284c7` en modo claro para destacar nítidamente sobre las tarjetas de clase.
+        - **Pills de Estado en Columna de Salas**: Adaptados con fondos y textos de alto contraste (`#fee2e2` / `#b91c1c` para reset activo y `#fef9c3` / `#b45309` para próximo).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

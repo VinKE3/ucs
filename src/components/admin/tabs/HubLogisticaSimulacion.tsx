@@ -26,6 +26,7 @@ import {
 
 import { showToast, showAlert, confirmModal } from '@/lib/alerts';
 import { ModalSelectorPermutaManual } from '@/components/admin/modals/ModalSelectorPermutaManual';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Paleta armónica de colores de bloques de curso para contraste visual en el Gantt
 const COURSE_PALETTE = [
@@ -71,6 +72,10 @@ export const HubLogisticaSimulacion: React.FC<HubLogisticaSimulacionProps> = ({
   onVerDetalleSesion,
   onIrAGantt,
 }) => {
+  // Detección de tema activo para garantizar contraste AAA en Modo Claro y Oscuro
+  const { resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === 'light';
+
   // Sub-pestañas del Hub (con persistencia en sessionStorage para no perder la vista seleccionada)
   const [subTab, setSubTabState] = useState<'transiciones' | 'continuidad'>(() => {
     if (typeof window !== 'undefined') {
@@ -1113,9 +1118,9 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                 onClick={() => setFiltroTipo('pendientes')}
                 className={`${styles.simclicPillBtn} ${filtroTipo === 'pendientes' ? styles.simclicPillBtnActive : ''}`}
                 style={{
-                  color: filtroTipo === 'pendientes' ? '#ffffff' : '#38bdf8',
-                  background: filtroTipo === 'pendientes' ? '#0284c7' : 'rgba(56, 189, 248, 0.1)',
-                  borderColor: 'rgba(56, 189, 248, 0.4)',
+                  color: filtroTipo === 'pendientes' ? '#ffffff' : isLight ? '#0284c7' : '#38bdf8',
+                  background: filtroTipo === 'pendientes' ? '#0284c7' : isLight ? 'rgba(2, 132, 199, 0.08)' : 'rgba(56, 189, 248, 0.1)',
+                  borderColor: isLight ? 'rgba(2, 132, 199, 0.35)' : 'rgba(56, 189, 248, 0.4)',
                   fontSize: '0.76rem',
                   fontWeight: 700,
                 }}
@@ -1134,7 +1139,7 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                 type="button"
                 onClick={() => setFiltroTipo('swap_mayor')}
                 className={`${styles.simclicPillBtn} ${filtroTipo === 'swap_mayor' ? styles.simclicPillBtnActive : ''}`}
-                style={{ color: '#ef4444', fontSize: '0.76rem' }}
+                style={{ color: isLight ? '#dc2626' : '#ef4444', fontSize: '0.76rem', fontWeight: isLight ? 700 : 600 }}
               >
                 🔴 Swaps ({resumenIntra.salasConSwapMayor})
               </button>
@@ -1142,7 +1147,7 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                 type="button"
                 onClick={() => setFiltroTipo('reset_caso')}
                 className={`${styles.simclicPillBtn} ${filtroTipo === 'reset_caso' ? styles.simclicPillBtnActive : ''}`}
-                style={{ color: '#eab308', fontSize: '0.76rem' }}
+                style={{ color: isLight ? '#b45309' : '#eab308', fontSize: '0.76rem', fontWeight: isLight ? 700 : 600 }}
               >
                 🟡 Resets ({resumenIntra.salasConResetCaso})
               </button>
@@ -1478,14 +1483,14 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                     gap: '0.3rem',
                                     fontSize: '0.68rem',
                                     fontWeight: 800,
-                                    background: 'rgba(239, 68, 68, 0.2)',
-                                    color: '#ef4444',
-                                    border: '1px solid #ef4444',
+                                    background: isLight ? '#fee2e2' : 'rgba(239, 68, 68, 0.2)',
+                                    color: isLight ? '#b91c1c' : '#ef4444',
+                                    border: `1px solid ${isLight ? '#dc2626' : '#ef4444'}`,
                                     padding: '0.15rem 0.45rem',
                                     borderRadius: '6px',
                                   }}
                                 >
-                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isLight ? '#dc2626' : '#ef4444', boxShadow: `0 0 6px ${isLight ? '#dc2626' : '#ef4444'}` }} />
                                   ⚡ EN RESET AHORA ({sala.proximaTransicion.ventanaMinutos}m)
                                 </span>
                               ) : (
@@ -1496,9 +1501,17 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                     gap: '0.3rem',
                                     fontSize: '0.68rem',
                                     fontWeight: 700,
-                                    background: sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                                    color: sala.proximaTransicion?.tipo === 'swap_curso' ? '#ef4444' : '#eab308',
-                                    border: `1px solid ${sala.proximaTransicion?.tipo === 'swap_curso' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
+                                    background: sala.proximaTransicion?.tipo === 'swap_curso'
+                                      ? (isLight ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)')
+                                      : (isLight ? '#fef9c3' : 'rgba(234, 179, 8, 0.15)'),
+                                    color: sala.proximaTransicion?.tipo === 'swap_curso'
+                                      ? (isLight ? '#b91c1c' : '#ef4444')
+                                      : (isLight ? '#b45309' : '#eab308'),
+                                    border: `1px solid ${
+                                      sala.proximaTransicion?.tipo === 'swap_curso'
+                                        ? (isLight ? '#dc2626' : 'rgba(239, 68, 68, 0.3)')
+                                        : (isLight ? '#d97706' : 'rgba(234, 179, 8, 0.3)')
+                                    }`,
                                     padding: '0.15rem 0.45rem',
                                     borderRadius: '6px',
                                   }}
@@ -1629,7 +1642,7 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                 >
                                   <span>{ses.horaInicio} - {ses.horaFin}</span>
                                   {ses.escenarioNombre && (
-                                    <span style={{ color: 'var(--ucs-blue-sky, #38bdf8)', fontWeight: 600 }}>
+                                    <span style={{ color: isLight ? '#0284c7' : 'var(--ucs-blue-sky, #38bdf8)', fontWeight: isLight ? 700 : 600 }}>
                                       • {ses.escenarioNombre}
                                     </span>
                                   )}
@@ -1639,7 +1652,8 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                   <div
                                     style={{
                                       fontSize: '0.64rem',
-                                      color: 'rgba(255, 255, 255, 0.65)',
+                                      color: isLight ? '#334155' : 'rgba(255, 255, 255, 0.75)',
+                                      fontWeight: isLight ? 600 : 500,
                                       whiteSpace: 'nowrap',
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',
@@ -1666,7 +1680,45 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
 
                               const esEnCursoAhora = trans.esEnCursoAhora;
                               const esPasada = trans.esPasada;
-                              const accentColor = isSwap ? '#ef4444' : '#eab308';
+
+                              // Paleta con alto contraste adaptada dinámicamente al tema (Claro / Oscuro)
+                              const accentColor = isLight
+                                ? isSwap ? '#dc2626' : '#b45309'
+                                : isSwap ? '#ef4444' : '#eab308';
+
+                              const markerTitleColor = esPasada
+                                ? isLight ? '#475569' : 'var(--text-muted)'
+                                : accentColor;
+
+                              const markerTimeColor = esPasada
+                                ? isLight ? '#334155' : 'var(--text-muted)'
+                                : isLight
+                                  ? isSwap ? '#7f1d1d' : '#78350f'
+                                  : '#ffffff';
+
+                              const markerBg = esPasada
+                                ? isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)'
+                                : isLight
+                                  ? isSwap
+                                    ? 'linear-gradient(135deg, rgba(254, 226, 226, 0.95), rgba(254, 202, 202, 0.85))'
+                                    : 'linear-gradient(135deg, rgba(254, 249, 195, 0.95), rgba(254, 240, 138, 0.85))'
+                                  : esEnCursoAhora
+                                    ? `linear-gradient(135deg, ${accentColor}44, ${accentColor}22)`
+                                    : `linear-gradient(135deg, ${accentColor}33, ${accentColor}18)`;
+
+                              const markerBorder = esPasada
+                                ? `2px dashed ${isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)'}`
+                                : `2px solid ${isLight ? (isSwap ? '#dc2626' : '#d97706') : accentColor}`;
+
+                              const markerShadow = isLight
+                                ? esEnCursoAhora
+                                  ? `0 0 14px ${isSwap ? 'rgba(220, 38, 38, 0.45)' : 'rgba(217, 119, 6, 0.45)'}`
+                                  : '0 2px 8px rgba(0, 0, 0, 0.08)'
+                                : esEnCursoAhora
+                                  ? `0 0 16px ${accentColor}99`
+                                  : esPasada
+                                    ? 'none'
+                                    : `0 2px 10px ${accentColor}44`;
 
                               return (
                                 <div
@@ -1677,12 +1729,8 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                     width: `${widthPercent}%`,
                                     top: '4px',
                                     bottom: '4px',
-                                    background: esPasada
-                                      ? 'rgba(255, 255, 255, 0.04)'
-                                      : esEnCursoAhora
-                                        ? `linear-gradient(135deg, ${accentColor}44, ${accentColor}22)`
-                                        : `linear-gradient(135deg, ${accentColor}33, ${accentColor}18)`,
-                                    border: `2px ${esPasada ? 'dashed rgba(255,255,255,0.2)' : 'solid'} ${esPasada ? 'rgba(255,255,255,0.3)' : accentColor}`,
+                                    background: markerBg,
+                                    border: markerBorder,
                                     borderRadius: '8px',
                                     padding: '0.2rem 0.4rem',
                                     display: 'flex',
@@ -1691,12 +1739,8 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                     alignItems: 'center',
                                     textAlign: 'center',
                                     zIndex: 15,
-                                    boxShadow: esEnCursoAhora
-                                      ? `0 0 16px ${accentColor}99`
-                                      : esPasada
-                                        ? 'none'
-                                        : `0 2px 10px ${accentColor}44`,
-                                    opacity: esPasada ? 0.6 : 1,
+                                    boxShadow: markerShadow,
+                                    opacity: esPasada ? (isLight ? 0.85 : 0.6) : 1,
                                     pointerEvents: 'auto',
                                     cursor: 'help',
                                   }}
@@ -1706,12 +1750,12 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                     style={{
                                       fontSize: '0.68rem',
                                       fontWeight: 900,
-                                      color: esPasada ? 'var(--text-muted)' : accentColor,
+                                      color: markerTitleColor,
                                       display: 'flex',
                                       alignItems: 'center',
                                       gap: '0.25rem',
                                       whiteSpace: 'nowrap',
-                                      textShadow: esEnCursoAhora ? `0 0 6px ${accentColor}` : 'none',
+                                      textShadow: !isLight && esEnCursoAhora ? `0 0 6px ${accentColor}` : 'none',
                                     }}
                                   >
                                     <span>{esPasada ? '✓' : isSwap ? '🔴' : '🟡'}</span>
@@ -1723,7 +1767,7 @@ _Generado desde el Hub Logístico de Simulación UCS._`;
                                       fontSize: '0.62rem',
                                       fontFamily: 'var(--font-mono)',
                                       fontWeight: 800,
-                                      color: esPasada ? 'var(--text-muted)' : '#ffffff',
+                                      color: markerTimeColor,
                                       whiteSpace: 'nowrap',
                                     }}
                                   >

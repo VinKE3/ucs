@@ -790,6 +790,82 @@
   color: #94a3b8;
 }
 
+/* Píldora de Tiempo Relativo (Cuenta regresiva / Estado dinámico) */
+.timeRelativeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.timeRelativeBadgeEnCurso {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1.5px solid #10b981;
+  color: #047857;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+:global([data-theme="dark"]) .timeRelativeBadgeEnCurso {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+  border-color: #10b981;
+}
+
+.timeRelativeBadgeProxima {
+  background: rgba(255, 90, 0, 0.12);
+  border: 1.5px solid rgba(255, 90, 0, 0.5);
+  color: #c2410c;
+}
+
+:global([data-theme="dark"]) .timeRelativeBadgeProxima {
+  background: rgba(255, 90, 0, 0.18);
+  color: #fb923c;
+  border-color: rgba(255, 90, 0, 0.5);
+}
+
+.timeRelativeBadgeFinalizada {
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #475569;
+}
+
+:global([data-theme="dark"]) .timeRelativeBadgeFinalizada {
+  color: #94a3b8;
+}
+
+/* Punto pulsante en vivo para estado activo */
+.pulseLiveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulseLiveDotAnim 1.8s infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@keyframes pulseLiveDotAnim {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
 .sedeBadge {
   background: var(--pill-bg);
   border: 1px solid var(--border-color);
@@ -869,48 +945,304 @@
   font-weight: 600;
 }
 
+/* Tags de estado del ambiente */
+.roomStatusTag {
+  display: flex;
+  align-items: center;
+}
+
+.roomTagLive {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #047857;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+:global([data-theme="dark"]) .roomTagLive {
+  color: #34d399;
+}
+
+.roomTagReady {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #0284c7;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+:global([data-theme="dark"]) .roomTagReady {
+  color: var(--ucs-blue-sky);
+}
+
+.roomTagClosed {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #64748b;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 /* Detalles del Curso y Escenario */
 .courseDetails {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.85rem;
 }
 
 .courseName {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 900;
   color: var(--text-primary);
+  line-height: 1.35;
 }
 
 :global([data-theme="light"]) .courseName {
   color: #06152d;
 }
 
-.scenarioRow {
+.scenarioCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.95rem;
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+}
+
+:global([data-theme="light"]) .scenarioCard {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+:global([data-theme="dark"]) .scenarioCard {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.scenarioIcon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.scenarioContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.scenarioLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #0284c7;
+}
+
+:global([data-theme="dark"]) .scenarioLabel {
+  color: var(--ucs-blue-sky);
+}
+
+.scenarioTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+:global([data-theme="light"]) .scenarioTitle {
+  color: #0c4a6e;
+}
+
+/* ==========================================================================
+   RADAR DE PAZ MENTAL: PACIENTE SIMULADO (ACTOR)
+   ========================================================================== */
+.psRadarCard {
+  border-radius: 12px;
+  padding: 0.95rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Caso 1: En Sede (Marcó en Kiosco / Clínica) */
+.psRadarEnSede {
+  background: #ecfdf5;
+  border: 1.5px solid #10b981;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12);
+}
+
+:global([data-theme="dark"]) .psRadarEnSede {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+/* Caso 2: Programado pero aún no marca ingreso */
+.psRadarPendiente {
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+}
+
+:global([data-theme="dark"]) .psRadarPendiente {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+/* Caso 3: Turno finalizado */
+.psRadarSalio {
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.psRadarHeader {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.actorTag {
-  display: inline-flex;
+.psRadarIndicator {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  background: #fdf4ff;
-  border: 1px solid #f0abfc;
-  color: #86198f;
-  padding: 0.35rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  gap: 0.45rem;
 }
 
-:global([data-theme="dark"]) .actorTag {
-  background: rgba(168, 85, 247, 0.15);
-  border-color: rgba(168, 85, 247, 0.35);
-  color: #c084fc;
+.psRadarDotLive {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulseLiveDotAnim 1.8s infinite;
+  flex-shrink: 0;
+}
+
+.psRadarDotPending {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.psRadarDotSalio {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.psRadarStatusText {
+  font-size: 0.73rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.psRadarEnSede .psRadarStatusText {
+  color: #047857;
+}
+
+:global([data-theme="dark"]) .psRadarEnSede .psRadarStatusText {
+  color: #34d399;
+}
+
+.psRadarPendiente .psRadarStatusText {
+  color: #b45309;
+}
+
+:global([data-theme="dark"]) .psRadarPendiente .psRadarStatusText {
+  color: #fbbf24;
+}
+
+.psRadarSalio .psRadarStatusText {
+  color: #64748b;
+}
+
+.psRadarCheckinBadge {
+  background: rgba(16, 185, 129, 0.18);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+:global([data-theme="dark"]) .psRadarCheckinBadge {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.25);
+}
+
+.psRadarPendingBadge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+:global([data-theme="dark"]) .psRadarPendingBadge {
+  color: #fbbf24;
+}
+
+.psRadarBody {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.psRadarIcon {
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.psRadarInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.psRadarRole {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.psRadarName {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+:global([data-theme="light"]) .psRadarEnSede .psRadarName {
+  color: #064e3b;
+}
+
+:global([data-theme="light"]) .psRadarPendiente .psRadarName {
+  color: #78350f;
 }
 
 /* ==========================================================================
@@ -920,7 +1252,7 @@
 .mirrorSection {
   background: #ecfdf5;
   border-top: 2px solid #a7f3d0;
-  padding: 1.25rem 1.5rem;
+  padding: 1.35rem 1.6rem;
 }
 
 :global([data-theme="dark"]) .mirrorSection {
@@ -930,13 +1262,19 @@
 
 .mirrorHeader {
   display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 1.1rem;
+}
+
+.mirrorHeaderLeft {
+  display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.95rem;
 }
 
 .mirrorIcon {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   color: #047857;
 }
 
@@ -945,15 +1283,27 @@
 }
 
 .mirrorTitle {
-  font-size: 0.88rem;
-  font-weight: 800;
+  font-size: 0.92rem;
+  font-weight: 900;
   color: #047857;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 :global([data-theme="dark"]) .mirrorTitle {
   color: #10b981;
+}
+
+.mirrorHeaderSubtitle {
+  font-size: 0.78rem;
+  color: #059669;
+  font-weight: 600;
+  padding-left: 1.9rem;
+}
+
+:global([data-theme="dark"]) .mirrorHeaderSubtitle {
+  color: #34d399;
+  opacity: 0.85;
 }
 
 .mirrorGrid {
@@ -987,17 +1337,35 @@
   transform: translateY(-1px);
 }
 
-.mirrorColleague {
+.mirrorMainInfo {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
   min-width: 0;
   flex: 1;
 }
 
+.mirrorTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mirrorDocenteHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mirrorAvatarMini {
+  font-size: 1.15rem;
+}
+
 .mirrorColleagueName {
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 900;
   color: var(--text-primary);
   line-height: 1.35;
   white-space: normal;
@@ -1007,59 +1375,164 @@
   color: #06152d;
 }
 
+.mirrorTimePill {
+  font-size: 0.73rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.mirrorTimePillEnCurso {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #047857;
+}
+
+:global([data-theme="dark"]) .mirrorTimePillEnCurso {
+  color: #34d399;
+}
+
 .mirrorCase {
   font-size: 0.85rem;
   color: var(--text-secondary);
   line-height: 1.35;
-  margin-top: 0.2rem;
+  margin-top: 0.1rem;
   display: flex;
   align-items: flex-start;
   gap: 0.35rem;
   font-weight: 600;
 }
 
-:global([data-theme="light"]) .mirrorCase {
-  color: #334155;
+.mirrorCaseIcon {
+  font-size: 0.95rem;
+  margin-top: 0.05rem;
+  flex-shrink: 0;
 }
 
-.mirrorCaseStrong {
-  color: #0284c7;
+.mirrorCaseText {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.mirrorCaseLabel {
+  font-size: 0.75rem;
   font-weight: 800;
+  color: #0284c7;
+  text-transform: uppercase;
 }
 
-:global([data-theme="dark"]) .mirrorCaseStrong {
+:global([data-theme="dark"]) .mirrorCaseLabel {
   color: var(--ucs-blue-sky);
 }
 
-.mirrorActor {
-  font-size: 0.81rem;
-  line-height: 1.35;
-  margin-top: 0.25rem;
+.mirrorCaseTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+:global([data-theme="light"]) .mirrorCaseTitle {
+  color: #0c4a6e;
+}
+
+/* RADAR PS DEL DOCENTE ESPEJO */
+.mirrorPsBadge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.mirrorPsBadgeEnSede {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1.5px solid #10b981;
+  color: #047857;
+}
+
+:global([data-theme="dark"]) .mirrorPsBadgeEnSede {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #34d399;
+}
+
+.mirrorPsBadgePendiente {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #b45309;
+}
+
+:global([data-theme="dark"]) .mirrorPsBadgePendiente {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.mirrorPsBadgeSalio {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #64748b;
+}
+
+.mirrorPsLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.mirrorPsIcon {
+  font-size: 0.95rem;
+}
+
+.mirrorPsName {
+  font-weight: 600;
+}
+
+.mirrorPsStatus {
+  display: flex;
+  align-items: center;
+}
+
+.mirrorPsEnSedeTag {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-weight: 600;
-  padding: 0.22rem 0.6rem;
-  border-radius: 7px;
-  background: #fdf4ff;
-  border: 1px solid #f0abfc;
-  color: #86198f;
-  width: fit-content;
-}
-
-:global([data-theme="dark"]) .mirrorActor {
-  background: rgba(168, 85, 247, 0.15);
-  border-color: rgba(168, 85, 247, 0.35);
-  color: #c084fc;
-}
-
-.mirrorActorStrong {
   font-weight: 800;
-  color: #7e22ce;
+  font-size: 0.74rem;
+  color: #047857;
 }
 
-:global([data-theme="dark"]) .mirrorActorStrong {
-  color: #d8b4fe;
+:global([data-theme="dark"]) .mirrorPsEnSedeTag {
+  color: #34d399;
+}
+
+.mirrorPsPendingTag {
+  font-weight: 800;
+  font-size: 0.74rem;
+  color: #b45309;
+}
+
+:global([data-theme="dark"]) .mirrorPsPendingTag {
+  color: #fbbf24;
+}
+
+.mirrorPsSalioTag {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .mirrorRoomBadgeWrapper {
@@ -1095,6 +1568,21 @@
   border-color: rgba(56, 189, 248, 0.4);
 }
 
+.mirrorRoomIcon {
+  font-size: 1.1rem;
+}
+
+.mirrorRoomNameText {
+  font-weight: 900;
+}
+
+.mirrorRoomCode {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
 .mirrorSedeBadge {
   font-size: 0.74rem;
   font-weight: 700;
@@ -1102,6 +1590,46 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* Mini tags para vistas de Curso y Ambiente */
+.simultaneousActorTag {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.simultaneousPsLive {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+:global([data-theme="dark"]) .simultaneousPsLive {
+  color: #34d399;
+}
+
+.simultaneousPsPending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+:global([data-theme="dark"]) .simultaneousPsPending {
+  color: #fbbf24;
 }
 
 @media (max-width: 640px) {

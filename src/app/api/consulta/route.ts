@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { sesionesProgramadas, usuarios, sedes, ambientes, cursos } from '@/db/schema';
+import { sesionesProgramadas, usuarios, sedes, ambientes, cursos, asistencias } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -11,16 +11,45 @@ function getTodayPeru(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// Determinar estado de la sesión según la hora actual en Lima, Perú
-function calcularEstadoHorario(horaInicio: string, horaFin: string, fechaStr: string): 'finalizada' | 'en_curso' | 'proxima' {
+function formatHoraPeru(d: Date | string | null | undefined): string | null {
+  if (!d) return null;
+  try {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    return date.toLocaleTimeString('es-PE', {
+      timeZone: 'America/Lima',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
+// Determinar estado de la sesión y texto relativo de tiempo según la hora actual en Lima, Perú
+function calcularDetalleTiempo(horaInicio: string, horaFin: string, fechaStr: string) {
   try {
     const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
     const hoyStr = getTodayPeru();
 
     // Si la fecha es pasada
-    if (fechaStr < hoyStr) return 'finalizada';
+    if (fechaStr < hoyStr) {
+      return {
+        estadoTiempo: 'finalizada' as const,
+        tiempoRelativo: `Concluida (${horaFin})`,
+        minutosParaInicio: -9999,
+        minutosParaFin: -9999,
+      };
+    }
     // Si la fecha es futura
-    if (fechaStr > hoyStr) return 'proxima';
+    if (fechaStr > hoyStr) {
+      return {
+        estadoTiempo: 'proxima' as const,
+        tiempoRelativo: `Programada (${fechaStr})`,
+        minutosParaInicio: 9999,
+        minutosParaFin: 9999,
+      };
+    }
 
     const [hIniH, hIniM] = (horaInicio || '00:00').split(':').map(Number);
     const [hFinH, hFinM] = (horaFin || '00:00').split(':').map(Number);
@@ -29,12 +58,144 @@ function calcularEstadoHorario(horaInicio: string, horaFin: string, fechaStr: st
     const iniMinutes = (hIniH || 0) * 60 + (hIniM || 0);
     const finMinutes = (hFinH || 0) * 60 + (hFinM || 0);
 
-    if (nowMinutes >= finMinutes) return 'finalizada';
-    if (nowMinutes >= iniMinutes && nowMinutes < finMinutes) return 'en_curso';
-    return 'proxima';
+    if (nowMinutes >= finMinutes) {
+      return {
+        estadoTiempo: 'finalizada' as const,
+        tiempoRelativo: `Concluida a las ${horaFin}`,
+        minutosParaInicio: iniMinutes - nowMinutes,
+        minutosParaFin: finMinutes - nowMinutes,
+      };
+    }
+
+    if (nowMinutes >= iniMinutes && nowMinutes < finMinutes) {
+      const restantes = finMinutes - nowMinutes;
+      const str = restantes >= 60
+        ? `Quedan ${Math.floor(restantes / 60)}h ${restantes % 60}m`
+        : `Quedan ${restantes} min`;
+      return {
+        estadoTiempo: 'en_curso' as const,
+        tiempoRelativo: str,
+        minutosParaInicio: 0,
+        minutosParaFin: restantes,
+      };
+    }
+
+    const faltantes = iniMinutes - nowMinutes;
+    let str = '';
+    if (faltantes <= 1) {
+      str = 'Inicia en breve';
+    } else if (faltantes < 60) {
+      str = `Inicia en ${faltantes} min`;
+    } else {
+      const h = Math.floor(faltantes / 60);
+      const m = faltantes % 60;
+      str = m > 0 ? `Inicia en ${h}h ${m}m` : `Inicia en ${h}h`;
+    }
+
+    return {
+      estadoTiempo: 'proxima' as const,
+      tiempoRelativo: str,
+      minutosParaInicio: faltantes,
+      minutosParaFin: finMinutes - nowMinutes,
+    };
   } catch {
-    return 'proxima';
+    return {
+      estadoTiempo: 'proxima' as const,
+      tiempoRelativo: 'Programada',
+      minutosParaInicio: 0,
+      minutosParaFin: 0,
+    };
   }
+}
+
+// Resolver estado de Paciente Simulado y match en vivo con asistencias
+function resolverPacienteSimulado(
+  psNombre: string | null | undefined,
+  psJson: any,
+  asistenciasDia: Array<{
+    id: number;
+    usuarioId: number;
+    nombres: string;
+    apellidos: string;
+    dni: string | null;
+    tipoPersonal: string;
+    ambienteId: number | null;
+    ambienteNombre: string | null;
+    horaIngreso: Date | string;
+    horaSalida: Date | string | null;
+    estado: string;
+  }>
+) {
+  const lista: Array<{ id?: number; nombre: string }> = [];
+  if (Array.isArray(psJson) && psJson.length > 0) {
+    for (const p of psJson) {
+      if (p.nombre && typeof p.nombre === 'string') lista.push({ id: p.id, nombre: p.nombre.trim() });
+    }
+  } else if (psNombre && typeof psNombre === 'string' && psNombre.trim()) {
+    const parts = psNombre.split(/[,;/]/).map((s) => s.trim()).filter(Boolean);
+    for (const p of parts) {
+      lista.push({ nombre: p });
+    }
+  }
+
+  if (lista.length === 0) {
+    return {
+      psTiene: false,
+      psNombre: null,
+      psEstado: 'sin_asignar' as const,
+      psPresente: false,
+      psHoraIngreso: null,
+      psAmbiente: null,
+    };
+  }
+
+  const psNombresStr = lista.map((l) => l.nombre).join(', ');
+
+  const matched = lista.map((item) => {
+    const asist = asistenciasDia.find((a) => {
+      if (a.tipoPersonal !== 'paciente_simulado') return false;
+      if (item.id && a.usuarioId === item.id) return true;
+      if (item.nombre) {
+        const nomSim = item.nombre.toLowerCase().trim();
+        const nomUser = `${a.nombres || ''} ${a.apellidos || ''}`.toLowerCase().trim();
+        if (nomSim.includes(nomUser) || nomUser.includes(nomSim)) return true;
+        const matchA = a.apellidos && nomSim.includes(a.apellidos.toLowerCase().trim());
+        const matchN = a.nombres && nomSim.includes(a.nombres.toLowerCase().trim());
+        return Boolean(matchA && matchN);
+      }
+      return false;
+    });
+
+    return {
+      nombre: item.nombre,
+      presente: Boolean(asist),
+      horaIngreso: asist ? formatHoraPeru(asist.horaIngreso) : null,
+      horaSalida: asist?.horaSalida ? formatHoraPeru(asist.horaSalida) : null,
+      ambienteNombre: asist?.ambienteNombre || null,
+      activoEnSede: Boolean(asist && !asist.horaSalida),
+    };
+  });
+
+  const algunActivo = matched.find((m) => m.activoEnSede);
+  const algunPresente = matched.find((m) => m.presente);
+
+  let psEstado: 'en_sede' | 'salio' | 'pendiente' = 'pendiente';
+  if (algunActivo) {
+    psEstado = 'en_sede';
+  } else if (algunPresente) {
+    psEstado = 'salio';
+  }
+
+  const primaryMatch = algunActivo || algunPresente;
+
+  return {
+    psTiene: true,
+    psNombre: psNombresStr,
+    psEstado,
+    psPresente: Boolean(algunPresente),
+    psHoraIngreso: primaryMatch?.horaIngreso || null,
+    psAmbiente: primaryMatch?.ambienteNombre || null,
+  };
 }
 
 export async function GET(request: Request) {
@@ -117,29 +278,52 @@ export async function GET(request: Request) {
       docenteMapById.set(d.id, d);
     }
 
-    // 3. Enriquecer sesiones con estado dinámico y datos de usuario
+    // 2.5. Obtener asistencias del día (Kiosco) para cotejo de Pacientes Simulados en tiempo real
+    const asistenciasDia = await db
+      .select({
+        id: asistencias.id,
+        usuarioId: asistencias.usuarioId,
+        nombres: usuarios.nombres,
+        apellidos: usuarios.apellidos,
+        dni: usuarios.dni,
+        tipoPersonal: usuarios.tipoPersonal,
+        ambienteId: asistencias.ambienteId,
+        ambienteNombre: ambientes.nombre,
+        horaIngreso: asistencias.horaIngreso,
+        horaSalida: asistencias.horaSalida,
+        estado: asistencias.estado,
+      })
+      .from(asistencias)
+      .innerJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+      .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+      .where(and(eq(asistencias.fecha, fecha), sql`${asistencias.estado} != 'anulado'`));
+
+    // 3. Enriquecer sesiones con estado dinámico, tiempos relativos y presencia de Paciente Simulado
     const enrichedSessions = rawSessions.map((s) => {
       let docenteInfo = s.docenteId ? docenteMapById.get(s.docenteId) : null;
       if (!docenteInfo && s.docenteCorreo) {
         docenteInfo = docenteMapByEmail.get(s.docenteCorreo.toLowerCase().trim()) || null;
       }
 
-      const estadoTiempo = calcularEstadoHorario(s.horaInicio, s.horaFin, s.fecha);
-
-      // Resolver nombre del Paciente Simulado (PS)
-      const psNombre = s.pacienteSimuladoNombre || (
-        Array.isArray(s.pacientesSimuladosJson) && s.pacientesSimuladosJson.length > 0
-          ? s.pacientesSimuladosJson.map((p: any) => p.nombre).filter(Boolean).join(', ')
-          : null
-      );
+      const detalleTiempo = calcularDetalleTiempo(s.horaInicio, s.horaFin, s.fecha);
+      const detallePs = resolverPacienteSimulado(s.pacienteSimuladoNombre, s.pacientesSimuladosJson, asistenciasDia);
 
       return {
         ...s,
-        pacienteSimuladoNombre: psNombre,
+        pacienteSimuladoNombre: detallePs.psNombre || s.pacienteSimuladoNombre,
         docenteDni: docenteInfo?.dni || null,
         docenteTelefono: docenteInfo?.telefono || null,
         docenteNombreCompleto: docenteInfo ? `${docenteInfo.nombres} ${docenteInfo.apellidos}` : s.docenteNombre,
-        estadoTiempo, // 'en_curso' | 'proxima' | 'finalizada'
+        estadoTiempo: detalleTiempo.estadoTiempo, // 'en_curso' | 'proxima' | 'finalizada'
+        tiempoRelativo: detalleTiempo.tiempoRelativo,
+        minutosParaInicio: detalleTiempo.minutosParaInicio,
+        minutosParaFin: detalleTiempo.minutosParaFin,
+        psTiene: detallePs.psTiene,
+        psNombre: detallePs.psNombre,
+        psEstado: detallePs.psEstado,
+        psPresente: detallePs.psPresente,
+        psHoraIngreso: detallePs.psHoraIngreso,
+        psAmbiente: detallePs.psAmbiente,
       };
     });
 
@@ -193,6 +377,15 @@ export async function GET(request: Request) {
           horaFin: espejo.horaFin,
           escenarioNombre: espejo.escenarioNombre || espejo.titulo || null,
           pacienteSimuladoNombre: espejo.pacienteSimuladoNombre || null,
+          // Datos enriquecidos para la tarjeta del docente espejo
+          tiempoRelativo: espejo.tiempoRelativo,
+          estadoTiempo: espejo.estadoTiempo,
+          psTiene: espejo.psTiene,
+          psNombre: espejo.psNombre,
+          psEstado: espejo.psEstado,
+          psPresente: espejo.psPresente,
+          psHoraIngreso: espejo.psHoraIngreso,
+          psAmbiente: espejo.psAmbiente,
         }));
 
       return {

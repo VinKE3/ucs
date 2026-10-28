@@ -16,6 +16,14 @@ interface EspejoDocente {
   horaFin: string;
   escenarioNombre: string | null;
   pacienteSimuladoNombre?: string | null;
+  tiempoRelativo?: string | null;
+  estadoTiempo?: 'en_curso' | 'proxima' | 'finalizada';
+  psTiene?: boolean;
+  psNombre?: string | null;
+  psEstado?: 'en_sede' | 'salio' | 'pendiente' | 'sin_asignar';
+  psPresente?: boolean;
+  psHoraIngreso?: string | null;
+  psAmbiente?: string | null;
 }
 
 interface SesionConsulta {
@@ -39,6 +47,15 @@ interface SesionConsulta {
   docenteDni: string | null;
   docenteTelefono: string | null;
   estadoTiempo: 'en_curso' | 'proxima' | 'finalizada';
+  tiempoRelativo?: string | null;
+  minutosParaInicio?: number | null;
+  minutosParaFin?: number | null;
+  psTiene?: boolean;
+  psNombre?: string | null;
+  psEstado?: 'en_sede' | 'salio' | 'pendiente' | 'sin_asignar';
+  psPresente?: boolean;
+  psHoraIngreso?: string | null;
+  psAmbiente?: string | null;
   espejos: EspejoDocente[];
 }
 
@@ -834,19 +851,41 @@ export default function ConsultaPublicaPage() {
                             }`}
                           >
                             <div className={styles.sessionMain}>
-                              {/* Cabecera de Horario y Estado */}
+                              {/* 1. Cabecera de Horario y Tiempo Relativo */}
                               <div className={styles.sessionHeader}>
                                 <div className={styles.timeBadgeGroup}>
                                   <span className={styles.timeBadge}>
                                     🕒 {sesion.horaInicio} - {sesion.horaFin}
                                   </span>
+
+                                  {/* PÍLDORA DINÁMICA DE TIEMPO RELATIVO */}
+                                  {sesion.tiempoRelativo && (
+                                    <span
+                                      className={`${styles.timeRelativeBadge} ${
+                                        sesion.estadoTiempo === 'en_curso'
+                                          ? styles.timeRelativeBadgeEnCurso
+                                          : sesion.estadoTiempo === 'proxima'
+                                          ? styles.timeRelativeBadgeProxima
+                                          : styles.timeRelativeBadgeFinalizada
+                                      }`}
+                                    >
+                                      {sesion.estadoTiempo === 'en_curso' && (
+                                        <span className={styles.pulseLiveDot} />
+                                      )}
+                                      {sesion.estadoTiempo === 'proxima' && <span>⏳ </span>}
+                                      {sesion.estadoTiempo === 'finalizada' && <span>🏁 </span>}
+                                      <span>{sesion.tiempoRelativo}</span>
+                                    </span>
+                                  )}
+
                                   {esTarget && (
                                     <span className={styles.targetSessionBadge}>
                                       {sesion.estadoTiempo === 'en_curso'
                                         ? '🔴 EN CURSO AHORA'
-                                        : '⚡ CLASE MÁS CERCANA'}
+                                        : '⚡ PRÓXIMA A DICTAR'}
                                     </span>
                                   )}
+
                                   <span
                                     className={`${styles.statusPill} ${
                                       sesion.estadoTiempo === 'en_curso'
@@ -857,126 +896,265 @@ export default function ConsultaPublicaPage() {
                                     }`}
                                   >
                                     {sesion.estadoTiempo === 'en_curso'
-                                      ? '● En Curso Ahora'
+                                      ? '● En Curso'
                                       : sesion.estadoTiempo === 'proxima'
-                                      ? '⏳ Próxima'
+                                      ? 'Programada'
                                       : '✓ Concluida'}
                                   </span>
                                 </div>
+
                                 {sesion.sedeNombre && (
                                   <span className={styles.sedeBadge}>📍 {sesion.sedeNombre}</span>
                                 )}
                               </div>
 
-                            {/* DESTACADO DE SALA / AMBIENTE (Respuesta inmediata a "¿Dónde me toca?") */}
-                            <div className={styles.roomHighlight}>
-                              <div className={styles.roomInfo}>
-                                <span className={styles.roomIcon}>🚪</span>
-                                <div className={styles.roomText}>
-                                  <span className={styles.roomLabel}>Ambiente Asignado:</span>
-                                  <span className={styles.roomName}>
-                                    {sesion.ambienteNombre || 'Ambiente por confirmar'}
-                                  </span>
-                                  {sesion.ambienteCodigo && (
-                                    <span className={styles.roomCode}>
-                                      Pabellón / Código: {sesion.ambienteCodigo}
+                              {/* 2. DESTACADO DE SALA / AMBIENTE (Respuesta inmediata a "¿Dónde me toca?") */}
+                              <div className={styles.roomHighlight}>
+                                <div className={styles.roomInfo}>
+                                  <span className={styles.roomIcon}>🚪</span>
+                                  <div className={styles.roomText}>
+                                    <span className={styles.roomLabel}>Ambiente Asignado:</span>
+                                    <span className={styles.roomName}>
+                                      {sesion.ambienteNombre || 'Ambiente por confirmar'}
+                                    </span>
+                                    {sesion.ambienteCodigo && (
+                                      <span className={styles.roomCode}>
+                                        Pabellón / Código: {sesion.ambienteCodigo}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className={styles.roomStatusTag}>
+                                  {sesion.estadoTiempo === 'en_curso' ? (
+                                    <span className={styles.roomTagLive}>
+                                      <span className={styles.pulseLiveDot} /> Clase en desarrollo
+                                    </span>
+                                  ) : sesion.estadoTiempo === 'proxima' ? (
+                                    <span className={styles.roomTagReady}>
+                                      ✓ Listo para ingreso
+                                    </span>
+                                  ) : (
+                                    <span className={styles.roomTagClosed}>
+                                      Turno concluido
                                     </span>
                                   )}
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Datos del Curso y Escenario */}
-                            <div className={styles.courseDetails}>
-                              <h3 className={styles.courseName}>
-                                📚 {sesion.cursoNombre || sesion.titulo}
-                              </h3>
-                              {sesion.escenarioNombre && (
-                                <div className={styles.scenarioRow}>
-                                  <span>🩺</span>
-                                  <span>
-                                    <strong>Escenario:</strong> {sesion.escenarioNombre}
-                                  </span>
-                                </div>
-                              )}
-                              {sesion.pacienteSimuladoNombre && (
-                                <div className={styles.scenarioRow}>
-                                  <span className={styles.actorTag}>
-                                    🎭 <strong>Actor / Paciente Simulado:</strong> {sesion.pacienteSimuladoNombre}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                              {/* 3. Datos del Curso y Escenario */}
+                              <div className={styles.courseDetails}>
+                                <h3 className={styles.courseName}>
+                                  📚 {sesion.cursoNombre || sesion.titulo}
+                                </h3>
 
-                          {/* REQUERIMIENTO CLAVE: DOCENTES ESPEJO / COMPAÑEROS EN PARALELO */}
-                          {(() => {
-                            const espejosVisibles = (sesion.espejos || []).filter(
-                              (esp) => selectedSede === 'todas' || !esp.sedeNombre || esp.sedeNombre.toLowerCase() === selectedSede.toLowerCase()
-                            );
-                            if (espejosVisibles.length === 0) return null;
+                                {sesion.escenarioNombre && (
+                                  <div className={styles.scenarioCard}>
+                                    <span className={styles.scenarioIcon}>🩺</span>
+                                    <div className={styles.scenarioContent}>
+                                      <span className={styles.scenarioLabel}>Escenario Clínico / Caso:</span>
+                                      <span className={styles.scenarioTitle}>{sesion.escenarioNombre}</span>
+                                    </div>
+                                  </div>
+                                )}
 
-                            return (
-                              <div className={styles.mirrorSection}>
-                                <div className={styles.mirrorHeader}>
-                                  <span className={styles.mirrorIcon}>🤝</span>
-                                  <span className={styles.mirrorTitle}>
-                                    {espejosVisibles.length}{' '}
-                                    {espejosVisibles.length === 1 ? 'Docente Espejo' : 'Docentes Espejo'}{' '}
-                                    en paralelo (Mismo curso y horario):
-                                  </span>
-                                </div>
-
-                                <div className={styles.mirrorGrid}>
-                                  {espejosVisibles.map((esp) => {
-                                    const nombreMostrado = esp.docenteNombre && esp.docenteNombre !== 'Sin Docente'
-                                      ? esp.docenteNombre
-                                      : (esp.docenteCorreo ? esp.docenteCorreo.split('@')[0] : 'Docente Espejo');
-
-                                    return (
-                                      <div key={esp.id} className={styles.mirrorCard}>
-                                        <div className={styles.mirrorColleague}>
-                                          <span className={styles.mirrorColleagueName}>
-                                            {nombreMostrado}
-                                          </span>
-                                          {esp.escenarioNombre && (
-                                            <div className={styles.mirrorCase}>
-                                              <span>🩺</span>
-                                              <span>
-                                                <strong className={styles.mirrorCaseStrong}>Caso:</strong> {esp.escenarioNombre}
-                                              </span>
-                                            </div>
-                                          )}
-                                          {esp.pacienteSimuladoNombre && (
-                                            <div className={styles.mirrorActor}>
-                                              <span>🎭</span>
-                                              <span>
-                                                <strong className={styles.mirrorActorStrong}>PS:</strong> {esp.pacienteSimuladoNombre}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        <div className={styles.mirrorRoomBadgeWrapper}>
-                                          <div className={styles.mirrorRoomBadge} title={esp.ambienteNombre}>
-                                            🚪 {esp.ambienteNombre}
-                                          </div>
-                                          {esp.sedeNombre && (
-                                            <span className={styles.mirrorSedeBadge}>
-                                              📍 {esp.sedeNombre}
+                                {/* 4. RADAR DE PAZ MENTAL: PACIENTE SIMULADO (ACTOR) */}
+                                {(sesion.psTiene || sesion.pacienteSimuladoNombre) && (
+                                  <div
+                                    className={`${styles.psRadarCard} ${
+                                      sesion.psEstado === 'en_sede'
+                                        ? styles.psRadarEnSede
+                                        : sesion.psEstado === 'salio'
+                                        ? styles.psRadarSalio
+                                        : styles.psRadarPendiente
+                                    }`}
+                                  >
+                                    <div className={styles.psRadarHeader}>
+                                      <div className={styles.psRadarIndicator}>
+                                        {sesion.psEstado === 'en_sede' ? (
+                                          <>
+                                            <span className={styles.psRadarDotLive} />
+                                            <span className={styles.psRadarStatusText}>
+                                              ACTOR EN SEDE (LISTO PARA EL CASO)
                                             </span>
-                                          )}
-                                        </div>
+                                          </>
+                                        ) : sesion.psEstado === 'salio' ? (
+                                          <>
+                                            <span className={styles.psRadarDotSalio} />
+                                            <span className={styles.psRadarStatusText}>
+                                              TURNO FINALIZADO (SALIDA REGISTRADA)
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span className={styles.psRadarDotPending} />
+                                            <span className={styles.psRadarStatusText}>
+                                              ACTOR PROGRAMADO (PENDIENTE INGRESO)
+                                            </span>
+                                          </>
+                                        )}
                                       </div>
-                                    );
-                                  })}
-                                </div>
+
+                                      {sesion.psHoraIngreso ? (
+                                        <span className={styles.psRadarCheckinBadge}>
+                                          🟢 Marcó {sesion.psHoraIngreso} {sesion.psAmbiente ? `(${sesion.psAmbiente})` : ''}
+                                        </span>
+                                      ) : (
+                                        <span className={styles.psRadarPendingBadge}>
+                                          ⏳ Aún no marca en Kiosco
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className={styles.psRadarBody}>
+                                      <span className={styles.psRadarIcon}>🎭</span>
+                                      <div className={styles.psRadarInfo}>
+                                        <span className={styles.psRadarRole}>Paciente Simulado:</span>
+                                        <span className={styles.psRadarName}>
+                                          {sesion.psNombre || sesion.pacienteSimuladoNombre}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            );
-                          })()}
-                        </div>
-                      );
-                    })}
+                            </div>
+
+                            {/* REQUERIMIENTO CLAVE: DOCENTES ESPEJO / COMPAÑEROS EN PARALELO */}
+                            {(() => {
+                              const espejosVisibles = (sesion.espejos || []).filter(
+                                (esp) => selectedSede === 'todas' || !esp.sedeNombre || esp.sedeNombre.toLowerCase() === selectedSede.toLowerCase()
+                              );
+                              if (espejosVisibles.length === 0) return null;
+
+                              return (
+                                <div className={styles.mirrorSection}>
+                                  <div className={styles.mirrorHeader}>
+                                    <div className={styles.mirrorHeaderLeft}>
+                                      <span className={styles.mirrorIcon}>🤝</span>
+                                      <span className={styles.mirrorTitle}>
+                                        {espejosVisibles.length}{' '}
+                                        {espejosVisibles.length === 1 ? 'Docente Espejo' : 'Docentes Espejo'}{' '}
+                                        en paralelo (Mismo curso y horario):
+                                      </span>
+                                    </div>
+                                    <span className={styles.mirrorHeaderSubtitle}>
+                                      Coordinación y estado de actores en salas simultáneas
+                                    </span>
+                                  </div>
+
+                                  <div className={styles.mirrorGrid}>
+                                    {espejosVisibles.map((esp) => {
+                                      const nombreMostrado = esp.docenteNombre && esp.docenteNombre !== 'Sin Docente'
+                                        ? esp.docenteNombre
+                                        : (esp.docenteCorreo ? esp.docenteCorreo.split('@')[0] : 'Docente Espejo');
+
+                                      return (
+                                        <div key={esp.id} className={styles.mirrorCard}>
+                                          <div className={styles.mirrorMainInfo}>
+                                            <div className={styles.mirrorTopRow}>
+                                              <div className={styles.mirrorDocenteHeader}>
+                                                <span className={styles.mirrorAvatarMini}>👨‍🏫</span>
+                                                <span className={styles.mirrorColleagueName}>
+                                                  {nombreMostrado}
+                                                </span>
+                                              </div>
+
+                                              {/* Píldora de tiempo relativo del docente espejo */}
+                                              {esp.tiempoRelativo && (
+                                                <span
+                                                  className={`${styles.mirrorTimePill} ${
+                                                    esp.estadoTiempo === 'en_curso'
+                                                      ? styles.mirrorTimePillEnCurso
+                                                      : esp.estadoTiempo === 'proxima'
+                                                      ? styles.mirrorTimePillProxima
+                                                      : styles.mirrorTimePillFinalizada
+                                                  }`}
+                                                >
+                                                  {esp.estadoTiempo === 'en_curso' && (
+                                                    <span className={styles.pulseLiveDot} />
+                                                  )}
+                                                  {esp.tiempoRelativo}
+                                                </span>
+                                              )}
+                                            </div>
+
+                                            {/* Caso clínico del docente espejo */}
+                                            {esp.escenarioNombre && (
+                                              <div className={styles.mirrorCase}>
+                                                <span className={styles.mirrorCaseIcon}>🩺</span>
+                                                <div className={styles.mirrorCaseText}>
+                                                  <span className={styles.mirrorCaseLabel}>Caso:</span>
+                                                  <span className={styles.mirrorCaseTitle}>{esp.escenarioNombre}</span>
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* RADAR DE PAZ MENTAL DEL DOCENTE ESPEJO */}
+                                            {(esp.psTiene || esp.pacienteSimuladoNombre) && (
+                                              <div
+                                                className={`${styles.mirrorPsBadge} ${
+                                                  esp.psEstado === 'en_sede'
+                                                    ? styles.mirrorPsBadgeEnSede
+                                                    : esp.psEstado === 'salio'
+                                                    ? styles.mirrorPsBadgeSalio
+                                                    : styles.mirrorPsBadgePendiente
+                                                }`}
+                                              >
+                                                <div className={styles.mirrorPsLeft}>
+                                                  <span className={styles.mirrorPsIcon}>🎭</span>
+                                                  <span className={styles.mirrorPsName}>
+                                                    <strong>PS:</strong> {esp.psNombre || esp.pacienteSimuladoNombre}
+                                                  </span>
+                                                </div>
+
+                                                <div className={styles.mirrorPsStatus}>
+                                                  {esp.psEstado === 'en_sede' ? (
+                                                    <span className={styles.mirrorPsEnSedeTag}>
+                                                      <span className={styles.psRadarDotLive} />
+                                                      En Sede {esp.psHoraIngreso ? `(${esp.psHoraIngreso})` : ''}
+                                                    </span>
+                                                  ) : esp.psEstado === 'salio' ? (
+                                                    <span className={styles.mirrorPsSalioTag}>
+                                                      Salida registrada
+                                                    </span>
+                                                  ) : (
+                                                    <span className={styles.mirrorPsPendingTag}>
+                                                      🟡 Por ingresar
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Ambiente asignado al espejo */}
+                                          <div className={styles.mirrorRoomBadgeWrapper}>
+                                            <div className={styles.mirrorRoomBadge} title={esp.ambienteNombre}>
+                                              <span className={styles.mirrorRoomIcon}>🚪</span>
+                                              <span className={styles.mirrorRoomNameText}>{esp.ambienteNombre}</span>
+                                            </div>
+                                            {esp.ambienteCodigo && (
+                                              <span className={styles.mirrorRoomCode}>
+                                                {esp.ambienteCodigo}
+                                              </span>
+                                            )}
+                                            {esp.sedeNombre && (
+                                              <span className={styles.mirrorSedeBadge}>
+                                                📍 {esp.sedeNombre}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* TARJETA DE CIERRE AL FINAL DE LAS CLASES DEL DOCENTE */}
@@ -1299,8 +1477,13 @@ export default function ConsultaPublicaPage() {
                                 )}
 
                                 {s.pacienteSimuladoNombre && (
-                                  <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
-                                    🎭 Actor: {s.pacienteSimuladoNombre}
+                                  <div className={styles.simultaneousActorTag}>
+                                    <span>🎭 PS: {s.pacienteSimuladoNombre}</span>
+                                    {s.psEstado === 'en_sede' ? (
+                                      <span className={styles.simultaneousPsLive}>🟢 En Sede ({s.psHoraIngreso || 'Marcó'})</span>
+                                    ) : (
+                                      <span className={styles.simultaneousPsPending}>🟡 Por ingresar</span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1390,8 +1573,13 @@ export default function ConsultaPublicaPage() {
                                 </div>
 
                                 {s.pacienteSimuladoNombre && (
-                                  <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
-                                    🎭 Actor: {s.pacienteSimuladoNombre}
+                                  <div className={styles.simultaneousActorTag}>
+                                    <span>🎭 PS: {s.pacienteSimuladoNombre}</span>
+                                    {s.psEstado === 'en_sede' ? (
+                                      <span className={styles.simultaneousPsLive}>🟢 En Sede ({s.psHoraIngreso || 'Marcó'})</span>
+                                    ) : (
+                                      <span className={styles.simultaneousPsPending}>🟡 Por ingresar</span>
+                                    )}
                                   </div>
                                 )}
                               </div>

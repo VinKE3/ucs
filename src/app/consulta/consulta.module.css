@@ -33,17 +33,18 @@
 .headerInner {
   max-width: 1300px;
   margin: 0 auto;
-  padding: 0.85rem 1.5rem;
+  padding: 0.85rem 1.25rem 0.75rem;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
-.brandArea {
+.headerRowLogo {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .brandLink {
@@ -60,12 +61,13 @@
 }
 
 .brandLogoImg {
-  height: 52px;
+  height: 68px;
   width: auto;
-  max-width: 220px;
+  max-width: 290px;
   object-fit: contain;
   display: block;
   user-select: none;
+  transition: transform 0.2s ease;
 }
 
 :global([data-theme="dark"]) .brandLogoImg {
@@ -73,112 +75,148 @@
   opacity: 0.95;
 }
 
-.titleArea {
-  display: flex;
-  flex-direction: column;
-}
-
-.titleMain {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.01em;
+.headerRowDate {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  width: 100%;
 }
 
-:global([data-theme="light"]) .titleMain {
-  color: #06152d;
-}
-
-.subtitle {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-:global([data-theme="light"]) .subtitle {
-  color: #64748b;
-}
-
-.headerControls {
+.headerRowControls {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.65rem;
+  width: 100%;
   flex-wrap: wrap;
 }
 
-.kioscoLink {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  text-decoration: none;
+.lockedDateBadge {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--pill-bg);
-  font-weight: 700;
-  transition: all 0.2s ease;
-}
-
-.kioscoLink:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--ucs-orange);
-  color: var(--ucs-orange);
-}
-
-.dateSelector {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  padding: 0.35rem 0.75rem;
+  padding: 0.38rem 0.8rem;
   border-radius: 9999px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  user-select: none;
+  cursor: default;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-:global([data-theme="light"]) .dateSelector {
+:global([data-theme="light"]) .lockedDateBadge {
   background: #f8fafc;
   border-color: #cbd5e1;
+  color: #1e293b;
 }
 
-.dateInput {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
+.lockedDateIcon {
+  font-size: 0.88rem;
+  line-height: 1;
 }
 
-.dateQuickBtn {
-  background: var(--pill-bg);
-  border: 1px solid var(--border-color);
+.lockedDateText {
+  font-weight: 500;
+}
+
+.lockedDateValue {
+  font-weight: 800;
+  color: var(--ucs-blue-sky, #00b4d8);
+}
+
+:global([data-theme="light"]) .lockedDateValue {
+  color: #0284c7;
+}
+
+.syncStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
   color: var(--text-secondary);
-  font-size: 0.78rem;
-  padding: 0.38rem 0.8rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 0.38rem 0.75rem;
+  border-radius: 9999px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+:global([data-theme="light"]) .syncStatusBadge {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.syncDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00e699;
+  box-shadow: 0 0 6px #00e699;
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+.syncDotActive {
+  background: #00b4d8;
+  box-shadow: 0 0 6px #00b4d8;
+}
+
+.syncStatusText {
+  font-weight: 600;
+}
+
+.syncStatusTime {
+  opacity: 0.75;
+  font-size: 0.72rem;
+}
+
+.headerRefreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 9999px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-weight: 700;
+  white-space: nowrap;
 }
 
-:global([data-theme="light"]) .dateQuickBtn {
-  background: #f1f5f9;
+:global([data-theme="light"]) .headerRefreshBtn {
+  background: #f8fafc;
   border-color: #cbd5e1;
   color: #334155;
 }
 
-.dateQuickBtn:hover,
-.dateQuickBtnActive {
-  background: var(--ucs-orange) !important;
-  color: #ffffff !important;
-  border-color: var(--ucs-orange) !important;
+.headerRefreshBtn:hover:not(:disabled) {
+  border-color: var(--ucs-orange);
+  color: var(--ucs-orange);
+  transform: translateY(-1px);
+}
+
+.headerRefreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinning {
+  display: inline-block;
+  animation: spinIcon 0.8s linear infinite;
+}
+
+@keyframes spinIcon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .statusIndicator {
@@ -2332,30 +2370,54 @@
 
 @media (max-width: 640px) {
   .headerInner {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0.75rem 0.65rem;
+    gap: 0.5rem;
   }
 
-  .brandArea {
+  .headerRowLogo {
     display: flex;
     justify-content: center;
     width: 100%;
   }
 
   .brandLogoImg {
-    height: 46px;
-    max-width: 185px;
+    height: 58px;
+    max-width: 250px;
   }
 
-  .headerControls {
+  .headerRowDate {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .headerRowControls {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.45rem;
     width: 100%;
     flex-wrap: wrap;
+    padding: 0;
+  }
+
+  .lockedDateBadge {
+    padding: 0.35rem 0.8rem;
+    font-size: 0.78rem;
+  }
+
+  .syncStatusBadge {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.74rem;
+  }
+
+  .syncStatusTime {
+    display: none;
+  }
+
+  .headerRefreshBtn {
+    padding: 0.35rem 0.68rem;
+    font-size: 0.75rem;
   }
 }
 

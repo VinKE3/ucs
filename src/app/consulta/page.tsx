@@ -527,42 +527,27 @@ export default function ConsultaPublicaPage() {
     );
   }, [ambientesInventario, todasLasSesiones, selectedSede, searchQuery]);
 
-  // Helpers de fecha rápida
-  const setToday = () => {
-    setFecha(new Date().toISOString().slice(0, 10));
-  };
-
-  const setTomorrow = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    setFecha(d.toISOString().slice(0, 10));
-  };
-
-  const isToday = useMemo(() => {
-    return fecha === new Date().toISOString().slice(0, 10);
-  }, [fecha]);
-
-  const isTomorrow = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return fecha === d.toISOString().slice(0, 10);
-  }, [fecha]);
-
-  const fechaLabel = useMemo(() => {
-    if (isToday) return 'hoy';
-    if (isTomorrow) return 'mañana';
-    const parts = fecha.split('-');
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  // Fecha bloqueada exclusivamente al día de hoy (Lima, Perú)
+  const fechaHoyFormateada = useMemo(() => {
+    try {
+      const parts = fecha.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    } catch {
+      // fallback
+    }
     return fecha;
-  }, [isToday, isTomorrow, fecha]);
+  }, [fecha]);
+
+  const fechaLabel = 'hoy';
 
   return (
     <div className={styles.container}>
-      {/* CABECERA INSTITUCIONAL */}
+      {/* CABECERA INSTITUCIONAL (EXACTAMENTE 3 RENGLONES) */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <div className={styles.brandArea}>
-            <Link href="/" title="Ir al Kiosco de Asistencia" className={styles.brandLink}>
+          {/* RENGLÓN 1: LOGO INSTITUCIONAL (MÁS GRANDE Y PROMINENTE) */}
+          <div className={styles.headerRowLogo}>
+            <Link href="/consulta" title="Portal de Consulta de Horarios y Ambientes" className={styles.brandLink}>
               <img
                 src="/logoucs.png"
                 alt="Universidad Científica del Sur"
@@ -571,102 +556,53 @@ export default function ConsultaPublicaPage() {
             </Link>
           </div>
 
-          <div className={styles.headerControls}>
-            <Link
-              href="/"
-              className={styles.kioscoLink}
-              title="Volver al Kiosco de Marcación"
+          {/* RENGLÓN 2: FECHA BLOQUEADA DE HOY (PROTAGONISTA Y CLARA) */}
+          <div className={styles.headerRowDate}>
+            <div
+              className={styles.lockedDateBadge}
+              title="La consulta está fijada exclusivamente para las clases del día de hoy"
             >
-              🏢 Kiosco de Asistencia
-            </Link>
+              <span className={styles.lockedDateIcon}>📅</span>
+              <span className={styles.lockedDateText}>
+                Hoy, <strong className={styles.lockedDateValue}>{fechaHoyFormateada}</strong>
+              </span>
+            </div>
+          </div>
 
+          {/* RENGLÓN 3: HERRAMIENTAS (SWITCH THEME + SIMCLIC EN VIVO + ACTUALIZAR) */}
+          <div className={styles.headerRowControls}>
             <ThemeToggle />
 
-            {/* Fechas Rápidas */}
-            <button
-              onClick={setToday}
-              className={`${styles.dateQuickBtn} ${isToday ? styles.dateQuickBtnActive : ''}`}
-            >
-              Hoy
-            </button>
-            <button
-              onClick={setTomorrow}
-              className={`${styles.dateQuickBtn} ${isTomorrow ? styles.dateQuickBtnActive : ''}`}
-            >
-              Mañana
-            </button>
-
-            {/* Selector de Fecha */}
-            <div className={styles.dateSelector}>
-              <span>📅</span>
-              <input
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className={styles.dateInput}
-              />
-            </div>
-
-            {/* Indicador de Auto-sync y botón de refresco */}
+            {/* Indicador de Auto-sync con SimClic */}
             <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                fontSize: '0.74rem',
-                color: isSilentSyncing ? 'var(--ucs-blue-sky, #00b4d8)' : 'var(--text-secondary, #94a3b8)',
-                background: isSilentSyncing ? 'rgba(0, 180, 216, 0.1)' : 'var(--bg-card, rgba(255, 255, 255, 0.04))',
-                border: `1px solid ${isSilentSyncing ? 'rgba(0, 180, 216, 0.35)' : 'var(--border-color, rgba(255, 255, 255, 0.1))'}`,
-                padding: '0.35rem 0.65rem',
-                borderRadius: '8px',
-                transition: 'all 0.3s ease',
-              }}
+              className={styles.syncStatusBadge}
               title={isSilentSyncing ? 'Sincronizando silenciosamente en segundo plano...' : 'Sincronización automática activa con SimClic'}
             >
               <span
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  background: isSilentSyncing ? '#00b4d8' : '#00e699',
-                  boxShadow: isSilentSyncing ? '0 0 6px #00b4d8' : '0 0 6px #00e699',
-                  display: 'inline-block',
-                  transition: 'background 0.3s ease',
-                }}
+                className={`${styles.syncDot} ${isSilentSyncing ? styles.syncDotActive : ''}`}
               />
-              <span style={{ fontWeight: 600 }}>
+              <span className={styles.syncStatusText}>
                 {isSilentSyncing ? 'Sincronizando...' : 'SimClic en vivo'}
               </span>
               {lastSyncTime && !isSilentSyncing && (
-                <span style={{ opacity: 0.7 }}>
+                <span className={styles.syncStatusTime}>
                   • {lastSyncTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
             </div>
 
+            {/* Botón de Refresco Manual */}
             <button
               type="button"
               onClick={handleSyncFromSimclic}
               disabled={syncing}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: '0.35rem 0.7rem',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                background: 'transparent',
-                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.12))',
-                borderRadius: '8px',
-                cursor: syncing ? 'not-allowed' : 'pointer',
-              }}
+              className={styles.headerRefreshBtn}
               title="Sincronizar ahora con SimClic"
             >
-              <span style={{ display: 'inline-block', transform: syncing ? 'rotate(360deg)' : 'none', transition: 'transform 0.8s ease' }}>
+              <span className={syncing ? styles.spinning : ''}>
                 🔄
               </span>
-              <span>{syncing ? 'Sincronizando...' : 'Actualizar'}</span>
+              <span className={styles.refreshBtnText}>{syncing ? '...' : 'Actualizar'}</span>
             </button>
           </div>
         </div>
@@ -676,7 +612,7 @@ export default function ConsultaPublicaPage() {
       <section className={styles.heroSection}>
         <div className={styles.heroContent}>
           <h1 className={styles.heroHeading}>
-            ¿Dónde te toca tu clase <span className={styles.heroHeadingHighlight}>{fechaLabel}</span>?
+            ¿Dónde te toca tu clase <span className={styles.heroHeadingHighlight}>hoy</span>?
           </h1>
           <p className={styles.heroDescription}>
             Ingresa tu apellido, nombre o DNI para ver tus ambientes asignados, horarios y tus docentes compañeros espejo en simultáneo.

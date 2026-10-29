@@ -105,6 +105,46 @@ export default function ConsultaPublicaPage() {
   const [selectedDocenteId, setSelectedDocenteId] = useState<string | null>(null);
   const [selectedCursoNombre, setSelectedCursoNombre] = useState<string | null>(null);
 
+  // Perfil recordado en versión móvil (Punto 3: Acceso Instantáneo)
+  const [savedPerfil, setSavedPerfil] = useState<{ identificador: string; docenteNombre: string } | null>(null);
+  const [perfilSavedToast, setPerfilSavedToast] = useState(false);
+
+  // Cargar perfil guardado de localStorage al iniciar en el cliente
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ucs_mi_perfil_movil');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.identificador && parsed?.docenteNombre) {
+          setSavedPerfil(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn('Error al leer perfil recordado:', err);
+    }
+  }, []);
+
+  const handleGuardarMiPerfil = useCallback((identificador: string, docenteNombre: string) => {
+    try {
+      const data = { identificador, docenteNombre };
+      localStorage.setItem('ucs_mi_perfil_movil', JSON.stringify(data));
+      setSavedPerfil(data);
+      setPerfilSavedToast(true);
+      setTimeout(() => setPerfilSavedToast(false), 3000);
+    } catch (err) {
+      console.warn('Error al guardar perfil:', err);
+    }
+  }, []);
+
+  const handleOlvidarMiPerfil = useCallback(() => {
+    try {
+      localStorage.removeItem('ucs_mi_perfil_movil');
+      setSavedPerfil(null);
+    } catch (err) {
+      console.warn('Error al olvidar perfil:', err);
+    }
+  }, []);
+
   // Referencia al input de búsqueda para enfoque automático
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [showScrollTopBtn, setShowScrollTopBtn] = useState(false);
@@ -642,6 +682,48 @@ export default function ConsultaPublicaPage() {
             Ingresa tu apellido, nombre o DNI para ver tus ambientes asignados, horarios y tus docentes compañeros espejo en simultáneo.
           </p>
 
+          {/* ACCESO INSTANTÁNEO EN VERSIÓN MÓVIL (PUNTO 3: RECORDAR MI PERFIL) */}
+          {savedPerfil && !selectedDocenteId && (
+            <div className={styles.mobileProfileQuickAccess}>
+              <div className={styles.mobileProfileQuickTop}>
+                <div className={styles.mobileProfileBadge}>
+                  <span>📱</span>
+                  <span>TU PERFIL EN ESTE CELULAR</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOlvidarMiPerfil}
+                  className={styles.mobileProfileForgetBtn}
+                  title="Cambiar o desvincular perfil de este celular"
+                >
+                  ✕ Cambiar
+                </button>
+              </div>
+
+              <div className={styles.mobileProfileCardInner}>
+                <div className={styles.mobileProfileAvatar}>
+                  {getInitials(savedPerfil.docenteNombre)}
+                </div>
+                <div className={styles.mobileProfileTexts}>
+                  <span className={styles.mobileProfileGreeting}>¡Hola de nuevo!</span>
+                  <span className={styles.mobileProfileName}>{savedPerfil.docenteNombre}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDocenteId(savedPerfil.identificador);
+                  setActiveTab('docente');
+                }}
+                className={styles.mobileProfileLaunchBtn}
+              >
+                <span>⚡ Ver mis ambientes y horarios de hoy</span>
+                <span>➔</span>
+              </button>
+            </div>
+          )}
+
           <div className={styles.searchBoxWrapper}>
             <span className={styles.searchIcon}>🔍</span>
             <input
@@ -796,6 +878,57 @@ export default function ConsultaPublicaPage() {
                           <div className={styles.statValue}>{currentDocente.totalHorasStr}</div>
                           <div className={styles.statLabel}>Carga Horaria</div>
                         </div>
+                      </div>
+
+                      {/* OPCIÓN MÓVIL: RECORDAR MI PERFIL (PUNTO 3: SOLO SMARTPHONES) */}
+                      <div className={styles.mobileProfileActionArea}>
+                        {savedPerfil?.identificador === currentDocente.identificador ? (
+                          <div className={styles.mobileProfileActiveBadge}>
+                            <div className={styles.mobileProfileActiveLeft}>
+                              <span className={styles.mobileProfileActiveIcon}>⭐</span>
+                              <div className={styles.mobileProfileActiveTextGroup}>
+                                <span className={styles.mobileProfileActiveTitle}>
+                                  Tu perfil está guardado en este celular
+                                </span>
+                                <span className={styles.mobileProfileActiveSub}>
+                                  Al abrir el enlace entrarás directo a tus clases
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleOlvidarMiPerfil}
+                              className={styles.mobileProfileUnlinkBtn}
+                              title="Desvincular este docente de este celular"
+                            >
+                              ✕ Desvincular
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleGuardarMiPerfil(currentDocente.identificador, currentDocente.docenteNombre)}
+                            className={styles.mobileProfileSaveBtn}
+                          >
+                            <span className={styles.mobileProfileSaveIcon}>📱</span>
+                            <div className={styles.mobileProfileSaveTextGroup}>
+                              <span className={styles.mobileProfileSaveTitle}>
+                                Recordar mi perfil en este celular
+                              </span>
+                              <span className={styles.mobileProfileSaveSubtitle}>
+                                Abre directo tus clases con 1 toque sin tener que buscar tu nombre
+                              </span>
+                            </div>
+                            <span className={styles.mobileProfileSavePill}>Guardar ⭐</span>
+                          </button>
+                        )}
+
+                        {perfilSavedToast && (
+                          <div className={styles.mobileProfileToast}>
+                            <span>✓</span>
+                            <span>¡Listo! Tu perfil quedó guardado. Cuando entres desde este celular verás tu acceso directo.</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Barra de Acceso Rápido a Clases por Horario */}

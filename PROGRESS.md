@@ -1446,6 +1446,26 @@ src/
       - **Verificación Técnica**:
         - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
 
+    - **Hito 84: Funcionalidad Móvil Exclusiva "Recordar mi Perfil" con Acceso Instantáneo en 1 Toque (`/consulta`)**:
+      - **Contexto y Decisión Arquitectónica**:
+        - En el Centro de Simulación Clínica, los docentes acceden a `/consulta` desde sus teléfonos móviles mientras se desplazan hacia las salas de simulación. Tipear diariamente su nombre en el buscador móvil generaba fricción innecesaria.
+        - **Exclusividad Móvil Estratégica**: Las computadoras de escritorio en la oficina técnica son compartidas por múltiples operadores, por lo que recordar un perfil en PC entorpecería la consulta de los técnicos. Se garantizó mediante reglas de CSS que la función sea **100% exclusiva para smartphones** (`max-width: 768px`) y permanezca completamente oculta en escritorio (`display: none !important`).
+      - **Implementación Técnica**:
+        - **Persistencia en Dispositivo (`page.tsx`)**: Almacenamiento local mediante `localStorage.getItem('ucs_mi_perfil_movil')` guardando el identificador y nombre completo del docente.
+        - **Vinculación en Ficha del Docente**:
+          - Botón táctil dentro de la cabecera del docente: `📱 Recordar mi perfil en este celular` con acción `Guardar ⭐`.
+          - Feedback visual reactivo con toast sutil (`✅ ¡Guardado! Ahora entrarás directo`).
+          - Transformación dinámica a badge esmeralda: `⭐ Tu perfil está guardado en este celular` con botón de desvinculación `✕ Desvincular` en cualquier momento.
+        - **Banner de Acceso Rápido VIP en Pantalla Principal**:
+          - Al ingresar a `/consulta` desde un celular con perfil guardado, se despliega un banner de bienvenida superior con avatar de iniciales, saludo personalizado y botón de 1 toque: `⚡ Ver mis ambientes y horarios de hoy ➔`.
+          - Incluye botón de relevo `✕ Cambiar` para volver a la búsqueda general sin eliminar el perfil guardado.
+        - **Diseño Visual & Accesibilidad (`consulta.module.css`)**:
+          - Tarjeta con gradiente azul clínico, bordes brillantes y sombras de elevación, adaptada automáticamente a Tema Oscuro y Tema Claro.
+          - Área táctil de más de 44px para ergonomía con una sola mano.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**).
+        - Validación de responsividad y ocultamiento estricto en pantallas de escritorio.
+
 ---
 
 

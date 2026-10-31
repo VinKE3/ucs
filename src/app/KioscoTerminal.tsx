@@ -213,23 +213,38 @@ export default function KioscoTerminal() {
 
   const handleAuthorizeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!authAdminId.trim() || !authAdminPass.trim() || !authTerminalName.trim()) {
-      setAuthError('Por favor complete todos los campos obligatorios');
-      return;
+    if (authMetodo === 'otp') {
+      if (!authOtpCode.trim()) {
+        setAuthError('Por favor ingrese el código OTP de 6 dígitos');
+        return;
+      }
+    } else {
+      if (!authAdminId.trim() || !authAdminPass.trim() || !authTerminalName.trim()) {
+        setAuthError('Por favor complete todos los campos obligatorios');
+        return;
+      }
     }
     setAuthSubmitting(true);
     setAuthError(null);
 
     try {
+      const payload = authMetodo === 'otp'
+        ? {
+            metodo: 'otp',
+            codigoOtp: authOtpCode.trim(),
+          }
+        : {
+            metodo: 'credenciales',
+            identificador: authAdminId.trim(),
+            password: authAdminPass,
+            nombreTerminal: authTerminalName.trim(),
+            sedeId: authSedeId || null,
+          };
+
       const res = await fetch('/api/kiosco/terminal/autorizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identificador: authAdminId.trim(),
-          password: authAdminPass,
-          nombreTerminal: authTerminalName.trim(),
-          sedeId: authSedeId || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -251,6 +266,7 @@ export default function KioscoTerminal() {
         }
       }
       setShowAuthModal(false);
+      setAuthOtpCode('');
       setAuthAdminPass('');
       setAuthAdminId('');
       setAuthTerminalName('');

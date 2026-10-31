@@ -148,7 +148,9 @@ export default function KioscoTerminal() {
   const [terminalInfo, setTerminalInfo] = useState<TerminalData | null>(null);
 
   // Modal para autorizar terminal
-  const [showAuthModal, setShowAuthModal] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMetodo, setAuthMetodo] = useState<'otp' | 'credenciales'>('otp');
+  const [authOtpCode, setAuthOtpCode] = useState('');
   const [authAdminId, setAuthAdminId] = useState('');
   const [authAdminPass, setAuthAdminPass] = useState('');
   const [authTerminalName, setAuthTerminalName] = useState('');
@@ -1776,7 +1778,7 @@ export default function KioscoTerminal() {
         </main>
       )}
 
-      {/* MODAL PARA AUTORIZAR TERMINAL (SOLO ADMINISTRADORES) */}
+      {/* MODAL PARA AUTORIZAR TERMINAL (CON CÓDIGO OTP O CREDENCIALES) */}
       {showAuthModal && (
         <div className={styles.authModalOverlay} onClick={() => !authSubmitting && setShowAuthModal(false)}>
           <div className={styles.authModalCard} onClick={(e) => e.stopPropagation()}>
@@ -1793,8 +1795,34 @@ export default function KioscoTerminal() {
               </button>
             </div>
 
+            {/* TABS DE MÉTODO */}
+            <div className={styles.authTabs}>
+              <button
+                type="button"
+                onClick={() => { setAuthMetodo('otp'); setAuthError(null); }}
+                className={`${styles.authTabBtn} ${authMetodo === 'otp' ? styles.authTabBtnActive : ''}`}
+              >
+                <span>🔑</span> Código de Un Solo Uso (OTP)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMetodo('credenciales'); setAuthError(null); }}
+                className={`${styles.authTabBtn} ${authMetodo === 'credenciales' ? styles.authTabBtnActive : ''}`}
+              >
+                <span>👤</span> Administrador
+              </button>
+            </div>
+
             <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-              Inicie sesión con su cuenta de Administrador de la Universidad para emparejar este navegador de forma permanente como una terminal autorizada del Kiosco.
+              {authMetodo === 'otp' ? (
+                <>
+                  Ingrese el <strong>código temporal de 6 dígitos</strong> generado desde el panel de Sedes por la administración para habilitar este equipo a distancia.
+                </>
+              ) : (
+                <>
+                  Inicie sesión con su cuenta de Administrador de la Universidad para emparejar este navegador de forma permanente como una terminal autorizada del Kiosco.
+                </>
+              )}
             </p>
 
             {authError && (
@@ -1813,38 +1841,60 @@ export default function KioscoTerminal() {
             )}
 
             <form onSubmit={handleAuthorizeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              <div className={styles.authFormGroup}>
-                <label className={styles.authLabel}>Correo o DNI de Administrador *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="123456789"
-                  value={authAdminId}
-                  onChange={(e) => setAuthAdminId(e.target.value)}
-                  className={styles.authInput}
-                  disabled={authSubmitting}
-                />
-              </div>
+              {authMetodo === 'otp' ? (
+                <div className={styles.authFormGroup}>
+                  <label className={styles.authLabel}>Código de Activación Temporal (OTP) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="749-182"
+                    maxLength={10}
+                    value={authOtpCode}
+                    onChange={(e) => setAuthOtpCode(e.target.value)}
+                    className={`${styles.authInput} ${styles.authOtpInput}`}
+                    disabled={authSubmitting}
+                    autoFocus
+                  />
+                  <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    Código de un solo uso generado por el Administrador
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className={styles.authFormGroup}>
+                    <label className={styles.authLabel}>Correo o DNI de Administrador *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="123456789"
+                      value={authAdminId}
+                      onChange={(e) => setAuthAdminId(e.target.value)}
+                      className={styles.authInput}
+                      disabled={authSubmitting}
+                    />
+                  </div>
 
-              <div className={styles.authFormGroup}>
-                <label className={styles.authLabel}>Contraseña de Administrador *</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={authAdminPass}
-                  onChange={(e) => setAuthAdminPass(e.target.value)}
-                  className={styles.authInput}
-                  disabled={authSubmitting}
-                />
-              </div>
+                  <div className={styles.authFormGroup}>
+                    <label className={styles.authLabel}>Contraseña de Administrador *</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={authAdminPass}
+                      onChange={(e) => setAuthAdminPass(e.target.value)}
+                      className={styles.authInput}
+                      disabled={authSubmitting}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className={styles.authFormGroup}>
                 <label className={styles.authLabel}>Nombre de esta Terminal / Pantalla *</label>
                 <input
                   type="text"
                   required
-                  placeholder="ej: Tablet Recepción Villa, PC Simulación Ate..."
+                  placeholder="ej: Tablet Recepción Villa, PC Simulación Norte..."
                   value={authTerminalName}
                   onChange={(e) => setAuthTerminalName(e.target.value)}
                   className={styles.authInput}
@@ -1883,4 +1933,3 @@ export default function KioscoTerminal() {
     </div>
   );
 }
-

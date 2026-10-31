@@ -773,3 +773,26 @@ export interface IncidenciasMetricsData {
 
 
 
+
+// --- CÓDIGOS DE UN SOLO USO (OTP PARA TERMINALES KIOSCO) ---
+export interface CodigoAutorizacionTerminalItem {
+  id: number;
+  codigo: string;
+  nombreSugerido: string | null;
+  sedeId: number | null;
+  sedeNombre: string | null;
+  creadoPor: number | null;
+  creadorNombre: string | null;
+  creadorApellido: string | null;
+  nota: string | null;
+  expiraAt: string;
+  usado: boolean;
+  usadoAt: string | null;
+  terminalId: number | null;
+  terminalNombre: string | null;
+  ipUso: string | null;
+  activo: boolean;
+  createdAt: string;
+  estado: 'activo' | 'usado' | 'expirado' | 'revocado';
+  tiempoRestanteMinutos?: number;
+}

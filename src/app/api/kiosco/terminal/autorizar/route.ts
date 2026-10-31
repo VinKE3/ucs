@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/db';
-import { usuarios, terminalesKiosco, sedes } from '@/db/schema';
-import { eq, or } from 'drizzle-orm';
+import { usuarios, terminalesKiosco, sedes, codigosAutorizacionTerminal } from '@/db/schema';
+import { eq, or, sql } from 'drizzle-orm';
 import { verifyPassword } from '@/lib/auth';
 import { terminalAuthRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
@@ -16,103 +16,203 @@ export async function POST(request: Request) {
       return createRateLimitResponse(limitStatus);
     }
 
-    const { identificador, password, nombreTerminal, sedeId } = await request.json();
+    const body = await request.json();
+    const { metodo = 'credenciales', codigoOtp, identificador, password, nombreTerminal, sedeId } = body;
 
-    if (!identificador || !password) {
-      return NextResponse.json(
-        { error: 'Debe ingresar credenciales de Administrador para autorizar este dispositivo.' },
-        { status: 400 }
-      );
-    }
+    let adminUsuarioId: number | null = null;
+    let finalSedeId: number | null = sedeId ? Number(sedeId) : null;
+    let otpRowId: number | null = null;
 
     if (!nombreTerminal || !nombreTerminal.trim()) {
       return NextResponse.json(
-        { error: 'Debe asignar un nombre a la terminal (ej: "Tablet Recepción Villa").' },
+        { error: 'Debe asignar un nombre a la terminal (ej: "Tablet Recepción Villa" o "PC Simulación Norte").' },
         { status: 400 }
       );
     }
 
-    // 1. Validar usuario administrador
-    const foundUsers = await db
-      .select()
-      .from(usuarios)
-      .where(
-        or(
-          eq(usuarios.correo, identificador.trim().toLowerCase()),
-          eq(usuarios.dni, identificador.trim())
+    // -------------------------------------------------------------
+    // FLUJO A: AUTORIZACIÓN MEDIANTE CÓDIGO DE UN SOLO USO (OTP)
+    // -------------------------------------------------------------
+    if (metodo === 'otp' || (codigoOtp && !password)) {
+      if (!codigoOtp || !codigoOtp.trim()) {
+        return NextResponse.json(
+          { error: 'Debe ingresar el código de activación de un solo uso.' },
+          { status: 400 }
+        );
+      }
+
+      // Normalizar código: quitar espacios y guiones para comparar flexiblemente
+      const rawCode = codigoOtp.trim().toUpperCase();
+      const cleanDigits = rawCode.replace(/[^A-Z0-9]/g, '');
+
+      // Buscar código exacto o variante con/sin guión
+      const codes = await db
+        .select()
+        .from(codigosAutorizacionTerminal)
+        .where(
+          or(
+            eq(codigosAutorizacionTerminal.codigo, rawCode),
+            eq(sql`REPLACE(${codigosAutorizacionTerminal.codigo}, '-', '')`, cleanDigits)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (foundUsers.length === 0) {
-      const attempt = terminalAuthRateLimiter.check(rateLimitKey);
-      if (!attempt.success) return createRateLimitResponse(attempt);
-      return NextResponse.json(
-        { error: 'Credenciales inválidas o usuario no encontrado.' },
-        { status: 401 }
-      );
+      if (codes.length === 0) {
+        const attempt = terminalAuthRateLimiter.check(rateLimitKey);
+        if (!attempt.success) return createRateLimitResponse(attempt);
+        const restantes = attempt.remaining > 0 ? ` (Te quedan ${attempt.remaining} intentos)` : '';
+        return NextResponse.json(
+          { error: `Código de autorización no encontrado o inválido.${restantes}` },
+          { status: 404 }
+        );
+      }
+
+      const otpRow = codes[0];
+
+      if (!otpRow.activo) {
+        return NextResponse.json(
+          { error: 'Este código de autorización fue cancelado o revocado por la administración.' },
+          { status: 403 }
+        );
+      }
+
+      if (otpRow.usado) {
+        return NextResponse.json(
+          { error: 'Este código de autorización ya fue utilizado anteriormente. Solicite un nuevo código.' },
+          { status: 409 }
+        );
+      }
+
+      const now = new Date().getTime();
+      const expTime = new Date(otpRow.expiraAt).getTime();
+      if (expTime <= now) {
+        return NextResponse.json(
+          { error: 'Este código de autorización ha expirado. Solicite un nuevo código temporal a la administración.' },
+          { status: 410 }
+        );
+      }
+
+      // El código es válido:
+      otpRowId = otpRow.id;
+      adminUsuarioId = otpRow.creadoPor;
+
+      // Si el administrador fijó una sede específica al generar el código, se respeta obligatoriamente
+      if (otpRow.sedeId) {
+        finalSedeId = otpRow.sedeId;
+      }
+
+      terminalAuthRateLimiter.reset(rateLimitKey);
+    }
+    // -------------------------------------------------------------
+    // FLUJO B: AUTORIZACIÓN MEDIANTE CREDENCIALES DE ADMINISTRADOR
+    // -------------------------------------------------------------
+    else {
+      if (!identificador || !password) {
+        return NextResponse.json(
+          { error: 'Debe ingresar credenciales de Administrador para autorizar este dispositivo.' },
+          { status: 400 }
+        );
+      }
+
+      // Validar usuario administrador
+      const foundUsers = await db
+        .select()
+        .from(usuarios)
+        .where(
+          or(
+            eq(usuarios.correo, identificador.trim().toLowerCase()),
+            eq(usuarios.dni, identificador.trim())
+          )
+        )
+        .limit(1);
+
+      if (foundUsers.length === 0) {
+        const attempt = terminalAuthRateLimiter.check(rateLimitKey);
+        if (!attempt.success) return createRateLimitResponse(attempt);
+        return NextResponse.json(
+          { error: 'Credenciales inválidas o usuario no encontrado.' },
+          { status: 401 }
+        );
+      }
+
+      const adminUser = foundUsers[0];
+
+      if (!adminUser.activo) {
+        return NextResponse.json(
+          { error: 'El usuario administrador se encuentra inactivo.' },
+          { status: 403 }
+        );
+      }
+
+      if (adminUser.rolSistema !== 'super_admin' && adminUser.rolSistema !== 'admin') {
+        return NextResponse.json(
+          { error: 'Solo usuarios con rol Administrador o Super Admin pueden autorizar terminales físicas.' },
+          { status: 403 }
+        );
+      }
+
+      if (!adminUser.passwordHash) {
+        return NextResponse.json(
+          { error: 'El usuario no tiene una contraseña configurada.' },
+          { status: 400 }
+        );
+      }
+
+      const isMatch = await verifyPassword(password, adminUser.passwordHash);
+      if (!isMatch) {
+        const attempt = terminalAuthRateLimiter.check(rateLimitKey);
+        if (!attempt.success) return createRateLimitResponse(attempt);
+        const restantesTexto = attempt.remaining > 0 ? ` (Te quedan ${attempt.remaining} intentos)` : '';
+        return NextResponse.json(
+          { error: `Contraseña de administrador incorrecta.${restantesTexto}` },
+          { status: 401 }
+        );
+      }
+
+      adminUsuarioId = adminUser.id;
+      terminalAuthRateLimiter.reset(rateLimitKey);
     }
 
-    const adminUser = foundUsers[0];
-
-    if (!adminUser.activo) {
-      return NextResponse.json(
-        { error: 'El usuario administrador se encuentra inactivo.' },
-        { status: 403 }
-      );
-    }
-
-    if (adminUser.rolSistema !== 'super_admin' && adminUser.rolSistema !== 'admin') {
-      return NextResponse.json(
-        { error: 'Solo usuarios con rol Administrador o Super Admin pueden autorizar terminales físicas.' },
-        { status: 403 }
-      );
-    }
-
-    if (!adminUser.passwordHash) {
-      return NextResponse.json(
-        { error: 'El usuario no tiene una contraseña configurada.' },
-        { status: 400 }
-      );
-    }
-
-    const isMatch = await verifyPassword(password, adminUser.passwordHash);
-    if (!isMatch) {
-      const attempt = terminalAuthRateLimiter.check(rateLimitKey);
-      if (!attempt.success) return createRateLimitResponse(attempt);
-      const restantesTexto = attempt.remaining > 0 ? ` (Te quedan ${attempt.remaining} intentos)` : '';
-      return NextResponse.json(
-        { error: `Contraseña de administrador incorrecta.${restantesTexto}` },
-        { status: 401 }
-      );
-    }
-
-    // Éxito: restablecer intentos
-    terminalAuthRateLimiter.reset(rateLimitKey);
-
-    // 2. Extraer información del dispositivo y red
+    // -------------------------------------------------------------
+    // REGISTRO Y VINCULACIÓN DEL DISPOSITIVO
+    // -------------------------------------------------------------
     const userAgent = request.headers.get('user-agent') || 'Desconocido';
     const forwardedFor = request.headers.get('x-forwarded-for');
     const ipRegistro = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
 
-    // 3. Generar token único seguro
+    // Generar token criptográfico único para la terminal
     const rawToken = crypto.randomBytes(32).toString('hex');
     const token = `trm_${rawToken}`;
 
-    // 4. Guardar terminal en base de datos
+    // Insertar terminal autorizada
     const [nuevaTerminal] = await db
       .insert(terminalesKiosco)
       .values({
         token,
         nombre: nombreTerminal.trim(),
-        sedeId: sedeId ? Number(sedeId) : null,
+        sedeId: finalSedeId,
         dispositivoInfo: userAgent,
         ipRegistro,
         activo: true,
         ultimoUso: new Date(),
-        creadoPor: adminUser.id,
+        creadoPor: adminUsuarioId,
       })
       .returning();
+
+    // Si se usó un código OTP, marcarlo como consumido
+    if (otpRowId) {
+      await db
+        .update(codigosAutorizacionTerminal)
+        .set({
+          usado: true,
+          usadoAt: new Date(),
+          terminalId: nuevaTerminal.id,
+          ipUso: ipRegistro,
+          dispositivoUso: userAgent,
+          updatedAt: new Date(),
+        })
+        .where(eq(codigosAutorizacionTerminal.id, otpRowId));
+    }
 
     // Obtener nombre de sede si fue asignada
     let sedeNombre: string | null = null;
@@ -127,7 +227,7 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      message: `Dispositivo "${nuevaTerminal.nombre}" autorizado exitosamente.`,
+      message: `Dispositivo "${nuevaTerminal.nombre}" autorizado exitosamente${sedeNombre ? ` para ${sedeNombre}` : ''}.`,
       terminal: {
         id: nuevaTerminal.id,
         nombre: nuevaTerminal.nombre,

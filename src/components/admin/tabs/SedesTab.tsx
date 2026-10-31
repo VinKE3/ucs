@@ -27,6 +27,7 @@ export const SedesTab: React.FC<SedesTabProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showTerminalesModal, setShowTerminalesModal] = useState(false);
+  const [terminalesModalTab, setTerminalesModalTab] = useState<'terminales' | 'codigos'>('terminales');
 
   const sedesFiltradas = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -80,16 +81,44 @@ export const SedesTab: React.FC<SedesTabProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
           {(session?.rolSistema === 'super_admin' || session?.rolSistema === 'admin') && (
-            <button
-              type="button"
-              onClick={() => setShowTerminalesModal(true)}
-              className={styles.secondaryActionBtn}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
-              title="Gestionar tablets y pantallas autorizadas para marcar asistencia en Kiosco"
-            >
-              <span>🖥️</span>
-              <span>Terminales Kiosco</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setTerminalesModalTab('codigos');
+                  setShowTerminalesModal(true);
+                }}
+                className={styles.secondaryActionBtn}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 0.95rem',
+                  fontSize: '0.85rem',
+                  borderColor: 'rgba(255, 90, 0, 0.4)',
+                  color: '#ff5a00',
+                  background: 'rgba(255, 90, 0, 0.08)',
+                }}
+                title="Generar contraseñas temporales de un solo uso para autorizar PCs en otras sedes a distancia"
+              >
+                <span>🔑</span>
+                <span>Código OTP Remoto</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTerminalesModalTab('terminales');
+                  setShowTerminalesModal(true);
+                }}
+                className={styles.secondaryActionBtn}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+                title="Gestionar tablets y pantallas autorizadas para marcar asistencia en Kiosco"
+              >
+                <span>🖥️</span>
+                <span>Terminales Kiosco</span>
+              </button>
+            </>
           )}
 
           <button
@@ -306,6 +335,7 @@ export const SedesTab: React.FC<SedesTabProps> = ({
         isOpen={showTerminalesModal}
         onClose={() => setShowTerminalesModal(false)}
         sedesList={sedesList}
+        initialTab={terminalesModalTab}
       />
     </section>
   );

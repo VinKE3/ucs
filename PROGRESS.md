@@ -1466,6 +1466,35 @@ src/
         - Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**).
         - Validación de responsividad y ocultamiento estricto en pantallas de escritorio.
 
+    - **Hito 85: Sistema de Contraseñas de Un Solo Uso (OTP) para Habilitación Remota de Terminales Kiosco (`codigos_autorizacion_terminal`, `ModalGestionTerminales.tsx`, `KioscoTerminal.tsx`, `/api/admin/terminales/codigos`, `/api/kiosco/terminal/autorizar`)**:
+      - **Contexto y Desafío Operativo**:
+        - En sedes remotas (Campus Norte, Campus Ate o Villa), los técnicos requieren autorizar tablets y computadoras físicas para que funcionen como terminales oficiales de Kiosco.
+        - Muchas PCs en campus tienen bloqueada la descarga de AnyDesk por políticas de TI de la Universidad, impidiendo sesiones remotas para que el administrador ingrese sus credenciales. Exponer la contraseña maestra de administrador por teléfono o WhatsApp representaba un riesgo de seguridad inaceptable.
+      - **Implementación Técnica**:
+        - **Nueva Tabla en PostgreSQL (`codigos_autorizacion_terminal`)**:
+          - Campos: `codigo` (formato "XXX-XXX", e.g. `749-182`), `nombreSugerido`, `sedeId`, `creadoPor`, `nota`, `expiraAt`, `usado`, `usadoAt`, `terminalId`, `ipUso`, `dispositivoUso`, `activo`.
+          - Índices en `codigo`, `(usado, activo)` y `sede_id`.
+          - Migración ejecutada exitosamente con `src/db/migrate_terminales_otp.ts`.
+        - **Generador Administrativo de Códigos OTP (`ModalGestionTerminales.tsx` & `/api/admin/terminales/codigos`)**:
+          - Integrado en la pestaña **Sedes** mediante el botón directo `[🔑 Código OTP Remoto]` y pestañas internas dentro del modal de terminales (`📱 Dispositivos Vinculados` vs. `🔑 Códigos de Un Solo Uso`).
+          - Formulario dinámico para generar códigos con selección de Campus asignado, nombre sugerido de terminal, duración configurable (15 min, 30 min [recomendado], 1h, 2h, 24h) y notas de referencia.
+          - **Botón "📋 Copiar para WhatsApp"**: Genera un mensaje formateado y listo para enviar al técnico por chat con el código de 6 dígitos, sede, vigencia y pasos exactos para habilitar la máquina.
+          - Gestión de ciclo de vida con insignias en tiempo real (`🟢 Activo (Xm)`, `✓ Usado`, `⏱️ Expirado`, `✕ Cancelado`), botón de revocación instantánea y eliminación de registros antiguos.
+        - **Experiencia de Activación en Terminal Kiosco (`KioscoTerminal.tsx` & `kiosco.module.css`)**:
+          - Modal de autorización bimodal con selector de pestañas:
+            - `[🔑 Código de Un Solo Uso (OTP)]` *(Recomendado y activo por defecto)*
+            - `[👤 Administrador]` *(Método tradicional mediante credenciales maestras)*
+          - Input de código OTP con formato ampliado monoespaciado, centrado y con espaciado de letras (`letter-spacing: 0.2em`) para lectura y digitación clara en pantallas táctiles.
+          - Si el código fue pre-asignado a una sede específica por el administrador, se vincula automáticamente a ese campus.
+        - **Endpoint Backend Seguro (`/api/kiosco/terminal/autorizar`)**:
+          - Detección flexible de códigos OTP con o sin guiones y sanitización de caracteres.
+          - Validación estricta: código existente, activo, no utilizado previamente y vigente según timestamp de expiración.
+          - Protección activa contra fuerza bruta con `terminalAuthRateLimiter` (máximo 5 intentos por IP cada 15 min).
+          - Al validar con éxito, genera el token criptográfico persistente `trm_...`, vincula el dispositivo en `terminales_kiosco`, marca el código como consumido y establece la cookie segura HttpOnly.
+      - **Verificación Técnica**:
+        - Flujo end-to-end de generación, validación, bloqueo de reuso y revocación probado con script automatizado.
+        - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

@@ -394,6 +394,43 @@ export const terminalesKioscoRelations = relations(terminalesKiosco, ({ one }) =
 export type TerminalKiosco = typeof terminalesKiosco.$inferSelect;
 export type NewTerminalKiosco = typeof terminalesKiosco.$inferInsert;
 
+// --- 8.1 TABLA: CÓDIGOS DE AUTORIZACIÓN TEMPORAL (OTP para Habilitar Terminales Remotas) ---
+export const codigosAutorizacionTerminal = pgTable('codigos_autorizacion_terminal', {
+  id: serial('id').primaryKey(),
+  codigo: varchar('codigo', { length: 30 }).notNull().unique(), // Ej: "842-195" o "UCS-7294"
+  nombreSugerido: varchar('nombre_sugerido', { length: 150 }),  // Ej: "PC Simulación Norte"
+  sedeId: integer('sede_id').references(() => sedes.id, { onDelete: 'set null' }),
+  creadoPor: integer('creado_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  nota: text('nota'),                                           // Ej: "Para técnico Juan en Sede Norte"
+  expiraAt: timestamp('expira_at', { withTimezone: true }).notNull(),
+  usado: boolean('usado').default(false).notNull(),
+  usadoAt: timestamp('usado_at', { withTimezone: true }),
+  terminalId: integer('terminal_id').references(() => terminalesKiosco.id, { onDelete: 'set null' }),
+  ipUso: varchar('ip_uso', { length: 50 }),
+  dispositivoUso: text('dispositivo_uso'),
+  activo: boolean('activo').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const codigosAutorizacionTerminalRelations = relations(codigosAutorizacionTerminal, ({ one }) => ({
+  sede: one(sedes, {
+    fields: [codigosAutorizacionTerminal.sedeId],
+    references: [sedes.id],
+  }),
+  creador: one(usuarios, {
+    fields: [codigosAutorizacionTerminal.creadoPor],
+    references: [usuarios.id],
+  }),
+  terminal: one(terminalesKiosco, {
+    fields: [codigosAutorizacionTerminal.terminalId],
+    references: [terminalesKiosco.id],
+  }),
+}));
+
+export type CodigoAutorizacionTerminal = typeof codigosAutorizacionTerminal.$inferSelect;
+export type NewCodigoAutorizacionTerminal = typeof codigosAutorizacionTerminal.$inferInsert;
+
 // --- 9. TABLA: SESIONES PROGRAMADAS (Sincronización SimClic) ---
 export const sesionesProgramadas = pgTable('sesiones_programadas', {
   id: serial('id').primaryKey(),

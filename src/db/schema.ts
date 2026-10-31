@@ -81,6 +81,10 @@ export const usuarios = pgTable('usuarios', {
   horaSalidaEsperada: varchar('hora_salida_esperada', { length: 5 }),   // Ej: "15:00"
   toleranciaMinutos: integer('tolerancia_minutos').default(10),         // Margen de gracia en minutos (default 10)
   
+  // Modalidad Horario Rotativo / Jornada Flexible (Técnicos flotantes o con turnos rotativos)
+  esHorarioRotativo: boolean('es_horario_rotativo').default(false).notNull(),
+  horasJornadaObjetivo: numeric('horas_jornada_objetivo', { precision: 4, scale: 2 }).default('9.00').notNull(),
+  
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -113,8 +117,8 @@ export const asistencias = pgTable('asistencias', {
   minutosTotales: integer('minutos_totales'), // Calculado al marcar salida o ajuste manual
 
   // Auditoría histórica de puntualidad y cumplimiento del turno programado
-  horaEntradaProgramada: varchar('hora_entrada_programada', { length: 5 }), // Snapshot turno entrada
-  horaSalidaProgramada: varchar('hora_salida_programada', { length: 5 }),   // Snapshot turno salida
+  horaEntradaProgramada: varchar('hora_entrada_programada', { length: 20 }), // Snapshot turno entrada
+  horaSalidaProgramada: varchar('hora_salida_programada', { length: 20 }),   // Snapshot turno salida
   minutosTardanza: integer('minutos_tardanza'),                             // Minutos de retraso (> 0)
   minutosAnticipo: integer('minutos_anticipo'),                             // Minutos de anticipación (> 0)
   minutosExtra: integer('minutos_extra'),                                   // Minutos de sobretiempo (> 0)

@@ -54,6 +54,8 @@ export async function GET(request: Request) {
         horaEntradaEsperada: usuarios.horaEntradaEsperada,
         horaSalidaEsperada: usuarios.horaSalidaEsperada,
         toleranciaMinutos: usuarios.toleranciaMinutos,
+        esHorarioRotativo: usuarios.esHorarioRotativo,
+        horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
         // Sede
         sedeId: sedes.id,
         sedeNombre: sedes.nombre,

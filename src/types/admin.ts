@@ -17,6 +17,8 @@ export interface UsuarioItem {
   horaEntradaEsperada?: string | null;
   horaSalidaEsperada?: string | null;
   toleranciaMinutos?: number | null;
+  esHorarioRotativo?: boolean;
+  horasJornadaObjetivo?: number | string | null;
   turnoActivoId?: number | null;
   horaIngreso?: string | null;
   sedeActualId?: number | null;
@@ -53,6 +55,8 @@ export interface ResumenColaboradorItem {
   turnosConTardanza?: number;
   horaEntradaEsperada?: string | null;
   horaSalidaEsperada?: string | null;
+  esHorarioRotativo?: boolean;
+  horasJornadaObjetivo?: number | string | null;
 }
 
 export interface TicketSalidaData {
@@ -158,6 +162,11 @@ export interface AsistenciaAdminItem {
   minutosTardanza?: number | null;
   minutosAnticipo?: number | null;
   minutosExtra?: number | null;
+  horaEntradaEsperada?: string | null;
+  horaSalidaEsperada?: string | null;
+  toleranciaMinutos?: number | null;
+  esHorarioRotativo?: boolean;
+  horasJornadaObjetivo?: number | string | null;
   sesionesProgramadasDia?: SesionProgramadaSimclicItem[];
 }
 

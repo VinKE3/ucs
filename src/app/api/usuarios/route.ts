@@ -31,6 +31,8 @@ export async function GET() {
           horaEntradaEsperada: usuarios.horaEntradaEsperada,
           horaSalidaEsperada: usuarios.horaSalidaEsperada,
           toleranciaMinutos: usuarios.toleranciaMinutos,
+          esHorarioRotativo: usuarios.esHorarioRotativo,
+          horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
           activo: usuarios.activo,
           tienePassword: sql<boolean>`${usuarios.passwordHash} IS NOT NULL`,
           createdAt: usuarios.createdAt,
@@ -117,6 +119,8 @@ export async function POST(request: Request) {
       horaEntradaEsperada,
       horaSalidaEsperada,
       toleranciaMinutos,
+      esHorarioRotativo,
+      horasJornadaObjetivo,
     } = body;
 
     if (!dni || !nombres || !apellidos || !tipoPersonal) {
@@ -126,9 +130,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (tipoPersonal === 'tecnico' && (!horaEntradaEsperada || !horaSalidaEsperada)) {
+    if (tipoPersonal === 'tecnico' && !esHorarioRotativo && (!horaEntradaEsperada || !horaSalidaEsperada)) {
       return NextResponse.json(
-        { error: 'Para el personal técnico es obligatorio definir la hora de entrada y salida programada' },
+        { error: 'Para el personal técnico es obligatorio definir la hora de entrada y salida programada (o activar Horario Rotativo)' },
         { status: 400 }
       );
     }
@@ -201,6 +205,8 @@ export async function POST(request: Request) {
         horaEntradaEsperada: horaEntradaEsperada ? String(horaEntradaEsperada).trim() : null,
         horaSalidaEsperada: horaSalidaEsperada ? String(horaSalidaEsperada).trim() : null,
         toleranciaMinutos: toleranciaMinutos ? Number(toleranciaMinutos) : 10,
+        esHorarioRotativo: Boolean(esHorarioRotativo),
+        horasJornadaObjetivo: horasJornadaObjetivo ? String(horasJornadaObjetivo) : '9.00',
         activo: true,
       })
       .returning({
@@ -215,6 +221,8 @@ export async function POST(request: Request) {
         horaEntradaEsperada: usuarios.horaEntradaEsperada,
         horaSalidaEsperada: usuarios.horaSalidaEsperada,
         toleranciaMinutos: usuarios.toleranciaMinutos,
+        esHorarioRotativo: usuarios.esHorarioRotativo,
+        horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
       });
 
     return NextResponse.json({ ok: true, usuario: newUser });
@@ -353,6 +361,14 @@ export async function PATCH(request: Request) {
 
     if (body.toleranciaMinutos !== undefined) {
       updateData.toleranciaMinutos = body.toleranciaMinutos ? Number(body.toleranciaMinutos) : 10;
+    }
+
+    if (body.esHorarioRotativo !== undefined) {
+      updateData.esHorarioRotativo = Boolean(body.esHorarioRotativo);
+    }
+
+    if (body.horasJornadaObjetivo !== undefined) {
+      updateData.horasJornadaObjetivo = body.horasJornadaObjetivo === null || body.horasJornadaObjetivo === '' ? '9.00' : String(body.horasJornadaObjetivo);
     }
 
     if (activo !== undefined) {

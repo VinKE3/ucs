@@ -33,6 +33,11 @@ export async function GET(request: Request) {
         tipoPersonal: usuarios.tipoPersonal,
         rolSistema: usuarios.rolSistema,
         activo: usuarios.activo,
+        horaEntradaEsperada: usuarios.horaEntradaEsperada,
+        horaSalidaEsperada: usuarios.horaSalidaEsperada,
+        toleranciaMinutos: usuarios.toleranciaMinutos,
+        esHorarioRotativo: usuarios.esHorarioRotativo,
+        horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
       })
       .from(usuarios)
       .where(eq(usuarios.dni, dni))

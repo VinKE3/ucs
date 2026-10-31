@@ -141,6 +141,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     horaEntradaEsperada: '06:00',
     horaSalidaEsperada: '15:00',
     toleranciaMinutos: '10',
+    esHorarioRotativo: false,
+    horasJornadaObjetivo: '9.00',
     isEdit: false,
   });
   const [createLoading, setCreateLoading] = useState(false);
@@ -775,6 +777,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
             horaEntradaEsperada: createForm.horaEntradaEsperada,
             horaSalidaEsperada: createForm.horaSalidaEsperada,
             toleranciaMinutos: createForm.toleranciaMinutos,
+            esHorarioRotativo: createForm.esHorarioRotativo,
+            horasJornadaObjetivo: createForm.horasJornadaObjetivo,
           }),
         });
 
@@ -808,6 +812,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           horaEntradaEsperada: '06:00',
           horaSalidaEsperada: '15:00',
           toleranciaMinutos: '10',
+          esHorarioRotativo: false,
+          horasJornadaObjetivo: '9.00',
           isEdit: false,
         });
         showToast('Colaborador actualizado con éxito', 'success');
@@ -841,6 +847,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           horaEntradaEsperada: '06:00',
           horaSalidaEsperada: '15:00',
           toleranciaMinutos: '10',
+          esHorarioRotativo: false,
+          horasJornadaObjetivo: '9.00',
           isEdit: false,
         });
         showToast('Colaborador registrado con éxito', 'success');
@@ -869,6 +877,8 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       horaEntradaEsperada: u.horaEntradaEsperada || '06:00',
       horaSalidaEsperada: u.horaSalidaEsperada || '15:00',
       toleranciaMinutos: u.toleranciaMinutos !== undefined && u.toleranciaMinutos !== null ? String(u.toleranciaMinutos) : '10',
+      esHorarioRotativo: Boolean(u.esHorarioRotativo),
+      horasJornadaObjetivo: u.horasJornadaObjetivo ? String(u.horasJornadaObjetivo) : '9.00',
       isEdit: true,
     });
     setCreateError(null);

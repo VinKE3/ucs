@@ -500,7 +500,7 @@ export async function exportarExcelAsistenciasConGraficos({
 
   resumenColaboradores.forEach((r, idx) => {
     const turnoProg = (r.tipoPersonal === 'tecnico' || r.tipoPersonal === 'administrativo')
-      ? (r.horaEntradaEsperada ? `${r.horaEntradaEsperada} - ${r.horaSalidaEsperada || '--:--'}` : '06:00 - 15:00')
+      ? (r.esHorarioRotativo ? `Rotativo (${Number(r.horasJornadaObjetivo || 9)}h obj)` : (r.horaEntradaEsperada ? `${r.horaEntradaEsperada} - ${r.horaSalidaEsperada || '--:--'}` : '06:00 - 15:00'))
       : 'N/A';
 
     const row = wsResumen.addRow({

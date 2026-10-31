@@ -47,6 +47,8 @@ interface UsuarioData {
   tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
   horaEntradaEsperada?: string | null;
   horaSalidaEsperada?: string | null;
+  esHorarioRotativo?: boolean;
+  horasJornadaObjetivo?: number | string | null;
   turnoHoy?: {
     id: number;
     fecha: string;
@@ -1286,6 +1288,8 @@ export default function KioscoTerminal() {
                                       ) : (
                                         `⏰ Horario Programado Hoy: ${usuarioActual.turnoHoy.horaEntradaEsperada} - ${usuarioActual.turnoHoy.horaSalidaEsperada}`
                                       )
+                                    ) : usuarioActual.esHorarioRotativo ? (
+                                      `🔄 Horario Rotativo / Flexible (${Number(usuarioActual.horasJornadaObjetivo || 9)}h de jornada objetivo)`
                                     ) : (
                                       `⏰ Horario Habitual: ${usuarioActual.horaEntradaEsperada || '13:00'} - ${usuarioActual.horaSalidaEsperada || '22:00'}`
                                     )}

@@ -930,9 +930,11 @@ export async function executeGeminiTool(
             tardanzaMinutos: asistActual?.minutosTardanza || 0,
             horarioProgramado: turnoMalla
               ? `${turnoMalla.horaEntradaEsperada || user.horaEntradaEsperada || '07:00'} - ${turnoMalla.horaSalidaEsperada || user.horaSalidaEsperada || '16:00'} (${turnoMalla.tipoDia})`
-              : user.horaEntradaEsperada && user.horaSalidaEsperada
-                ? `${user.horaEntradaEsperada} - ${user.horaSalidaEsperada}`
-                : 'Horario estándar',
+              : user.esHorarioRotativo
+                ? `Horario Rotativo / Flexible (${Number(user.horasJornadaObjetivo || 9)}h obj)`
+                : user.horaEntradaEsperada && user.horaSalidaEsperada
+                  ? `${user.horaEntradaEsperada} - ${user.horaSalidaEsperada}`
+                  : 'Horario estándar',
             tipoDiaMalla: turnoMalla?.tipoDia || 'laborable',
             notaTurno: turnoMalla?.nota || null,
           });
@@ -960,6 +962,8 @@ export async function executeGeminiTool(
             horaEntradaEsperada: usuarios.horaEntradaEsperada,
             horaSalidaEsperada: usuarios.horaSalidaEsperada,
             toleranciaMinutos: usuarios.toleranciaMinutos,
+            esHorarioRotativo: usuarios.esHorarioRotativo,
+            horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
           })
           .from(usuarios)
           .where(and(eq(usuarios.tipoPersonal, 'tecnico'), eq(usuarios.activo, true)))
@@ -1014,6 +1018,11 @@ export async function executeGeminiTool(
           const horaEntradaProg = turno?.horaEntradaEsperada || tec.horaEntradaEsperada || '13:00';
           const horaSalidaProg = turno?.horaSalidaEsperada || tec.horaSalidaEsperada || '22:00';
 
+          const esRotativo = tec.esHorarioRotativo && !turno?.horaEntradaEsperada;
+          const horarioProgDesc = esRotativo
+            ? `Rotativo / Flexible (${Number(tec.horasJornadaObjetivo || 9)}h obj)`
+            : `${horaEntradaProg} - ${horaSalidaProg}`;
+
           let estadoOperativo = 'PROGRAMADO_POR_INGRESAR';
           if (tipoDia === 'descanso') {
             estadoOperativo = 'DESCANSO_SEMANAL_DSO';
@@ -1026,7 +1035,9 @@ export async function executeGeminiTool(
               estadoOperativo = 'JORNADA_FINALIZADA';
             }
           } else if (fechaTarget === hoyPeru) {
-            if (horaPeru > horaEntradaProg) {
+            if (esRotativo) {
+              estadoOperativo = 'FLEXIBLE_PENDIENTE_INGRESO';
+            } else if (horaPeru > horaEntradaProg) {
               estadoOperativo = 'PENDIENTE_MARCACION_ATRASADO';
             }
           }
@@ -1036,7 +1047,7 @@ export async function executeGeminiTool(
             dni: tec.dni,
             telefono: tec.telefono || 'Sin teléfono',
             tipoDia,
-            horarioProgramado: `${horaEntradaProg} - ${horaSalidaProg}`,
+            horarioProgramado: horarioProgDesc,
             notaMalla: turno?.nota || null,
             estadoOperativo,
             horaIngresoReal: formatTimestampPeru(asist?.horaIngreso),

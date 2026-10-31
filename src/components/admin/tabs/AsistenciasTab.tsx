@@ -1537,13 +1537,64 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                         {/* INDICADORES DE TURNO Y PUNTUALIDAD PARA PERSONAL CON HORARIO */}
                         {(asist.tipoPersonal === 'tecnico' || asist.tipoPersonal === 'administrativo') && (
                           <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                            {asist.horaEntradaProgramada && (
+                            {asist.horaEntradaProgramada === 'ROTATIVO' ? (
+                              <div style={{ fontSize: '0.68rem', color: '#fbbf24', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                                🔄 Rotativo (Salida est.: {asist.horaSalidaProgramada || '--:--'})
+                              </div>
+                            ) : asist.horaEntradaProgramada ? (
                               <div style={{ fontSize: '0.68rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>
                                 ⏰ Turno: {asist.horaEntradaProgramada} - {asist.horaSalidaProgramada || '--:--'}
                               </div>
-                            )}
+                            ) : null}
                             <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                              {asist.horaEntradaProgramada && (
+                              {asist.horaEntradaProgramada === 'ROTATIVO' ? (
+                                asist.estado === 'en_curso' ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      color: '#38bdf8',
+                                      background: 'rgba(56, 189, 248, 0.15)',
+                                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                    }}
+                                    title={`En curso en horario rotativo. Salida proyectada: ${asist.horaSalidaProgramada || '--:--'}`}
+                                  >
+                                    🔄 En curso (Obj: {asist.horaSalidaProgramada || '9h'})
+                                  </span>
+                                ) : asist.minutosAnticipo && asist.minutosAnticipo > 0 ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 800,
+                                      color: '#f59e0b',
+                                      background: 'rgba(245, 158, 11, 0.15)',
+                                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                    }}
+                                    title={`Retiro anticipado: no completó su jornada (${asist.minutosAnticipo} min restantes)`}
+                                  >
+                                    ⚠️ Incompleto -{asist.minutosAnticipo}m
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      color: '#10b981',
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                    }}
+                                    title="Jornada rotativa completa cumplida exitosamente"
+                                  >
+                                    ✅ Jornada Cumplida
+                                  </span>
+                                )
+                              ) : asist.horaEntradaProgramada ? (
                                 asist.minutosTardanza && asist.minutosTardanza > 0 ? (
                                   <span
                                     style={{
@@ -1590,7 +1641,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
                                     ✅ Puntual
                                   </span>
                                 )
-                              )}
+                              ) : null}
 
                               {asist.minutosExtra && asist.minutosExtra > 0 ? (
                                 <span

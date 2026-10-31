@@ -1495,6 +1495,29 @@ src/
         - Flujo end-to-end de generación, validación, bloqueo de reuso y revocación probado con script automatizado.
         - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
 
+    - **Hito 86: Modalidad de Horario Rotativo / Jornada Flexible para Personal Técnico y Administrativo (`esHorarioRotativo`, `ModalCrearPersonal.tsx`, `PersonalTab.tsx`, `AsistenciasTab.tsx`, `KardexDrawer.tsx`, `KioscoTerminal.tsx`, `/api/kiosco/marcar`)**:
+      - **Contexto y Necesidad Operativa**:
+        - En la clínica de simulación, ciertos técnicos operan como personal flotante o rotativo entre campus (Villa, Norte, Ate) con horas de ingreso variables según la demanda quirúrgica o académica (ej. de 07:00 a 16:00, 09:00 a 18:00, etc.).
+        - El modelo rígido anterior requería fijar una hora matutina de entrada (ej. 06:00 o 13:00), lo que generaba falsas tardanzas matutinas de 60 a 180 minutos cuando el técnico ingresaba a su hora real asignada para ese día.
+      - **Implementación Técnica**:
+        - **Estructura en Base de Datos PostgreSQL (`usuarios` y `asistencias`)**:
+          - Agregadas columnas a `usuarios`: `es_horario_rotativo` (BOOLEAN DEFAULT FALSE) y `horas_jornada_objetivo` (NUMERIC(4,2) DEFAULT 9.00).
+          - Ampliadas columnas `hora_entrada_programada` y `hora_salida_programada` en `asistencias` a `VARCHAR(20)` para admitir el snapshot descriptivo `ROTATIVO` y horas proyectadas dinámicas.
+          - Migración ejecutada exitosamente con `src/db/migrate_horario_rotativo.ts`.
+        - **Formulario y Gestión de Personal (`ModalCrearPersonal.tsx`, `PersonalTab.tsx`, `AdminDashboard.tsx`)**:
+          - Añadido switch/checkbox `[✓] Horario Rotativo / Jornada Flexible` con selector de jornada objetivo (8h, 8.5h, 9h [Estándar UCS], 9.5h, 10h) y tolerancia configurable.
+          - Si está activo, oculta los selectores de horas fijas y exime la obligatoriedad de entrada/salida matutina.
+          - En el directorio de personal, muestra la insignia ámbar `🔄 Rotativo (9h obj)`.
+        - **Lógica de Marcación Inteligente en Kiosco (`/api/kiosco/marcar`, `KioscoTerminal.tsx`)**:
+          - **Al Ingresar**: No genera tardanza matutina (`minutosTardanza = 0`). Proyecta dinámicamente la hora estimada de salida (`horaIngreso + horasJornadaObjetivo`, ej: 07:15 + 9h = 16:15), registra `horaEntradaProgramada = 'ROTATIVO'` y `horaSalidaProgramada = [HH:mm]`, y brinda feedback con horario estimado de retiro.
+          - **Al Salir**: Audita la duración efectiva trabajada contra la jornada objetivo (ej: 540 min). Si supera la jornada + tolerancia, registra `minutosExtra`; si se retira antes de la jornada - tolerancia, registra `minutosAnticipo` con aviso de retiro anticipado; si cumple dentro del margen, marca jornada completada.
+        - **Monitoreo de Turnos Prolongados & Kardex (`AsistenciasTab.tsx`, `KardexDrawer.tsx`)**:
+          - En el radar de turnos abiertos, no dispara falsa alarma a las 5 horas; evalúa contra la hora proyectada de salida (`16:15 + 30m gracia`).
+          - En las tablas de asistencias y exportables Excel, visualiza el estado `🔄 Rotativo (Salida est.: HH:mm)` y badges `✅ Jornada Cumplida`, `⏱️ +Xm extra` o `⚠️ Incompleto -Xm`.
+      - **Verificación Técnica**:
+        - Prueba end-to-end automatizada con Drizzle ORM validando persistencia, cálculo y limpieza de datos.
+        - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
+
 ---
 
 

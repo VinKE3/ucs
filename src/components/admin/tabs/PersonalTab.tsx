@@ -1081,7 +1081,24 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                     {getTipoBadge(u.tipoPersonal)}
                     {u.tipoPersonal === 'tecnico' && (
                       <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        {u.horaEntradaEsperada && (
+                        {u.esHorarioRotativo ? (
+                          <div
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#d97706',
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              border: '1px solid rgba(245, 158, 11, 0.35)',
+                              borderRadius: '4px',
+                              padding: '0.1rem 0.4rem',
+                              fontWeight: 700,
+                              display: 'inline-block',
+                              width: 'fit-content',
+                            }}
+                            title={`Horario Rotativo / Flexible: Jornada de ${Number(u.horasJornadaObjetivo || 9)}h objetivo (Tolerancia: ${u.toleranciaMinutos || 10} min)`}
+                          >
+                            🔄 Rotativo ({Number(u.horasJornadaObjetivo || 9)}h obj)
+                          </div>
+                        ) : u.horaEntradaEsperada ? (
                           <div
                             style={{
                               fontSize: '0.72rem',
@@ -1093,7 +1110,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                           >
                             ⏰ Turno: {u.horaEntradaEsperada} - {u.horaSalidaEsperada || '--'}
                           </div>
-                        )}
+                        ) : null}
                         {Boolean(saldosCompensatoriosMap.get(u.id)) && (
                           <div>
                             <button

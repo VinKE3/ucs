@@ -639,7 +639,7 @@ export function KardexDrawer({
                       fontFamily: 'var(--font-mono)',
                     }}
                   >
-                    ⏰ Turno Asignado: {usuario.horaEntradaEsperada || '06:00'} - {usuario.horaSalidaEsperada || '15:00'}
+                    {usuario.esHorarioRotativo ? `🔄 Horario Rotativo (${Number(usuario.horasJornadaObjetivo || 9)}h objetivo)` : `⏰ Turno Asignado: ${usuario.horaEntradaEsperada || '06:00'} - ${usuario.horaSalidaEsperada || '15:00'}`}
                   </span>
                 )}
               </div>
@@ -814,7 +814,11 @@ export function KardexDrawer({
                   </span>
                 </div>
                 <div style={{ fontSize: '0.78rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>
-                  ⏰ Turno programado: <strong>{usuario.horaEntradaEsperada || '06:00'} - {usuario.horaSalidaEsperada || '15:00'}</strong> (Tol. {usuario.toleranciaMinutos ?? 10}m)
+                  {usuario.esHorarioRotativo ? (
+                    <>🔄 Horario Flexible: <strong>{Number(usuario.horasJornadaObjetivo || 9)}h objetivo por jornada</strong> (Tol. {usuario.toleranciaMinutos ?? 10}m)</>
+                  ) : (
+                    <>⏰ Turno programado: <strong>{usuario.horaEntradaEsperada || '06:00'} - {usuario.horaSalidaEsperada || '15:00'}</strong> (Tol. {usuario.toleranciaMinutos ?? 10}m)</>
+                  )}
                 </div>
               </div>
 
@@ -1438,12 +1442,30 @@ export function KardexDrawer({
 
                       {(a.tipoPersonal === 'tecnico' || a.horaEntradaProgramada) && (
                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
-                          {a.horaEntradaProgramada && (
+                          {a.horaEntradaProgramada === 'ROTATIVO' ? (
+                            <span style={{ fontSize: '0.72rem', color: '#fbbf24', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                              🔄 Rotativo (Salida est.: {a.horaSalidaProgramada || '--:--'})
+                            </span>
+                          ) : a.horaEntradaProgramada ? (
                             <span style={{ fontSize: '0.72rem', color: '#93c5fd', fontFamily: 'var(--font-mono)' }}>
                               ⏰ Turno: {a.horaEntradaProgramada} - {a.horaSalidaProgramada || '--:--'}
                             </span>
-                          )}
-                          {a.horaEntradaProgramada && (
+                          ) : null}
+                          {a.horaEntradaProgramada === 'ROTATIVO' ? (
+                            a.estado === 'en_curso' ? (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                🔄 En curso (Obj: {a.horaSalidaProgramada || '9h'})
+                              </span>
+                            ) : a.minutosAnticipo && a.minutosAnticipo > 0 ? (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                ⚠️ Incompleto -{a.minutosAnticipo}m
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                ✅ Jornada Cumplida
+                              </span>
+                            )
+                          ) : a.horaEntradaProgramada && (
                             a.minutosTardanza && a.minutosTardanza > 0 ? (
                               <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.15)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
                                 ⚠️ Tardanza +{a.minutosTardanza}m

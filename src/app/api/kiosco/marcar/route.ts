@@ -207,8 +207,20 @@ export async function POST(request: NextRequest) {
 
       const entradaObjetivo = turnoHoyProg?.horaEntradaEsperada || user.horaEntradaEsperada;
       const salidaObjetivo = turnoHoyProg?.horaSalidaEsperada || user.horaSalidaEsperada;
+      const esRotativo = Boolean(user.esHorarioRotativo) && !turnoHoyProg?.horaEntradaEsperada;
 
-      if ((user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') && entradaObjetivo) {
+      if ((user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') && esRotativo) {
+        const horasObj = user.horasJornadaObjetivo ? Number(user.horasJornadaObjetivo) : 9.0;
+        const duracionMs = Math.round(horasObj * 60) * 60 * 1000;
+        const projectedExitDate = new Date(now.getTime() + duracionMs);
+        const projExitStr = getPeruTimeString(projectedExitDate);
+
+        horaEntradaProg = 'ROTATIVO';
+        horaSalidaProg = projExitStr;
+        tardanzaMin = 0;
+        anticipoMin = 0;
+        feedbackPuntualidad = ` • 🔄 Turno Rotativo: Jornada de ${horasObj}h proyectada hasta las ${projExitStr}`;
+      } else if ((user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') && entradaObjetivo) {
         horaEntradaProg = entradaObjetivo;
         horaSalidaProg = salidaObjetivo || null;
 
@@ -411,28 +423,49 @@ export async function POST(request: NextRequest) {
       const minutosTotales = Math.max(1, Math.round(diffMs / (1000 * 60)));
 
       let extraMin: number | null = null;
+      let anticipoMinSalida: number | null = null;
       let feedbackSalida = '';
 
       if (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') {
-        const horaSalidaRef = asistenciaTarget.horaSalidaProgramada || user.horaSalidaEsperada;
-        if (horaSalidaRef) {
-          const [expH, expM] = horaSalidaRef.split(':').map(Number);
-          const expectedMinutes = expH * 60 + expM;
+        const esAsistenciaRotativa = asistenciaTarget.horaEntradaProgramada === 'ROTATIVO' || Boolean(user.esHorarioRotativo);
 
-          const actualTimeString = getPeruTimeString(now);
-          const [actH, actM] = actualTimeString.split(':').map(Number);
-          const actualMinutes = actH * 60 + actM;
-
-          const diffMinutes = actualMinutes - expectedMinutes;
+        if (esAsistenciaRotativa) {
+          const horasObj = user.horasJornadaObjetivo ? Number(user.horasJornadaObjetivo) : 9.0;
+          const targetMinutes = Math.round(horasObj * 60);
           const tolerancia = user.toleranciaMinutos ?? 10;
+          const diffVsTarget = minutosTotales - targetMinutes;
 
-          if (diffMinutes > tolerancia) {
-            extraMin = diffMinutes;
-            feedbackSalida = ` • ⏱️ +${diffMinutes} min extra`;
-          } else if (diffMinutes < -tolerancia) {
-            feedbackSalida = ` • ⚠️ Salida anticipada (${Math.abs(diffMinutes)} min antes)`;
+          if (diffVsTarget > tolerancia) {
+            extraMin = diffVsTarget;
+            feedbackSalida = ` • ⏱️ +${diffVsTarget} min extra sobre jornada (${horasObj}h)`;
+          } else if (diffVsTarget < -tolerancia) {
+            anticipoMinSalida = Math.abs(diffVsTarget);
+            feedbackSalida = ` • ⚠️ Retiro anticipado (-${anticipoMinSalida} min para completar ${horasObj}h)`;
           } else {
-            feedbackSalida = ` • ✅ Turno cumplido a tiempo`;
+            feedbackSalida = ` • ✅ Jornada completa de ${horasObj}h cumplida`;
+          }
+        } else {
+          const horaSalidaRef = asistenciaTarget.horaSalidaProgramada || user.horaSalidaEsperada;
+          if (horaSalidaRef) {
+            const [expH, expM] = horaSalidaRef.split(':').map(Number);
+            const expectedMinutes = expH * 60 + expM;
+
+            const actualTimeString = getPeruTimeString(now);
+            const [actH, actM] = actualTimeString.split(':').map(Number);
+            const actualMinutes = actH * 60 + actM;
+
+            const diffMinutes = actualMinutes - expectedMinutes;
+            const tolerancia = user.toleranciaMinutos ?? 10;
+
+            if (diffMinutes > tolerancia) {
+              extraMin = diffMinutes;
+              feedbackSalida = ` • ⏱️ +${diffMinutes} min extra`;
+            } else if (diffMinutes < -tolerancia) {
+              anticipoMinSalida = Math.abs(diffMinutes);
+              feedbackSalida = ` • ⚠️ Salida anticipada (${Math.abs(diffMinutes)} min antes)`;
+            } else {
+              feedbackSalida = ` • ✅ Turno cumplido a tiempo`;
+            }
           }
         }
       }
@@ -443,6 +476,7 @@ export async function POST(request: NextRequest) {
           horaSalida: now,
           minutosTotales: minutosTotales,
           minutosExtra: extraMin,
+          minutosAnticipo: anticipoMinSalida !== null ? anticipoMinSalida : asistenciaTarget.minutosAnticipo,
           estado: 'finalizado',
           updatedAt: now,
         })

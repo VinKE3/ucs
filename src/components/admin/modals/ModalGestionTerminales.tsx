@@ -154,6 +154,10 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
 
   const handleGenerarCodigo = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!genNombreSugerido.trim()) {
+      showToast('Por favor asigne un nombre a la terminal (ej: PC Simulación Norte)', 'error');
+      return;
+    }
     setGenerando(true);
     try {
       const res = await fetch('/api/admin/terminales/codigos', {
@@ -654,10 +658,11 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
                   {/* NOMBRE SUGERIDO */}
                   <div>
                     <label style={{ display: 'block', fontSize: '0.775rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
-                      Nombre Sugerido de la Terminal (Opcional)
+                      Nombre de esta Terminal / Pantalla *
                     </label>
                     <input
                       type="text"
+                      required
                       placeholder="ej: PC Simulación Norte - Aula 102"
                       value={genNombreSugerido}
                       onChange={(e) => setGenNombreSugerido(e.target.value)}

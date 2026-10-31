@@ -20,21 +20,15 @@ export async function POST(request: Request) {
     const { metodo = 'credenciales', codigoOtp, identificador, password, nombreTerminal, sedeId } = body;
 
     let adminUsuarioId: number | null = null;
-    let finalSedeId: number | null = sedeId ? Number(sedeId) : null;
+    let finalSedeId: number | null = null;
+    let finalNombreTerminal: string = '';
     let otpRowId: number | null = null;
-
-    if (!nombreTerminal || !nombreTerminal.trim()) {
-      return NextResponse.json(
-        { error: 'Debe asignar un nombre a la terminal (ej: "Tablet Recepción Villa" o "PC Simulación Norte").' },
-        { status: 400 }
-      );
-    }
 
     // -------------------------------------------------------------
     // FLUJO A: AUTORIZACIÓN MEDIANTE CÓDIGO DE UN SOLO USO (OTP)
     // -------------------------------------------------------------
     if (metodo === 'otp' || (codigoOtp && !password)) {
-      if (!codigoOtp || !codigoOtp.trim()) {
+      if (!codigoOtp || !String(codigoOtp).trim()) {
         return NextResponse.json(
           { error: 'Debe ingresar el código de activación de un solo uso.' },
           { status: 400 }
@@ -42,7 +36,7 @@ export async function POST(request: Request) {
       }
 
       // Normalizar código: quitar espacios y guiones para comparar flexiblemente
-      const rawCode = codigoOtp.trim().toUpperCase();
+      const rawCode = String(codigoOtp).trim().toUpperCase();
       const cleanDigits = rawCode.replace(/[^A-Z0-9]/g, '');
 
       // Buscar código exacto o variante con/sin guión
@@ -96,10 +90,17 @@ export async function POST(request: Request) {
       otpRowId = otpRow.id;
       adminUsuarioId = otpRow.creadoPor;
 
-      // Si el administrador fijó una sede específica al generar el código, se respeta obligatoriamente
-      if (otpRow.sedeId) {
-        finalSedeId = otpRow.sedeId;
+      // La sede y el nombre se toman automáticamente de lo predefinido por el Admin al crear el código
+      finalSedeId = otpRow.sedeId ?? (sedeId ? Number(sedeId) : null);
+
+      // Obtener nombre de la sede para el nombre por defecto si no se especificó
+      let sedeNombrePrevia = '';
+      if (finalSedeId) {
+        const [s] = await db.select({ nombre: sedes.nombre }).from(sedes).where(eq(sedes.id, finalSedeId)).limit(1);
+        if (s) sedeNombrePrevia = s.nombre;
       }
+
+      finalNombreTerminal = (otpRow.nombreSugerido || nombreTerminal || `Terminal Kiosco ${sedeNombrePrevia || 'Oficial'}`).trim();
 
       terminalAuthRateLimiter.reset(rateLimitKey);
     }
@@ -113,6 +114,16 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+
+      if (!nombreTerminal || !String(nombreTerminal).trim()) {
+        return NextResponse.json(
+          { error: 'Debe asignar un nombre a la terminal (ej: "Tablet Recepción Villa" o "PC Simulación Norte").' },
+          { status: 400 }
+        );
+      }
+
+      finalNombreTerminal = String(nombreTerminal).trim();
+      finalSedeId = sedeId ? Number(sedeId) : null;
 
       // Validar usuario administrador
       const foundUsers = await db
@@ -189,7 +200,7 @@ export async function POST(request: Request) {
       .insert(terminalesKiosco)
       .values({
         token,
-        nombre: nombreTerminal.trim(),
+        nombre: finalNombreTerminal,
         sedeId: finalSedeId,
         dispositivoInfo: userAgent,
         ipRegistro,

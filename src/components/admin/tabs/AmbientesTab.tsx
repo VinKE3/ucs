@@ -1,25 +1,26 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 import Swal from 'sweetalert2';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem, AmbienteAdminItem, TecnicoTurnoItem, OcupanteItem, CategoriaAmbienteItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
 
 interface AmbientesTabProps {
-  session?: SessionPayload;
-  sedesList: SedeAdminItem[];
-  selectedSedeId: number | null;
-  setSelectedSedeId: (id: number) => void;
+  session?: SessionPayload | null;
+  sedesList?: SedeAdminItem[];
+  selectedSedeId?: number | null;
+  setSelectedSedeId?: (id: number) => void;
   selectedSedeObj?: SedeAdminItem;
-  ambientesList: AmbienteAdminItem[];
-  tecnicosEnSede: TecnicoTurnoItem[];
+  ambientesList?: AmbienteAdminItem[];
+  tecnicosEnSede?: TecnicoTurnoItem[];
   categoriasList?: CategoriaAmbienteItem[];
-  loadingAmbientes: boolean;
-  searchAmbiente: string;
-  setSearchAmbiente: (val: string) => void;
-  filterTipo: string;
-  setFilterTipo: (val: string) => void;
+  loadingAmbientes?: boolean;
+  searchAmbiente?: string;
+  setSearchAmbiente?: (val: string) => void;
+  filterTipo?: string;
+  setFilterTipo?: (val: string) => void;
   onOpenCrearAmbiente: () => void;
   onOpenEditAmbiente: (amb: AmbienteAdminItem) => void;
   onToggleAmbienteActivo: (amb: AmbienteAdminItem) => void;
@@ -28,27 +29,38 @@ interface AmbientesTabProps {
   onCerrarTurnoPorRelevo: (docAnterior: OcupanteItem, docActual: OcupanteItem, nombreAmbiente: string) => void;
 }
 
-export const AmbientesTab: React.FC<AmbientesTabProps> = ({
-  session,
-  sedesList,
-  selectedSedeId,
-  setSelectedSedeId,
-  selectedSedeObj,
-  ambientesList,
-  tecnicosEnSede,
-  categoriasList,
-  loadingAmbientes,
-  searchAmbiente,
-  setSearchAmbiente,
-  filterTipo,
-  setFilterTipo,
-  onOpenCrearAmbiente,
-  onOpenEditAmbiente,
-  onToggleAmbienteActivo,
-  onDeleteAmbiente,
-  onOpenGestionCategorias,
-  onCerrarTurnoPorRelevo,
-}) => {
+export const AmbientesTab: React.FC<AmbientesTabProps> = (props) => {
+  const store = useAdminStore();
+
+  const session = props.session ?? store.session;
+  const sedesList = props.sedesList ?? store.sedesList;
+  const selectedSedeId = props.selectedSedeId ?? store.selectedSedeId;
+  const setSelectedSedeId = props.setSelectedSedeId ?? ((id: number) => store.setSelectedSedeId(id));
+  const ambientesList = props.ambientesList ?? store.ambientesList;
+  const tecnicosEnSede = props.tecnicosEnSede ?? store.tecnicosEnSede;
+  const categoriasList = props.categoriasList ?? store.categoriasList;
+  const loadingAmbientes = props.loadingAmbientes ?? store.loadingAmbientes;
+  const searchAmbiente = props.searchAmbiente ?? store.searchAmbiente;
+  const setSearchAmbiente = props.setSearchAmbiente ?? store.setSearchAmbiente;
+  const filterTipo = props.filterTipo ?? store.filterTipo;
+  const setFilterTipo = props.setFilterTipo ?? store.setFilterTipo;
+  const selectedSedeObj = props.selectedSedeObj ?? sedesList.find((s) => s.id === selectedSedeId);
+
+  const {
+    onOpenCrearAmbiente,
+    onOpenEditAmbiente,
+    onToggleAmbienteActivo,
+    onDeleteAmbiente,
+    onOpenGestionCategorias,
+    onCerrarTurnoPorRelevo,
+  } = props;
+
+  // Si los datos se gestionan por store (sin props drilling), auto-cargar al cambiar filtros
+  useEffect(() => {
+    if (props.ambientesList === undefined && selectedSedeId) {
+      store.loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
+    }
+  }, [props.ambientesList, selectedSedeId, filterTipo, searchAmbiente]);
   const [syncingSimclic, setSyncingSimclic] = useState(false);
   const [lastSyncInfo, setLastSyncInfo] = useState<string | null>(null);
 

@@ -3,26 +3,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { UsuarioItem, SedeAdminItem, CursoAdminItem, AmbienteAdminItem } from '@/types/admin';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 interface ModalCrearAsistenciaManualProps {
   isOpen: boolean;
-  usuariosList: UsuarioItem[];
-  sedesList: SedeAdminItem[];
-  cursosList: CursoAdminItem[];
-  loading: boolean;
+  usuariosList?: UsuarioItem[];
+  sedesList?: SedeAdminItem[];
+  cursosList?: CursoAdminItem[];
+  loading?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProps> = ({
-  isOpen,
-  usuariosList,
-  sedesList,
-  cursosList,
-  loading: parentLoading,
-  onClose,
-  onSuccess,
-}) => {
+export const ModalCrearAsistenciaManual: React.FC<ModalCrearAsistenciaManualProps> = (props) => {
+  const store = useAdminStore();
+  const { isOpen, onClose, onSuccess } = props;
+  const usuariosList = props.usuariosList ?? store.usuariosList;
+  const sedesList = props.sedesList ?? store.sedesList;
+  const cursosList = props.cursosList ?? store.cursosList;
+  const parentLoading = props.loading ?? false;
   const [selectedUsuarioId, setSelectedUsuarioId] = useState<string>('');
   const [selectedSedeId, setSelectedSedeId] = useState<string>('');
   const [selectedAmbienteId, setSelectedAmbienteId] = useState<string>('');

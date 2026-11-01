@@ -8,26 +8,24 @@ import type {
   CastingEspecialidadItem,
   CastingRestriccionItem,
 } from '@/types/admin';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 interface ModalFichaCastingProps {
   isOpen: boolean;
   actor: UsuarioItem | null;
-  rangosList: CastingRangoEdadItem[];
-  especialidadesList: CastingEspecialidadItem[];
-  restriccionesList: CastingRestriccionItem[];
+  rangosList?: CastingRangoEdadItem[];
+  especialidadesList?: CastingEspecialidadItem[];
+  restriccionesList?: CastingRestriccionItem[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = ({
-  isOpen,
-  actor,
-  rangosList,
-  especialidadesList,
-  restriccionesList,
-  onClose,
-  onSaved,
-}) => {
+export const ModalFichaCasting: React.FC<ModalFichaCastingProps> = (props) => {
+  const store = useAdminStore();
+  const { isOpen, actor, onClose, onSaved } = props;
+  const rangosList = props.rangosList ?? store.castingRangos;
+  const especialidadesList = props.especialidadesList ?? store.castingEspecialidades;
+  const restriccionesList = props.restriccionesList ?? store.castingRestricciones;
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

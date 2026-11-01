@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { CarreraAdminItem } from '@/types/admin';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 export interface CursoFormData {
   id: number;
@@ -27,16 +28,18 @@ interface ModalCursoProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
-export const ModalCurso: React.FC<ModalCursoProps> = ({
-  isOpen,
-  cursoForm,
-  setCursoForm,
-  carrerasList = [],
-  cursoLoading,
-  cursoError,
-  onClose,
-  onSubmit,
-}) => {
+export const ModalCurso: React.FC<ModalCursoProps> = (props) => {
+  const store = useAdminStore();
+  const {
+    isOpen,
+    cursoForm,
+    setCursoForm,
+    cursoLoading,
+    cursoError,
+    onClose,
+    onSubmit,
+  } = props;
+  const carrerasList = props.carrerasList ?? store.carrerasList;
   if (!isOpen) return null;
 
   return (

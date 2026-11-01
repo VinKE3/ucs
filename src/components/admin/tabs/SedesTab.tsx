@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 import dynamic from 'next/dynamic';
 
 const ModalGestionTerminales = dynamic(
@@ -12,8 +13,8 @@ const ModalGestionTerminales = dynamic(
 );
 
 interface SedesTabProps {
-  sedesList: SedeAdminItem[];
-  session?: SessionPayload;
+  sedesList?: SedeAdminItem[];
+  session?: SessionPayload | null;
   onOpenCrearSede: () => void;
   onOpenEditSede: (sede: SedeAdminItem) => void;
   onToggleSedeActivo: (sede: SedeAdminItem) => void;
@@ -21,15 +22,19 @@ interface SedesTabProps {
   onVerSalasDeSede: (sedeId: number) => void;
 }
 
-export const SedesTab: React.FC<SedesTabProps> = ({
-  sedesList,
-  session,
-  onOpenCrearSede,
-  onOpenEditSede,
-  onToggleSedeActivo,
-  onDeleteSede,
-  onVerSalasDeSede,
-}) => {
+export const SedesTab: React.FC<SedesTabProps> = (props) => {
+  const store = useAdminStore();
+
+  const sedesList = props.sedesList ?? store.sedesList;
+  const session = props.session ?? store.session;
+
+  const {
+    onOpenCrearSede,
+    onOpenEditSede,
+    onToggleSedeActivo,
+    onDeleteSede,
+    onVerSalasDeSede,
+  } = props;
   const [searchQuery, setSearchQuery] = useState('');
   const [showTerminalesModal, setShowTerminalesModal] = useState(false);
   const [terminalesModalTab, setTerminalesModalTab] = useState<'terminales' | 'codigos'>('terminales');

@@ -12,6 +12,7 @@ import type {
 } from '@/types/admin';
 import { exportarExcelPlanillaConGraficos } from '@/lib/excelPlanillaExporter';
 import { showAlert, showError, showToast } from '@/lib/alerts';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 export interface PlanillaTabProps {
   asistenciasList?: AsistenciaAdminItem[];
@@ -48,15 +49,17 @@ const NOMBRES_MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
-export const PlanillaTab: React.FC<PlanillaTabProps> = ({
-  asistenciasList: asistenciasProp = [],
-  usuariosList = [],
-  cursosList = [],
-  rangosList: rangosProp = [],
-  especialidadesList: especialidadesProp = [],
-  restriccionesList: restriccionesProp = [],
-  onOpenKardex,
-}) => {
+export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
+  const store = useAdminStore();
+
+  const asistenciasProp = props.asistenciasList ?? store.asistenciasList;
+  const usuariosList = props.usuariosList ?? store.usuariosList;
+  const cursosList = props.cursosList ?? store.cursosList;
+  const rangosProp = props.rangosList ?? store.castingRangos;
+  const especialidadesProp = props.especialidadesList ?? store.castingEspecialidades;
+  const restriccionesProp = props.restriccionesList ?? store.castingRestricciones;
+
+  const { onOpenKardex } = props;
   // Año y mes seleccionados (inicializado dinámicamente con el mes y año en curso)
   const [anioSeleccionado, setAnioSeleccionado] = useState<number>(() => new Date().getFullYear());
   const [mesSeleccionado, setMesSeleccionado] = useState<number>(() => new Date().getMonth());

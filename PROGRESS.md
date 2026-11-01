@@ -3,6 +3,61 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 96: Gestión de Estado Global con Zustand (Fase 3 - Desacoplamiento Total de CursosTab, SedesTab y 8 Modales Administrativos)**:
+      - **Objetivo**: Culminar la erradicación del props drilling en todo el sistema administrativo UCS, conectando las pestañas restantes (`CursosTab`, `SedesTab`) y los 8 modales/drawers de gestión directamente al store central `useAdminStore`, garantizando aislamiento de renderizado al 100% y eliminando estados locales innecesarios en `AdminDashboard.tsx`.
+      - **1. Desacoplamiento de Pestañas (`CursosTab` y `SedesTab`)**:
+        - `CursosTab.tsx`: Eliminadas 7 props de estado (`session`, `cursosList`, `carrerasList`, `loadingCursos`, `searchCurso`, `filterCursoActivo`). La búsqueda de cursos y filtro por estado activo ahora se procesan de forma local o vía store sin reactivar el dashboard padre.
+        - `SedesTab.tsx`: Eliminadas 2 props directas (`sedesList`, `session`), consumidas reactivamente desde el store.
+      - **2. Desacoplamiento de los 8 Modales y Drawers Compartidos**:
+        - `ModalCrearAmbiente.tsx`: Lee automáticamente `selectedSedeObj` y `categoriasList` desde el store.
+        - `ModalGestionCategorias.tsx`: Lee directamente `categoriasList`.
+        - `ModalCrearPersonal.tsx`: Lee los permisos de `session` de forma segura para desplegar el selector de roles de acceso.
+        - `ModalCurso.tsx`: Lee `carrerasList` para la asignación de facultades.
+        - `ModalCrearAsistenciaManual.tsx`: Consume `usuariosList`, `sedesList` y `cursosList` sin props drilling.
+        - `KardexDrawer.tsx`: Lee `castingEspecialidades` y `castingRestricciones` para la auditoría curricular de docentes y actores.
+        - `ModalGestionCastingCatalogos.tsx` y `ModalFichaCasting.tsx`: Acceso unificado a catálogos de rangos de edad, especialidades y restricciones.
+      - **3. Limpieza Estructural de `AdminDashboard.tsx`**:
+        - Se eliminaron decenas de props y estados redundantes de filtros locales (`searchCurso`, `filterCursoActivo`, etc.).
+        - El JSX de invocación de todas las pestañas y modales ahora es conciso, declarativo y centrado puramente en callbacks de acción y guardas de seguridad.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
+    - **Hito 95: Gestión de Estado Global con Zustand (Fase 2 - Desacoplamiento de AsistenciasTab y PlanillaTab)**:
+      - **Objetivo**: Extender el desacoplamiento de estado global con Zustand a las pestañas con mayor densidad de props y filtros de todo el sistema administrativo (`AsistenciasTab` y `PlanillaTab`), eliminando por completo los re-renderizados innecesarios generados al escribir en búsquedas o alterar rangos de fecha y campus.
+      - **1. Expansión del Store Central (`src/lib/stores/useAdminStore.ts`)**:
+        - Incorporados catálogos de cursos y carreras (`cursosList`, `carrerasList`, `loadingCursos`, `loadCursos()`).
+        - Implementada la acción asíncrona `loadAsistencias()`, que lee en tiempo real los 7 filtros activos (`asistFiltroSede`, `asistFiltroTipo`, `asistFiltroEstado`, `asistFiltroCurso`, `asistFiltroFechaDesde`, `asistFiltroFechaHasta`, `asistSearch`) y actualiza atómicamente el listado de asistencias sin intermediación de props.
+      - **2. Desacoplamiento de `AsistenciasTab` (`src/components/admin/tabs/AsistenciasTab.tsx`)**:
+        - Se eliminaron **19 props directas de estado**: todas las listas y funciones mutadoras de filtros se reemplazaron por consumo directo desde `useAdminStore` con fallback retrocompatible (`props.x ?? store.x`).
+        - Búsqueda en tiempo real (`asistSearch`) y selector de fechas (`DateRangePicker`) ahora re-evalúan únicamente el árbol de `AsistenciasTab`, dejando a `AdminDashboard` completamente estático.
+        - Exportación a CSV (`onExportCsv`) provista con generador por defecto basado en los filtros activos del store.
+      - **3. Desacoplamiento de `PlanillaTab` (`src/components/admin/tabs/PlanillaTab.tsx`)**:
+        - Se eliminaron **6 props de catálogos y colecciones**: `asistenciasList`, `usuariosList`, `cursosList`, `rangosList`, `especialidadesList` y `restriccionesList`.
+        - La pestaña liquidadora para Actores PS y Colaboradores ahora se auto-abastece directamente del store de forma limpia y reactiva.
+      - **4. Optimización de `AdminDashboard.tsx`**:
+        - La invocación en el JSX de `<AsistenciasTab />` y `<PlanillaTab />` pasó de más de **50 líneas de props drilling** a breves bloques declarativos de apertura de modales y drawers.
+        - Cursos y asistencias sincronizados bidireccionalmente durante `loadData()`, `loadCursos()` y mutaciones de auditoría.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
+    - **Hito 94: Gestión de Estado Global con Zustand (Fase 1 - Store Central y Desacoplamiento de AmbientesTab y PersonalTab)**:
+      - **Objetivo**: Erradicar el props drilling extremo en el dashboard administrativo monolítico (`AdminDashboard.tsx`, +1,700 líneas), introduciendo un almacén global reactivo y ultra-ligero (`useAdminStore`) con Zustand 5 para que pestañas complejas consuman y muten el estado sin provocar re-renderizados en cascada de todo el árbol de componentes.
+      - **1. Creación del Store Central (`src/lib/stores/useAdminStore.ts`)**:
+        - Estado global reactivo para sesión, navegación activa, sedes (`sedesList`, `selectedSedeId`), ambientes (`ambientesList`, `loadingAmbientes`, `searchAmbiente`, `filterTipo`, `tecnicosEnSede`, `categoriasList`), personal (`usuariosList`, `searchPersonal`, `filterPersonalTipo`, catálogos de casting), asistencias y métricas globales (`stats`).
+        - Acciones asíncronas directas integradas: `loadAmbientes(sedeId?, tipo?, q?)`, `loadUsuarios()` y `updateUsuario(updated)` para mutaciones atómicas locales.
+      - **2. Desacoplamiento de `AmbientesTab` (`src/components/admin/tabs/AmbientesTab.tsx`)**:
+        - Se eliminaron 13 props directas de estado (`session`, `sedesList`, `selectedSedeId`, `setSelectedSedeId`, `selectedSedeObj`, `ambientesList`, `tecnicosEnSede`, `categoriasList`, `loadingAmbientes`, `searchAmbiente`, `setSearchAmbiente`, `filterTipo`, `setFilterTipo`).
+        - Implementado patrón híbrido retrocompatible: `props.x ?? store.x`.
+        - Al escribir en el buscador o cambiar de categoría en `AmbientesTab`, solo se redibuja la pestaña y su tabla, eliminando el re-renderizado total de `AdminDashboard`.
+      - **3. Desacoplamiento de `PersonalTab` (`src/components/admin/tabs/PersonalTab.tsx`)**:
+        - Se eliminaron 9 props de estado y filtros (`usuariosList`, `searchPersonal`, `setSearchPersonal`, `filterPersonalTipo`, `setFilterPersonalTipo`, `session`, `rangosList`, `especialidadesList`, `restriccionesList`).
+        - Búsquedas por texto o filtros por rol en el padrón de colaboradores se procesan de forma autónoma a través del store sin reactivar el dashboard padre.
+      - **4. Integración en `AdminDashboard.tsx`**:
+        - Sincronización en `loadData()` y montura de sesión hacia el store central.
+        - Reducción drástica del cableado de JSX en la invocación de `<AmbientesTab />` y `<PersonalTab />`, conservando únicamente las funciones de apertura de modales.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
     - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
       - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
       - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:

@@ -22,6 +22,7 @@ import type {
 } from '@/types/admin';
 
 import dynamic from 'next/dynamic';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 // Tipos de formularios
 import type { PersonalFormData } from '@/components/admin/modals/ModalCrearPersonal';
@@ -100,6 +101,7 @@ import { confirmDelete, confirmToggleActive, showError, showToast } from '@/lib/
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
+  const store = useAdminStore();
   const [activeTab, setActiveTab] = useState<AdminTab>(
     session.rolSistema === 'administrativo' ? 'asistencias' : 'sedes'
   );
@@ -124,8 +126,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [cursosList, setCursosList] = useState<CursoAdminItem[]>([]);
   const [carrerasList, setCarrerasList] = useState<CarreraAdminItem[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
-  const [searchCurso, setSearchCurso] = useState('');
-  const [filterCursoActivo, setFilterCursoActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const [showCursoModal, setShowCursoModal] = useState(false);
   const [cursoForm, setCursoForm] = useState<CursoFormData>({
     id: 0,
@@ -258,37 +258,57 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       if (resStats.ok) {
         const dataStats = await resStats.json();
         setStats(dataStats);
+        store.setStats(dataStats);
       }
 
       if (resUsers.ok) {
         const dataUsers = await resUsers.json();
-        setUsuariosList(dataUsers.usuarios || []);
+        const users = dataUsers.usuarios || [];
+        setUsuariosList(users);
+        store.setUsuariosList(users);
       }
 
       if (resSedes.ok) {
         const dataSedes = await resSedes.json();
-        setSedesList(dataSedes.sedes || []);
-        if (dataSedes.sedes && dataSedes.sedes.length > 0 && !selectedSedeId) {
-          setSelectedSedeId(dataSedes.sedes[0].id);
+        const sedes = dataSedes.sedes || [];
+        setSedesList(sedes);
+        store.setSedesList(sedes);
+        if (sedes.length > 0 && !selectedSedeId) {
+          setSelectedSedeId(sedes[0].id);
+          store.setSelectedSedeId(sedes[0].id);
         }
       }
 
       if (resCursos.ok) {
         const dataCursos = await resCursos.json();
-        setCursosList(dataCursos.cursos || []);
-        if (dataCursos.carreras) setCarrerasList(dataCursos.carreras || []);
+        const crs = dataCursos.cursos || [];
+        const crrs = dataCursos.carreras || [];
+        setCursosList(crs);
+        store.setCursosList(crs);
+        if (dataCursos.carreras) {
+          setCarrerasList(crrs);
+          store.setCarrerasList(crrs);
+        }
       }
 
       if (resCategorias.ok) {
         const dataCategorias = await resCategorias.json();
-        setCategoriasList(dataCategorias.categorias || []);
+        const cats = dataCategorias.categorias || [];
+        setCategoriasList(cats);
+        store.setCategoriasList(cats);
       }
 
       if (resCasting.ok) {
         const dataCasting = await resCasting.json();
-        setCastingRangos(dataCasting.rangos || []);
-        setCastingEspecialidades(dataCasting.especialidades || []);
-        setCastingRestricciones(dataCasting.restricciones || []);
+        const rangos = dataCasting.rangos || [];
+        const esp = dataCasting.especialidades || [];
+        const rest = dataCasting.restricciones || [];
+        setCastingRangos(rangos);
+        setCastingEspecialidades(esp);
+        setCastingRestricciones(rest);
+        store.setCastingRangos(rangos);
+        store.setCastingEspecialidades(esp);
+        store.setCastingRestricciones(rest);
       }
     } catch (err) {
       console.error('Error cargando dashboard:', err);
@@ -427,8 +447,14 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       const res = await fetch('/api/cursos');
       if (res.ok) {
         const data = await res.json();
-        setCursosList(data.cursos || []);
-        if (data.carreras) setCarrerasList(data.carreras || []);
+        const crs = data.cursos || [];
+        const crrs = data.carreras || [];
+        setCursosList(crs);
+        store.setCursosList(crs);
+        if (data.carreras) {
+          setCarrerasList(crrs);
+          store.setCarrerasList(crrs);
+        }
       }
     } catch (err) {
       console.error('Error cargando cursos:', err);
@@ -485,7 +511,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       const res = await fetch(url.toString());
       if (res.ok) {
         const data = await res.json();
-        setAsistenciasList(data.asistencias || []);
+        const asists = data.asistencias || [];
+        setAsistenciasList(asists);
+        store.setAsistenciasList(asists);
       }
     } catch (err) {
       console.error('Error cargando asistencias:', err);
@@ -1326,8 +1354,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {/* VISTAS MODULARES DE PESTAÑAS */}
         {activeTab === 'sedes' && (
           <SedesTab
-            sedesList={sedesList}
-            session={session}
             onOpenCrearSede={() => {
               setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
               setSedeError(null);
@@ -1345,19 +1371,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'ambientes' && (
           <AmbientesTab
-            session={session}
-            sedesList={sedesList}
-            selectedSedeId={selectedSedeId}
-            setSelectedSedeId={setSelectedSedeId}
-            selectedSedeObj={selectedSedeObj}
-            ambientesList={ambientesList}
-            tecnicosEnSede={tecnicosEnSede}
-            categoriasList={categoriasList}
-            loadingAmbientes={loadingAmbientes}
-            searchAmbiente={searchAmbiente}
-            setSearchAmbiente={setSearchAmbiente}
-            filterTipo={filterTipo}
-            setFilterTipo={setFilterTipo}
             onOpenCrearAmbiente={() => {
               setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
               setAmbienteError(null);
@@ -1384,12 +1397,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'personal' && (
           <PersonalTab
-            usuariosList={usuariosList}
-            searchPersonal={searchPersonal}
-            setSearchPersonal={setSearchPersonal}
-            filterPersonalTipo={filterPersonalTipo}
-            setFilterPersonalTipo={setFilterPersonalTipo}
-            session={session}
             onOpenResetPassword={openResetPassword}
             onOpenCrearUsuario={() => {
               setCreateForm({
@@ -1415,9 +1422,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
               setKardexUser(u);
               setShowKardexDrawer(true);
             }}
-            rangosList={castingRangos}
-            especialidadesList={castingEspecialidades}
-            restriccionesList={castingRestricciones}
             onOpenCastingCatalogos={() => setShowCastingCatalogosModal(true)}
             onOpenFichaCasting={(u) => {
               setSelectedCastingActor(u);
@@ -1428,14 +1432,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'cursos' && (
           <CursosTab
-            session={session}
-            cursosList={cursosList}
-            carrerasList={carrerasList}
-            loadingCursos={loadingCursos}
-            searchCurso={searchCurso}
-            setSearchCurso={setSearchCurso}
-            filterCursoActivo={filterCursoActivo}
-            setFilterCursoActivo={setFilterCursoActivo}
             onOpenCrearCurso={() => {
               setCursoForm({
                 id: 0,
@@ -1459,25 +1455,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'asistencias' && (
           <AsistenciasTab
-            asistenciasList={asistenciasList}
-            loadingAsistencias={loadingAsistencias}
-            sedesList={sedesList}
-            cursosList={cursosList}
-            usuariosList={usuariosList}
-            asistSearch={asistSearch}
-            setAsistSearch={setAsistSearch}
-            asistFiltroSede={asistFiltroSede}
-            setAsistFiltroSede={setAsistFiltroSede}
-            asistFiltroTipo={asistFiltroTipo}
-            setAsistFiltroTipo={setAsistFiltroTipo}
-            asistFiltroCurso={asistFiltroCurso}
-            setAsistFiltroCurso={setAsistFiltroCurso}
-            asistFiltroEstado={asistFiltroEstado}
-            setAsistFiltroEstado={setAsistFiltroEstado}
-            asistFiltroFechaDesde={asistFiltroFechaDesde}
-            setAsistFiltroFechaDesde={setAsistFiltroFechaDesde}
-            asistFiltroFechaHasta={asistFiltroFechaHasta}
-            setAsistFiltroFechaHasta={setAsistFiltroFechaHasta}
             onExportCsv={handleExportCsv}
             onOpenCerrarTurnoModal={openCerrarTurnoModal}
             onOpenAnularModal={openAnularModal}
@@ -1495,12 +1472,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {activeTab === 'planilla' && (
           <PlanillaTab
-            asistenciasList={asistenciasList}
-            usuariosList={usuariosList}
-            cursosList={cursosList}
-            rangosList={castingRangos}
-            especialidadesList={castingEspecialidades}
-            restriccionesList={castingRestricciones}
             onOpenKardex={(u) => {
               setKardexUser(u);
               setShowKardexDrawer(true);
@@ -1535,8 +1506,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
       <ModalCrearAmbiente
         isOpen={showAmbienteModal}
-        selectedSedeObj={selectedSedeObj}
-        categoriasList={categoriasList}
         ambienteForm={ambienteForm}
         setAmbienteForm={setAmbienteForm}
         loading={ambienteLoading}
@@ -1548,8 +1517,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
       <ModalGestionCategorias
         isOpen={showCategoriasModal}
-        categoriasList={categoriasList}
-        loading={false}
         onClose={() => setShowCategoriasModal(false)}
         onRefresh={() => {
           loadCategorias();
@@ -1574,7 +1541,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         isOpen={showCreateModal}
         createForm={createForm}
         setCreateForm={setCreateForm}
-        session={session}
         createLoading={createLoading}
         createError={createError}
         onClose={() => setShowCreateModal(false)}
@@ -1615,7 +1581,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         isOpen={showCursoModal}
         cursoForm={cursoForm}
         setCursoForm={setCursoForm}
-        carrerasList={carrerasList}
         cursoLoading={cursoLoading}
         cursoError={cursoError}
         onClose={() => setShowCursoModal(false)}
@@ -1624,10 +1589,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
       <ModalCrearAsistenciaManual
         isOpen={showCrearAsistenciaManualModal}
-        usuariosList={usuariosList}
-        sedesList={sedesList}
-        cursosList={cursosList}
-        loading={false}
         onClose={() => setShowCrearAsistenciaManualModal(false)}
         onSuccess={() => {
           loadAsistencias();
@@ -1649,8 +1610,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         usuario={kardexUser}
         isOpen={showKardexDrawer}
         onClose={() => setShowKardexDrawer(false)}
-        especialidadesList={castingEspecialidades}
-        restriccionesList={castingRestricciones}
         onOpenFichaCasting={(u) => {
           setSelectedCastingActor(u);
           setShowFichaCastingModal(true);
@@ -1659,6 +1618,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
           setUsuariosList((prev) =>
             prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
           );
+          store.updateUsuario(updated);
           if (kardexUser && kardexUser.id === updated.id) {
             setKardexUser((prev) => (prev ? { ...prev, ...updated } : null));
           }
@@ -1668,10 +1628,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       {/* MODALES DE CASTING */}
       <ModalGestionCastingCatalogos
         isOpen={showCastingCatalogosModal}
-        rangosList={castingRangos}
-        especialidadesList={castingEspecialidades}
-        restriccionesList={castingRestricciones}
-        loading={false}
         onClose={() => setShowCastingCatalogosModal(false)}
         onRefresh={() => {
           loadCastingCatalogos();
@@ -1682,9 +1638,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       <ModalFichaCasting
         isOpen={showFichaCastingModal}
         actor={selectedCastingActor}
-        rangosList={castingRangos}
-        especialidadesList={castingEspecialidades}
-        restriccionesList={castingRestricciones}
         onClose={() => {
           setShowFichaCastingModal(false);
           setSelectedCastingActor(null);

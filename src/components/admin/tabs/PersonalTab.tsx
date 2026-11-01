@@ -13,14 +13,15 @@ import type { SessionPayload } from '@/lib/auth';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalCronogramaTecnico } from '@/components/admin/modals/ModalCronogramaTecnico';
 import { exportarExcelCastingConGraficos } from '@/lib/excelCastingExporter';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 interface PersonalTabProps {
-  usuariosList: UsuarioItem[];
-  searchPersonal: string;
-  setSearchPersonal: (val: string) => void;
-  filterPersonalTipo: string;
-  setFilterPersonalTipo: (val: string) => void;
-  session: SessionPayload;
+  usuariosList?: UsuarioItem[];
+  searchPersonal?: string;
+  setSearchPersonal?: (val: string) => void;
+  filterPersonalTipo?: string;
+  setFilterPersonalTipo?: (val: string) => void;
+  session?: SessionPayload | null;
   rangosList?: CastingRangoEdadItem[];
   especialidadesList?: CastingEspecialidadItem[];
   restriccionesList?: CastingRestriccionItem[];
@@ -34,25 +35,29 @@ interface PersonalTabProps {
   onOpenFichaCasting?: (user: UsuarioItem) => void;
 }
 
-export const PersonalTab: React.FC<PersonalTabProps> = ({
-  usuariosList,
-  searchPersonal,
-  setSearchPersonal,
-  filterPersonalTipo,
-  setFilterPersonalTipo,
-  session,
-  rangosList = [],
-  especialidadesList = [],
-  restriccionesList = [],
-  onOpenResetPassword,
-  onOpenCrearUsuario,
-  onOpenEditUsuario,
-  onToggleUsuarioActivo,
-  onDeleteUsuario,
-  onOpenKardex,
-  onOpenCastingCatalogos,
-  onOpenFichaCasting,
-}) => {
+export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
+  const store = useAdminStore();
+
+  const usuariosList = props.usuariosList ?? store.usuariosList;
+  const searchPersonal = props.searchPersonal ?? store.searchPersonal;
+  const setSearchPersonal = props.setSearchPersonal ?? store.setSearchPersonal;
+  const filterPersonalTipo = props.filterPersonalTipo ?? store.filterPersonalTipo;
+  const setFilterPersonalTipo = props.setFilterPersonalTipo ?? store.setFilterPersonalTipo;
+  const session = props.session ?? store.session;
+  const rangosList = props.rangosList ?? store.castingRangos;
+  const especialidadesList = props.especialidadesList ?? store.castingEspecialidades;
+  const restriccionesList = props.restriccionesList ?? store.castingRestricciones;
+
+  const {
+    onOpenResetPassword,
+    onOpenCrearUsuario,
+    onOpenEditUsuario,
+    onToggleUsuarioActivo,
+    onDeleteUsuario,
+    onOpenKardex,
+    onOpenCastingCatalogos,
+    onOpenFichaCasting,
+  } = props;
   const [filtroCastingAbierto, setFiltroCastingAbierto] = useState(false);
   const [filtroRangoEdadId, setFiltroRangoEdadId] = useState<string>('todos');
   const [filtroEspecialidadId, setFiltroEspecialidadId] = useState<string>('todas');
@@ -1444,7 +1449,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         </button>
                       )}
 
-                      {session.rolSistema === 'super_admin' && (
+                      {session?.rolSistema === 'super_admin' && (
                         <button
                           type="button"
                           onClick={() => onOpenResetPassword(u)}

@@ -7,31 +7,32 @@ import { DateRangePicker } from '@/app/admin/DateRangePicker';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAuditoriaProgramacion';
 import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion } from '@/lib/simclicAudit';
 export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion };
 
 interface AsistenciasTabProps {
-  asistenciasList: AsistenciaAdminItem[];
-  loadingAsistencias: boolean;
-  sedesList: SedeAdminItem[];
-  cursosList: CursoAdminItem[];
+  asistenciasList?: AsistenciaAdminItem[];
+  loadingAsistencias?: boolean;
+  sedesList?: SedeAdminItem[];
+  cursosList?: CursoAdminItem[];
   usuariosList?: UsuarioItem[];
-  asistSearch: string;
-  setAsistSearch: (val: string) => void;
-  asistFiltroSede: string;
-  setAsistFiltroSede: (val: string) => void;
-  asistFiltroTipo: string;
-  setAsistFiltroTipo: (val: string) => void;
-  asistFiltroCurso: string;
-  setAsistFiltroCurso: (val: string) => void;
-  asistFiltroEstado: string;
-  setAsistFiltroEstado: (val: string) => void;
-  asistFiltroFechaDesde: string;
-  setAsistFiltroFechaDesde: (val: string) => void;
-  asistFiltroFechaHasta: string;
-  setAsistFiltroFechaHasta: (val: string) => void;
-  onExportCsv: () => void;
+  asistSearch?: string;
+  setAsistSearch?: (val: string) => void;
+  asistFiltroSede?: string;
+  setAsistFiltroSede?: (val: string) => void;
+  asistFiltroTipo?: string;
+  setAsistFiltroTipo?: (val: string) => void;
+  asistFiltroCurso?: string;
+  setAsistFiltroCurso?: (val: string) => void;
+  asistFiltroEstado?: string;
+  setAsistFiltroEstado?: (val: string) => void;
+  asistFiltroFechaDesde?: string;
+  setAsistFiltroFechaDesde?: (val: string) => void;
+  asistFiltroFechaHasta?: string;
+  setAsistFiltroFechaHasta?: (val: string) => void;
+  onExportCsv?: () => void;
   onOpenCerrarTurnoModal: (asist: AsistenciaAdminItem) => void;
   onOpenAnularModal: (asist: AsistenciaAdminItem) => void;
   onOpenKardex?: (user: UsuarioItem) => void;
@@ -39,33 +40,66 @@ interface AsistenciasTabProps {
   onOpenAuditoriaModal?: (asist: AsistenciaAdminItem) => void;
 }
 
-export const AsistenciasTab: React.FC<AsistenciasTabProps> = ({
-  asistenciasList,
-  loadingAsistencias,
-  sedesList,
-  cursosList,
-  usuariosList = [],
-  asistSearch,
-  setAsistSearch,
-  asistFiltroSede,
-  setAsistFiltroSede,
-  asistFiltroTipo,
-  setAsistFiltroTipo,
-  asistFiltroCurso,
-  setAsistFiltroCurso,
-  asistFiltroEstado,
-  setAsistFiltroEstado,
-  asistFiltroFechaDesde,
-  setAsistFiltroFechaDesde,
-  asistFiltroFechaHasta,
-  setAsistFiltroFechaHasta,
-  onExportCsv,
-  onOpenCerrarTurnoModal,
-  onOpenAnularModal,
-  onOpenKardex,
-  onOpenCrearAsistenciaManual,
-  onOpenAuditoriaModal,
-}) => {
+export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
+  const store = useAdminStore();
+
+  const asistenciasList = props.asistenciasList ?? store.asistenciasList;
+  const loadingAsistencias = props.loadingAsistencias ?? store.loadingAsistencias;
+  const sedesList = props.sedesList ?? store.sedesList;
+  const cursosList = props.cursosList ?? store.cursosList;
+  const usuariosList = props.usuariosList ?? store.usuariosList;
+  const asistSearch = props.asistSearch ?? store.asistSearch;
+  const setAsistSearch = props.setAsistSearch ?? store.setAsistSearch;
+  const asistFiltroSede = props.asistFiltroSede ?? store.asistFiltroSede;
+  const setAsistFiltroSede = props.setAsistFiltroSede ?? store.setAsistFiltroSede;
+  const asistFiltroTipo = props.asistFiltroTipo ?? store.asistFiltroTipo;
+  const setAsistFiltroTipo = props.setAsistFiltroTipo ?? store.setAsistFiltroTipo;
+  const asistFiltroCurso = props.asistFiltroCurso ?? store.asistFiltroCurso;
+  const setAsistFiltroCurso = props.setAsistFiltroCurso ?? store.setAsistFiltroCurso;
+  const asistFiltroEstado = props.asistFiltroEstado ?? store.asistFiltroEstado;
+  const setAsistFiltroEstado = props.setAsistFiltroEstado ?? store.setAsistFiltroEstado;
+  const asistFiltroFechaDesde = props.asistFiltroFechaDesde ?? store.asistFiltroFechaDesde;
+  const setAsistFiltroFechaDesde = props.setAsistFiltroFechaDesde ?? store.setAsistFiltroFechaDesde;
+  const asistFiltroFechaHasta = props.asistFiltroFechaHasta ?? store.asistFiltroFechaHasta;
+  const setAsistFiltroFechaHasta = props.setAsistFiltroFechaHasta ?? store.setAsistFiltroFechaHasta;
+
+  const defaultExportCsv = useCallback(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = new URL('/api/asistencias/export', origin);
+    if (asistFiltroSede !== 'todas') url.searchParams.set('sedeId', asistFiltroSede);
+    if (asistFiltroTipo !== 'todos') url.searchParams.set('tipoPersonal', asistFiltroTipo);
+    if (asistFiltroEstado !== 'todos') url.searchParams.set('estado', asistFiltroEstado);
+    if (asistFiltroCurso !== 'todos') url.searchParams.set('cursoId', asistFiltroCurso);
+    if (asistFiltroFechaDesde) url.searchParams.set('fechaDesde', asistFiltroFechaDesde);
+    if (asistFiltroFechaHasta) url.searchParams.set('fechaHasta', asistFiltroFechaHasta);
+    window.open(url.toString(), '_blank');
+  }, [asistFiltroSede, asistFiltroTipo, asistFiltroEstado, asistFiltroCurso, asistFiltroFechaDesde, asistFiltroFechaHasta]);
+
+  const onExportCsv = props.onExportCsv ?? defaultExportCsv;
+
+  const {
+    onOpenCerrarTurnoModal,
+    onOpenAnularModal,
+    onOpenKardex,
+    onOpenCrearAsistenciaManual,
+    onOpenAuditoriaModal,
+  } = props;
+
+  // Auto-cargar asistencias si no fueron provistas por props
+  useEffect(() => {
+    if (props.asistenciasList === undefined) {
+      store.loadAsistencias();
+    }
+  }, [
+    props.asistenciasList,
+    asistFiltroSede,
+    asistFiltroTipo,
+    asistFiltroEstado,
+    asistFiltroCurso,
+    asistFiltroFechaDesde,
+    asistFiltroFechaHasta,
+    asistSearch,
+  ]);
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
 

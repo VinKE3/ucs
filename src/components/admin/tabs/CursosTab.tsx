@@ -5,36 +5,45 @@ import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { CursoAdminItem, CarreraAdminItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 interface CursosTabProps {
-  session?: SessionPayload;
-  cursosList: CursoAdminItem[];
+  session?: SessionPayload | null;
+  cursosList?: CursoAdminItem[];
   carrerasList?: CarreraAdminItem[];
-  loadingCursos: boolean;
-  searchCurso: string;
-  setSearchCurso: (val: string) => void;
-  filterCursoActivo: 'todos' | 'activos' | 'inactivos';
-  setFilterCursoActivo: (val: 'todos' | 'activos' | 'inactivos') => void;
+  loadingCursos?: boolean;
+  searchCurso?: string;
+  setSearchCurso?: (val: string) => void;
+  filterCursoActivo?: 'todos' | 'activos' | 'inactivos';
+  setFilterCursoActivo?: (val: 'todos' | 'activos' | 'inactivos') => void;
   onOpenCrearCurso: () => void;
   onOpenEditCurso: (curso: CursoAdminItem) => void;
   onToggleCursoActivo: (curso: CursoAdminItem) => void;
   onDeleteCurso: (curso: CursoAdminItem) => void;
 }
 
-export const CursosTab: React.FC<CursosTabProps> = ({
-  session,
-  cursosList,
-  carrerasList = [],
-  loadingCursos,
-  searchCurso,
-  setSearchCurso,
-  filterCursoActivo,
-  setFilterCursoActivo,
-  onOpenCrearCurso,
-  onOpenEditCurso,
-  onToggleCursoActivo,
-  onDeleteCurso,
-}) => {
+export const CursosTab: React.FC<CursosTabProps> = (props) => {
+  const store = useAdminStore();
+
+  const session = props.session ?? store.session;
+  const cursosList = props.cursosList ?? store.cursosList;
+  const carrerasList = props.carrerasList ?? store.carrerasList;
+  const loadingCursos = props.loadingCursos ?? store.loadingCursos;
+
+  const [localSearchCurso, setLocalSearchCurso] = useState('');
+  const [localFilterCursoActivo, setLocalFilterCursoActivo] = useState<'todos' | 'activos' | 'inactivos'>('todos');
+
+  const searchCurso = props.searchCurso ?? localSearchCurso;
+  const setSearchCurso = props.setSearchCurso ?? setLocalSearchCurso;
+  const filterCursoActivo = props.filterCursoActivo ?? localFilterCursoActivo;
+  const setFilterCursoActivo = props.setFilterCursoActivo ?? setLocalFilterCursoActivo;
+
+  const {
+    onOpenCrearCurso,
+    onOpenEditCurso,
+    onToggleCursoActivo,
+    onDeleteCurso,
+  } = props;
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'cursos' | 'carreras'>('cursos');
   const [selectedCarreraId, setSelectedCarreraId] = useState<number | 'todas'>('todas');

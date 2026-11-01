@@ -4,6 +4,7 @@ import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SessionPayload } from '@/lib/auth';
 import type { TipoPersonal, RolSistema } from '@/types/admin';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 export interface PersonalFormData {
   id?: number;
@@ -29,23 +30,25 @@ interface ModalCrearPersonalProps {
   isOpen: boolean;
   createForm: PersonalFormData;
   setCreateForm: React.Dispatch<React.SetStateAction<PersonalFormData>>;
-  session: SessionPayload;
+  session?: SessionPayload | null;
   createLoading: boolean;
   createError: string | null;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 
-export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
-  isOpen,
-  createForm,
-  setCreateForm,
-  session,
-  createLoading,
-  createError,
-  onClose,
-  onSubmit,
-}) => {
+export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = (props) => {
+  const store = useAdminStore();
+  const {
+    isOpen,
+    createForm,
+    setCreateForm,
+    createLoading,
+    createError,
+    onClose,
+    onSubmit,
+  } = props;
+  const session = props.session ?? store.session;
   if (!isOpen) return null;
 
   return (
@@ -496,7 +499,7 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = ({
             </>
           )}
 
-          {session.rolSistema === 'super_admin' && (
+          {session?.rolSistema === 'super_admin' && (
             <>
               <div className={styles.fullWidth}>
                 <label className={styles.label}>Rol de Acceso al Sistema Web</label>

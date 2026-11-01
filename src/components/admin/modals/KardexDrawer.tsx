@@ -8,6 +8,7 @@ import {
   CastingRestriccionItem,
 } from '@/types/admin';
 import styles from './KardexDrawer.module.css';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalComprobanteLiquidacion, DesgloseCursoPS } from './ModalComprobanteLiquidacion';
 import { ModalCronogramaTecnico } from './ModalCronogramaTecnico';
@@ -70,15 +71,17 @@ function getRangoMesActual(): { desde: string; hasta: string } {
   };
 }
 
-export function KardexDrawer({
-  usuario,
-  isOpen,
-  onClose,
-  onUsuarioUpdated,
-  onOpenFichaCasting,
-  especialidadesList,
-  restriccionesList,
-}: KardexDrawerProps) {
+export function KardexDrawer(props: KardexDrawerProps) {
+  const store = useAdminStore();
+  const {
+    usuario,
+    isOpen,
+    onClose,
+    onUsuarioUpdated,
+    onOpenFichaCasting,
+  } = props;
+  const especialidadesList = props.especialidadesList ?? store.castingEspecialidades;
+  const restriccionesList = props.restriccionesList ?? store.castingRestricciones;
   const [periodo, setPeriodo] = useState<PeriodFilter>('semana');
   const [asistencias, setAsistencias] = useState<AsistenciaAdminItem[]>([]);
   const [asistenciasSemanaActual, setAsistenciasSemanaActual] = useState<AsistenciaAdminItem[]>([]);

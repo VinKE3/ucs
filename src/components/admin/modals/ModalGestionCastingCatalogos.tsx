@@ -8,13 +8,14 @@ import type {
   CastingRestriccionItem,
 } from '@/types/admin';
 import { confirmDelete, showError, showToast } from '@/lib/alerts';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 interface ModalGestionCastingCatalogosProps {
   isOpen: boolean;
-  rangosList: CastingRangoEdadItem[];
-  especialidadesList: CastingEspecialidadItem[];
-  restriccionesList: CastingRestriccionItem[];
-  loading: boolean;
+  rangosList?: CastingRangoEdadItem[];
+  especialidadesList?: CastingEspecialidadItem[];
+  restriccionesList?: CastingRestriccionItem[];
+  loading?: boolean;
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -37,15 +38,13 @@ const PRESET_COLORS = [
 const PRESET_ICONS_ESP = ['🧠', '🤰', '🚑', '💬', '🩺', '👶', '🧤', '🫀', '🔬', '🩹', '💉', '🧘', '🏥', '👁️', '💊'];
 const PRESET_ICONS_REST = ['🚫', '⚠️', '🩹', '🧘', '💻', '📅', '🛑', '❗', '♿', '❌'];
 
-export const ModalGestionCastingCatalogos: React.FC<ModalGestionCastingCatalogosProps> = ({
-  isOpen,
-  rangosList,
-  especialidadesList,
-  restriccionesList,
-  loading: parentLoading,
-  onClose,
-  onRefresh,
-}) => {
+export const ModalGestionCastingCatalogos: React.FC<ModalGestionCastingCatalogosProps> = (props) => {
+  const store = useAdminStore();
+  const { isOpen, onClose, onRefresh } = props;
+  const rangosList = props.rangosList ?? store.castingRangos;
+  const especialidadesList = props.especialidadesList ?? store.castingEspecialidades;
+  const restriccionesList = props.restriccionesList ?? store.castingRestricciones;
+  const parentLoading = props.loading ?? false;
   const [activeTab, setActiveTab] = useState<CatalogoTab>('rangos');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);

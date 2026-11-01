@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { CategoriaAmbienteItem } from '@/types/admin';
 import { confirmDelete, confirmToggleActive, showAlert, showError, showToast } from '@/lib/alerts';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 interface ModalGestionCategoriasProps {
   isOpen: boolean;
-  categoriasList: CategoriaAmbienteItem[];
-  loading: boolean;
+  categoriasList?: CategoriaAmbienteItem[];
+  loading?: boolean;
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -28,13 +29,11 @@ const PRESET_COLORS = [
 
 const PRESET_ICONS = ['🫀', '🧤', '🩺', '🛏️', '💡', '🔬', '🫁', '👶', '🧠', '🦷', '🚑', '🏥', '💉', '🩹', '🏢'];
 
-export const ModalGestionCategorias: React.FC<ModalGestionCategoriasProps> = ({
-  isOpen,
-  categoriasList,
-  loading: parentLoading,
-  onClose,
-  onRefresh,
-}) => {
+export const ModalGestionCategorias: React.FC<ModalGestionCategoriasProps> = (props) => {
+  const store = useAdminStore();
+  const { isOpen, onClose, onRefresh } = props;
+  const categoriasList = props.categoriasList ?? store.categoriasList;
+  const parentLoading = props.loading ?? false;
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(false);

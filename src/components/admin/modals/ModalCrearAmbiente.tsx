@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem, CategoriaAmbienteItem } from '@/types/admin';
+import { useAdminStore } from '@/lib/stores/useAdminStore';
 
 export interface AmbienteFormData {
   id?: number;
@@ -26,18 +27,20 @@ interface ModalCrearAmbienteProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
-export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = ({
-  isOpen,
-  selectedSedeObj,
-  categoriasList,
-  ambienteForm,
-  setAmbienteForm,
-  error,
-  setError,
-  loading,
-  onClose,
-  onSubmit,
-}) => {
+export const ModalCrearAmbiente: React.FC<ModalCrearAmbienteProps> = (props) => {
+  const store = useAdminStore();
+  const {
+    isOpen,
+    ambienteForm,
+    setAmbienteForm,
+    error,
+    setError,
+    loading,
+    onClose,
+    onSubmit,
+  } = props;
+  const selectedSedeObj = props.selectedSedeObj ?? store.sedesList.find((s) => s.id === store.selectedSedeId);
+  const categoriasList = props.categoriasList ?? store.categoriasList;
   if (!isOpen) return null;
 
   // Categorías a mostrar: las activas o la que tenga asignada actualmente si está en edición

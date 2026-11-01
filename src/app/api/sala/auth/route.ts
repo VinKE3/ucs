@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { terminalesSala, sedes, ambientes, configuracionSistema, categoriasIncidencia } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import crypto from 'crypto';
+import { parseJsonBody, authSalaSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +25,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { pin, sedeId, ambienteId, nombreDispositivo, tipoDispositivo, tokenExistente } = body;
+    const parsed = await parseJsonBody(req, authSalaSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const { pin, sedeId, ambienteId, nombreDispositivo, tipoDispositivo, tokenExistente } = parsed.data;
 
     // Caso A: Si ya tiene un token de terminal existente (reconexión automática)
     if (tokenExistente && !pin) {

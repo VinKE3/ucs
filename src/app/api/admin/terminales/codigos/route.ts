@@ -4,6 +4,8 @@ import { db } from '@/db';
 import { codigosAutorizacionTerminal, sedes, usuarios, terminalesKiosco } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { parseJsonBody, crearCodigoOtpTerminalSchema, idSchema } from '@/lib/validations';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,8 +89,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { sedeId, nombreSugerido, duracionMinutos = 30, nota } = body;
+    const parsed = await parseJsonBody(request, crearCodigoOtpTerminalSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const { sedeId, nombreSugerido, duracionMinutos, nota } = parsed.data;
 
     // Generar código único asegurando que no colisione
     let codigo = generarCodigoOtp();
@@ -156,10 +161,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id } = await request.json();
-    if (!id) {
-      return NextResponse.json({ error: 'ID de código requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, z.object({ id: idSchema }));
+    if (!parsed.success) {
+      return parsed.response;
     }
+    const { id } = parsed.data;
 
     const [updated] = await db
       .update(codigosAutorizacionTerminal)

@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { usuarios } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSession, hashPassword } from '@/lib/auth';
+import { parseJsonBody, resetPasswordSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   try {
@@ -14,14 +15,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { usuarioId, newPassword } = await request.json();
-
-    if (!usuarioId || !newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 6) {
-      return NextResponse.json(
-        { error: 'Debe especificar el ID de usuario y una contraseña con al menos 6 caracteres.' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(request, resetPasswordSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+
+    const { usuarioId, newPassword } = parsed.data;
 
     const targetUsers = await db.select().from(usuarios).where(eq(usuarios.id, usuarioId)).limit(1);
     if (targetUsers.length === 0) {

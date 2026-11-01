@@ -12,6 +12,7 @@ import {
 } from '@/db/schema';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString } from '@/lib/peruTime';
+import { parseJsonBody, kioscoOfflineBatchSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -171,10 +172,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const lote = body?.lote;
+    const parsed = await parseJsonBody(request, kioscoOfflineBatchSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const lote = parsed.data.lote;
 
-    if (!Array.isArray(lote) || lote.length === 0) {
+    if (lote.length === 0) {
       return NextResponse.json({ success: true, procesados: [] });
     }
 

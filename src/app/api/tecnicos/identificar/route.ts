@@ -1,3 +1,4 @@
+import { parseJsonBody, identificarTecnicoSchema } from '@/lib/validations';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { usuarios } from '@/db/schema';
@@ -7,15 +8,11 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const dni = typeof body?.dni === 'string' ? body.dni.trim() : '';
-
-    if (!dni || dni.length < 6) {
-      return NextResponse.json(
-        { success: false, error: 'Ingresa un DNI válido (mínimo 6 dígitos)' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(req, identificarTecnicoSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+    const { dni } = parsed.data;
 
     const foundUsers = await db
       .select({

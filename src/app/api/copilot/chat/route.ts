@@ -1,3 +1,4 @@
+import { parseJsonBody, copilotChatSchema } from '@/lib/validations';
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { procesarMensajeGemini } from '@/lib/geminiService';
@@ -14,15 +15,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { mensaje, historial } = body;
-
-    if (!mensaje || typeof mensaje !== 'string' || !mensaje.trim()) {
-      return NextResponse.json(
-        { error: 'El mensaje no puede estar vacío.' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(request, copilotChatSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+    const { mensaje, historial } = parsed.data;
 
     const resultado = await procesarMensajeGemini({
       mensaje: mensaje.trim(),

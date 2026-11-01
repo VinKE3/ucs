@@ -1,3 +1,4 @@
+import { parseJsonBody, perfilCastingSchema } from '@/lib/validations';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { castingPerfiles, castingRangosEdad, usuarios } from '@/db/schema';
@@ -74,14 +75,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { usuarioId } = body;
-
-    if (!usuarioId) {
-      return NextResponse.json({ error: 'ID de usuario requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, perfilCastingSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const numUsuarioId = Number(usuarioId);
+    const { usuarioId: numUsuarioId, ...resto } = parsed.data;
     const now = new Date();
 
     const [usuarioExistente] = await db
@@ -95,16 +94,7 @@ export async function PUT(request: Request) {
     }
 
     const payload = {
-      rangoEdadId: body.rangoEdadId ? Number(body.rangoEdadId) : null,
-      edadReal: body.edadReal !== undefined && body.edadReal !== '' && body.edadReal !== null ? Number(body.edadReal) : null,
-      genero: body.genero ? String(body.genero).trim() : null,
-      biotipo: body.biotipo ? String(body.biotipo).trim() : null,
-      especialidadesIds: Array.isArray(body.especialidadesIds) ? body.especialidadesIds.map(Number) : [],
-      restriccionesIds: Array.isArray(body.restriccionesIds) ? body.restriccionesIds.map(Number) : [],
-      experienciaNotas: body.experienciaNotas ? String(body.experienciaNotas).trim() : null,
-      disponibilidad: body.disponibilidad ? String(body.disponibilidad).trim() : null,
-      contactoEmergencia: body.contactoEmergencia ? String(body.contactoEmergencia).trim() : null,
-      activoCasting: body.activoCasting !== undefined ? Boolean(body.activoCasting) : true,
+      ...resto,
       updatedAt: now,
     };
 

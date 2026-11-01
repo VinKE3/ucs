@@ -1,3 +1,4 @@
+import { parseJsonBody, crearIncidenciaSchema } from '@/lib/validations';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { incidenciasSala, sedes, ambientes, sesionesProgramadas } from '@/db/schema';
@@ -97,7 +98,11 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const parsed = await parseJsonBody(req, crearIncidenciaSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+
     const {
       sedeId,
       ambienteId,
@@ -109,14 +114,7 @@ export async function POST(req: NextRequest) {
       cursoNombre,
       casoNombre,
       pacienteSimuladoNombre,
-    } = body;
-
-    if (!sedeId || !ambienteId || !categoria) {
-      return NextResponse.json(
-        { success: false, error: 'Faltan campos obligatorios (sedeId, ambienteId, categoria)' },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     // 1. Verificar si ya existe una alerta activa para este ambiente
     const existing = await getActiveIncidentForAmbiente(Number(ambienteId));

@@ -1,3 +1,4 @@
+import { parseJsonBody, registrarCompensatorioSchema } from '@/lib/validations';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { bancoCompensatoriosTecnicos, usuarios, asistencias } from '@/db/schema';
@@ -113,15 +114,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado para gestionar compensatorios' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const {
-      action,
-      usuarioId,
-      tipo = 'acumulado', // 'acumulado' | 'canjeado' | 'ajuste_manual'
-      dias = 1.0,
-      fechaReferencia,
-      motivo,
-    } = body;
+    const parsed = await parseJsonBody(request, registrarCompensatorioSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const { action, usuarioId, tipo, dias, fechaReferencia, motivo } = parsed.data;
 
     // --- ACCIÓN ESPECIAL: Auto-detección de semanas 7/7 continuas sin descanso ---
     if (action === 'auto_detect_semanas') {

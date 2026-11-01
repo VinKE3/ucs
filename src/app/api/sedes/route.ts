@@ -4,6 +4,7 @@ import { sedes, ambientes, asistencias } from '@/db/schema';
 import { desc, eq, ne, and, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { invalidateCatalogCache } from '@/lib/catalogCache';
+import { parseJsonBody, parseSearchParams, crearSedeSchema, actualizarSedeSchema, idParamSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,14 +62,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { nombre, codigo, direccion } = await request.json();
-
-    if (!nombre || !nombre.trim()) {
-      return NextResponse.json({ error: 'El nombre de la sede es obligatorio' }, { status: 400 });
+    const parsed = await parseJsonBody(request, crearSedeSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const nombreTrim = nombre.trim();
-    const codigoTrim = codigo ? codigo.trim().toUpperCase() : null;
+    const { nombre, codigo, direccion } = parsed.data;
+    const nombreTrim = nombre;
+    const codigoTrim = codigo ? codigo.toUpperCase() : null;
 
     // 1. Validar nombre duplicado (case-insensitive)
     const [nombreDuplicado] = await db
@@ -126,13 +127,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id, nombre, codigo, direccion, activo } = await request.json();
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de sede requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, actualizarSedeSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const numId = Number(id);
+    const { id: numId, nombre, codigo, direccion, activo } = parsed.data;
 
     const [sedeActual] = await db
       .select()
@@ -236,13 +236,11 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de sede requerido' }, { status: 400 });
+    const parsed = parseSearchParams(searchParams, idParamSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
-
-    const sedeIdNum = Number(id);
+    const sedeIdNum = parsed.data.id;
 
     // Validar si existen asistencias históricas asociadas a esta sede
     const [asistenciasCount] = await db

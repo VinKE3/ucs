@@ -4,28 +4,28 @@ import { usuarios } from '@/db/schema';
 import { eq, or } from 'drizzle-orm';
 import { verifyPassword, setSessionCookie } from '@/lib/auth';
 import { loginRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
+import { parseJsonBody, loginSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   try {
     const clientIp = getClientIp(request);
-    const body = await request.json();
-    const { identificador, password } = body;
+
+    // 1. Validación declarativa de entrada con Zod
+    const parsed = await parseJsonBody(request, loginSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+
+    const { identificador, password } = parsed.data;
 
     // Clave de limitación combinada (IP + identificador normalizado)
-    const normalizedId = identificador ? String(identificador).trim().toLowerCase() : '';
+    const normalizedId = identificador.toLowerCase();
     const rateLimitKey = `login_${clientIp}_${normalizedId}`;
 
-    // 1. Verificar si este cliente/usuario ya excedió los intentos
+    // 2. Verificar si este cliente/usuario ya excedió los intentos
     const limitStatus = loginRateLimiter.peek(rateLimitKey);
     if (!limitStatus.success) {
       return createRateLimitResponse(limitStatus);
-    }
-
-    if (!identificador || !password) {
-      return NextResponse.json(
-        { error: 'Debe ingresar su correo/DNI y contraseña' },
-        { status: 400 }
-      );
     }
 
     // Buscar por correo o DNI
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       .where(
         or(
           eq(usuarios.correo, normalizedId),
-          eq(usuarios.dni, identificador.trim())
+          eq(usuarios.dni, identificador)
         )
       )
       .limit(1);

@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { incidenciasSala, sedes, ambientes } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { updateIncidentInMemory, IncidenciaEnMemoria } from '@/lib/incidenciasMemoryCache';
+import { parseJsonBody, modificarIncidenciaSchema, idSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,13 +13,17 @@ export async function PATCH(
 ) {
   try {
     const { id: idStr } = await context.params;
-    const id = parseInt(idStr, 10);
-    if (isNaN(id)) {
+    const idParsed = idSchema.safeParse(idStr);
+    if (!idParsed.success) {
       return NextResponse.json({ success: false, error: 'ID de incidencia inválido' }, { status: 400 });
     }
+    const id = idParsed.data;
 
-    const body = await req.json();
-    const { accion, estado, tecnicoId, tecnicoNombre, motivoResolucion, notaResolucion } = body;
+    const parsed = await parseJsonBody(req, modificarIncidenciaSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const { accion, estado, tecnicoId, tecnicoNombre, motivoResolucion, notaResolucion } = parsed.data;
     const effectiveAccion = accion || (estado === 'en_camino' ? 'en_camino' : estado === 'resuelto' ? 'resolver' : estado === 'cancelado' ? 'cancelar' : null);
 
     // Buscar registro existente

@@ -1,3 +1,4 @@
+import { parseSearchParams, consultaQuerySchema } from '@/lib/validations';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sesionesProgramadas, usuarios, sedes, ambientes, cursos, asistencias } from '@/db/schema';
@@ -201,13 +202,17 @@ function resolverPacienteSimulado(
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const fecha = searchParams.get('fecha') || getTodayPeru();
-    const sedeIdParam = searchParams.get('sedeId');
+    const parsed = parseSearchParams(searchParams, consultaQuerySchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const fecha = parsed.data.fecha || getTodayPeru();
+    const sedeIdParam = parsed.data.sedeId;
 
     // 1. Obtener todas las sesiones programadas para la fecha
     let conditions = [eq(sesionesProgramadas.fecha, fecha)];
-    if (sedeIdParam && !isNaN(Number(sedeIdParam))) {
-      conditions.push(eq(sesionesProgramadas.sedeId, Number(sedeIdParam)));
+    if (sedeIdParam) {
+      conditions.push(eq(sesionesProgramadas.sedeId, sedeIdParam));
     }
 
     const rawSessionsAll = await db

@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { configuracionSistema, categoriasIncidencia, terminalesSala, sedes, ambientes } from '@/db/schema';
 import { eq, asc, desc } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { parseJsonBody, actualizarConfigSistemaSchema, crearCategoriaIncidenciaSchema, editarCategoriaIncidenciaSchema, zodErrorResponse, idSchema } from '@/lib/validations';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,10 +80,9 @@ export async function POST(req: NextRequest) {
 
     // Acción 1: Actualizar PIN Maestro o Ajustes Globales
     if (action === 'update_config') {
-      const { clave, valor } = body;
-      if (!clave || valor === undefined) {
-        return NextResponse.json({ error: 'Clave y valor son requeridos' }, { status: 400 });
-      }
+      const parsedConfig = actualizarConfigSistemaSchema.safeParse(body);
+      if (!parsedConfig.success) return zodErrorResponse(parsedConfig.error);
+      const { clave, valor } = parsedConfig.data;
 
       await db
         .insert(configuracionSistema)
@@ -106,10 +107,9 @@ export async function POST(req: NextRequest) {
 
     // Acción 2: Crear nueva categoría / botón de auxilio
     if (action === 'create_categoria') {
-      const { nombre, icono, color, tipo, prioridad, orden } = body;
-      if (!nombre || !nombre.trim()) {
-        return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
-      }
+      const parsedCat = crearCategoriaIncidenciaSchema.safeParse(body);
+      if (!parsedCat.success) return zodErrorResponse(parsedCat.error);
+      const { nombre, icono, color, tipo, prioridad, orden } = parsedCat.data;
 
       const [nueva] = await db
         .insert(categoriasIncidencia)
@@ -151,8 +151,9 @@ export async function PATCH(req: NextRequest) {
 
     // Acción 1: Editar Categoría / Botón
     if (action === 'edit_categoria') {
-      const { id, nombre, icono, color, tipo, prioridad, orden, activo } = body;
-      if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
+      const parsedEdit = editarCategoriaIncidenciaSchema.safeParse(body);
+      if (!parsedEdit.success) return zodErrorResponse(parsedEdit.error);
+      const { id, nombre, icono, color, tipo, prioridad, orden, activo } = parsedEdit.data;
 
       const [updated] = await db
         .update(categoriasIncidencia)

@@ -5,6 +5,7 @@ import { usuarios, terminalesKiosco, sedes, codigosAutorizacionTerminal } from '
 import { eq, or, sql } from 'drizzle-orm';
 import { verifyPassword } from '@/lib/auth';
 import { terminalAuthRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
+import { parseJsonBody, kioscoAutorizarSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   try {
@@ -16,8 +17,11 @@ export async function POST(request: Request) {
       return createRateLimitResponse(limitStatus);
     }
 
-    const body = await request.json();
-    const { metodo = 'credenciales', codigoOtp, identificador, password, nombreTerminal, sedeId, deviceFingerprint } = body;
+    const parsed = await parseJsonBody(request, kioscoAutorizarSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const { metodo, codigoOtp, identificador, password, nombreTerminal, sedeId, deviceFingerprint } = parsed.data;
 
     let adminUsuarioId: number | null = null;
     let finalSedeId: number | null = null;

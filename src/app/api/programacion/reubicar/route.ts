@@ -1,3 +1,4 @@
+import { parseJsonBody, reubicarSesionesBatchSchema } from '@/lib/validations';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sesionesProgramadas, ambientes } from '@/db/schema';
@@ -18,18 +19,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { cambios, fecha } = body as {
-      cambios: ReubicacionItem[];
-      fecha?: string;
-    };
-
-    if (!Array.isArray(cambios) || cambios.length === 0) {
-      return NextResponse.json(
-        { error: 'Debe especificar al menos una reubicación de sala' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(request, reubicarSesionesBatchSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+    const { cambios, fecha } = parsed.data;
 
     // 1. Obtener las sesiones a modificar
     const sesionIds = cambios.map((c) => c.sesionId);

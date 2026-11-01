@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { usuarios, asistencias, ambientes, sedes, cursos } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { kioskLookupRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
+import { parseSearchParams, kioscoLookupSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,11 +18,11 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const dni = searchParams.get('dni')?.trim();
-
-    if (!dni) {
-      return NextResponse.json({ error: 'Debe ingresar un DNI' }, { status: 400 });
+    const parsed = parseSearchParams(searchParams, kioscoLookupSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+    const { dni } = parsed.data;
 
     // Buscar usuario
     const foundUsers = await db

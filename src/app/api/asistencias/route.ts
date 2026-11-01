@@ -4,6 +4,7 @@ import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos, 
 import { desc, eq, and, gte, lte, or, like, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { getPeruTimeString } from '@/lib/peruTime';
+import { parseJsonBody, crearAsistenciaManualSchema, modificarAsistenciaSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -277,7 +278,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
+    const parsed = await parseJsonBody(request, crearAsistenciaManualSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+
     const {
       usuarioId,
       sedeId,
@@ -288,14 +293,7 @@ export async function POST(request: Request) {
       horaSalida,
       observaciones,
       motivoJustificacion,
-    } = body;
-
-    if (!usuarioId || !sedeId || !fecha || !horaIngreso || !motivoJustificacion || !motivoJustificacion.trim()) {
-      return NextResponse.json(
-        { error: 'Usuario, sede, fecha, hora de ingreso y motivo de justificación son obligatorios' },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     const ingresoDate = new Date(horaIngreso);
     const salidaDate = horaSalida ? new Date(horaSalida) : null;
@@ -371,15 +369,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, accion, horaIngreso, horaSalida, motivo } = body;
-
-    if (!id || !accion || !motivo || !motivo.trim()) {
-      return NextResponse.json(
-        { error: 'El ID, la acción y el motivo de justificación son obligatorios' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(request, modificarAsistenciaSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+
+    const { id, accion, horaIngreso, horaSalida, motivo } = parsed.data;
 
     const [asistenciaActual] = await db
       .select()

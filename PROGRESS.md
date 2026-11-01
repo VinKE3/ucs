@@ -22,6 +22,77 @@
         - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
         - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
 
+    - **Hito 90: Implementación Gradual de Validación Declarativa en Runtime con Zod (Fase 1 - Core Crítico de Producción)**:
+      - **Objetivo**: Blindar los puntos de entrada más expuestos y críticos del backend contra payloads malformados, tipos inesperados, inyecciones y excepciones no controladas mediante esquemas declarativos en runtime, reduciendo el código repetitivo de validación manual en más de un 40%.
+      - **1. Arquitectura Central de Validaciones (`src/lib/validations/`)**:
+        - `common.ts`: Funciones universales `parseJsonBody` y `parseSearchParams` con respuestas HTTP 400 uniformes y descriptivas (`zodErrorResponse`), además de primitivas tipadas como `dniSchema`, `idSchema`, `optionalIdSchema`, `horaStringSchema`, `tipoPersonalSchema` y `rolSistemaSchema`.
+        - `auth.ts`: Esquemas para autenticación segura (`loginSchema`) y restablecimiento de contraseñas (`resetPasswordSchema`).
+        - `kiosco.ts`: Esquemas estrictos para lookup por DNI (`kioscoLookupSchema`), marcación en sala (`kioscoMarcarSchema`), autorización de terminales por OTP o credenciales (`kioscoAutorizarSchema`), y reconciliación de lotes offline (`kioscoOfflineBatchSchema`).
+        - `usuarios.ts`: Esquemas de creación (`crearUsuarioSchema`) y actualización parcial (`actualizarUsuarioSchema`) con transformadores automáticos para campos opcionales numéricos/string (`tarifaHora`, `horasSemanalesMax`, `horasJornadaObjetivo`) y regla condicional estricta para técnicos con horario fijo.
+        - `asistencias.ts`: Esquemas para registro manual con auditoría obligatoria (`crearAsistenciaManualSchema`, validando que `salida > ingreso`) y modificación/cierre (`modificarAsistenciaSchema`).
+        - `index.ts`: Exportador centralizado para importaciones limpias `@/lib/validations`.
+      - **2. Endpoints Migrados en Fase 1**:
+        - `POST /api/auth/login`: Validación estricta de identificador y contraseña antes de evaluar rate limits o consultar base de datos.
+        - `POST /api/usuarios/reset-password`: Validación de ID y longitud mínima de clave sin excepciones.
+        - `GET /api/kiosco/lookup`: Validación de parámetro `dni` en search params con rechazo de valores malformados.
+        - `POST /api/kiosco/marcar`: Validación declarativa de `usuarioId`, `accion`, sede y ambientes según rol, blindando el endpoint de mayor concurrencia del campus.
+        - `POST /api/kiosco/terminal/autorizar`: Validación de flujos alternativos OTP vs credenciales con `.refine()`.
+        - `POST /api/kiosco/offline`: Validación atómica del array `lote` y fechas ISO antes del procesamiento en base de datos.
+        - `POST & PATCH /api/usuarios`: Sanitización automática, eliminación de decenas de `if` redundantes y tipado completo.
+        - `POST & PATCH /api/asistencias`: Validación garantizada de fechas ISO, horas lógicas y motivos de auditoría obligatorios.
+      - **Verificación**: Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+
+    - **Hito 91: Implementación de Validación Declarativa con Zod (Fase 2 - Catálogos Administrativos)**:
+      - **Objetivo**: Extender la validación estricta en runtime con Zod a todos los catálogos del panel de administración (Sedes, Salas, Cursos y Categorías de Ambiente), protegiendo las operaciones de creación, edición y borrado contra datos malformados y garantizando coherencia referencial en PostgreSQL.
+      - **1. Biblioteca de Validación de Catálogos (`src/lib/validations/catalogos.ts` & `index.ts`)**:
+        - Esquemas para Sedes: `crearSedeSchema` y `actualizarSedeSchema` (validación de nombres, códigos normalizados y direcciones).
+        - Esquemas para Ambientes: `crearAmbienteSchema` y `actualizarAmbienteSchema` (sede obligatoria, tipo de ambiente, rango estricto de capacidad de 1 a 500 personas).
+        - Esquemas para Cursos: `crearCursoSchema` y `actualizarCursoSchema` (nombre, prefijo, códigos, carrera opcional y tarifa horaria PS normalizada).
+        - Esquemas para Categorías: `crearCategoriaAmbienteSchema` y `actualizarCategoriaAmbienteSchema` (regex estricto para colores hexadecimales, iconos SVG/Lucide, y orden numérico).
+        - Validación de parámetros de borrado seguro (`idParamSchema`) para peticiones `DELETE ?id=...`.
+      - **2. Endpoints Migrados en Fase 2**:
+        - `src/app/api/sedes/route.ts`: POST (alta), PATCH (edición) y DELETE (eliminación segura) blindados con Zod.
+        - `src/app/api/ambientes/route.ts`: POST, PATCH y DELETE con validación de capacidad y pertenencia a sede.
+        - `src/app/api/cursos/route.ts`: POST, PATCH y DELETE con validación de tarifas y verificación de dependencias de asistencia.
+        - `src/app/api/categorias-ambiente/route.ts`: POST, PATCH y DELETE con sanitización de slug y protección contra colisión de códigos.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
+    - **Hito 93: Implementación de Validación Declarativa con Zod (Fase 4 - Copilot IA, Reubicación SimClic, Casting y Técnicos)**:
+      - **Objetivo**: Completar el blindaje integral del sistema con Zod, abarcando los módulos avanzados: asistente de inteligencia artificial Gemini, reubicación logística de salas, fichas de casting ECOE, banco de días compensatorios y consulta en tiempo real.
+      - **1. Biblioteca de Validación de Módulos Avanzados (`src/lib/validations/avanzados.ts` & `index.ts`)**:
+        - Esquemas Copilot IA: `copilotChatSchema` (longitud máxima de prompt, historial estricto para Gemini SDK) y `copilotConfigSchema` (control de modelos y métricas de tokens).
+        - Esquemas Logísticos: `reubicacionItemSchema` y `reubicarSesionesBatchSchema` (reubicación atómica de sesiones por lotes con validación de fechas y salas).
+        - Esquemas Casting ECOE: `perfilCastingSchema` (expediente de actores con biotipo, arrays de especialidades y restricciones) y `crearCatalogoCastingSchema`.
+        - Esquemas Técnicos & Compensatorios: `identificarTecnicoSchema` (búsqueda segura por DNI) y `registrarCompensatorioSchema` (movimientos de acumulación, canje o ajuste manual con validación de días).
+        - Esquema de Consulta: `consultaQuerySchema` para filtrado de radar de sesiones por fecha y sede.
+      - **2. Endpoints Migrados en Fase 4**:
+        - `src/app/api/copilot/chat/route.ts`: Validación de prompts y estructura de conversación previa al envío al modelo Gemini.
+        - `src/app/api/copilot/config/route.ts`: Control granular de ajustes del asistente de IA.
+        - `src/app/api/programacion/reubicar/route.ts`: Reubicación en lote de salas de simulación libre de excepciones.
+        - `src/app/api/casting/perfiles/route.ts`: Upsert transaccional de perfiles de actores con tipos certificados.
+        - `src/app/api/tecnicos/identificar/route.ts`: Reconocimiento seguro de técnicos por credencial.
+        - `src/app/api/tecnicos/compensatorios/route.ts`: Registro matemático de saldos de descanso y detección de semanas continuas.
+        - `src/app/api/consulta/route.ts`: Filtrado seguro de programación del día.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
+    - **Hito 92: Implementación de Validación Declarativa con Zod (Fase 3 - Incidencias SOS, Soporte Técnico y Terminales)**:
+      - **Objetivo**: Proteger los canales de comunicación en tiempo real entre docentes en aula y la central de guardia de técnicos, blindando el registro de auxilios de sala, la gestión de terminales físicas y la emisión de tokens de activación.
+      - **1. Biblioteca de Validación de Soporte y Alertas (`src/lib/validations/soporte.ts` & `index.ts`)**:
+        - Esquemas de Incidencias: `crearIncidenciaSchema` (sede y sala obligatorias, categoría estricta y metadatos del caso) y `modificarIncidenciaSchema` (acciones finitas: `en_camino`, `resolver`, `cancelar` y notas técnicas).
+        - Esquemas de Terminales: `actualizarTerminalKioscoSchema` (activación/desactivación granular) y `crearCodigoOtpTerminalSchema` (rango de expiración validado de 5 a 1440 minutos).
+        - Esquemas de Soporte y Aula: `actualizarConfigSistemaSchema` (pares clave/valor para PIN maestro), `crearCategoriaIncidenciaSchema` / `editarCategoriaIncidenciaSchema` (tipos, prioridades, colores y orden de botones SOS) y `authSalaSchema` (autenticación segura de pantallas en aulas).
+      - **2. Endpoints Migrados en Fase 3**:
+        - `src/app/api/incidencias/route.ts`: Validación estricta en el registro de alertas anti-spam desde pantallas de aula.
+        - `src/app/api/incidencias/[id]/route.ts`: Validación de IDs y transiciones de estado de atención en tiempo real.
+        - `src/app/api/admin/terminales/route.ts`: Control de estado y revocado de terminales físicas.
+        - `src/app/api/admin/terminales/codigos/route.ts`: Generación y revocación segura de códigos OTP de activación.
+        - `src/app/api/admin/soporte/config/route.ts`: Modificación de configuración del sistema y botones de auxilio.
+        - `src/app/api/sala/auth/route.ts`: Autenticación y reconexión automática de PCs de simulación por token o PIN.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta validada con `npx tsc --noEmit` (**0 errores**).
+
 ---
 
 ## 🏛️ 1. Visión General del Proyecto

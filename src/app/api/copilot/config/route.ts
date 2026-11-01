@@ -1,3 +1,4 @@
+import { parseJsonBody, copilotConfigSchema } from '@/lib/validations';
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import {
@@ -60,16 +61,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { action } = body;
+    const parsed = await parseJsonBody(request, copilotConfigSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+    const { action, habilitado, modelo } = parsed.data;
 
     if (action === 'toggle_enabled') {
-      const habilitado = Boolean(body.habilitado);
-      await updateConfiguracionGemini({ habilitado }, session.userId);
+      const habVal = Boolean(habilitado);
+      await updateConfiguracionGemini({ habilitado: habVal }, session.userId);
       const config = await getConfiguracionGemini();
       return NextResponse.json({
         success: true,
-        mensaje: habilitado
+        mensaje: habVal
           ? 'Asistente de IA Gemini activado exitosamente.'
           : 'Asistente de IA Gemini desactivado globalmente.',
         config,
@@ -77,12 +81,12 @@ export async function POST(request: Request) {
     }
 
     if (action === 'change_model') {
-      const modelo = String(body.modelo || 'gemini-2.5-flash');
-      await updateConfiguracionGemini({ modelo }, session.userId);
+      const modVal = String(modelo || 'gemini-2.5-flash');
+      await updateConfiguracionGemini({ modelo: modVal }, session.userId);
       const config = await getConfiguracionGemini();
       return NextResponse.json({
         success: true,
-        mensaje: `Modelo actualizado a: ${modelo}`,
+        mensaje: `Modelo actualizado a: ${modVal}`,
         config,
       });
     }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cursos, carreras, asistencias, usuarios, sesionesProgramadas } from '@/db/schema';
 import { getSession } from '@/lib/auth';
+import { parseJsonBody, parseSearchParams, crearCursoSchema, actualizarCursoSchema, idParamSchema } from '@/lib/validations';
 import { eq, ne, desc, asc, like, or, sql, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -178,15 +179,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { nombre, codigo, prefijo, carreraId, descripcion, tarifaHoraPs } = await request.json();
-
-    if (!nombre || !nombre.trim()) {
-      return NextResponse.json({ error: 'El nombre del curso es obligatorio' }, { status: 400 });
+    const parsed = await parseJsonBody(request, crearCursoSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const nombreTrim = nombre.trim();
-    const codigoTrim = codigo?.trim() || null;
-    const prefijoTrim = prefijo?.trim() || null;
+    const { nombre: nombreTrim, codigo: codigoTrim, prefijo: prefijoTrim, carreraId, descripcion, tarifaHoraPs } = parsed.data;
 
     // 1. Validar nombre duplicado (case-insensitive)
     const [nombreDuplicado] = await db
@@ -254,14 +252,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id, nombre, codigo, prefijo, carreraId, descripcion, tarifaHoraPs, activo } =
-      await request.json();
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de curso requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, actualizarCursoSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const cursoIdNum = Number(id);
+    const { id: cursoIdNum, nombre, codigo, prefijo, carreraId, descripcion, tarifaHoraPs, activo } = parsed.data;
 
     const [cursoActual] = await db
       .select()
@@ -376,13 +372,11 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de curso requerido' }, { status: 400 });
+    const parsed = parseSearchParams(searchParams, idParamSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
-
-    const cursoIdNum = Number(id);
+    const cursoIdNum = parsed.data.id;
 
     const [curso] = await db
       .select()

@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { terminalesKiosco, sedes, usuarios } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { parseJsonBody, parseSearchParams, actualizarTerminalKioscoSchema, idParamSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,10 +51,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id, activo } = await request.json();
-    if (!id || typeof activo !== 'boolean') {
-      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 });
+    const parsed = await parseJsonBody(request, actualizarTerminalKioscoSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+    const { id, activo } = parsed.data;
 
     const [updated] = await db
       .update(terminalesKiosco)
@@ -85,12 +87,11 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const idParam = searchParams.get('id');
-    if (!idParam) {
-      return NextResponse.json({ error: 'ID de terminal no proporcionado' }, { status: 400 });
+    const parsed = parseSearchParams(searchParams, idParamSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
-
-    const id = parseInt(idParam, 10);
+    const id = parsed.data.id;
     const [deleted] = await db
       .delete(terminalesKiosco)
       .where(eq(terminalesKiosco.id, id))

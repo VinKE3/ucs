@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { usuarios, asistencias, sedes, ambientes, castingPerfiles, castingRangosEdad } from '@/db/schema';
 import { desc, eq, and, ne, sql } from 'drizzle-orm';
 import { getSession, hashPassword } from '@/lib/auth';
+import { parseJsonBody, crearUsuarioSchema, actualizarUsuarioSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,7 +105,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
+    const parsed = await parseJsonBody(request, crearUsuarioSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+
     const {
       dni,
       nombres,
@@ -121,21 +126,8 @@ export async function POST(request: Request) {
       toleranciaMinutos,
       esHorarioRotativo,
       horasJornadaObjetivo,
-    } = body;
-
-    if (!dni || !nombres || !apellidos || !tipoPersonal) {
-      return NextResponse.json(
-        { error: 'DNI, Nombres, Apellidos y Tipo de Personal son obligatorios' },
-        { status: 400 }
-      );
-    }
-
-    if (tipoPersonal === 'tecnico' && !esHorarioRotativo && (!horaEntradaEsperada || !horaSalidaEsperada)) {
-      return NextResponse.json(
-        { error: 'Para el personal técnico es obligatorio definir la hora de entrada y salida programada (o activar Horario Rotativo)' },
-        { status: 400 }
-      );
-    }
+      activo,
+    } = parsed.data;
 
     // Regla de permisos: Solo SUPER_ADMIN puede crear a otros ADMIN, SUPER_ADMIN o ADMINISTRATIVO
     if ((rolSistema === 'admin' || rolSistema === 'super_admin' || rolSistema === 'administrativo') && session.rolSistema !== 'super_admin') {
@@ -239,12 +231,29 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, dni, nombres, apellidos, correo, telefono, tipoPersonal, rolSistema, horasSemanalesMax, activo } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de usuario requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, actualizarUsuarioSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+
+    const {
+      id,
+      dni,
+      nombres,
+      apellidos,
+      correo,
+      telefono,
+      tipoPersonal,
+      rolSistema,
+      horasSemanalesMax,
+      tarifaHora,
+      horaEntradaEsperada,
+      horaSalidaEsperada,
+      toleranciaMinutos,
+      esHorarioRotativo,
+      horasJornadaObjetivo,
+      activo,
+    } = parsed.data;
 
     const [usuarioActual] = await db
       .select()
@@ -338,37 +347,31 @@ export async function PATCH(request: Request) {
     }
 
     if (horasSemanalesMax !== undefined) {
-      updateData.horasSemanalesMax =
-        horasSemanalesMax === null || horasSemanalesMax === ''
-          ? null
-          : Number(horasSemanalesMax);
+      updateData.horasSemanalesMax = horasSemanalesMax;
     }
 
-    if (body.tarifaHora !== undefined) {
-      updateData.tarifaHora =
-        body.tarifaHora === null || body.tarifaHora === ''
-          ? null
-          : String(body.tarifaHora);
+    if (tarifaHora !== undefined) {
+      updateData.tarifaHora = tarifaHora;
     }
 
-    if (body.horaEntradaEsperada !== undefined) {
-      updateData.horaEntradaEsperada = body.horaEntradaEsperada ? String(body.horaEntradaEsperada).trim() : null;
+    if (horaEntradaEsperada !== undefined) {
+      updateData.horaEntradaEsperada = horaEntradaEsperada ? horaEntradaEsperada.trim() : null;
     }
 
-    if (body.horaSalidaEsperada !== undefined) {
-      updateData.horaSalidaEsperada = body.horaSalidaEsperada ? String(body.horaSalidaEsperada).trim() : null;
+    if (horaSalidaEsperada !== undefined) {
+      updateData.horaSalidaEsperada = horaSalidaEsperada ? horaSalidaEsperada.trim() : null;
     }
 
-    if (body.toleranciaMinutos !== undefined) {
-      updateData.toleranciaMinutos = body.toleranciaMinutos ? Number(body.toleranciaMinutos) : 10;
+    if (toleranciaMinutos !== undefined) {
+      updateData.toleranciaMinutos = toleranciaMinutos;
     }
 
-    if (body.esHorarioRotativo !== undefined) {
-      updateData.esHorarioRotativo = Boolean(body.esHorarioRotativo);
+    if (esHorarioRotativo !== undefined) {
+      updateData.esHorarioRotativo = Boolean(esHorarioRotativo);
     }
 
-    if (body.horasJornadaObjetivo !== undefined) {
-      updateData.horasJornadaObjetivo = body.horasJornadaObjetivo === null || body.horasJornadaObjetivo === '' ? '9.00' : String(body.horasJornadaObjetivo);
+    if (horasJornadaObjetivo !== undefined) {
+      updateData.horasJornadaObjetivo = horasJornadaObjetivo;
     }
 
     if (activo !== undefined) {

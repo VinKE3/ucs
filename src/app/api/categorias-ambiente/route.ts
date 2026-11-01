@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { categoriasAmbiente, ambientes } from '@/db/schema';
 import { getSession } from '@/lib/auth';
+import { parseJsonBody, parseSearchParams, crearCategoriaAmbienteSchema, actualizarCategoriaAmbienteSchema, idParamSchema } from '@/lib/validations';
 import { eq, ne, and, asc, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -65,14 +66,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { nombre, codigo, descripcion, color, icono, orden } = body;
-
-    if (!nombre || !nombre.trim()) {
-      return NextResponse.json({ error: 'El nombre de la categoría es obligatorio' }, { status: 400 });
+    const parsed = await parseJsonBody(request, crearCategoriaAmbienteSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const nombreTrim = nombre.trim();
+    const { nombre: nombreTrim, codigo, descripcion, color, icono, orden } = parsed.data;
 
     // Validar duplicado de nombre
     const [nombreDuplicado] = await db
@@ -88,7 +87,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const codigoGenerado = (codigo && codigo.trim()) ? slugify(codigo) : slugify(nombre);
+    const codigoGenerado = (codigo && codigo.trim()) ? slugify(codigo) : slugify(nombreTrim);
     if (!codigoGenerado) {
       return NextResponse.json({ error: 'Código de categoría inválido' }, { status: 400 });
     }
@@ -135,14 +134,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, nombre, codigo, descripcion, color, icono, orden, activo } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de categoría requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, actualizarCategoriaAmbienteSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const numId = Number(id);
+    const { id: numId, nombre, codigo, descripcion, color, icono, orden, activo } = parsed.data;
 
     const [categoriaActual] = await db
       .select()
@@ -187,7 +184,7 @@ export async function PATCH(request: Request) {
     }
 
     let nuevoCodigo = categoriaActual.codigo;
-    if (codigo !== undefined && codigo.trim() && slugify(codigo) !== categoriaActual.codigo) {
+    if (codigo !== undefined && codigo !== null && codigo.trim() && slugify(codigo) !== categoriaActual.codigo) {
       nuevoCodigo = slugify(codigo);
       // Validar que no choque con otra
       const [colision] = await db
@@ -234,7 +231,7 @@ export async function PATCH(request: Request) {
     const [categoriaActualizada] = await db
       .update(categoriasAmbiente)
       .set(updateData)
-      .where(eq(categoriasAmbiente.id, Number(id)))
+      .where(eq(categoriasAmbiente.id, numId))
       .returning();
 
     return NextResponse.json({ ok: true, categoria: categoriaActualizada });
@@ -253,13 +250,11 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de categoría requerido' }, { status: 400 });
+    const parsed = parseSearchParams(searchParams, idParamSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
-
-    const catIdNum = Number(id);
+    const catIdNum = parsed.data.id;
 
     const [categoria] = await db
       .select()

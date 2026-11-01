@@ -5,6 +5,7 @@ import { eq, ne, and, like, or, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { isAmbienteVirtual } from '@/lib/logisticaSimulacion';
 import { invalidateCatalogCache } from '@/lib/catalogCache';
+import { parseJsonBody, parseSearchParams, crearAmbienteSchema, actualizarAmbienteSchema, idParamSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,19 +141,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { sedeId, nombre, codigo, tipo, capacidad } = body;
-
-    if (!sedeId || !nombre || !nombre.trim()) {
-      return NextResponse.json(
-        { error: 'La sede y el nombre de la sala son obligatorios' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(request, crearAmbienteSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
 
-    const numSedeId = Number(sedeId);
-    const nombreTrim = nombre.trim();
-    const codigoTrim = codigo ? codigo.trim() : null;
+    const { sedeId: numSedeId, nombre: nombreTrim, codigo: codigoTrim, tipo, capacidad } = parsed.data;
 
     // 1. Validar nombre duplicado dentro de la misma sede (case-insensitive)
     const [nombreDuplicado] = await db
@@ -222,12 +216,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { id, nombre, codigo, tipo, capacidad, activo } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de ambiente requerido' }, { status: 400 });
+    const parsed = await parseJsonBody(request, actualizarAmbienteSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
+
+    const { id, nombre, codigo, tipo, capacidad, activo } = parsed.data;
 
     const [ambienteActual] = await db
       .select()
@@ -337,13 +331,11 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID de ambiente requerido' }, { status: 400 });
+    const parsed = parseSearchParams(searchParams, idParamSchema);
+    if (!parsed.success) {
+      return parsed.response;
     }
-
-    const ambienteIdNum = Number(id);
+    const ambienteIdNum = parsed.data.id;
 
     // 1. Verificar si hay un turno activo en curso en esta sala
     const turnosEnCurso = await db

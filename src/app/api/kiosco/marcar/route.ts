@@ -4,14 +4,21 @@ import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco, turn
 import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
 import { kioskMarcarRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
+import { parseJsonBody, kioscoMarcarSchema } from '@/lib/validations';
 
 export async function POST(request: NextRequest) {
   try {
     const clientIp = getClientIp(request);
-    const body = await request.json();
-    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones, sesionProgramadaId } = body;
+
+    // 1. Validación declarativa de entrada con Zod
+    const parsed = await parseJsonBody(request, kioscoMarcarSchema);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+
+    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones, sesionProgramadaId } = parsed.data;
     const cookieToken = request.cookies.get('ucs_terminal_token')?.value;
-    const terminalToken = cookieToken || request.headers.get('x-terminal-token') || body.terminalToken;
+    const terminalToken = cookieToken || request.headers.get('x-terminal-token') || parsed.data.terminalToken;
 
     // Rate limiting por IP/terminal
     const rateLimitKey = `kiosk_marcar_${clientIp}_${terminalToken || 'anon'}`;
@@ -49,9 +56,7 @@ export async function POST(request: NextRequest) {
       .where(eq(terminalesKiosco.id, term.id))
       .catch((err) => console.error('Error actualizando ultimoUso terminal:', err));
 
-    if (!usuarioId || !accion) {
-      return NextResponse.json({ error: 'Datos incompletos para registrar marcación' }, { status: 400 });
-    }
+// Validación garantizada previamente por kioscoMarcarSchema
 
     // Verificar usuario
     const [user] = await db.select().from(usuarios).where(eq(usuarios.id, usuarioId)).limit(1);

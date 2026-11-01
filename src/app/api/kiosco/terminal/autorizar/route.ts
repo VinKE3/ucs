@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { metodo = 'credenciales', codigoOtp, identificador, password, nombreTerminal, sedeId } = body;
+    const { metodo = 'credenciales', codigoOtp, identificador, password, nombreTerminal, sedeId, deviceFingerprint } = body;
 
     let adminUsuarioId: number | null = null;
     let finalSedeId: number | null = null;
@@ -195,7 +195,11 @@ export async function POST(request: Request) {
     const rawToken = crypto.randomBytes(32).toString('hex');
     const token = `trm_${rawToken}`;
 
-    // Insertar terminal autorizada
+    // Insertar terminal autorizada con huella digital criptográfica
+    const validFingerprint = typeof deviceFingerprint === 'string' && deviceFingerprint.trim().startsWith('fp_')
+      ? deviceFingerprint.trim()
+      : null;
+
     const [nuevaTerminal] = await db
       .insert(terminalesKiosco)
       .values({
@@ -204,6 +208,8 @@ export async function POST(request: Request) {
         sedeId: finalSedeId,
         dispositivoInfo: userAgent,
         ipRegistro,
+        deviceFingerprint: validFingerprint,
+        autoRecuperable: true,
         activo: true,
         ultimoUso: new Date(),
         creadoPor: adminUsuarioId,
@@ -239,6 +245,7 @@ export async function POST(request: Request) {
     const response = NextResponse.json({
       success: true,
       message: `Dispositivo "${nuevaTerminal.nombre}" autorizado exitosamente${sedeNombre ? ` para ${sedeNombre}` : ''}.`,
+      token: nuevaTerminal.token,
       terminal: {
         id: nuevaTerminal.id,
         nombre: nuevaTerminal.nombre,

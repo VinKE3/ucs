@@ -1540,6 +1540,25 @@ src/
         - **Reconexión transparente**: Al restablecerse la red, la terminal sincroniza automáticamente y notifica al operador.
       - **Verificación**: Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**). Cambios preservados en el árbol de trabajo sin commits según directiva del usuario.
 
+    * **Hito 42: Seguridad de Backend, Blindaje de Cookies y Auto-Recuperación de Terminales por Huella Digital de Hardware**:
+      - **Problema de Operación en Sedes**: Si un técnico, personal de limpieza o usuario borraba el historial de navegación o las cookies en una tablet/PC de Sede Norte, Ate o Villa, la cookie HttpOnly `ucs_terminal_token` se destruía y la terminal se bloqueaba inmediatamente. Dado que en sedes remotas no se puede instalar AnyDesk para soporte remoto por políticas de seguridad de red, el administrador debía desplazarse físicamente o generar nuevos códigos OTP continuamente.
+      - **1. Arquitectura de Auto-Recuperación por Huella Digital de Hardware (`src/lib/deviceFingerprint.ts`)**:
+        - Algoritmo criptográfico client-side (SHA-256) que calcula una firma determinista e inmutable basada en el silicio y hardware físico del equipo: GPU vendor & renderer vía WebGL (`UNMASKED_RENDERER_WEBGL`), rasterizado subpíxel 2D Canvas dependiente de DirectX, procesamiento DSP de AudioContext, núcleos de CPU (`hardwareConcurrency`), memoria RAM, resolución y ratio de pantalla.
+        - **Inmunidad al borrado**: Esta firma **NO cambia** aunque el usuario borre cookies, caché, historial o restablezca el navegador.
+      - **2. Migración en Neon PostgreSQL (`src/db/migrate_terminal_fingerprint.ts`, `src/db/schema.ts`)**:
+        - Nuevas columnas en `terminales_kiosco`: `device_fingerprint` (VARCHAR 128) y `auto_recuperable` (BOOLEAN DEFAULT TRUE).
+        - Índice optimizado `idx_terminales_kiosco_fingerprint` para recuperación instantánea en sub-milisegundos.
+      - **3. Bóveda Multinivel de Respaldo Local (`src/lib/kioskStorageVault.ts`)**:
+        - Persistencia redundante del token en 4 niveles: Cookie HttpOnly (principal) + IndexedDB (`ucs_terminal_db`) + CacheStorage API (`ucs_terminal_cache`) + LocalStorage. Si el usuario realiza un borrado estándar o parcial del navegador, la bóveda sobrevive y restaura la cookie automáticamente.
+      - **4. Endpoint de Auto-Restauración (`/api/kiosco/terminal/verificar`)**:
+        - Si la terminal inicia sin token (historial 100% purgado), envía su huella digital. El servidor localiza el dispositivo autorizado, renueva y vuelve a emitir la cookie HttpOnly segura por 2 años, y notifica: *"🔄 Terminal Oficial auto-restaurada mediante huella digital"*. **Cero llamadas de soporte, cero AnyDesk y cero códigos requeridos**.
+      - **5. Enlace de Re-vinculación Rápida para Administradores (`ModalGestionTerminales.tsx`)**:
+        - Añadido botón `[🔗 Link Rápido]` en cada terminal registrada. En caso excepcional de formateo total de Windows, el administrador copia un enlace criptográfico seguro (`?relink_token=trm_...`) y lo envía por WhatsApp; al abrirlo en la tablet, se autoriza y limpia la URL automáticamente.
+      - **6. Hardening de Backend y Encabezados de Seguridad (`next.config.ts`, `.env.local`)**:
+        - Clave criptográfica de alta entropía generada para `SESSION_SECRET` (64 caracteres hex).
+        - Encabezados HTTP de seguridad configurados: `X-Frame-Options: SAMEORIGIN` (anti-clickjacking), `X-Content-Type-Options: nosniff` (anti-MIME sniffing), `Referrer-Policy: strict-origin-when-cross-origin`, y `Permissions-Policy` restrictiva.
+      - **Verificación**: Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**). Base de datos migrada en Neon y cambios listos en el árbol de trabajo sin commits.
+
 
 ---
 

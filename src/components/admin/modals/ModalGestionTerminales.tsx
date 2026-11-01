@@ -152,6 +152,17 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
     }
   };
 
+  const handleCopiarLinkRecuperacion = (term: TerminalItem) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const recoveryUrl = `${origin}/?relink_token=${term.token}`;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(recoveryUrl);
+      showToast(`¡Enlace copiado! Ábrelo en la terminal "${term.nombre}" para restaurar su cookie al instante.`, 'success');
+    } else {
+      showToast(recoveryUrl, 'info');
+    }
+  };
+
   const handleGenerarCodigo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!genNombreSugerido.trim()) {
@@ -504,6 +515,16 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopiarLinkRecuperacion(term)}
+                          className={styles.secondaryActionBtn}
+                          style={{ fontSize: '0.775rem', padding: '0.4rem 0.7rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)' }}
+                          title="Copiar enlace de recuperación rápida si alguien borró el historial o cookies"
+                        >
+                          🔗 Link Rápido
+                        </button>
+
                         <button
                           type="button"
                           disabled={togglingId === term.id}

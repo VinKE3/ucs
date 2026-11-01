@@ -7,6 +7,8 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import type { TicketSalidaData } from '@/types/admin';
 import { confirmModal, showToast } from '@/lib/alerts';
 import Swal from 'sweetalert2';
+import { getDeviceFingerprint } from '@/lib/deviceFingerprint';
+import { saveTokenToVault, getTokenFromVault, clearTokenFromVault } from '@/lib/kioskStorageVault';
 
 interface TerminalData {
   id: number;
@@ -165,32 +167,63 @@ export default function KioscoTerminal() {
   useEffect(() => {
     async function checkTerminal() {
       try {
+        // 1. Detección de link de re-vinculación rápida (?relink_token=trm_...)
+        let relinkToken: string | null = null;
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const qToken = urlParams.get('relink_token');
+          if (qToken && qToken.startsWith('trm_')) {
+            relinkToken = qToken.trim();
+            // Limpieza inmediata del query param en la barra del navegador
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+
+        // 2. Búsqueda de token en almacenamiento redundante (Vault: IndexedDB / Cache / LocalStorage)
+        const vaultToken = await getTokenFromVault();
         const legacyToken = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
+        const candidateToken = relinkToken || vaultToken || legacyToken;
+
+        // 3. Huella digital de hardware inmutable (sobrevive al borrado de historial y cookies)
+        const fingerprint = await getDeviceFingerprint();
 
         const res = await fetch('/api/kiosco/terminal/verificar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: legacyToken || undefined }),
+          body: JSON.stringify({
+            token: candidateToken || undefined,
+            fingerprint,
+          }),
         });
 
         const data = await res.json();
         if (res.ok && data.autorizada) {
           setTerminalAuthorized(true);
           setTerminalInfo(data.terminal);
+
+          // Sincronizar token en el Vault persistente del cliente
+          if (data.token) {
+            await saveTokenToVault(data.token);
+          }
+
           if (data.terminal?.sedeId) {
             setSelectedSedeId(data.terminal.sedeId);
             if (typeof window !== 'undefined') {
               localStorage.setItem('kiosco_selected_sede_id', String(data.terminal.sedeId));
             }
           }
-          // Limpieza de seguridad: Si existía en localStorage, se elimina porque ahora vive en la cookie HttpOnly
+
+          // Aviso visual si la terminal fue auto-recuperada por huella digital tras borrado de cookies
+          if (data.recuperada) {
+            showToast(`🔄 Terminal Oficial auto-restaurada: ${data.terminal.nombre}`, 'success');
+          }
+
+          // Limpieza de localStorage legacy
           if (typeof window !== 'undefined' && legacyToken) {
             localStorage.removeItem('ucs_terminal_token');
           }
         } else {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('ucs_terminal_token');
-          }
+          await clearTokenFromVault();
           setTerminalAuthorized(false);
         }
       } catch (err) {
@@ -231,10 +264,12 @@ export default function KioscoTerminal() {
     setAuthError(null);
 
     try {
+      const fingerprint = await getDeviceFingerprint();
       const payload = authMetodo === 'otp'
         ? {
             metodo: 'otp',
             codigoOtp: authOtpCode.trim(),
+            deviceFingerprint: fingerprint,
           }
         : {
             metodo: 'credenciales',
@@ -242,6 +277,7 @@ export default function KioscoTerminal() {
             password: authAdminPass,
             nombreTerminal: authTerminalName.trim(),
             sedeId: authSedeId || null,
+            deviceFingerprint: fingerprint,
           };
 
       const res = await fetch('/api/kiosco/terminal/autorizar', {
@@ -255,7 +291,11 @@ export default function KioscoTerminal() {
         throw new Error(data.error || 'Error al autorizar terminal');
       }
 
-      // La cookie HttpOnly segura ya fue establecida por el servidor
+      // Guardar token en el Vault multinivel
+      if (data.token) {
+        await saveTokenToVault(data.token);
+      }
+
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ucs_terminal_token');
       }
@@ -301,9 +341,7 @@ export default function KioscoTerminal() {
       } catch (e) {
         console.error('Error desvinculando terminal:', e);
       }
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('ucs_terminal_token');
-      }
+      await clearTokenFromVault();
       setTerminalAuthorized(false);
       setTerminalInfo(null);
       showToast('Dispositivo desvinculado del sistema', 'info');

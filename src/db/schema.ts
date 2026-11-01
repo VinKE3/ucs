@@ -385,12 +385,17 @@ export const terminalesKiosco = pgTable('terminales_kiosco', {
   sedeId: integer('sede_id').references(() => sedes.id, { onDelete: 'set null' }),
   dispositivoInfo: text('dispositivo_info'),                   // Navegador / SO (Edge, Chrome, etc.)
   ipRegistro: varchar('ip_registro', { length: 50 }),
+  deviceFingerprint: varchar('device_fingerprint', { length: 128 }), // Huella digital criptográfica de hardware/SO
+  autoRecuperable: boolean('auto_recuperable').default(true).notNull(), // Permite auto-restaurar si se borran cookies/historial
   activo: boolean('activo').default(true).notNull(),
   ultimoUso: timestamp('ultimo_uso'),
   creadoPor: integer('creado_por').references(() => usuarios.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+  index('idx_terminales_kiosco_token_activo').on(table.token, table.activo),
+  index('idx_terminales_kiosco_fingerprint').on(table.deviceFingerprint),
+]);
 
 export const terminalesKioscoRelations = relations(terminalesKiosco, ({ one }) => ({
   sede: one(sedes, {

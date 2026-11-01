@@ -363,24 +363,42 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const [nuevaAsistencia] = await db
-        .insert(asistencias)
-        .values({
-          usuarioId: user.id,
-          sedeId: finalSedeId,
-          ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
-          cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
-          fecha: fechaStr,
-          horaIngreso: now,
-          horaEntradaProgramada: horaEntradaProg,
-          horaSalidaProgramada: horaSalidaProg,
-          minutosTardanza: tardanzaMin,
-          minutosAnticipo: anticipoMin,
-          estado: 'en_curso',
-          tipoRegistro: 'kiosco_autoservicio',
-          observaciones: notaObservacion,
-        })
-        .returning();
+      let nuevaAsistencia;
+      try {
+        const [inserted] = await db
+          .insert(asistencias)
+          .values({
+            usuarioId: user.id,
+            sedeId: finalSedeId,
+            ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
+            cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
+            fecha: fechaStr,
+            horaIngreso: now,
+            horaEntradaProgramada: horaEntradaProg,
+            horaSalidaProgramada: horaSalidaProg,
+            minutosTardanza: tardanzaMin,
+            minutosAnticipo: anticipoMin,
+            estado: 'en_curso',
+            tipoRegistro: 'kiosco_autoservicio',
+            observaciones: notaObservacion,
+          })
+          .returning();
+        nuevaAsistencia = inserted;
+      } catch (insertError: any) {
+        // Blindaje contra Double-Tap: Captura infracción del índice único uq_asistencia_activa_usuario
+        if (
+          insertError?.code === '23505' ||
+          insertError?.cause?.code === '23505' ||
+          String(insertError?.cause?.message || '').includes('uq_asistencia_activa_usuario') ||
+          String(insertError?.message || '').includes('uq_asistencia_activa_usuario')
+        ) {
+          return NextResponse.json(
+            { error: 'Ya cuentas con un turno activo en curso. Si acabas de marcar en pantalla, espera unos segundos.' },
+            { status: 400 }
+          );
+        }
+        throw insertError;
+      }
 
       if (sesionVinculadaId) {
         const { sesionesProgramadas } = await import('@/db/schema');

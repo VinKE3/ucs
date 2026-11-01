@@ -1518,6 +1518,29 @@ src/
         - Prueba end-to-end automatizada con Drizzle ORM validando persistencia, cálculo y limpieza de datos.
         - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
 
+    * **Hito 41: Blindaje Nuclear de Base de Datos, Purgado Total de Pruebas y Optimización de Rendimiento Frontend (Dashboard & Kiosco)**:
+      - **Objetivo**: Preparar el sistema con los más altos estándares de ingeniería para la puesta en marcha oficial (Go-Live) del lunes, eliminando condiciones de carrera por doble pulsación simultánea, purgando todos los datos de prueba y reduciendo la carga y latencia en el navegador.
+      - **1. Blindaje e Índices de Base de Datos (`src/db/schema.ts`, `src/db/migrate_blindaje_indices.ts`, `/api/kiosco/marcar`)**:
+        - Creado índice único condicional `uq_asistencia_activa_usuario` en PostgreSQL Neon (`asistencias(usuario_id) WHERE estado_asistencia = 'en_curso'`). Impide a nivel de kernel de base de datos que dos toques simultáneos en pantallas táctiles o ráfagas de red dupliquen turnos abiertos de un mismo usuario.
+        - Manejo seguro de error `23505` en `/api/kiosco/marcar` retornando mensaje amigable: *"Ya cuentas con un turno activo en curso..."*.
+        - Creados 6 índices compuestos para alta velocidad de lectura (`idx_asistencias_usuario_estado`, `idx_asistencias_ambiente_estado`, `idx_asistencias_sede_estado`, `idx_terminales_kiosco_token_activo`, `idx_turnos_prog_usuario_fecha`, `idx_codigos_otp_codigo_activo`).
+      - **2. Purgado Total de Asistencias de Simulación**:
+        - Desvinculadas sesiones SimClic (`sesiones_programadas.asistencia_id = NULL`).
+        - Vaciadas tablas `auditoria_asistencias` y `asistencias` (0 registros).
+        - Reiniciada la secuencia autoincremental `asistencias_id_seq` a 1.
+      - **3. Dynamic Code-Splitting en Exporters (`src/lib/excel*Exporter.ts`)**:
+        - Migrada la importación pesada de `exceljs` (~850 KB) a carga dinámica bajo demanda (`(await import('exceljs')).default`) en los 5 exportadores del sistema (Asistencias, Planilla, Casting, Programación y SOS).
+      - **4. Arquitectura de Código & Rendimiento Frontend en Panel Admin (`AdminDashboard.tsx`, `SedesTab.tsx`)**:
+        - Reemplazadas las importaciones estáticas de las 9 pestañas (`SedesTab`, `AmbientesTab`, `CursosTab`, `PersonalTab`, `ProgramacionTab`, `AsistenciasTab`, `PlanillaTab`, `GeminiTab`, `AlertasSosTab`) y los 13 modales administrativos + Drawer Copilot con `next/dynamic` y componente `TabLoadingSkeleton`.
+        - En `SedesTab.tsx`, el modal de administración de terminales Kiosco (`ModalGestionTerminales`, 41 KB) ahora se descarga únicamente si el administrador hace clic en el botón.
+      - **5. Resiliencia de Red y Latencia Mínima en Terminal Kiosco (`KioscoTerminal.tsx`)**:
+        - **Cero peticiones redundantes en búsqueda**: Eliminada la llamada síncrona paralela `fetch('/api/kiosco/sedes')` al digitar o escanear DNI, reduciendo al 50% las consultas de red por marcación. La ocupación de salas se refresca en segundo plano tras registrar la asistencia.
+        - **Detección Online / Offline en tiempo real**: Implementados escuchadores nativos de conectividad (`online`/`offline`).
+        - **Alerta visual inmediata**: En caso de pérdida de red en el campus, se despliega un banner superior de advertencia de desconexión y el indicador pasa a rojo (*⚠️ Terminal Desconectada*), evitando intentos fallidos o bloqueos de pantalla.
+        - **Reconexión transparente**: Al restablecerse la red, la terminal sincroniza automáticamente y notifica al operador.
+      - **Verificación**: Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**). Cambios preservados en el árbol de trabajo sin commits según directiva del usuario.
+
+
 ---
 
 

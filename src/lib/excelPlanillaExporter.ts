@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import type { AsistenciaAdminItem, UsuarioItem } from '@/types/admin';
 
 export interface ActorPlanillaExportItem {
@@ -223,6 +222,7 @@ export async function exportarExcelPlanillaConGraficos({
   slugCorte,
   fechaEmision = new Date().toLocaleDateString('es-PE'),
 }: ExportarPlanillaOptions): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema de Planilla de Pacientes Simulados UCS';
   workbook.lastModifiedBy = 'Facultad de Ciencias de la Salud - Simulación Clínica';

@@ -4,7 +4,12 @@ import React, { useState, useMemo } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { SedeAdminItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
-import { ModalGestionTerminales } from '@/components/admin/modals/ModalGestionTerminales';
+import dynamic from 'next/dynamic';
+
+const ModalGestionTerminales = dynamic(
+  () => import('@/components/admin/modals/ModalGestionTerminales').then((m) => ({ default: m.ModalGestionTerminales })),
+  { ssr: false }
+);
 
 interface SedesTabProps {
   sedesList: SedeAdminItem[];

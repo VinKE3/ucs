@@ -21,34 +21,81 @@ import type {
   CastingRestriccionItem,
 } from '@/types/admin';
 
-// Componentes modulares
+import dynamic from 'next/dynamic';
+
+// Tipos de formularios
+import type { PersonalFormData } from '@/components/admin/modals/ModalCrearPersonal';
+import type { CursoFormData } from '@/components/admin/modals/ModalCurso';
+
+// Componentes estructurales del shell
 import { AdminNavbar } from '@/components/admin/AdminNavbar';
 import { AdminStatsCards } from '@/components/admin/AdminStatsCards';
-import { SedesTab } from '@/components/admin/tabs/SedesTab';
-import { AmbientesTab } from '@/components/admin/tabs/AmbientesTab';
-import { PersonalTab } from '@/components/admin/tabs/PersonalTab';
-import { CursosTab } from '@/components/admin/tabs/CursosTab';
-import { AsistenciasTab } from '@/components/admin/tabs/AsistenciasTab';
-import { PlanillaTab } from '@/components/admin/tabs/PlanillaTab';
-import { ProgramacionTab } from '@/components/admin/tabs/ProgramacionTab';
-import { GeminiAdminTab } from '@/components/admin/tabs/GeminiAdminTab';
-import { AlertasSosTab } from '@/components/admin/tabs/AlertasSosTab';
-import { UcsCopilotDrawer } from '@/components/admin/copilot/UcsCopilotDrawer';
 
-// Modales modulares
-import { ModalCrearSede } from '@/components/admin/modals/ModalCrearSede';
-import { ModalCrearAmbiente } from '@/components/admin/modals/ModalCrearAmbiente';
-import { ModalGestionCategorias } from '@/components/admin/modals/ModalGestionCategorias';
-import { ModalResetPassword } from '@/components/admin/modals/ModalResetPassword';
-import { ModalCrearPersonal, type PersonalFormData } from '@/components/admin/modals/ModalCrearPersonal';
-import { ModalCerrarTurno } from '@/components/admin/modals/ModalCerrarTurno';
-import { ModalAnularAsistencia } from '@/components/admin/modals/ModalAnularAsistencia';
-import { ModalCurso, type CursoFormData } from '@/components/admin/modals/ModalCurso';
-import { ModalCrearAsistenciaManual } from '@/components/admin/modals/ModalCrearAsistenciaManual';
-import { ModalAuditoriaAsistencia } from '@/components/admin/modals/ModalAuditoriaAsistencia';
-import { KardexDrawer } from '@/components/admin/modals/KardexDrawer';
-import { ModalGestionCastingCatalogos } from '@/components/admin/modals/ModalGestionCastingCatalogos';
-import { ModalFichaCasting } from '@/components/admin/modals/ModalFichaCasting';
+// Fallback de carga ligero para pestañas
+const TabLoadingSkeleton = () => (
+  <div style={{ padding: '3rem 2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+    <div style={{
+      display: 'inline-block',
+      width: '32px',
+      height: '32px',
+      border: '3px solid rgba(255,255,255,0.12)',
+      borderTopColor: '#ff5a00',
+      borderRadius: '50%',
+      animation: 'spin 0.75s linear infinite',
+      marginBottom: '0.85rem'
+    }} />
+    <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+      Cargando vista...
+    </div>
+  </div>
+);
+
+// Pestañas principales con Code Splitting (Lazy Loading)
+const SedesTab = dynamic(() => import('@/components/admin/tabs/SedesTab').then((m) => ({ default: m.SedesTab })), {
+  loading: TabLoadingSkeleton,
+});
+const AmbientesTab = dynamic(() => import('@/components/admin/tabs/AmbientesTab').then((m) => ({ default: m.AmbientesTab })), {
+  loading: TabLoadingSkeleton,
+});
+const PersonalTab = dynamic(() => import('@/components/admin/tabs/PersonalTab').then((m) => ({ default: m.PersonalTab })), {
+  loading: TabLoadingSkeleton,
+});
+const CursosTab = dynamic(() => import('@/components/admin/tabs/CursosTab').then((m) => ({ default: m.CursosTab })), {
+  loading: TabLoadingSkeleton,
+});
+const AsistenciasTab = dynamic(() => import('@/components/admin/tabs/AsistenciasTab').then((m) => ({ default: m.AsistenciasTab })), {
+  loading: TabLoadingSkeleton,
+});
+const PlanillaTab = dynamic(() => import('@/components/admin/tabs/PlanillaTab').then((m) => ({ default: m.PlanillaTab })), {
+  loading: TabLoadingSkeleton,
+});
+const ProgramacionTab = dynamic(() => import('@/components/admin/tabs/ProgramacionTab').then((m) => ({ default: m.ProgramacionTab })), {
+  loading: TabLoadingSkeleton,
+});
+const GeminiAdminTab = dynamic(() => import('@/components/admin/tabs/GeminiAdminTab').then((m) => ({ default: m.GeminiAdminTab })), {
+  loading: TabLoadingSkeleton,
+});
+const AlertasSosTab = dynamic(() => import('@/components/admin/tabs/AlertasSosTab').then((m) => ({ default: m.AlertasSosTab })), {
+  loading: TabLoadingSkeleton,
+});
+const UcsCopilotDrawer = dynamic(() => import('@/components/admin/copilot/UcsCopilotDrawer').then((m) => ({ default: m.UcsCopilotDrawer })), {
+  ssr: false,
+});
+
+// Modales cargados bajo demanda (0 bytes en carga inicial)
+const ModalCrearSede = dynamic(() => import('@/components/admin/modals/ModalCrearSede').then((m) => ({ default: m.ModalCrearSede })), { ssr: false });
+const ModalCrearAmbiente = dynamic(() => import('@/components/admin/modals/ModalCrearAmbiente').then((m) => ({ default: m.ModalCrearAmbiente })), { ssr: false });
+const ModalGestionCategorias = dynamic(() => import('@/components/admin/modals/ModalGestionCategorias').then((m) => ({ default: m.ModalGestionCategorias })), { ssr: false });
+const ModalResetPassword = dynamic(() => import('@/components/admin/modals/ModalResetPassword').then((m) => ({ default: m.ModalResetPassword })), { ssr: false });
+const ModalCrearPersonal = dynamic(() => import('@/components/admin/modals/ModalCrearPersonal').then((m) => ({ default: m.ModalCrearPersonal })), { ssr: false });
+const ModalCerrarTurno = dynamic(() => import('@/components/admin/modals/ModalCerrarTurno').then((m) => ({ default: m.ModalCerrarTurno })), { ssr: false });
+const ModalAnularAsistencia = dynamic(() => import('@/components/admin/modals/ModalAnularAsistencia').then((m) => ({ default: m.ModalAnularAsistencia })), { ssr: false });
+const ModalCurso = dynamic(() => import('@/components/admin/modals/ModalCurso').then((m) => ({ default: m.ModalCurso })), { ssr: false });
+const ModalCrearAsistenciaManual = dynamic(() => import('@/components/admin/modals/ModalCrearAsistenciaManual').then((m) => ({ default: m.ModalCrearAsistenciaManual })), { ssr: false });
+const ModalAuditoriaAsistencia = dynamic(() => import('@/components/admin/modals/ModalAuditoriaAsistencia').then((m) => ({ default: m.ModalAuditoriaAsistencia })), { ssr: false });
+const KardexDrawer = dynamic(() => import('@/components/admin/modals/KardexDrawer').then((m) => ({ default: m.KardexDrawer })), { ssr: false });
+const ModalGestionCastingCatalogos = dynamic(() => import('@/components/admin/modals/ModalGestionCastingCatalogos').then((m) => ({ default: m.ModalGestionCastingCatalogos })), { ssr: false });
+const ModalFichaCasting = dynamic(() => import('@/components/admin/modals/ModalFichaCasting').then((m) => ({ default: m.ModalFichaCasting })), { ssr: false });
 import { confirmDelete, confirmToggleActive, showError, showToast } from '@/lib/alerts';
 
 export default function AdminDashboard({ session }: { session: SessionPayload }) {

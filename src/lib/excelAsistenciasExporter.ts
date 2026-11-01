@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import type { AsistenciaAdminItem, ResumenColaboradorItem } from '@/types/admin';
 
 interface EvaluacionSimclicResultado {
@@ -189,6 +188,7 @@ export async function exportarExcelAsistenciasConGraficos({
   filtroSedeNombre = 'Todas las Sedes',
   filtroRolNombre = 'Todos los Roles',
 }: ExportarAsistenciasOptions): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema de Control de Asistencias UCS';
   workbook.lastModifiedBy = 'Coordinación de Simulación Clínica';

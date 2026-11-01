@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import type { IncidenciaAdminItem, IncidenciasMetricsData } from '@/types/admin';
 
 interface ExportarSosOptions {
@@ -210,6 +209,7 @@ export async function exportarExcelSosConGraficos({
   filtroRangoTexto,
   sedeNombreFiltro = 'Todas las Sedes',
 }: ExportarSosOptions): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema de Asistencias y Soporte UCS';
   workbook.lastModifiedBy = 'Coordinación de Simulación Clínica';

@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import type {
   UsuarioItem,
   CastingRangoEdadItem,
@@ -218,6 +217,7 @@ export async function exportarExcelCastingConGraficos({
   filtroRestriccionNombre = 'Ninguna restricción excluida',
   fechaEmision = new Date().toLocaleString('es-PE'),
 }: ExportarCastingOptions): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema de Control y Simulación Clínica UCS';
   workbook.lastModifiedBy = 'Coordinación de Pacientes Simulados & Casting ECOE';

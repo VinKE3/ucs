@@ -114,6 +114,7 @@ export default function KioscoTerminal() {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [showKeypad, setShowKeypad] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   // Filtros de ambiente en el kiosco
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('todos');
@@ -321,6 +322,36 @@ export default function KioscoTerminal() {
     };
   }, []);
 
+  // Monitoreo de conectividad online/offline en la terminal
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      showToast('Conexión con el servidor restablecida', 'success');
+      fetch('/api/kiosco/sedes')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.sedes) setSedesList(d.sedes);
+        })
+        .catch(() => {});
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      showToast('Sin conexión a Internet. Verifique la red del campus.', 'error');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // Cargar sedes y cursos, recordando la sede guardada en la tablet
   useEffect(() => {
     async function fetchSedesYCursos() {
@@ -393,6 +424,11 @@ export default function KioscoTerminal() {
     const dniABuscar = (typeof dniOverride === 'string' ? dniOverride : dniInput).trim();
     if (!dniABuscar || loadingSearch) return;
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setSearchError('Sin conexión de red en esta terminal. Verifique la conexión WiFi o Ethernet.');
+      return;
+    }
+
     setSearchError(null);
     setFeedback(null);
     setUsuarioActual(null);
@@ -405,22 +441,12 @@ export default function KioscoTerminal() {
 
     try {
       const currentSedeId = terminalInfo?.sedeId || selectedSedeId;
-      const [resLookup, resSedes] = await Promise.all([
-        fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniABuscar)}&sedeId=${currentSedeId || ''}`),
-        fetch('/api/kiosco/sedes'),
-      ]);
+      const resLookup = await fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniABuscar)}&sedeId=${currentSedeId || ''}`);
 
       const data = await resLookup.json();
 
       if (!resLookup.ok) {
         throw new Error(data.error || 'No se encontró ningún usuario con este DNI');
-      }
-
-      if (resSedes.ok) {
-        const dataSedes = await resSedes.json();
-        if (dataSedes.sedes) {
-          setSedesList(dataSedes.sedes);
-        }
       }
 
       setUsuarioActual(data.usuario);
@@ -483,6 +509,12 @@ export default function KioscoTerminal() {
 
   const handleMarcar = async (accion: 'ingreso' | 'salida') => {
     if (!usuarioActual) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setSearchError('Sin conexión de red en esta terminal. Verifique la conexión WiFi o Ethernet antes de marcar.');
+      return;
+    }
+
     setMarcando(true);
     setSearchError(null);
 
@@ -521,6 +553,14 @@ export default function KioscoTerminal() {
         tipo: data.tipo,
         mensaje: data.mensaje,
       });
+
+      // Refrescar ocupación de salas en segundo plano sin congelar la pantalla
+      fetch('/api/kiosco/sedes')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.sedes) setSedesList(d.sedes);
+        })
+        .catch(() => {});
 
       // Iniciar countdown visible (8s si hay ticket de salida para lectura cómoda, 5s para ingreso)
       const segundosIniciales = data.ticketSalida ? 8 : 5;
@@ -618,6 +658,32 @@ export default function KioscoTerminal() {
         </div>
       </header>
 
+      {/* ALERTA VISUAL DE CONECTIVIDAD OFFLINE */}
+      {!isOnline && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, #dc2626, #b91c1c)',
+            color: '#ffffff',
+            padding: '0.65rem 1rem',
+            textAlign: 'center',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.6rem',
+            boxShadow: '0 2px 10px rgba(220, 38, 38, 0.4)',
+            zIndex: 100,
+            letterSpacing: '0.3px',
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+          <span>
+            MODO DESCONECTADO: La terminal no detecta acceso a internet o a la red del campus. El registro se reanudará automáticamente al volver la conexión.
+          </span>
+        </div>
+      )}
+
       {/* CONTROL DE TERMINAL OFICIAL: CARGANDO O BLOQUEADA */}
       {terminalChecking ? (
         <main className={styles.mainSection}>
@@ -668,9 +734,16 @@ export default function KioscoTerminal() {
           <section className={styles.kioscoBox}>
             {/* BADGE DE ESTADO DEL SISTEMA Y TERMINAL OFICIAL */}
             <div className={styles.statusBar}>
-              <span className={styles.statusDot}></span>
+              <span
+                className={styles.statusDot}
+                style={!isOnline ? { background: '#ef4444', boxShadow: '0 0 10px #ef4444' } : undefined}
+              ></span>
               <span>
-                {terminalAuthorized && terminalInfo ? (
+                {!isOnline ? (
+                  <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                    ⚠️ Terminal Desconectada (Sin Red)
+                  </span>
+                ) : terminalAuthorized && terminalInfo ? (
                   <>
                     Terminal: <strong>{terminalInfo.nombre}</strong>
                     {terminalInfo.sedeNombre ? ` (${terminalInfo.sedeNombre})` : ''} • En tiempo real

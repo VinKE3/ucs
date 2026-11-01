@@ -1,5 +1,5 @@
-import { pgTable, serial, text, varchar, timestamp, boolean, integer, jsonb, pgEnum, numeric } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { pgTable, serial, text, varchar, timestamp, boolean, integer, jsonb, pgEnum, numeric, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
 
 // --- ENUMS ---
 export const tipoPersonalEnum = pgEnum('tipo_personal', [
@@ -134,7 +134,15 @@ export const asistencias = pgTable('asistencias', {
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex('uq_asistencia_activa_usuario')
+    .on(table.usuarioId)
+    .where(sql`${table.estado} = 'en_curso'`),
+  index('idx_asistencias_usuario_estado').on(table.usuarioId, table.estado),
+  index('idx_asistencias_fecha_usuario').on(table.fecha, table.usuarioId),
+  index('idx_asistencias_sede_estado').on(table.sedeId, table.estado),
+  index('idx_asistencias_ambiente_estado').on(table.ambienteId, table.estado),
+]);
 
 // --- 5. TABLA: AUDITORÍA DE CAMBIOS (Inmutabilidad y Trazabilidad) ---
 export const auditoriaAsistencias = pgTable('auditoria_asistencias', {

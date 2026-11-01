@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import type { SesionProgramadaTimelineItem, AmbienteAdminItem, SedeAdminItem } from '@/types/admin';
 
 interface ExportarProgramacionOptions {
@@ -207,6 +206,7 @@ export async function exportarExcelProgramacionConGraficos({
   fecha,
   fechaEmision = new Date().toLocaleString('es-PE'),
 }: ExportarProgramacionOptions): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema de Control y Simulación Clínica UCS';
   workbook.lastModifiedBy = 'Coordinación Académica de Simulación';

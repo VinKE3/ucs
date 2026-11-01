@@ -163,7 +163,7 @@ export default function KioscoTerminal() {
   const [terminalInfo, setTerminalInfo] = useState<TerminalData | null>(null);
 
   // Modal para autorizar terminal
-  const [showAuthModal, setShowAuthModal] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMetodo, setAuthMetodo] = useState<'otp' | 'credenciales'>('otp');
   const [authOtpCode, setAuthOtpCode] = useState('');
   const [authAdminId, setAuthAdminId] = useState('');
@@ -176,6 +176,7 @@ export default function KioscoTerminal() {
   // Verificación inicial de terminal autorizada (vía Cookie HttpOnly segura + migración transparente de localStorage)
   useEffect(() => {
     async function checkTerminal() {
+      let candidateToken: string | null = null;
       try {
         // 1. Detección de link de re-vinculación rápida (?relink_token=trm_...)
         let relinkToken: string | null = null;
@@ -192,7 +193,7 @@ export default function KioscoTerminal() {
         // 2. Búsqueda de token en almacenamiento redundante (Vault: IndexedDB / Cache / LocalStorage)
         const vaultToken = await getTokenFromVault();
         const legacyToken = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
-        const candidateToken = relinkToken || vaultToken || legacyToken;
+        candidateToken = relinkToken || vaultToken || legacyToken;
 
         // 3. Huella digital de hardware inmutable (sobrevive al borrado de historial y cookies)
         const fingerprint = await getDeviceFingerprint();
@@ -255,7 +256,7 @@ export default function KioscoTerminal() {
         }
       } finally {
         setTerminalChecking(false);
-        obtenerColaMarcacionesOffline().then((c) => setOfflineQueueCount(c.length)).catch(() => { });
+        obtenerColaMarcacionesOffline().then((c) => setOfflineQueueCount(c.length)).catch(() => {});
       }
     }
 
@@ -292,18 +293,18 @@ export default function KioscoTerminal() {
       const fingerprint = await getDeviceFingerprint();
       const payload = authMetodo === 'otp'
         ? {
-          metodo: 'otp',
-          codigoOtp: authOtpCode.trim(),
-          deviceFingerprint: fingerprint,
-        }
+            metodo: 'otp',
+            codigoOtp: authOtpCode.trim(),
+            deviceFingerprint: fingerprint,
+          }
         : {
-          metodo: 'credenciales',
-          identificador: authAdminId.trim(),
-          password: authAdminPass,
-          nombreTerminal: authTerminalName.trim(),
-          sedeId: authSedeId || null,
-          deviceFingerprint: fingerprint,
-        };
+            metodo: 'credenciales',
+            identificador: authAdminId.trim(),
+            password: authAdminPass,
+            nombreTerminal: authTerminalName.trim(),
+            sedeId: authSedeId || null,
+            deviceFingerprint: fingerprint,
+          };
 
       const res = await fetch('/api/kiosco/terminal/autorizar', {
         method: 'POST',
@@ -438,7 +439,7 @@ export default function KioscoTerminal() {
         .then((d) => {
           if (d.sedes) setSedesList(d.sedes);
         })
-        .catch(() => { });
+        .catch(() => {});
     };
 
     const handleOffline = () => {
@@ -709,17 +710,19 @@ export default function KioscoTerminal() {
 
         if (accion === 'salida') {
           setTicketSalida({
-            id: 0,
-            nombres: usuarioActual.nombres,
-            apellidos: usuarioActual.apellidos,
-            dni: usuarioActual.dni,
-            tipoPersonal: usuarioActual.tipoPersonal,
-            fecha: now.toLocaleDateString('es-PE'),
-            horaIngreso: 'Registrada',
+            colaborador: `${usuarioActual.nombres} ${usuarioActual.apellidos}`,
+            tipoPersonal: usuarioActual.tipoPersonal as any,
+            ambienteNombre: ambienteNombre || 'Sala general',
+            sedeNombre: sedeSeleccionada?.nombre || 'Campus Oficial',
+            cursoNombre: cursoNombre || null,
+            horaIngreso: 'Registrada previamente',
             horaSalida: now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-            duracionFormato: 'Guardado offline',
-            ambiente: ambienteNombre || 'Sala general',
-            curso: cursoNombre || 'Clínica',
+            minutosSesion: 0,
+            tiempoSesionTexto: 'Guardado offline',
+            minutosSemanaTotal: 0,
+            horasSemanaTexto: 'Calculando al sincronizar',
+            minutosMesTotal: 0,
+            horasMesTexto: 'Calculando al sincronizar',
           });
         } else {
           setTicketSalida(null);
@@ -801,7 +804,7 @@ export default function KioscoTerminal() {
         .then((d) => {
           if (d.sedes) setSedesList(d.sedes);
         })
-        .catch(() => { });
+        .catch(() => {});
 
       // Iniciar countdown visible (8s si hay ticket de salida para lectura cómoda, 5s para ingreso)
       const segundosIniciales = data.ticketSalida ? 8 : 5;
@@ -1730,8 +1733,8 @@ export default function KioscoTerminal() {
                                       {sesionSugerida.rol === 'docente_titular'
                                         ? '⭐ Docente Titular'
                                         : sesionSugerida.rol === 'co_docente'
-                                          ? '👥 Co-docente'
-                                          : '🎭 Paciente Simulado'}
+                                        ? '👥 Co-docente'
+                                        : '🎭 Paciente Simulado'}
                                     </span>
                                   </div>
                                 </div>
@@ -1890,183 +1893,183 @@ export default function KioscoTerminal() {
                                   </div>
                                 </div>
 
-                                <div className={styles.roomSelectorSection}>
-                                  <div className={styles.roomSectionTitle}>
-                                    2. Selecciona la sala de tu simulación ({ambientesFiltrados.length} disponibles):
-                                  </div>
+                            <div className={styles.roomSelectorSection}>
+                              <div className={styles.roomSectionTitle}>
+                                2. Selecciona la sala de tu simulación ({ambientesFiltrados.length} disponibles):
+                              </div>
 
-                                  {/* FILTROS INTELIGENTES PARA AMBIENTES */}
-                                  <div className={styles.roomFilterControls}>
-                                    <input
-                                      type="text"
-                                      placeholder="🔍 Filtrar sala por código o nombre (ej: 103, alta, consultorio)..."
-                                      value={roomSearch}
-                                      onChange={(e) => setRoomSearch(e.target.value)}
-                                      className={styles.roomSearchInput}
-                                    />
+                              {/* FILTROS INTELIGENTES PARA AMBIENTES */}
+                              <div className={styles.roomFilterControls}>
+                                <input
+                                  type="text"
+                                  placeholder="🔍 Filtrar sala por código o nombre (ej: 103, alta, consultorio)..."
+                                  value={roomSearch}
+                                  onChange={(e) => setRoomSearch(e.target.value)}
+                                  className={styles.roomSearchInput}
+                                />
 
-                                    <div className={styles.roomPillList}>
-                                      {roomCategories.map((cat) => (
-                                        <button
-                                          key={cat.id}
-                                          type="button"
-                                          className={`${styles.roomPill} ${roomCategoryFilter === cat.id ? styles.roomPillActive : ''
-                                            }`}
-                                          onClick={() => setRoomCategoryFilter(cat.id)}
-                                        >
-                                          {cat.icono && <span style={{ marginRight: '0.25rem' }}>{cat.icono}</span>}
-                                          {cat.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {/* GRID DE SALAS FILTRADAS */}
-                                  {ambientesFiltrados.length === 0 ? (
-                                    <div className={styles.emptyRoomsNotice}>
-                                      No se encontraron salas con el filtro seleccionado.
-                                    </div>
-                                  ) : (
-                                    <div className={styles.roomGrid}>
-                                      {ambientesFiltrados.map((amb) => (
-                                        <button
-                                          key={amb.id}
-                                          type="button"
-                                          className={`${styles.roomCard} ${selectedAmbienteId === amb.id ? styles.roomCardSelected : ''
-                                            } ${amb.ocupada ? styles.roomCardOccupied : ''}`}
-                                          onClick={() => {
-                                            setSelectedAmbienteId(amb.id);
-                                            if (amb.cursoActivoId) {
-                                              setSelectedCursoId(amb.cursoActivoId);
-                                            }
-                                          }}
-                                        >
-                                          <div className={styles.roomCardTop}>
-                                            <div className={styles.roomName}>{amb.nombre}</div>
-                                            {amb.ocupada && (
-                                              <span className={styles.roomOccupiedBadge} title="Sala con ocupantes en escenario">
-                                                🟡 En uso
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className={styles.roomCode}>
-                                            {amb.codigo ? `Código: ${amb.codigo}` : 'Sala de simulación'}
-                                          </div>
-                                          {amb.ocupada && amb.docenteActivo && (
-                                            <div className={styles.roomOccupantInfo}>
-                                              <span>👤 {amb.docenteActivo}</span>
-                                              {amb.cursoActivo && <span> • 📚 {amb.cursoActivo}</span>}
-                                            </div>
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
+                                <div className={styles.roomPillList}>
+                                  {roomCategories.map((cat) => (
+                                    <button
+                                      key={cat.id}
+                                      type="button"
+                                      className={`${styles.roomPill} ${roomCategoryFilter === cat.id ? styles.roomPillActive : ''
+                                        }`}
+                                      onClick={() => setRoomCategoryFilter(cat.id)}
+                                    >
+                                      {cat.icono && <span style={{ marginRight: '0.25rem' }}>{cat.icono}</span>}
+                                      {cat.label}
+                                    </button>
+                                  ))}
                                 </div>
+                              </div>
 
-                                {/* AVISO CONTEXTUAL INTELIGENTE (RELEVO O SESIÓN CONJUNTA DOCENTE + PACIENTE SIMULADO) */}
-                                {selectedAmbienteObj?.ocupada && (() => {
-                                  const docentesEnSala = selectedAmbienteObj.docentesActivos || [];
-                                  const pacientesEnSala = selectedAmbienteObj.pacientesActivos || [];
-                                  const esDocente = usuarioActual.tipoPersonal === 'docente';
-                                  const esPaciente = usuarioActual.tipoPersonal === 'paciente_simulado';
-
-                                  // Caso 1: Quien ingresa es DOCENTE y en sala hay PACIENTE SIMULADO (y ningún docente)
-                                  if (esDocente && docentesEnSala.length === 0 && pacientesEnSala.length > 0) {
-                                    const pac = pacientesEnSala[0];
-                                    const hora = new Date(pac.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-                                    return (
-                                      <div className={styles.relevoNoticeBox} style={{ borderColor: 'rgba(56, 189, 248, 0.4)', background: 'rgba(56, 189, 248, 0.08)' }}>
-                                        <div className={styles.relevoNoticeHeader}>
-                                          <span className={styles.relevoNoticeIcon}>🎭</span>
-                                          <span className={styles.relevoNoticeTitle} style={{ color: 'var(--ucs-blue-sky)' }}>
-                                            Paciente Simulado en Sala
+                              {/* GRID DE SALAS FILTRADAS */}
+                              {ambientesFiltrados.length === 0 ? (
+                                <div className={styles.emptyRoomsNotice}>
+                                  No se encontraron salas con el filtro seleccionado.
+                                </div>
+                              ) : (
+                                <div className={styles.roomGrid}>
+                                  {ambientesFiltrados.map((amb) => (
+                                    <button
+                                      key={amb.id}
+                                      type="button"
+                                      className={`${styles.roomCard} ${selectedAmbienteId === amb.id ? styles.roomCardSelected : ''
+                                        } ${amb.ocupada ? styles.roomCardOccupied : ''}`}
+                                      onClick={() => {
+                                        setSelectedAmbienteId(amb.id);
+                                        if (amb.cursoActivoId) {
+                                          setSelectedCursoId(amb.cursoActivoId);
+                                        }
+                                      }}
+                                    >
+                                      <div className={styles.roomCardTop}>
+                                        <div className={styles.roomName}>{amb.nombre}</div>
+                                        {amb.ocupada && (
+                                          <span className={styles.roomOccupiedBadge} title="Sala con ocupantes en escenario">
+                                            🟡 En uso
                                           </span>
-                                        </div>
-                                        <p className={styles.relevoNoticeText}>
-                                          El paciente simulado <strong>{pac.nombres} {pac.apellidos}</strong> ya se encuentra en sala desde las <strong>{hora}</strong> preparándose para la simulación.
-                                          {selectedAmbienteObj.cursoActivo && (
-                                            <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
-                                          )}
-                                        </p>
-                                        <div className={styles.relevoNoticeHint}>
-                                          💡 Al registrar tu ingreso, quedarás como docente a cargo de esta simulación clínica compartida.
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-
-                                  // Caso 2: Quien ingresa es PACIENTE SIMULADO y en sala ya hay un DOCENTE
-                                  if (esPaciente && docentesEnSala.length > 0) {
-                                    const doc = docentesEnSala[0];
-                                    const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-                                    return (
-                                      <div className={styles.relevoNoticeBox} style={{ borderColor: 'rgba(168, 85, 247, 0.4)', background: 'rgba(168, 85, 247, 0.08)' }}>
-                                        <div className={styles.relevoNoticeHeader}>
-                                          <span className={styles.relevoNoticeIcon}>👨‍⚕️</span>
-                                          <span className={styles.relevoNoticeTitle} style={{ color: '#c084fc' }}>
-                                            Docente a Cargo en Sala
-                                          </span>
-                                        </div>
-                                        <p className={styles.relevoNoticeText}>
-                                          Esta sala está dirigida por el docente <strong>{doc.nombres} {doc.apellidos}</strong> desde las <strong>{hora}</strong>.
-                                          {selectedAmbienteObj.cursoActivo && (
-                                            <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
-                                          )}
-                                        </p>
-                                        <div className={styles.relevoNoticeHint}>
-                                          💡 Al registrar tu ingreso, te incorporarás como paciente simulado participante de la sesión.
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-
-                                  // Caso 3: Relevo o co-docencia entre Docentes
-                                  if (esDocente && docentesEnSala.length > 0) {
-                                    const doc = docentesEnSala[0];
-                                    const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-                                    return (
-                                      <div className={styles.relevoNoticeBox}>
-                                        <div className={styles.relevoNoticeHeader}>
-                                          <span className={styles.relevoNoticeIcon}>⚠️</span>
-                                          <span className={styles.relevoNoticeTitle}>Aviso de Relevo / Co-docencia</span>
-                                        </div>
-                                        <p className={styles.relevoNoticeText}>
-                                          Esta sala figura actualmente en uso por el docente <strong>{doc.nombres} {doc.apellidos}</strong>
-                                          {selectedAmbienteObj.cursoActivo && (
-                                            <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
-                                          )}
-                                          <span> desde las <strong>{hora}</strong></span>.
-                                        </p>
-                                        <div className={styles.relevoNoticeHint}>
-                                          💡 Si estás relevando al docente o participando en co-docencia, puedes continuar con normalidad. Se registrará la hora exacta de tu ingreso como referencia para el turno.
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-
-                                  // Caso por defecto / co-participación
-                                  return (
-                                    <div className={styles.relevoNoticeBox}>
-                                      <div className={styles.relevoNoticeHeader}>
-                                        <span className={styles.relevoNoticeIcon}>ℹ️</span>
-                                        <span className={styles.relevoNoticeTitle}>Sala en Uso Compartido</span>
-                                      </div>
-                                      <p className={styles.relevoNoticeText}>
-                                        Esta sala figura actualmente en uso por <strong>{selectedAmbienteObj.docenteActivo}</strong>
-                                        {selectedAmbienteObj.cursoActivo && (
-                                          <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
                                         )}
-                                        {selectedAmbienteObj.horaIngresoDocente && (
-                                          <span> desde las <strong>{new Date(selectedAmbienteObj.horaIngresoDocente).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</strong></span>
-                                        )}.
-                                      </p>
-                                      <div className={styles.relevoNoticeHint}>
-                                        💡 Puedes continuar para registrar tu ingreso a la simulación.
                                       </div>
+                                      <div className={styles.roomCode}>
+                                        {amb.codigo ? `Código: ${amb.codigo}` : 'Sala de simulación'}
+                                      </div>
+                                      {amb.ocupada && amb.docenteActivo && (
+                                        <div className={styles.roomOccupantInfo}>
+                                          <span>👤 {amb.docenteActivo}</span>
+                                          {amb.cursoActivo && <span> • 📚 {amb.cursoActivo}</span>}
+                                        </div>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* AVISO CONTEXTUAL INTELIGENTE (RELEVO O SESIÓN CONJUNTA DOCENTE + PACIENTE SIMULADO) */}
+                            {selectedAmbienteObj?.ocupada && (() => {
+                              const docentesEnSala = selectedAmbienteObj.docentesActivos || [];
+                              const pacientesEnSala = selectedAmbienteObj.pacientesActivos || [];
+                              const esDocente = usuarioActual.tipoPersonal === 'docente';
+                              const esPaciente = usuarioActual.tipoPersonal === 'paciente_simulado';
+
+                              // Caso 1: Quien ingresa es DOCENTE y en sala hay PACIENTE SIMULADO (y ningún docente)
+                              if (esDocente && docentesEnSala.length === 0 && pacientesEnSala.length > 0) {
+                                const pac = pacientesEnSala[0];
+                                const hora = new Date(pac.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                                return (
+                                  <div className={styles.relevoNoticeBox} style={{ borderColor: 'rgba(56, 189, 248, 0.4)', background: 'rgba(56, 189, 248, 0.08)' }}>
+                                    <div className={styles.relevoNoticeHeader}>
+                                      <span className={styles.relevoNoticeIcon}>🎭</span>
+                                      <span className={styles.relevoNoticeTitle} style={{ color: 'var(--ucs-blue-sky)' }}>
+                                        Paciente Simulado en Sala
+                                      </span>
                                     </div>
-                                  );
-                                })()}
+                                    <p className={styles.relevoNoticeText}>
+                                      El paciente simulado <strong>{pac.nombres} {pac.apellidos}</strong> ya se encuentra en sala desde las <strong>{hora}</strong> preparándose para la simulación.
+                                      {selectedAmbienteObj.cursoActivo && (
+                                        <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                      )}
+                                    </p>
+                                    <div className={styles.relevoNoticeHint}>
+                                      💡 Al registrar tu ingreso, quedarás como docente a cargo de esta simulación clínica compartida.
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // Caso 2: Quien ingresa es PACIENTE SIMULADO y en sala ya hay un DOCENTE
+                              if (esPaciente && docentesEnSala.length > 0) {
+                                const doc = docentesEnSala[0];
+                                const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                                return (
+                                  <div className={styles.relevoNoticeBox} style={{ borderColor: 'rgba(168, 85, 247, 0.4)', background: 'rgba(168, 85, 247, 0.08)' }}>
+                                    <div className={styles.relevoNoticeHeader}>
+                                      <span className={styles.relevoNoticeIcon}>👨‍⚕️</span>
+                                      <span className={styles.relevoNoticeTitle} style={{ color: '#c084fc' }}>
+                                        Docente a Cargo en Sala
+                                      </span>
+                                    </div>
+                                    <p className={styles.relevoNoticeText}>
+                                      Esta sala está dirigida por el docente <strong>{doc.nombres} {doc.apellidos}</strong> desde las <strong>{hora}</strong>.
+                                      {selectedAmbienteObj.cursoActivo && (
+                                        <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                      )}
+                                    </p>
+                                    <div className={styles.relevoNoticeHint}>
+                                      💡 Al registrar tu ingreso, te incorporarás como paciente simulado participante de la sesión.
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // Caso 3: Relevo o co-docencia entre Docentes
+                              if (esDocente && docentesEnSala.length > 0) {
+                                const doc = docentesEnSala[0];
+                                const hora = new Date(doc.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+                                return (
+                                  <div className={styles.relevoNoticeBox}>
+                                    <div className={styles.relevoNoticeHeader}>
+                                      <span className={styles.relevoNoticeIcon}>⚠️</span>
+                                      <span className={styles.relevoNoticeTitle}>Aviso de Relevo / Co-docencia</span>
+                                    </div>
+                                    <p className={styles.relevoNoticeText}>
+                                      Esta sala figura actualmente en uso por el docente <strong>{doc.nombres} {doc.apellidos}</strong>
+                                      {selectedAmbienteObj.cursoActivo && (
+                                        <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                      )}
+                                      <span> desde las <strong>{hora}</strong></span>.
+                                    </p>
+                                    <div className={styles.relevoNoticeHint}>
+                                      💡 Si estás relevando al docente o participando en co-docencia, puedes continuar con normalidad. Se registrará la hora exacta de tu ingreso como referencia para el turno.
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // Caso por defecto / co-participación
+                              return (
+                                <div className={styles.relevoNoticeBox}>
+                                  <div className={styles.relevoNoticeHeader}>
+                                    <span className={styles.relevoNoticeIcon}>ℹ️</span>
+                                    <span className={styles.relevoNoticeTitle}>Sala en Uso Compartido</span>
+                                  </div>
+                                  <p className={styles.relevoNoticeText}>
+                                    Esta sala figura actualmente en uso por <strong>{selectedAmbienteObj.docenteActivo}</strong>
+                                    {selectedAmbienteObj.cursoActivo && (
+                                      <span> (Curso: <strong>{selectedAmbienteObj.cursoActivo}</strong>)</span>
+                                    )}
+                                    {selectedAmbienteObj.horaIngresoDocente && (
+                                      <span> desde las <strong>{new Date(selectedAmbienteObj.horaIngresoDocente).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                                    )}.
+                                  </p>
+                                  <div className={styles.relevoNoticeHint}>
+                                    💡 Puedes continuar para registrar tu ingreso a la simulación.
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                                 <button
                                   onClick={() => handleMarcar('ingreso')}
@@ -2282,8 +2285,8 @@ export default function KioscoTerminal() {
                 {authSubmitting
                   ? 'Verificando y autorizando...'
                   : authMetodo === 'otp'
-                    ? '🔐 Vincular y Desbloquear Terminal'
-                    : '🔐 Vincular y Autorizar Dispositivo'}
+                  ? '🔐 Vincular y Desbloquear Terminal'
+                  : '🔐 Vincular y Autorizar Dispositivo'}
               </button>
             </form>
           </div>

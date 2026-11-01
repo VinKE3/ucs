@@ -1518,7 +1518,7 @@ src/
         - Prueba end-to-end automatizada con Drizzle ORM validando persistencia, cálculo y limpieza de datos.
         - Compilación TypeScript estricta validada con `cmd /c npx tsc --noEmit` (**0 errores**).
 
-    * **Hito 41: Blindaje Nuclear de Base de Datos, Purgado Total de Pruebas y Optimización de Rendimiento Frontend (Dashboard & Kiosco)**:
+    - **Hito 87: Blindaje Nuclear de Base de Datos, Purgado Total de Pruebas y Optimización de Rendimiento Frontend (Dashboard & Kiosco)**:
       - **Objetivo**: Preparar el sistema con los más altos estándares de ingeniería para la puesta en marcha oficial (Go-Live) del lunes, eliminando condiciones de carrera por doble pulsación simultánea, purgando todos los datos de prueba y reduciendo la carga y latencia en el navegador.
       - **1. Blindaje e Índices de Base de Datos (`src/db/schema.ts`, `src/db/migrate_blindaje_indices.ts`, `/api/kiosco/marcar`)**:
         - Creado índice único condicional `uq_asistencia_activa_usuario` en PostgreSQL Neon (`asistencias(usuario_id) WHERE estado_asistencia = 'en_curso'`). Impide a nivel de kernel de base de datos que dos toques simultáneos en pantallas táctiles o ráfagas de red dupliquen turnos abiertos de un mismo usuario.
@@ -1540,7 +1540,7 @@ src/
         - **Reconexión transparente**: Al restablecerse la red, la terminal sincroniza automáticamente y notifica al operador.
       - **Verificación**: Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**). Cambios preservados en el árbol de trabajo sin commits según directiva del usuario.
 
-    * **Hito 42: Seguridad de Backend, Blindaje de Cookies y Auto-Recuperación de Terminales por Huella Digital de Hardware**:
+    - **Hito 88: Seguridad de Backend, Blindaje de Cookies y Auto-Recuperación de Terminales por Huella Digital de Hardware**:
       - **Problema de Operación en Sedes**: Si un técnico, personal de limpieza o usuario borraba el historial de navegación o las cookies en una tablet/PC de Sede Norte, Ate o Villa, la cookie HttpOnly `ucs_terminal_token` se destruía y la terminal se bloqueaba inmediatamente. Dado que en sedes remotas no se puede instalar AnyDesk para soporte remoto por políticas de seguridad de red, el administrador debía desplazarse físicamente o generar nuevos códigos OTP continuamente.
       - **1. Arquitectura de Auto-Recuperación por Huella Digital de Hardware (`src/lib/deviceFingerprint.ts`)**:
         - Algoritmo criptográfico client-side (SHA-256) que calcula una firma determinista e inmutable basada en el silicio y hardware físico del equipo: GPU vendor & renderer vía WebGL (`UNMASKED_RENDERER_WEBGL`), rasterizado subpíxel 2D Canvas dependiente de DirectX, procesamiento DSP de AudioContext, núcleos de CPU (`hardwareConcurrency`), memoria RAM, resolución y ratio de pantalla.

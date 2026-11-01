@@ -199,6 +199,43 @@
   color: #ef4444;
 }
 
+.queuePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-left: 0.4rem;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.queuePill:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+}
+
+.offlineAlertBanner {
+  background: linear-gradient(90deg, #d97706, #b45309);
+  color: #ffffff;
+  padding: 0.65rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.4);
+  z-index: 100;
+  letter-spacing: 0.3px;
+}
+
 .statusDot {
   width: 7px;
   height: 7px;

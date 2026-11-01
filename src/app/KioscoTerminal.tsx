@@ -9,6 +9,14 @@ import { confirmModal, showToast } from '@/lib/alerts';
 import Swal from 'sweetalert2';
 import { getDeviceFingerprint } from '@/lib/deviceFingerprint';
 import { saveTokenToVault, getTokenFromVault, clearTokenFromVault } from '@/lib/kioskStorageVault';
+import {
+  guardarSnapshotOffline,
+  buscarColaboradorOffline,
+  calcularSesionSugeridaOffline,
+  encolarMarcacionOffline,
+  obtenerColaMarcacionesOffline,
+  sincronizarColaOffline,
+} from '@/lib/kioskOfflineStorage';
 
 interface TerminalData {
   id: number;
@@ -117,6 +125,8 @@ export default function KioscoTerminal() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [showKeypad, setShowKeypad] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [offlineQueueCount, setOfflineQueueCount] = useState<number>(0);
+  const [isModoOfflineActivo, setIsModoOfflineActivo] = useState<boolean>(false);
 
   // Filtros de ambiente en el kiosco
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('todos');
@@ -166,6 +176,7 @@ export default function KioscoTerminal() {
   // Verificación inicial de terminal autorizada (vía Cookie HttpOnly segura + migración transparente de localStorage)
   useEffect(() => {
     async function checkTerminal() {
+      let candidateToken: string | null = null;
       try {
         // 1. Detección de link de re-vinculación rápida (?relink_token=trm_...)
         let relinkToken: string | null = null;
@@ -182,7 +193,7 @@ export default function KioscoTerminal() {
         // 2. Búsqueda de token en almacenamiento redundante (Vault: IndexedDB / Cache / LocalStorage)
         const vaultToken = await getTokenFromVault();
         const legacyToken = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
-        const candidateToken = relinkToken || vaultToken || legacyToken;
+        candidateToken = relinkToken || vaultToken || legacyToken;
 
         // 3. Huella digital de hardware inmutable (sobrevive al borrado de historial y cookies)
         const fingerprint = await getDeviceFingerprint();
@@ -228,9 +239,24 @@ export default function KioscoTerminal() {
         }
       } catch (err) {
         console.error('Error al verificar terminal oficial:', err);
-        setTerminalAuthorized(false);
+        // Si hay error de red pero la terminal cuenta con token en el Vault, permitir modo offline
+        if (candidateToken && typeof navigator !== 'undefined' && !navigator.onLine) {
+          setTerminalAuthorized(true);
+          setTerminalInfo({
+            id: 0,
+            nombre: 'Terminal Oficial (Offline)',
+            sedeId: selectedSedeId,
+            sedeNombre: 'Modo Autónomo',
+            sedeCodigo: 'OFFLINE',
+          });
+          setIsModoOfflineActivo(true);
+          showToast('⚠️ Operando en Modo Autónomo Offline', 'warning');
+        } else {
+          setTerminalAuthorized(false);
+        }
       } finally {
         setTerminalChecking(false);
+        obtenerColaMarcacionesOffline().then((c) => setOfflineQueueCount(c.length)).catch(() => {});
       }
     }
 
@@ -360,14 +386,54 @@ export default function KioscoTerminal() {
     };
   }, []);
 
-  // Monitoreo de conectividad online/offline en la terminal
+  // Funciones de gestión offline: precarga de snapshot diario y drenado de cola
+  const precargarSnapshotOffline = async () => {
+    if (typeof window === 'undefined' || !navigator.onLine) return;
+    try {
+      const targetSede = terminalInfo?.sedeId || selectedSedeId;
+      const res = await fetch(`/api/kiosco/offline?sedeId=${targetSede || ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.snapshot) {
+          await guardarSnapshotOffline(data.snapshot);
+        }
+      }
+    } catch (e) {
+      console.warn('Precarga offline de snapshot omitida:', e);
+    }
+  };
+
+  const procesarColaOffline = async () => {
+    if (typeof window === 'undefined' || !navigator.onLine) return;
+    try {
+      const res = await sincronizarColaOffline();
+      if (res.sincronizados > 0) {
+        showToast(`✅ ${res.sincronizados} marcaciones offline sincronizadas con Neon`, 'success');
+      }
+      const cola = await obtenerColaMarcacionesOffline();
+      setOfflineQueueCount(cola.length);
+    } catch (e) {
+      console.warn('Error sincronizando cola offline:', e);
+    }
+  };
+
+  // Monitoreo de conectividad online/offline en la terminal y sincronización automática
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setIsOnline(navigator.onLine);
 
+    // Precargar snapshot inicial y procesar cola si hay internet
+    if (navigator.onLine) {
+      precargarSnapshotOffline();
+      procesarColaOffline();
+    }
+
     const handleOnline = () => {
       setIsOnline(true);
+      setIsModoOfflineActivo(false);
       showToast('Conexión con el servidor restablecida', 'success');
+      procesarColaOffline();
+      precargarSnapshotOffline();
       fetch('/api/kiosco/sedes')
         .then((r) => r.json())
         .then((d) => {
@@ -378,17 +444,27 @@ export default function KioscoTerminal() {
 
     const handleOffline = () => {
       setIsOnline(false);
-      showToast('Sin conexión a Internet. Verifique la red del campus.', 'error');
+      setIsModoOfflineActivo(true);
+      showToast('Modo Autónomo Offline activado. Puedes continuar marcando con normalidad.', 'warning');
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Ciclo periódico cada 25 minutos para refrescar el snapshot de SimClic del día
+    const intervalSnapshot = setInterval(() => {
+      if (navigator.onLine) {
+        precargarSnapshotOffline();
+        procesarColaOffline();
+      }
+    }, 25 * 60 * 1000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(intervalSnapshot);
     };
-  }, []);
+  }, [terminalInfo?.sedeId, selectedSedeId]);
 
   // Cargar sedes y cursos, recordando la sede guardada en la tablet
   useEffect(() => {
@@ -462,11 +538,6 @@ export default function KioscoTerminal() {
     const dniABuscar = (typeof dniOverride === 'string' ? dniOverride : dniInput).trim();
     if (!dniABuscar || loadingSearch) return;
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setSearchError('Sin conexión de red en esta terminal. Verifique la conexión WiFi o Ethernet.');
-      return;
-    }
-
     setSearchError(null);
     setFeedback(null);
     setUsuarioActual(null);
@@ -477,8 +548,44 @@ export default function KioscoTerminal() {
     setRoomCategoryFilter('todos');
     setLoadingSearch(true);
 
+    const currentSedeId = terminalInfo?.sedeId || selectedSedeId;
+
+    // Caso A: Si la tablet no tiene conexión de red en este momento
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      try {
+        const userOffline = await buscarColaboradorOffline(dniABuscar);
+        if (!userOffline) {
+          setSearchError('Colaborador no encontrado en el padrón local de contingencia de la terminal.');
+          setLoadingSearch(false);
+          return;
+        }
+
+        setIsModoOfflineActivo(true);
+        setUsuarioActual({
+          ...userOffline,
+          turnoHoy: null,
+          saldoDiasCompensatorios: null,
+        } as any);
+
+        // Preselección inteligente 1-Tap Offline con SimClic en memoria local
+        const sesionOff = await calcularSesionSugeridaOffline(userOffline, currentSedeId);
+        if (sesionOff) {
+          setSesionSugerida(sesionOff);
+          if (sesionOff.ambienteId) setSelectedAmbienteId(sesionOff.ambienteId);
+          if (sesionOff.cursoId) setSelectedCursoId(sesionOff.cursoId);
+        } else {
+          setSesionSugerida(null);
+        }
+        setModoManual(false);
+      } catch (err: any) {
+        setSearchError('Error en consulta local: ' + (err?.message || 'Error local'));
+      } finally {
+        setLoadingSearch(false);
+      }
+      return;
+    }
+
     try {
-      const currentSedeId = terminalInfo?.sedeId || selectedSedeId;
       const resLookup = await fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(dniABuscar)}&sedeId=${currentSedeId || ''}`);
 
       const data = await resLookup.json();
@@ -487,6 +594,7 @@ export default function KioscoTerminal() {
         throw new Error(data.error || 'No se encontró ningún usuario con este DNI');
       }
 
+      setIsModoOfflineActivo(false);
       setUsuarioActual(data.usuario);
       setAsistenciaActiva(data.asistenciaActiva);
       setSesionSugerida(data.sesionSugerida || null);
@@ -501,7 +609,28 @@ export default function KioscoTerminal() {
           setSelectedCursoId(data.sesionSugerida.cursoId);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Fallback gracioso si falló por caída de red súbita durante la búsqueda
+      if (err instanceof TypeError || String(err?.message || '').toLowerCase().includes('fetch')) {
+        const userOffline = await buscarColaboradorOffline(dniABuscar);
+        if (userOffline) {
+          setIsModoOfflineActivo(true);
+          setUsuarioActual({
+            ...userOffline,
+            turnoHoy: null,
+            saldoDiasCompensatorios: null,
+          } as any);
+          const sesionOff = await calcularSesionSugeridaOffline(userOffline, currentSedeId);
+          if (sesionOff) {
+            setSesionSugerida(sesionOff);
+            if (sesionOff.ambienteId) setSelectedAmbienteId(sesionOff.ambienteId);
+            if (sesionOff.cursoId) setSelectedCursoId(sesionOff.cursoId);
+          }
+          setModoManual(false);
+          setLoadingSearch(false);
+          return;
+        }
+      }
       setSearchError(err instanceof Error ? err.message : 'Error al consultar DNI');
     } finally {
       setLoadingSearch(false);
@@ -548,13 +677,90 @@ export default function KioscoTerminal() {
   const handleMarcar = async (accion: 'ingreso' | 'salida') => {
     if (!usuarioActual) return;
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setSearchError('Sin conexión de red en esta terminal. Verifique la conexión WiFi o Ethernet antes de marcar.');
-      return;
-    }
-
     setMarcando(true);
     setSearchError(null);
+
+    const currentSede = terminalInfo?.sedeId || selectedSedeId || 1;
+
+    // Función auxiliar para registrar marcación en IndexedDB si no hay red o si falla la conexión
+    const registrarOfflineLocal = async () => {
+      try {
+        const now = new Date();
+        const cursoNombre = cursosList.find((c) => c.id === selectedCursoId)?.nombre;
+        const ambienteNombre = selectedAmbienteObj?.nombre;
+
+        await encolarMarcacionOffline({
+          usuarioId: usuarioActual.id,
+          dni: usuarioActual.dni,
+          nombresCompletos: `${usuarioActual.nombres} ${usuarioActual.apellidos}`,
+          tipoPersonal: usuarioActual.tipoPersonal,
+          accion,
+          sedeId: currentSede,
+          ambienteId: selectedAmbienteId,
+          ambienteNombre,
+          cursoId: selectedCursoId,
+          cursoNombre,
+          sesionProgramadaId: (!modoManual && sesionSugerida?.ambienteId === selectedAmbienteId) ? sesionSugerida.id : undefined,
+          timestampLocal: now.toISOString(),
+          observaciones: '💾 Modo Autónomo Offline (Cola IndexedDB)',
+        });
+
+        const cola = await obtenerColaMarcacionesOffline();
+        setOfflineQueueCount(cola.length);
+
+        if (accion === 'salida') {
+          setTicketSalida({
+            colaborador: `${usuarioActual.nombres} ${usuarioActual.apellidos}`,
+            tipoPersonal: usuarioActual.tipoPersonal as any,
+            ambienteNombre: ambienteNombre || 'Sala general',
+            sedeNombre: sedeSeleccionada?.nombre || 'Campus Oficial',
+            cursoNombre: cursoNombre || null,
+            horaIngreso: 'Registrada previamente',
+            horaSalida: now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+            minutosSesion: 0,
+            tiempoSesionTexto: 'Guardado offline',
+            minutosSemanaTotal: 0,
+            horasSemanaTexto: 'Calculando al sincronizar',
+            minutosMesTotal: 0,
+            horasMesTexto: 'Calculando al sincronizar',
+          });
+        } else {
+          setTicketSalida(null);
+        }
+
+        setFeedback({
+          tipo: accion,
+          mensaje: accion === 'ingreso'
+            ? '¡Ingreso registrado en memoria local! Se sincronizará automáticamente con Neon al restablecerse la red.'
+            : '¡Salida registrada en memoria local! Se sincronizará automáticamente con Neon al restablecerse la red.',
+        });
+
+        const segundosIniciales = accion === 'salida' ? 8 : 5;
+        setCountdown(segundosIniciales);
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = setInterval(() => {
+          setCountdown((prev) => {
+            if (prev === null || prev <= 1) {
+              if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+              resetearTerminal();
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } catch (err: any) {
+        setSearchError('Error guardando en memoria local: ' + err.message);
+      } finally {
+        setMarcando(false);
+      }
+    };
+
+    // Si la tablet está offline en este momento, registrar en IndexedDB directo
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      await registrarOfflineLocal();
+      return;
+    }
 
     try {
       const legacyToken = typeof window !== 'undefined' ? localStorage.getItem('ucs_terminal_token') : null;
@@ -566,7 +772,7 @@ export default function KioscoTerminal() {
         },
         body: JSON.stringify({
           usuarioId: usuarioActual.id,
-          sedeId: terminalInfo?.sedeId || selectedSedeId,
+          sedeId: currentSede,
           ambienteId: selectedAmbienteId,
           cursoId: selectedCursoId,
           sesionProgramadaId: (!modoManual && sesionSugerida?.ambienteId === selectedAmbienteId) ? sesionSugerida.id : undefined,
@@ -615,7 +821,12 @@ export default function KioscoTerminal() {
           return prev - 1;
         });
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
+      // Fallback gracioso si falló por corte de red repentino durante el clic
+      if (err instanceof TypeError || String(err?.message || '').toLowerCase().includes('fetch')) {
+        await registrarOfflineLocal();
+        return;
+      }
       setSearchError(err instanceof Error ? err.message : 'Error inesperado al marcar');
     } finally {
       setMarcando(false);
@@ -697,27 +908,11 @@ export default function KioscoTerminal() {
       </header>
 
       {/* ALERTA VISUAL DE CONECTIVIDAD OFFLINE */}
-      {!isOnline && (
-        <div
-          style={{
-            background: 'linear-gradient(90deg, #dc2626, #b91c1c)',
-            color: '#ffffff',
-            padding: '0.65rem 1rem',
-            textAlign: 'center',
-            fontSize: '0.85rem',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.6rem',
-            boxShadow: '0 2px 10px rgba(220, 38, 38, 0.4)',
-            zIndex: 100,
-            letterSpacing: '0.3px',
-          }}
-        >
-          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+      {(!isOnline || isModoOfflineActivo) && (
+        <div className={styles.offlineAlertBanner}>
+          <span style={{ fontSize: '1.2rem' }}>💾</span>
           <span>
-            MODO DESCONECTADO: La terminal no detecta acceso a internet o a la red del campus. El registro se reanudará automáticamente al volver la conexión.
+            MODO AUTÓNOMO ACTIVADO: Sin conexión de red en el campus. El Kiosco opera con la programación de SimClic en memoria local. Las marcaciones se guardan de forma segura y se sincronizarán solas al regresar la red.
           </span>
         </div>
       )}
@@ -774,12 +969,12 @@ export default function KioscoTerminal() {
             <div className={styles.statusBar}>
               <span
                 className={styles.statusDot}
-                style={!isOnline ? { background: '#ef4444', boxShadow: '0 0 10px #ef4444' } : undefined}
+                style={!isOnline || isModoOfflineActivo ? { background: '#f59e0b', boxShadow: '0 0 10px #f59e0b' } : undefined}
               ></span>
               <span>
-                {!isOnline ? (
-                  <span style={{ color: '#ef4444', fontWeight: 700 }}>
-                    ⚠️ Terminal Desconectada (Sin Red)
+                {!isOnline || isModoOfflineActivo ? (
+                  <span style={{ color: '#f59e0b', fontWeight: 700 }}>
+                    🟡 Terminal en Modo Autónomo Offline
                   </span>
                 ) : terminalAuthorized && terminalInfo ? (
                   <>
@@ -790,6 +985,17 @@ export default function KioscoTerminal() {
                   'Terminal de Asistencia • En tiempo real'
                 )}
               </span>
+              {offlineQueueCount > 0 && (
+                <button
+                  type="button"
+                  className={styles.queuePill}
+                  title={isOnline ? 'Haga clic para sincronizar ahora con Neon' : 'Marcaciones guardadas localmente esperando conexión'}
+                  onClick={isOnline ? procesarColaOffline : undefined}
+                  style={isOnline ? { cursor: 'pointer' } : undefined}
+                >
+                  💾 {offlineQueueCount} en cola local {isOnline ? '➔ Sincronizar' : ''}
+                </button>
+              )}
               {terminalAuthorized && terminalInfo && (
                 <button
                   type="button"

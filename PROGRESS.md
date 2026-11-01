@@ -3,6 +3,25 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
+
 ---
 
 ## 🏛️ 1. Visión General del Proyecto
@@ -14,6 +33,25 @@
   * **Estilos**: Vanilla CSS Modules (sin Tailwind) adaptados a la paleta oficial UCS (`#06152d`, `#0d346c`, `#ff5a00`, etc.) con soporte completo para Tema Oscuro / Claro / Sistema.
   * **Base de Datos**: PostgreSQL Serverless (Neon) gestionado con **Drizzle ORM**.
   * **Autenticación**: JWT (`jose`) y hashing seguro con `bcryptjs`.
+
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
 
 ---
 
@@ -60,6 +98,25 @@ src/
             ├── ModalCurso.tsx            # Creación y edición de cursos
             └── ModalFichaPacienteSimulado.tsx # Expediente 360° exclusivo del actor: honorarios, sesiones y perfil casting ECOE
 ```
+
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
 
 ---
 
@@ -483,6 +540,25 @@ src/
       - Píldoras de disponibilidad rápida: `Salas Libres Ahora`, `En Curso Sin Marcación`, `Con Asistencia Marcada`, `Con Paciente Simulado`.
     - **Modal Detalle de Actividad (`ModalDetalleSesionSimclic.tsx`)**:
       - Inspirado en la interfaz de SimClic con diseño dark/light mode UCS: código SimClic, título, horario, duración, sala, curso, carrera, escenario clínico, docente, actor PS y estado de marcación física en el Kiosco con acceso a registro manual justificado.
+
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
 
 ---
 
@@ -1281,6 +1357,25 @@ src/
     - Inspección directa de columnas e índices en base de datos.
     - Validación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**).
 
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
+
 ---
 
 ### Hito 75: Ecosistema Completo de Asistencia Técnica en Salas (Tab Admin, Terminales Multi-PC, PIN Maestro, Botones Dinámicos, Aula `/sala` y Central de Guardia `/guardia`)
@@ -1559,6 +1654,44 @@ src/
         - Encabezados HTTP de seguridad configurados: `X-Frame-Options: SAMEORIGIN` (anti-clickjacking), `X-Content-Type-Options: nosniff` (anti-MIME sniffing), `Referrer-Policy: strict-origin-when-cross-origin`, y `Permissions-Policy` restrictiva.
       - **Verificación**: Compilación TypeScript estricta con `cmd /c npx tsc --noEmit` (**0 errores**). Base de datos migrada en Neon y cambios listos en el árbol de trabajo sin commits.
 
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
+
+
+    - **Hito 89: Modo Kiosco Offline-First y Resiliencia Total con Cacheo de SimClic en IndexedDB**:
+      - **Objetivo**: Garantizar continuidad operativa del 100% en las terminales Kiosco de todos los campus universitarios (Villa, Norte, Ate) ante cortes totales o intermitencias de internet, permitiendo marcaciones instantáneas con sugerencia inteligente 1-Tap basada en la programación del día de SimClic, almacenamiento local seguro en IndexedDB y sincronización bidireccional automática al restablecerse la red.
+      - **1. Motor de Almacenamiento Local IndexedDB (`src/lib/kioskOfflineStorage.ts`)**:
+        - Base de datos transaccional en el navegador `ucs_kiosk_offline_db` (v1) con 6 almacenes de objetos (`padron_personal`, `sesiones_programadas`, `ambientes`, `cursos`, `cola_marcaciones`, `metadata_sync`).
+        - Implementado el motor determinista de sugerencia 1-Tap offline (`calcularSesionSugeridaOffline`): replica con fidelidad la lógica del backend (`/api/kiosco/lookup`), evaluando la hora actual del dispositivo con la ventana de tolerancia de sesiones SimClic (`horaInicio - 60m` hasta `horaFin + 60m`), vinculando automáticamente al docente o paciente simulado (PS), preseleccionando la sala y el curso correspondiente.
+        - Encolado seguro de contingencia con identificadores locales `offline_[timestamp]_[random]`, preservando la hora exacta en que el docente o técnico colocó su dedo en la pantalla, garantizando cero pérdida de datos.
+      - **2. Endpoint de Snapshot Eficiente y Sincronización en Lote (`src/app/api/kiosco/offline/route.ts`)**:
+        - **GET (Snapshot Diario Ultra-Liviano)**: Empaqueta en un único payload JSON (~35-45 KB) los colaboradores activos, ambientes de la sede y las sesiones programadas de SimClic del día. Supone un consumo menor a 18 MB al mes (< 0.4% de la cuota mensual de 5 GB de Neon Tech).
+        - **POST (Reconciliación Atómica de Lotes)**: Recibe las marcaciones encoladas, calcula tardanzas, salidas anticipadas, jornadas rotativas y sobretiempos con la hora real local registrada, vincula la sesión de SimClic (`asistenciaId`) y cierra turnos en PostgreSQL marcando `minutosTotales` y `estado: 'finalizado'`.
+        - Protección contra duplicados: si una marcación ya fue procesada, el endpoint la reconoce y permite purgarla de la cola local sin corromper la base de datos.
+      - **3. Experiencia de Usuario y Autonomía en Terminal (`src/app/KioscoTerminal.tsx`, `src/app/kiosco.module.css`)**:
+        - Descarga preventiva del snapshot diario en segundo plano al iniciar la terminal y actualización periódica cada 25 minutos.
+        - Conmutación automática: Si la red parpadea o cae completamente, `handleBuscarDni` y `handleMarcar` hacen fallback transparente a IndexedDB. El colaborador ve su nombre, su rol, su sesión programada de SimClic y su ticket de salida sin notar que el campus no tiene internet.
+        - **Banner de Contingencia Ámbar**: Despliega aviso sutil de *"📡 MODO CONTINGENCIA OFFLINE: Terminal operando de forma autónoma con datos locales. Las marcaciones se sincronizarán automáticamente al volver la red."*
+        - **Insignia en Barra de Estado**: Badge interactivo `📥 X en cola` que informa al operador las marcas pendientes y permite forzar sincronización con un solo toque o sincronizar en segundo plano al activarse el evento `window.addEventListener('online')`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Pruebas de compatibilidad con esquemas de Drizzle ORM y tipos de `TicketSalidaData`.
 
 ---
 

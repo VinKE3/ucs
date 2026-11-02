@@ -3,6 +3,22 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 103: Restauración de Visibilidad de Gestión de Terminales y Blindaje contra Bucles en Zustand (`AdminDashboard.tsx`, `useAdminStore.ts`, `SedesTab.tsx`)**:
+      - **Problema Detectado**: En `SedesTab`, no aparecían los botones de *"🔑 Código OTP Remoto"* ni *"🖥️ Terminales Kiosco"*. Además, al sincronizar la sesión se generó un bucle de re-renderizado (`Maximum update depth exceeded`) por suscripción global de Zustand en `useEffect`.
+      - **Causa Raíz**: 
+        1. `SedesTab` evalúa `(session?.rolSistema === 'super_admin' || session?.rolSistema === 'admin')` para desplegar las acciones de terminales.
+        2. Al invocar `store.setSession(session)` dentro de un `useEffect` que tenía a `store` en su arreglo de dependencias, cada actualización mutaba el store, provocando que `useAdminStore()` se re-suscribiera y re-ejecutara el efecto infinitamente.
+      - **Solución Implementada**:
+        1. **Blindaje anti-no-op en Zustand (`src/lib/stores/useAdminStore.ts`)**: `setSession` ahora compara `userId` y `rolSistema`, retornando el estado inalterado (`return state`) si la sesión es idéntica, suprimiendo re-renders redundantes.
+        2. **Ejecución aislada y segura en `AdminDashboard.tsx`**: Reemplazada la suscripción reactiva por lectura desacoplada `useAdminStore.getState().setSession(session)` condicionada a que la sesión no haya sido inicializada previamente.
+        3. **Prop directa conectada**: Pasada la prop `session={session}` a `<SedesTab session={session} />` y `<PersonalTab session={session} />`.
+      - **Verificación Técnica**: Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**) y suite de persistencia de Zustand validada al 100%.
+
+    - **Hito 102: Limpieza de Cabecera en Terminal Kiosco Principal (`KioscoTerminal.tsx`)**:
+      - **Objetivo**: Optimizar la experiencia de usuario y seguridad visual en la pantalla principal de marcación (`/`), eliminando el acceso público a *"Consultar Aulas"* para mantener la cabecera minimalista y enfocada exclusivamente en el switch de tema (`ThemeToggle`) y el botón de *"Acceso Admin"*.
+      - **Cambio Realizado**: Removido el enlace `<Link href="/consulta">` de `src/app/KioscoTerminal.tsx`.
+      - **Verificación Técnica**: Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+
     - **Hito 101: Corrección de Validación Zod en Personal (`rolSistema: 'ninguno'`) y Soporte para Tarifa Base Cero (S/. 0.00)**:
       - **Problema Detectado**: Al editar o registrar un Paciente Simulado y fijar su tarifa base en `0`, el formulario arrojaba el error *"Rol de sistema inválido"* (`campo: rolSistema`) en `/api/usuarios`.
       - **Causa Raíz**: 

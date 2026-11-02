@@ -132,7 +132,13 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     store.setSelectedSedeId(id);
   }, [store]);
 
-  // Sincronización reactiva con persistencia de Zustand tras hidratación
+  // Inicializar sesión en Zustand de forma segura sin bucles
+  useEffect(() => {
+    if (session && useAdminStore.getState().session?.userId !== session.userId) {
+      useAdminStore.getState().setSession(session);
+    }
+  }, [session]);
+
   useEffect(() => {
     if (store.hasHydrated) {
       if (store.activeTab) {
@@ -1393,6 +1399,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {activeTab === 'sedes' && (
           <TabErrorBoundary tabName="Gestión de Campus y Sedes" onReset={loadData}>
             <SedesTab
+              session={session}
               onOpenCrearSede={() => {
                 setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
                 setSedeError(null);
@@ -1442,6 +1449,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {activeTab === 'personal' && (
           <TabErrorBoundary tabName="Padrón de Personal y Casting" onReset={loadData}>
             <PersonalTab
+              session={session}
               onOpenResetPassword={openResetPassword}
               onOpenCrearUsuario={() => {
                 setCreateForm({

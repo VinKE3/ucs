@@ -113,7 +113,16 @@ export const useAdminStore = create<AdminStoreState>()(
   activeTab: 'ambientes',
   setActiveTab: (tab) => set({ activeTab: tab }),
   session: null,
-  setSession: (session) => set({ session }),
+  setSession: (session) =>
+    set((state) => {
+      if (
+        state.session?.userId === session?.userId &&
+        state.session?.rolSistema === session?.rolSistema
+      ) {
+        return state;
+      }
+      return { session };
+    }),
 
   // 2. Sedes
   sedesList: [],

@@ -478,24 +478,69 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
 
       const userApellidos = norm(u.apellidos);
       const userNombres = norm(u.nombres);
-      const userTokens = `${userApellidos} ${userNombres}`.split(/\s+/).filter((t) => t.length > 2);
+      const userCorreo = norm(u.correo || '');
+      const apellidoTokens = userApellidos.split(/\s+/).filter((t) => t.length > 2);
+      const nombreTokens = userNombres.split(/\s+/).filter((t) => t.length > 2);
 
       const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
       const nowMins = d.getHours() * 60 + d.getMinutes();
 
-      // Buscar sesiones donde este usuario participa como docente o paciente simulado
+      // Buscar sesiones donde este usuario participa como docente o paciente simulado con discriminación estricta de nombres y apellidos
       const matches = sesionesHoy.filter((s) => {
         if (u.tipoPersonal === 'docente') {
-          const docNorm = norm(s.docenteNombreSimclic || '');
-          if (userApellidos && docNorm.includes(userApellidos)) return true;
-          if (userTokens.length >= 2 && userTokens.filter((tok) => docNorm.includes(tok)).length >= 2) return true;
+          // 1. Coincidencia por ID de docente
+          if (s.docenteId && s.docenteId === u.id) return true;
+          if (s.docentes?.some((doc) => doc.id === u.id)) return true;
+          if (Array.isArray(s.docentesJson) && s.docentesJson.some((doc) => doc.id === u.id)) return true;
+
+          // 2. Coincidencia por correo institucional/personal
+          if (userCorreo) {
+            if (s.docenteCorreoSimclic && norm(s.docenteCorreoSimclic) === userCorreo) return true;
+            if (s.docentes?.some((doc) => doc.email && norm(doc.email) === userCorreo)) return true;
+            if (Array.isArray(s.docentesJson) && s.docentesJson.some((doc) => doc.email && norm(doc.email) === userCorreo)) return true;
+          }
+
+          // 3. Coincidencia por nombre completo (DEBE coincidir al menos un apellido Y al menos un nombre)
+          const checkNombreDoc = (nombreDoc: string) => {
+            const nDoc = norm(nombreDoc);
+            if (!nDoc) return false;
+            const tieneApellido = apellidoTokens.some((ap) => nDoc.includes(ap));
+            const tieneNombre = nombreTokens.length === 0 || nombreTokens.some((nom) => nDoc.includes(nom));
+            return tieneApellido && tieneNombre;
+          };
+
+          if (s.docenteNombreSimclic && checkNombreDoc(s.docenteNombreSimclic)) return true;
+          if (s.docentes?.some((doc) => doc.nombre && checkNombreDoc(doc.nombre))) return true;
+          if (Array.isArray(s.docentesJson) && s.docentesJson.some((doc) => doc.nombre && checkNombreDoc(doc.nombre))) return true;
+
           return false;
         }
 
-        if (u.tipoPersonal === 'paciente_simulado' && s.pacienteSimuladoNombre) {
-          const psNorm = norm(s.pacienteSimuladoNombre);
-          if (userApellidos && psNorm.includes(userApellidos)) return true;
-          if (userTokens.length >= 2 && userTokens.filter((tok) => psNorm.includes(tok)).length >= 2) return true;
+        if (u.tipoPersonal === 'paciente_simulado') {
+          // 1. Coincidencia por ID de paciente simulado
+          if (s.pacientesSimulados?.some((p) => p.id === u.id)) return true;
+          if (Array.isArray(s.pacientesSimuladosJson) && s.pacientesSimuladosJson.some((p) => p.id === u.id)) return true;
+
+          // 2. Coincidencia por correo
+          if (userCorreo) {
+            if (s.pacienteSimuladoCorreo && norm(s.pacienteSimuladoCorreo) === userCorreo) return true;
+            if (s.pacientesSimulados?.some((p) => p.email && norm(p.email) === userCorreo)) return true;
+            if (Array.isArray(s.pacientesSimuladosJson) && s.pacientesSimuladosJson.some((p) => p.email && norm(p.email) === userCorreo)) return true;
+          }
+
+          // 3. Coincidencia por nombre completo (DEBE coincidir al menos un apellido Y al menos un nombre)
+          const checkNombrePs = (nombrePs: string) => {
+            const nPs = norm(nombrePs);
+            if (!nPs) return false;
+            const tieneApellido = apellidoTokens.some((ap) => nPs.includes(ap));
+            const tieneNombre = nombreTokens.length === 0 || nombreTokens.some((nom) => nPs.includes(nom));
+            return tieneApellido && tieneNombre;
+          };
+
+          if (s.pacienteSimuladoNombre && checkNombrePs(s.pacienteSimuladoNombre)) return true;
+          if (s.pacientesSimulados?.some((p) => p.nombre && checkNombrePs(p.nombre))) return true;
+          if (Array.isArray(s.pacientesSimuladosJson) && s.pacientesSimuladosJson.some((p) => p.nombre && checkNombrePs(p.nombre))) return true;
+
           return false;
         }
 
@@ -1218,7 +1263,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                                   fontWeight: 600,
                                 }}
                               >
-                                🗓️ SimClic: {simclicInfo.sesion.cursoCodigoSimclic || simclicInfo.sesion.cursoNombreSimclic}
+                                🗓️ SimClic: {simclicInfo.sesion.sedeNombreSimclic ? `${simclicInfo.sesion.sedeNombreSimclic} • ` : ''}{simclicInfo.sesion.cursoCodigoSimclic || simclicInfo.sesion.cursoNombreSimclic}
                               </div>
                             )}
                           </div>
@@ -1241,9 +1286,24 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                             >
                               <span>⚠️</span> En clase - ¡Sin marcar!
                             </span>
-                            <span style={{ fontSize: '0.73rem', color: '#f87171', fontWeight: 600 }}>
-                              {simclicInfo.sesion.horaInicio}-{simclicInfo.sesion.horaFin} • {simclicInfo.sesion.ambienteNombreSimclic || 'Sala'}
-                            </span>
+                            <div style={{ fontSize: '0.73rem', color: '#f87171', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {simclicInfo.sesion.sedeNombreSimclic && (
+                                <span style={{
+                                  fontSize: '0.67rem',
+                                  fontWeight: 800,
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '4px',
+                                }}>
+                                  🏢 {simclicInfo.sesion.sedeNombreSimclic}
+                                </span>
+                              )}
+                              <span>
+                                {simclicInfo.sesion.horaInicio}-{simclicInfo.sesion.horaFin} • {simclicInfo.sesion.ambienteNombreSimclic || 'Sala'}
+                              </span>
+                            </div>
                             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                               {simclicInfo.sesion.cursoCodigoSimclic ? `[${simclicInfo.sesion.cursoCodigoSimclic}] ` : ''}
                               {simclicInfo.sesion.cursoNombreSimclic || ''}
@@ -1266,10 +1326,16 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.25rem',
+                                flexWrap: 'wrap',
                               }}
-                              title={`Tiene sesión programada hoy a las ${simclicInfo.sesion.horaInicio}`}
+                              title={`Tiene sesión programada hoy a las ${simclicInfo.sesion.horaInicio} en ${simclicInfo.sesion.sedeNombreSimclic || 'Sede'}`}
                             >
                               <span>📅</span> Hoy a las {simclicInfo.sesion.horaInicio}
+                              {simclicInfo.sesion.sedeNombreSimclic && (
+                                <span style={{ fontSize: '0.68rem', color: '#93c5fd', fontWeight: 700 }}>
+                                  ({simclicInfo.sesion.sedeNombreSimclic})
+                                </span>
+                              )}
                             </span>
                             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                               {simclicInfo.sesion.ambienteNombreSimclic || 'Sala'} • {simclicInfo.sesion.cursoCodigoSimclic || simclicInfo.sesion.cursoNombreSimclic || ''}
@@ -1286,6 +1352,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                             </span>
                             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                               ✔️ Tuvo clase {simclicInfo.sesion.horaInicio}-{simclicInfo.sesion.horaFin}
+                              {simclicInfo.sesion.sedeNombreSimclic && ` (${simclicInfo.sesion.sedeNombreSimclic})`}
                             </span>
                           </div>
                         );

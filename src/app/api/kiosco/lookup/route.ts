@@ -31,6 +31,7 @@ export async function GET(request: Request) {
         dni: usuarios.dni,
         nombres: usuarios.nombres,
         apellidos: usuarios.apellidos,
+        correo: usuarios.correo,
         tipoPersonal: usuarios.tipoPersonal,
         rolSistema: usuarios.rolSistema,
         activo: usuarios.activo,
@@ -186,8 +187,10 @@ export async function GET(request: Request) {
           sedeNombreSimclic: sesionesProgramadas.sedeNombreSimclic,
           docenteId: sesionesProgramadas.docenteId,
           docenteNombreSimclic: sesionesProgramadas.docenteNombreSimclic,
+          docenteCorreoSimclic: sesionesProgramadas.docenteCorreoSimclic,
           docentesJson: sesionesProgramadas.docentesJson,
           pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+          pacienteSimuladoCorreo: sesionesProgramadas.pacienteSimuladoCorreo,
           pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
           asistenciaId: sesionesProgramadas.asistenciaId,
           estadoUcs: sesionesProgramadas.estadoUcs,
@@ -204,8 +207,18 @@ export async function GET(request: Request) {
         );
 
       const norm = (s: string) =>
-        s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-      const userApNorm = norm(usuario.apellidos);
+        s ? s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() : '';
+      const userApTokens = norm(usuario.apellidos).split(/\s+/).filter((t) => t.length > 2);
+      const userNomTokens = norm(usuario.nombres).split(/\s+/).filter((t) => t.length > 2);
+      const userEmailNorm = norm(usuario.correo || '');
+
+      const checkMatchNombre = (nombreEnSesion: string | null | undefined) => {
+        const nNorm = norm(nombreEnSesion || '');
+        if (!nNorm) return false;
+        const tieneAp = userApTokens.some((ap) => nNorm.includes(ap));
+        const tieneNom = userNomTokens.length === 0 || userNomTokens.some((nom) => nNorm.includes(nom));
+        return tieneAp && tieneNom;
+      };
 
       interface Candidata {
         sesion: (typeof sesionesHoy)[0];
@@ -224,26 +237,38 @@ export async function GET(request: Request) {
         if (usuario.tipoPersonal === 'docente') {
           if (s.docenteId === usuario.id) {
             rolMatch = 'docente_titular';
+          } else if (userEmailNorm && s.docenteCorreoSimclic && norm(s.docenteCorreoSimclic) === userEmailNorm) {
+            rolMatch = 'docente_titular';
           } else if (Array.isArray(s.docentesJson) && s.docentesJson.length > 0) {
             const foundDoc = s.docentesJson.find(
-              (d) => d.id === usuario.id || (d.nombre && norm(d.nombre).includes(userApNorm))
+              (d) =>
+                d.id === usuario.id ||
+                (d.email && userEmailNorm && norm(d.email) === userEmailNorm) ||
+                (d.nombre && checkMatchNombre(d.nombre))
             );
             if (foundDoc) {
               rolMatch = foundDoc.rol === 'principal' ? 'docente_titular' : 'co_docente';
             }
-          } else if (s.docenteNombreSimclic && norm(s.docenteNombreSimclic).includes(userApNorm)) {
+          } else if (s.docenteNombreSimclic && checkMatchNombre(s.docenteNombreSimclic)) {
             rolMatch = 'docente_titular';
           }
         } else if (usuario.tipoPersonal === 'paciente_simulado') {
           if (Array.isArray(s.pacientesSimuladosJson) && s.pacientesSimuladosJson.length > 0) {
             const foundPs = s.pacientesSimuladosJson.find(
-              (p) => p.id === usuario.id || (p.nombre && norm(p.nombre).includes(userApNorm))
+              (p) =>
+                p.id === usuario.id ||
+                (p.email && userEmailNorm && norm(p.email) === userEmailNorm) ||
+                (p.nombre && checkMatchNombre(p.nombre))
             );
             if (foundPs) {
               rolMatch = 'paciente_simulado';
             }
           }
-          if (!rolMatch && s.pacienteSimuladoNombre && norm(s.pacienteSimuladoNombre).includes(userApNorm)) {
+          if (
+            !rolMatch &&
+            ((s.pacienteSimuladoCorreo && userEmailNorm && norm(s.pacienteSimuladoCorreo) === userEmailNorm) ||
+              (s.pacienteSimuladoNombre && checkMatchNombre(s.pacienteSimuladoNombre)))
+          ) {
             rolMatch = 'paciente_simulado';
           }
         }

@@ -3,6 +3,31 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 108: Discriminación Estricta de Nombres y Familiares en SimClic vs Directorio y Badges de Sede en Personal de Clínica (`PersonalTab.tsx`, `kiosco/lookup/route.ts`, `test_matching_edwin_sara.ts`)**:
+      - **Problema Diagnosticado**:
+        - En el directorio de *Personal de Clínica*, **Edwin David Puma Castillo** (DNI 40090505, Paciente Simulado) figuraba con la alerta errónea: `⚠️ En clase - ¡Sin marcar! • 15:20-17:00 • CONSULTORIO 4 - L 106 • [815382] Simulación Quirúrgica`.
+        - Al revisar SimClic, Edwin no estaba agendado en esa clase, generando la duda de si SimClic no se había sincronizado.
+        - **Causa Raíz Descubierta**:
+          - La sincronización de SimClic era 100% fiel: la sesión ID 5854 en Consultorio 4 de Campus Villa estaba legalmente asignada a **Sara Elizabeth Puma Castillo** (`id: 1053`, `dni: 10648160`, `email: sarapumacastillo@gmail.com`).
+          - Edwin y Sara son hermanos y ambos ejercen como pacientes simulados, compartiendo los dos apellidos (`Puma Castillo`).
+          - El algoritmo de coincidencia en `PersonalTab.tsx` y en el endpoint de búsqueda del quiosco (`kiosco/lookup/route.ts`) validaba únicamente la inclusión de apellidos (`psNorm.includes(userApellidos)`), lo que provocaba que cualquier familiar con apellidos idénticos absorbiera las sesiones del otro.
+        - **Falta de Visibilidad de Sede**:
+          - La alerta mostraba únicamente el nombre del aula ("CONSULTORIO 4"), omitiendo el campus (`sedeNombreSimclic`), lo que causaba ambigüedad frente a ambientes compartidos como Consultorios 1, 2 y 3 presentes en más de una sede.
+      - **Solución Técnica y Operativa**:
+        1. **Motor de Emparejamiento Estricto Compuesto (`src/components/admin/tabs/PersonalTab.tsx` y `src/app/api/kiosco/lookup/route.ts`)**:
+           - **Prioridad 1**: Coincidencia por ID unívoco de usuario en `docenteId`, `docentesJson` o `pacientesSimuladosJson`.
+           - **Prioridad 2**: Coincidencia exacta por correo electrónico institucional o personal (`docenteCorreoSimclic`, `pacienteSimuladoCorreo`).
+           - **Prioridad 3**: Coincidencia nominal estricta por tokens: exige obligatoriamente coincidir en **al menos un apellido Y al menos un nombre de pila** (`tieneApellido && tieneNombre`), imposibilitando que dos hermanos homónimos se solapen entre sí.
+        2. **Visibilidad de Sede/Campus en Fichas y Alertas (`src/components/admin/tabs/PersonalTab.tsx`)**:
+           - En alerta de clase activa (`en_curso`): badge destacado `🏢 Campus Villa` (o sede respectiva) junto al horario y aula.
+           - En sesión próxima (`proxima`): indicador `Hoy a las HH:MM (Campus Villa)`.
+           - En sesión anterior (`pasada`): detalle `✔️ Tuvo clase HH:MM-HH:MM (Campus Villa)`.
+           - En el resumen de programación SimClic sobre el avatar/nombre de usuario: inclusión del campus oficial.
+      - **Verificación Técnica**:
+        - Suite de pruebas de discriminación familiar (`src/scripts/test_matching_edwin_sara.ts`): 4/4 aserciones aprobadas (Edwin empareja solo su sesión de Hospitalización y rechaza Consultorio 4; Sara empareja Consultorio 4 y rechaza Hospitalización).
+        - Suite de tiempo real SimClic (`test_piero_josefa_simclic.ts`): 100% aprobada.
+        - Compilación estricta de TypeScript (`npx tsc --noEmit`): **0 errores** en todo el proyecto.
+
     - **Hito 107: Auditoría Bloque a Bloque SimClic en Tiempo Real y Trazabilidad Multi-Curso / Multi-Bloque (`simclicAudit.ts`, `ModalAuditoriaProgramacion.tsx`, `AsistenciasTab.tsx`, `types/admin.ts`)**:
       - **Problema Diagnosticado**:
         Al auditar colaboradores en turno activo (ej: Piero Moroni a las 15:30 con jornada de 14:30 a 22:00 en 3 bloques de Simulación Clínica Integrada y Externado en Cirugía; o Josefa Arellano con 2 bloques de Externado en Pediatría), el motor auditaba falsamente todos los bloques como `100% Cubierto` y `3/3 bloques cubiertos (100% Jornada completa)` antes de que los bloques futuros hubieran empezado, asumiendo presencia hasta el fin del bloque en vez de computar los minutos transcurridos respecto a la hora real de Lima.

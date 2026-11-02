@@ -847,17 +847,9 @@ export const UcsCopilotDrawer: React.FC<{ session: SessionPayload }> = ({
           className={styles.copilotTriggerButton}
           aria-label="Abrir Asistente Copilot UCS"
         >
-          <span style={{ fontSize: '1.25rem' }}>✨</span>
-          <span>Copilot UCS</span>
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#00e699',
-              boxShadow: '0 0 8px #00e699',
-            }}
-          />
+          <span className={styles.copilotTriggerIcon}>✨</span>
+          <span className={styles.copilotTriggerText}>Copilot UCS</span>
+          <span className={styles.copilotTriggerDot} />
         </button>
       )}
 

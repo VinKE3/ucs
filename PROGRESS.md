@@ -3,6 +3,17 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 104: Integración de Consulta de Aulas en Navbar Administrativo y FAB Compacto Expandible para Copilot (`AdminNavbar.tsx`, `copilot.module.css`, `UcsCopilotDrawer.tsx`)**:
+      - **Objetivos**:
+        1. Incorporar acceso directo a *"🔍 Consultar Aulas"* en la barra de navegación superior administrativa (`AdminNavbar.tsx`), preservando la navegación ágil para coordinadores hacia la vista de aulas y docentes espejo.
+        2. Resolver la interferencia visual del botón flotante de Copilot sobre las tablas y la paginación inferior implementando la **Opción 2: Botón Circular Compacto (FAB Icon-Only) con expansión al Hover**.
+      - **Solución Implementada**:
+        1. **Botón en Navbar (`AdminNavbar.tsx`)**: Integrado enlace estilizado a `/consulta` con borde sutil celeste y título explicativo, posicionado armónicamente junto a *ThemeToggle*, *Modo Kiosco* y *Cerrar Sesión*.
+        2. **FAB Compacto Expandible (`copilot.module.css`, `UcsCopilotDrawer.tsx`)**:
+           - **Estado de reposo**: Botón circular minimalista de 48px × 48px suspendido a `bottom: 74px; right: 24px` (elevado por encima de la barra de paginación de la tabla). Muestra únicamente el ícono `✨` y el indicador LED verde de conexión.
+           - **Estado Hover**: Transición fluida con bezier `cubic-bezier(0.34, 1.56, 0.64, 1)` que expande el botón horizontalmente revelando la etiqueta *"Copilot UCS"*.
+      - **Verificación Técnica**: Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+
     - **Hito 103: Restauración de Visibilidad de Gestión de Terminales y Blindaje contra Bucles en Zustand (`AdminDashboard.tsx`, `useAdminStore.ts`, `SedesTab.tsx`)**:
       - **Problema Detectado**: En `SedesTab`, no aparecían los botones de *"🔑 Código OTP Remoto"* ni *"🖥️ Terminales Kiosco"*. Además, al sincronizar la sesión se generó un bucle de re-renderizado (`Maximum update depth exceeded`) por suscripción global de Zustand en `useEffect`.
       - **Causa Raíz**: 

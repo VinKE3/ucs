@@ -68,6 +68,14 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
 
           <ThemeToggle />
 
+          <Link
+            href="/consulta"
+            className={styles.kioscoLink}
+            title="Consultar ocupación de aulas, salas y docentes espejo de hoy"
+            style={{ borderColor: 'rgba(56, 189, 248, 0.35)', color: 'var(--ucs-blue-sky, #00b4d8)' }}
+          >
+            <span style={{ fontSize: '0.9rem' }}>🔍</span> Consultar Aulas
+          </Link>
           <Link href="/" className={styles.kioscoLink} title="Ir a la pantalla de marcación">
             <span>⚡</span> Modo Kiosco
           </Link>

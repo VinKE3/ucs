@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { syncSimclicSessions } from '@/lib/simclicSync';
+import { simclicCircuitBreaker } from '@/lib/circuitBreaker';
 import { db } from '@/db';
 import { sesionesProgramadas } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
 
     try {
       const body = await request.json();
+      if (body.forzar) {
+        simclicCircuitBreaker.reset();
+      }
       if (body.fecha) {
         // e.g. "2026-10-14"
         const [y, m, d] = body.fecha.split('-').map(Number);

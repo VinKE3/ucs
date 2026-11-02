@@ -31,6 +31,7 @@ import type { CursoFormData } from '@/components/admin/modals/ModalCurso';
 // Componentes estructurales del shell
 import { AdminNavbar } from '@/components/admin/AdminNavbar';
 import { AdminStatsCards } from '@/components/admin/AdminStatsCards';
+import { TabErrorBoundary } from '@/components/admin/TabErrorBoundary';
 
 // Fallback de carga ligero para pestañas
 const TabLoadingSkeleton = () => (
@@ -102,9 +103,18 @@ import { confirmDelete, confirmToggleActive, showError, showToast } from '@/lib/
 export default function AdminDashboard({ session }: { session: SessionPayload }) {
   const router = useRouter();
   const store = useAdminStore();
-  const [activeTab, setActiveTab] = useState<AdminTab>(
-    session.rolSistema === 'administrativo' ? 'asistencias' : 'sedes'
-  );
+  const [activeTab, setActiveTabLocal] = useState<AdminTab>(() => {
+    if (session.rolSistema === 'administrativo') {
+      return 'asistencias';
+    }
+    return store.activeTab || 'sedes';
+  });
+
+  const setActiveTab = useCallback((tab: AdminTab) => {
+    setActiveTabLocal(tab);
+    store.setActiveTab(tab);
+  }, [store]);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<StatsData>({ sedes: 0, ambientes: 0, usuarios: 0, enCurso: 0, cursos: 0 });
   
@@ -115,7 +125,30 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
   // Sedes y Ambientes
   const [sedesList, setSedesList] = useState<SedeAdminItem[]>([]);
-  const [selectedSedeId, setSelectedSedeId] = useState<number | null>(null);
+  const [selectedSedeId, setSelectedSedeIdLocal] = useState<number | null>(() => store.selectedSedeId);
+
+  const setSelectedSedeId = useCallback((id: number | null) => {
+    setSelectedSedeIdLocal(id);
+    store.setSelectedSedeId(id);
+  }, [store]);
+
+  // Sincronización reactiva con persistencia de Zustand tras hidratación
+  useEffect(() => {
+    if (store.hasHydrated) {
+      if (store.activeTab) {
+        if (session.rolSistema === 'administrativo') {
+          if (['asistencias', 'planilla'].includes(store.activeTab)) {
+            setActiveTabLocal(store.activeTab);
+          }
+        } else {
+          setActiveTabLocal(store.activeTab);
+        }
+      }
+      if (store.selectedSedeId !== null) {
+        setSelectedSedeIdLocal(store.selectedSedeId);
+      }
+    }
+  }, [store.hasHydrated, store.activeTab, store.selectedSedeId, session.rolSistema]);
   const [ambientesList, setAmbientesList] = useState<AmbienteAdminItem[]>([]);
   const [tecnicosEnSede, setTecnicosEnSede] = useState<TecnicoTurnoItem[]>([]);
   const [filterTipo, setFilterTipo] = useState<string>('todos');
@@ -270,12 +303,17 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
       if (resSedes.ok) {
         const dataSedes = await resSedes.json();
-        const sedes = dataSedes.sedes || [];
+        const sedes: SedeAdminItem[] = dataSedes.sedes || [];
         setSedesList(sedes);
         store.setSedesList(sedes);
-        if (sedes.length > 0 && !selectedSedeId) {
-          setSelectedSedeId(sedes[0].id);
-          store.setSelectedSedeId(sedes[0].id);
+        if (sedes.length > 0) {
+          const currentId = store.selectedSedeId ?? selectedSedeId;
+          const sedeExists = sedes.some((s) => s.id === currentId);
+          if (!currentId || !sedeExists) {
+            setSelectedSedeId(sedes[0].id);
+          } else {
+            setSelectedSedeId(currentId);
+          }
         }
       }
 
@@ -1353,142 +1391,160 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
 
         {/* VISTAS MODULARES DE PESTAÑAS */}
         {activeTab === 'sedes' && (
-          <SedesTab
-            onOpenCrearSede={() => {
-              setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
-              setSedeError(null);
-              setShowSedeModal(true);
-            }}
-            onOpenEditSede={openEditSedeModal}
-            onToggleSedeActivo={handleToggleSedeActivo}
-            onDeleteSede={handleDeleteSede}
-            onVerSalasDeSede={(sedeId) => {
-              setSelectedSedeId(sedeId);
-              setActiveTab('ambientes');
-            }}
-          />
+          <TabErrorBoundary tabName="Gestión de Campus y Sedes" onReset={loadData}>
+            <SedesTab
+              onOpenCrearSede={() => {
+                setSedeForm({ id: 0, nombre: '', codigo: '', direccion: '', isEdit: false });
+                setSedeError(null);
+                setShowSedeModal(true);
+              }}
+              onOpenEditSede={openEditSedeModal}
+              onToggleSedeActivo={handleToggleSedeActivo}
+              onDeleteSede={handleDeleteSede}
+              onVerSalasDeSede={(sedeId) => {
+                setSelectedSedeId(sedeId);
+                setActiveTab('ambientes');
+              }}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'ambientes' && (
-          <AmbientesTab
-            onOpenCrearAmbiente={() => {
-              setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
-              setAmbienteError(null);
-              setShowAmbienteModal(true);
-            }}
-            onOpenEditAmbiente={openEditAmbienteModal}
-            onToggleAmbienteActivo={handleToggleAmbienteActivo}
-            onDeleteAmbiente={handleDeleteAmbiente}
-            onOpenGestionCategorias={() => setShowCategoriasModal(true)}
-            onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
-          />
+          <TabErrorBoundary tabName="Salas y Ambientes de Simulación" onReset={loadData}>
+            <AmbientesTab
+              onOpenCrearAmbiente={() => {
+                setAmbienteForm({ id: 0, nombre: '', codigo: '', tipo: 'alta_fidelidad', capacidad: '10', isEdit: false });
+                setAmbienteError(null);
+                setShowAmbienteModal(true);
+              }}
+              onOpenEditAmbiente={openEditAmbienteModal}
+              onToggleAmbienteActivo={handleToggleAmbienteActivo}
+              onDeleteAmbiente={handleDeleteAmbiente}
+              onOpenGestionCategorias={() => setShowCategoriasModal(true)}
+              onCerrarTurnoPorRelevo={handleCerrarTurnoPorRelevo}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'programacion' && (
-          <ProgramacionTab
-            sedesList={sedesList}
-            usuariosList={usuariosList}
-            onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
-            simclicSyncCount={simclicSyncCount}
-            lastGlobalSyncTime={lastGlobalSyncTime}
-            onTriggerSync={(targetFecha?: string) => triggerGlobalSyncSimclic(false, targetFecha)}
-          />
+          <TabErrorBoundary tabName="Programación y Cruce de Sesiones" onReset={loadData}>
+            <ProgramacionTab
+              sedesList={sedesList}
+              usuariosList={usuariosList}
+              onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
+              simclicSyncCount={simclicSyncCount}
+              lastGlobalSyncTime={lastGlobalSyncTime}
+              onTriggerSync={(targetFecha?: string) => triggerGlobalSyncSimclic(false, targetFecha)}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'personal' && (
-          <PersonalTab
-            onOpenResetPassword={openResetPassword}
-            onOpenCrearUsuario={() => {
-              setCreateForm({
-                id: 0,
-                dni: '',
-                nombres: '',
-                apellidos: '',
-                correo: '',
-                telefono: '',
-                tipoPersonal: 'docente',
-                rolSistema: 'ninguno',
-                password: '',
-                horasSemanalesMax: '',
-                isEdit: false,
-              });
-              setCreateError(null);
-              setShowCreateModal(true);
-            }}
-            onOpenEditUsuario={openEditUserModal}
-            onToggleUsuarioActivo={handleToggleUserActivo}
-            onDeleteUsuario={handleDeleteUser}
-            onOpenKardex={(u) => {
-              setKardexUser(u);
-              setShowKardexDrawer(true);
-            }}
-            onOpenCastingCatalogos={() => setShowCastingCatalogosModal(true)}
-            onOpenFichaCasting={(u) => {
-              setSelectedCastingActor(u);
-              setShowFichaCastingModal(true);
-            }}
-          />
+          <TabErrorBoundary tabName="Padrón de Personal y Casting" onReset={loadData}>
+            <PersonalTab
+              onOpenResetPassword={openResetPassword}
+              onOpenCrearUsuario={() => {
+                setCreateForm({
+                  id: 0,
+                  dni: '',
+                  nombres: '',
+                  apellidos: '',
+                  correo: '',
+                  telefono: '',
+                  tipoPersonal: 'docente',
+                  rolSistema: 'ninguno',
+                  password: '',
+                  horasSemanalesMax: '',
+                  isEdit: false,
+                });
+                setCreateError(null);
+                setShowCreateModal(true);
+              }}
+              onOpenEditUsuario={openEditUserModal}
+              onToggleUsuarioActivo={handleToggleUserActivo}
+              onDeleteUsuario={handleDeleteUser}
+              onOpenKardex={(u) => {
+                setKardexUser(u);
+                setShowKardexDrawer(true);
+              }}
+              onOpenCastingCatalogos={() => setShowCastingCatalogosModal(true)}
+              onOpenFichaCasting={(u) => {
+                setSelectedCastingActor(u);
+                setShowFichaCastingModal(true);
+              }}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'cursos' && (
-          <CursosTab
-            onOpenCrearCurso={() => {
-              setCursoForm({
-                id: 0,
-                nombre: '',
-                codigo: '',
-                prefijo: '',
-                carreraId: null,
-                descripcion: '',
-                tarifaHoraPs: '',
-                activo: true,
-                isEdit: false,
-              });
-              setCursoError(null);
-              setShowCursoModal(true);
-            }}
-            onOpenEditCurso={openEditCursoModal}
-            onToggleCursoActivo={handleToggleCursoActivo}
-            onDeleteCurso={handleDeleteCurso}
-          />
+          <TabErrorBoundary tabName="Cursos y Escenarios Clínicos" onReset={loadData}>
+            <CursosTab
+              onOpenCrearCurso={() => {
+                setCursoForm({
+                  id: 0,
+                  nombre: '',
+                  codigo: '',
+                  prefijo: '',
+                  carreraId: null,
+                  descripcion: '',
+                  tarifaHoraPs: '',
+                  activo: true,
+                  isEdit: false,
+                });
+                setCursoError(null);
+                setShowCursoModal(true);
+              }}
+              onOpenEditCurso={openEditCursoModal}
+              onToggleCursoActivo={handleToggleCursoActivo}
+              onDeleteCurso={handleDeleteCurso}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'asistencias' && (
-          <AsistenciasTab
-            onExportCsv={handleExportCsv}
-            onOpenCerrarTurnoModal={openCerrarTurnoModal}
-            onOpenAnularModal={openAnularModal}
-            onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
-            onOpenAuditoriaModal={(asist) => {
-              setAuditoriaAsistenciaTarget(asist);
-              setShowAuditoriaModal(true);
-            }}
-            onOpenKardex={(u) => {
-              setKardexUser(u);
-              setShowKardexDrawer(true);
-            }}
-          />
+          <TabErrorBoundary tabName="Control de Asistencias" onReset={loadData}>
+            <AsistenciasTab
+              onExportCsv={handleExportCsv}
+              onOpenCerrarTurnoModal={openCerrarTurnoModal}
+              onOpenAnularModal={openAnularModal}
+              onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
+              onOpenAuditoriaModal={(asist) => {
+                setAuditoriaAsistenciaTarget(asist);
+                setShowAuditoriaModal(true);
+              }}
+              onOpenKardex={(u) => {
+                setKardexUser(u);
+                setShowKardexDrawer(true);
+              }}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'planilla' && (
-          <PlanillaTab
-            onOpenKardex={(u) => {
-              setKardexUser(u);
-              setShowKardexDrawer(true);
-            }}
-          />
+          <TabErrorBoundary tabName="Planilla Mensual de Pacientes Simulados" onReset={loadData}>
+            <PlanillaTab
+              onOpenKardex={(u) => {
+                setKardexUser(u);
+                setShowKardexDrawer(true);
+              }}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'gemini_ia' && (session.rolSistema === 'super_admin' || session.dni === '00000001') && (
-          <GeminiAdminTab session={session} />
+          <TabErrorBoundary tabName="Control Gemini IA" onReset={loadData}>
+            <GeminiAdminTab session={session} />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'alertas_sos' && (session.rolSistema === 'super_admin' || session.rolSistema === 'admin' || session.dni === '00000001') && (
-          <AlertasSosTab
-            session={session}
-            sedesList={sedesList}
-            ambientesList={ambientesList}
-          />
+          <TabErrorBoundary tabName="Central de Alertas SOS" onReset={loadData}>
+            <AlertasSosTab
+              session={session}
+              sedesList={sedesList}
+              ambientesList={ambientesList}
+            />
+          </TabErrorBoundary>
         )}
       </main>
 

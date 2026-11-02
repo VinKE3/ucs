@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
+import { db, runTransaction } from '@/db';
 import {
   usuarios,
   asistencias,
@@ -246,27 +246,57 @@ export async function POST(request: NextRequest) {
             ? `${item.observaciones} | 💾 Marcación Offline (Sincronizada automáticamente)`
             : '💾 Marcación Offline (Sincronizada automáticamente)';
 
-          let nuevaAsistencia;
           try {
-            const [inserted] = await db
-              .insert(asistencias)
-              .values({
-                usuarioId: user.id,
-                sedeId: item.sedeId || terminal.sedeId || 1,
-                ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (item.ambienteId ? Number(item.ambienteId) : null),
-                cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (item.cursoId ? Number(item.cursoId) : null),
-                fecha: fechaStr,
-                horaIngreso: timestamp,
-                horaEntradaProgramada: horaEntradaProg,
-                horaSalidaProgramada: horaSalidaProg,
-                minutosTardanza: tardanzaMin,
-                minutosAnticipo: anticipoMin,
-                estado: 'en_curso',
-                tipoRegistro: 'kiosco_autoservicio',
-                observaciones: notaFinal,
-              })
-              .returning();
-            nuevaAsistencia = inserted;
+            if (item.sesionProgramadaId) {
+              // Transacción atómica interactiva: Inserción de asistencia offline y enlace con SimClic
+              await runTransaction(async (tx) => {
+                const [inserted] = await tx
+                  .insert(asistencias)
+                  .values({
+                    usuarioId: user.id,
+                    sedeId: item.sedeId || terminal.sedeId || 1,
+                    ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (item.ambienteId ? Number(item.ambienteId) : null),
+                    cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (item.cursoId ? Number(item.cursoId) : null),
+                    fecha: fechaStr,
+                    horaIngreso: timestamp,
+                    horaEntradaProgramada: horaEntradaProg,
+                    horaSalidaProgramada: horaSalidaProg,
+                    minutosTardanza: tardanzaMin,
+                    minutosAnticipo: anticipoMin,
+                    estado: 'en_curso',
+                    tipoRegistro: 'kiosco_autoservicio',
+                    observaciones: notaFinal,
+                  })
+                  .returning();
+
+                await tx
+                  .update(sesionesProgramadas)
+                  .set({
+                    asistenciaId: inserted.id,
+                    estadoUcs: 'en_curso',
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(sesionesProgramadas.id, Number(item.sesionProgramadaId)));
+              });
+            } else {
+              await db
+                .insert(asistencias)
+                .values({
+                  usuarioId: user.id,
+                  sedeId: item.sedeId || terminal.sedeId || 1,
+                  ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (item.ambienteId ? Number(item.ambienteId) : null),
+                  cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (item.cursoId ? Number(item.cursoId) : null),
+                  fecha: fechaStr,
+                  horaIngreso: timestamp,
+                  horaEntradaProgramada: horaEntradaProg,
+                  horaSalidaProgramada: horaSalidaProg,
+                  minutosTardanza: tardanzaMin,
+                  minutosAnticipo: anticipoMin,
+                  estado: 'en_curso',
+                  tipoRegistro: 'kiosco_autoservicio',
+                  observaciones: notaFinal,
+                });
+            }
           } catch (err: any) {
             // Manejo de carrera o índice único
             if (err?.code === '23505' || String(err?.message || '').includes('uq_asistencia_activa_usuario')) {
@@ -274,18 +304,6 @@ export async function POST(request: NextRequest) {
               continue;
             }
             throw err;
-          }
-
-          if (nuevaAsistencia && item.sesionProgramadaId) {
-            await db
-              .update(sesionesProgramadas)
-              .set({
-                asistenciaId: nuevaAsistencia.id,
-                estadoUcs: 'en_curso',
-                updatedAt: new Date(),
-              })
-              .where(eq(sesionesProgramadas.id, Number(item.sesionProgramadaId)))
-              .catch(() => {});
           }
 
           procesados.push(item.idLocal);
@@ -319,25 +337,25 @@ export async function POST(request: NextRequest) {
               ? `${activa.observaciones} | 💾 Salida Offline Sincronizada`
               : '💾 Salida Offline Sincronizada';
 
-            await db
-              .update(asistencias)
-              .set({
-                horaSalida: timestamp,
-                minutosTotales: duracionMinutos,
-                minutosExtra,
-                minutosAnticipo,
-                estado: 'finalizado',
-                observaciones: notaCierre,
-                updatedAt: new Date(),
-              })
-              .where(eq(asistencias.id, activa.id));
-
-            // Si tenía sesión vinculada, marcar finalizada
-            await db
-              .update(sesionesProgramadas)
-              .set({ estadoUcs: 'finalizada', updatedAt: new Date() })
-              .where(eq(sesionesProgramadas.asistenciaId, activa.id))
-              .catch(() => {});
+            // Transacción atómica batch: Cierre de asistencia y sesión programada en una sola operación
+            await db.batch([
+              db
+                .update(asistencias)
+                .set({
+                  horaSalida: timestamp,
+                  minutosTotales: duracionMinutos,
+                  minutosExtra,
+                  minutosAnticipo,
+                  estado: 'finalizado',
+                  observaciones: notaCierre,
+                  updatedAt: new Date(),
+                })
+                .where(eq(asistencias.id, activa.id)),
+              db
+                .update(sesionesProgramadas)
+                .set({ estadoUcs: 'finalizada', updatedAt: new Date() })
+                .where(eq(sesionesProgramadas.asistenciaId, activa.id)),
+            ]);
           }
 
           procesados.push(item.idLocal);

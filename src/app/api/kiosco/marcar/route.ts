@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco, turnosProgramadosTecnicos, bancoCompensatoriosTecnicos } from '@/db/schema';
+import { db, runTransaction } from '@/db';
+import { asistencias, usuarios, ambientes, sedes, cursos, terminalesKiosco, turnosProgramadosTecnicos, bancoCompensatoriosTecnicos, sesionesProgramadas } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getPeruDateString, getPeruTimeString, PERU_TIMEZONE } from '@/lib/peruTime';
 import { kioskMarcarRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
@@ -370,25 +370,60 @@ export async function POST(request: NextRequest) {
 
       let nuevaAsistencia;
       try {
-        const [inserted] = await db
-          .insert(asistencias)
-          .values({
-            usuarioId: user.id,
-            sedeId: finalSedeId,
-            ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
-            cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
-            fecha: fechaStr,
-            horaIngreso: now,
-            horaEntradaProgramada: horaEntradaProg,
-            horaSalidaProgramada: horaSalidaProg,
-            minutosTardanza: tardanzaMin,
-            minutosAnticipo: anticipoMin,
-            estado: 'en_curso',
-            tipoRegistro: 'kiosco_autoservicio',
-            observaciones: notaObservacion,
-          })
-          .returning();
-        nuevaAsistencia = inserted;
+        if (sesionVinculadaId) {
+          // Transacción atómica interactiva: Creación de asistencia y vinculación a sesión SimClic
+          nuevaAsistencia = await runTransaction(async (tx) => {
+            const [inserted] = await tx
+              .insert(asistencias)
+              .values({
+                usuarioId: user.id,
+                sedeId: finalSedeId,
+                ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
+                cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
+                fecha: fechaStr,
+                horaIngreso: now,
+                horaEntradaProgramada: horaEntradaProg,
+                horaSalidaProgramada: horaSalidaProg,
+                minutosTardanza: tardanzaMin,
+                minutosAnticipo: anticipoMin,
+                estado: 'en_curso',
+                tipoRegistro: 'kiosco_autoservicio',
+                observaciones: notaObservacion,
+              })
+              .returning();
+
+            await tx
+              .update(sesionesProgramadas)
+              .set({
+                asistenciaId: inserted.id,
+                estadoUcs: 'en_curso',
+                updatedAt: new Date(),
+              })
+              .where(eq(sesionesProgramadas.id, sesionVinculadaId));
+
+            return inserted;
+          });
+        } else {
+          const [inserted] = await db
+            .insert(asistencias)
+            .values({
+              usuarioId: user.id,
+              sedeId: finalSedeId,
+              ambienteId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : Number(ambienteId),
+              cursoId: (user.tipoPersonal === 'tecnico' || user.tipoPersonal === 'administrativo') ? null : (cursoId ? Number(cursoId) : null),
+              fecha: fechaStr,
+              horaIngreso: now,
+              horaEntradaProgramada: horaEntradaProg,
+              horaSalidaProgramada: horaSalidaProg,
+              minutosTardanza: tardanzaMin,
+              minutosAnticipo: anticipoMin,
+              estado: 'en_curso',
+              tipoRegistro: 'kiosco_autoservicio',
+              observaciones: notaObservacion,
+            })
+            .returning();
+          nuevaAsistencia = inserted;
+        }
       } catch (insertError: any) {
         // Blindaje contra Double-Tap: Captura infracción del índice único uq_asistencia_activa_usuario
         if (
@@ -403,18 +438,6 @@ export async function POST(request: NextRequest) {
           );
         }
         throw insertError;
-      }
-
-      if (sesionVinculadaId) {
-        const { sesionesProgramadas } = await import('@/db/schema');
-        db.update(sesionesProgramadas)
-          .set({
-            asistenciaId: nuevaAsistencia.id,
-            estadoUcs: 'en_curso',
-            updatedAt: new Date(),
-          })
-          .where(eq(sesionesProgramadas.id, sesionVinculadaId))
-          .catch((err) => console.error('Error enlazando sesionProgramada con asistencia:', err));
       }
 
       return NextResponse.json({
@@ -493,28 +516,28 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const [asistenciaActualizada] = await db
-        .update(asistencias)
-        .set({
-          horaSalida: now,
-          minutosTotales: minutosTotales,
-          minutosExtra: extraMin,
-          minutosAnticipo: anticipoMinSalida !== null ? anticipoMinSalida : asistenciaTarget.minutosAnticipo,
-          estado: 'finalizado',
-          updatedAt: now,
-        })
-        .where(eq(asistencias.id, asistenciaTarget.id))
-        .returning();
-
-      // Si la sesión programada estaba asociada a esta asistencia, actualizar su estado en SimClic a finalizada
-      const { sesionesProgramadas } = await import('@/db/schema');
-      db.update(sesionesProgramadas)
-        .set({
-          estadoUcs: 'finalizada',
-          updatedAt: now,
-        })
-        .where(eq(sesionesProgramadas.asistenciaId, asistenciaTarget.id))
-        .catch((err) => console.error('Error actualizando sesionProgramada en salida:', err));
+      // Transacción atómica batch en Neon: Cierre de turno y actualización de sesión SimClic
+      const [asistenciaActualizada] = await db.batch([
+        db
+          .update(asistencias)
+          .set({
+            horaSalida: now,
+            minutosTotales: minutosTotales,
+            minutosExtra: extraMin,
+            minutosAnticipo: anticipoMinSalida !== null ? anticipoMinSalida : asistenciaTarget.minutosAnticipo,
+            estado: 'finalizado',
+            updatedAt: now,
+          })
+          .where(eq(asistencias.id, asistenciaTarget.id))
+          .returning(),
+        db
+          .update(sesionesProgramadas)
+          .set({
+            estadoUcs: 'finalizada',
+            updatedAt: now,
+          })
+          .where(eq(sesionesProgramadas.asistenciaId, asistenciaTarget.id)),
+      ]);
 
       const horas = Math.floor(minutosTotales / 60);
       const minutos = minutosTotales % 60;

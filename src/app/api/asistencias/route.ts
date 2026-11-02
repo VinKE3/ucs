@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/db';
+import { db, runTransaction } from '@/db';
 import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos, sesionesProgramadas } from '@/db/schema';
 import { desc, eq, and, gte, lte, or, like, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
@@ -313,45 +313,49 @@ export async function POST(request: Request) {
 
     const estadoFinal = salidaDate ? 'ajustado_manual' : 'en_curso';
 
-    const [nuevaAsistencia] = await db
-      .insert(asistencias)
-      .values({
-        usuarioId: Number(usuarioId),
-        sedeId: Number(sedeId),
-        ambienteId: ambienteId ? Number(ambienteId) : null,
-        cursoId: cursoId ? Number(cursoId) : null,
-        fecha: fecha.trim(),
-        horaIngreso: ingresoDate,
-        horaSalida: salidaDate,
-        minutosTotales: minutosTotales,
-        estado: estadoFinal,
-        tipoRegistro: 'admin_manual',
-        observaciones: observaciones?.trim() || null,
-        modificadoPorId: session.userId,
-        motivoModificacion: motivoJustificacion.trim(),
-      })
-      .returning();
+    // Transacción atómica interactiva: Inserción de asistencia y registro en auditoría inmutable
+    const nuevaAsistencia = await runTransaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(asistencias)
+        .values({
+          usuarioId: Number(usuarioId),
+          sedeId: Number(sedeId),
+          ambienteId: ambienteId ? Number(ambienteId) : null,
+          cursoId: cursoId ? Number(cursoId) : null,
+          fecha: fecha.trim(),
+          horaIngreso: ingresoDate,
+          horaSalida: salidaDate,
+          minutosTotales: minutosTotales,
+          estado: estadoFinal,
+          tipoRegistro: 'admin_manual',
+          observaciones: observaciones?.trim() || null,
+          modificadoPorId: session.userId,
+          motivoModificacion: motivoJustificacion.trim(),
+        })
+        .returning();
 
-    // Registrar en auditoría inmutable
-    await db.insert(auditoriaAsistencias).values({
-      asistenciaId: nuevaAsistencia.id,
-      usuarioAdminId: session.userId,
-      accion: 'CREACION_MANUAL',
-      motivo: motivoJustificacion.trim(),
-      datosAnteriores: null,
-      datosNuevos: {
-        id: nuevaAsistencia.id,
-        usuarioId,
-        sedeId,
-        ambienteId,
-        cursoId,
-        fecha,
-        horaIngreso: ingresoDate.toISOString(),
-        horaSalida: salidaDate ? salidaDate.toISOString() : null,
-        minutosTotales,
-        estado: estadoFinal,
-        tipoRegistro: 'admin_manual',
-      },
+      await tx.insert(auditoriaAsistencias).values({
+        asistenciaId: inserted.id,
+        usuarioAdminId: session.userId,
+        accion: 'CREACION_MANUAL',
+        motivo: motivoJustificacion.trim(),
+        datosAnteriores: null,
+        datosNuevos: {
+          id: inserted.id,
+          usuarioId,
+          sedeId,
+          ambienteId,
+          cursoId,
+          fecha,
+          horaIngreso: ingresoDate.toISOString(),
+          horaSalida: salidaDate ? salidaDate.toISOString() : null,
+          minutosTotales,
+          estado: estadoFinal,
+          tipoRegistro: 'admin_manual',
+        },
+      });
+
+      return inserted;
     });
 
     return NextResponse.json({ ok: true, asistencia: nuevaAsistencia }, { status: 201 });
@@ -469,42 +473,42 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
     }
 
-    // Actualizar registro en Neon
-    const [asistenciaActualizada] = await db
-      .update(asistencias)
-      .set({
-        estado: nuevoEstado,
-        horaIngreso: nuevaHoraIngreso,
-        horaSalida: nuevaHoraSalida,
-        minutosTotales: nuevosMinutos,
-        minutosTardanza: nuevosMinutosTardanza,
-        minutosAnticipo: nuevosMinutosAnticipo,
-        minutosExtra: nuevosMinutosExtra,
-        modificadoPorId: session.userId,
-        motivoModificacion: motivo.trim(),
-        updatedAt: new Date(),
-      })
-      .where(eq(asistencias.id, Number(id)))
-      .returning();
-
-    // Registrar en auditoría inmutable
-    await db.insert(auditoriaAsistencias).values({
-      asistenciaId: asistenciaActual.id,
-      usuarioAdminId: session.userId,
-      accion: accion.toUpperCase(),
-      motivo: motivo.trim(),
-      datosAnteriores: datosAnteriores,
-      datosNuevos: {
-        estado: nuevoEstado,
-        horaIngreso: nuevaHoraIngreso,
-        horaSalida: nuevaHoraSalida,
-        minutosTotales: nuevosMinutos,
-        minutosTardanza: nuevosMinutosTardanza,
-        minutosAnticipo: nuevosMinutosAnticipo,
-        minutosExtra: nuevosMinutosExtra,
-        motivoModificacion: motivo.trim(),
-      },
-    });
+    // Transacción atómica batch en Neon: Actualización y auditoría inmutable en un solo viaje HTTP
+    const [asistenciaActualizada] = await db.batch([
+      db
+        .update(asistencias)
+        .set({
+          estado: nuevoEstado,
+          horaIngreso: nuevaHoraIngreso,
+          horaSalida: nuevaHoraSalida,
+          minutosTotales: nuevosMinutos,
+          minutosTardanza: nuevosMinutosTardanza,
+          minutosAnticipo: nuevosMinutosAnticipo,
+          minutosExtra: nuevosMinutosExtra,
+          modificadoPorId: session.userId,
+          motivoModificacion: motivo.trim(),
+          updatedAt: new Date(),
+        })
+        .where(eq(asistencias.id, Number(id)))
+        .returning(),
+      db.insert(auditoriaAsistencias).values({
+        asistenciaId: asistenciaActual.id,
+        usuarioAdminId: session.userId,
+        accion: accion.toUpperCase(),
+        motivo: motivo.trim(),
+        datosAnteriores: datosAnteriores,
+        datosNuevos: {
+          estado: nuevoEstado,
+          horaIngreso: nuevaHoraIngreso,
+          horaSalida: nuevaHoraSalida,
+          minutosTotales: nuevosMinutos,
+          minutosTardanza: nuevosMinutosTardanza,
+          minutosAnticipo: nuevosMinutosAnticipo,
+          minutosExtra: nuevosMinutosExtra,
+          motivoModificacion: motivo.trim(),
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       ok: true,

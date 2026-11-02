@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   AdminTab,
   SedeAdminItem,
@@ -17,6 +18,9 @@ import type {
 import type { SessionPayload } from '@/lib/auth';
 
 export interface AdminStoreState {
+  // 0. Hidratación y Persistencia
+  hasHydrated: boolean;
+  setHasHydrated: (hydrated: boolean) => void;
   // 1. Sesión y Navegación
   activeTab: AdminTab;
   setActiveTab: (tab: AdminTab) => void;
@@ -99,7 +103,12 @@ export interface AdminStoreState {
   setLoadingStats: (loading: boolean) => void;
 }
 
-export const useAdminStore = create<AdminStoreState>((set, get) => ({
+export const useAdminStore = create<AdminStoreState>()(
+  persist(
+    (set, get) => ({
+      // 0. Hidratación y Persistencia
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
   // 1. Sesión y Navegación
   activeTab: 'ambientes',
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -276,4 +285,32 @@ export const useAdminStore = create<AdminStoreState>((set, get) => ({
   setStats: (stats) => set({ stats }),
   loadingStats: false,
   setLoadingStats: (loadingStats) => set({ loadingStats }),
-}));
+    }),
+    {
+      name: 'ucs_admin_preferences_v1',
+      storage: createJSONStorage(() => {
+        if (typeof window !== 'undefined') {
+          return localStorage;
+        }
+        return {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        };
+      }),
+      partialize: (state) => ({
+        activeTab: state.activeTab,
+        selectedSedeId: state.selectedSedeId,
+        filterTipo: state.filterTipo,
+        filterPersonalTipo: state.filterPersonalTipo,
+        asistFiltroSede: state.asistFiltroSede,
+        asistFiltroTipo: state.asistFiltroTipo,
+        asistFiltroEstado: state.asistFiltroEstado,
+        asistFiltroCurso: state.asistFiltroCurso,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
+  )
+);

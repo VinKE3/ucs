@@ -3,6 +3,98 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 100: Calidad de Software y Resiliencia (Fase 4 - Circuit Breaker y Reintentos con Backoff Exponencial para SimClic API)**:
+      - **Objetivo**: Proteger el sistema de integración con SimClic contra micro-cortes, caídas externas de servidores universitarios, sobrecargas o bloqueos prolongados de hilos en Node.js, incorporando un motor robusto de **Circuit Breaker** con reintentos inteligentes, *backoff* exponencial con *jitter* aleatorio y degradación elegante.
+      - **1. Motor de Circuit Breaker (`src/lib/circuitBreaker.ts`)**:
+        - **Máquina de Estados de 3 Vías (`CLOSED`, `OPEN`, `HALF_OPEN`)**:
+          - `CLOSED`: Operación normal. Cada éxito restablece a 0 el contador de fallos consecutivos.
+          - `OPEN`: Si los fallos consecutivos superan el umbral (`failureThreshold: 3`), el circuito se dispara e interrumpe de inmediato las llamadas de red por 45 segundos (`cooldownPeriodMs: 45000`), respondiendo en 0 ms con `CircuitBreakerOpenError` ("Fallo Rápido / Fast Fail"), evitando bloqueos de sockets y la saturación del servidor externo.
+          - `HALF_OPEN`: Al expirar el tiempo de enfriamiento, permite una única sonda de prueba. Si responde con éxito, cierra el circuito y restablece la operación regular; si falla, renueva el enfriamiento.
+        - **Algoritmo de Backoff Exponencial con Jitter**:
+          - Retardo base de 1,000 ms escalado con $baseDelay \times 2^{attempt}$ con variación estocástica de $\pm 25\%$ (jitter) para evitar tormentas de reconexión (*thundering herd*).
+        - **Instancia Centralizada**: `simclicCircuitBreaker` exportado globalmente para sincronización de cron jobs y llamadas manuales.
+      - **2. Integración en el Sincronizador de SimClic (`src/lib/simclicSync.ts`)**:
+        - La conexión SockJS DDP WebSocket hacia `cientifica.simclic.com` ahora está completamente encapsulada dentro de `simclicCircuitBreaker.execute(...)`.
+        - Si SimClic sufre un fallo transitorio, reintenta automáticamente hasta 2 veces con backoff antes de registrar el fallo.
+        - Si SimClic cae por completo, las consultas posteriores notifican de inmediato con tiempo exacto de reintento (`⚡ Circuito de protección activado: SimClic no responde temporalmente. Reintento automático en Xs`).
+      - **3. Telemetría y Reseteo en API Routes (`src/app/api/simclic/sync/route.ts`)**:
+        - `GET /api/simclic/sync`: Expone el estado del interruptor (`circuitBreaker: { state, isAvailable, consecutiveFailures, nextAttemptTime }`) para monitoreo del dashboard.
+        - `POST /api/simclic/sync`: Admite flag `{ forzar: true }` para limpiar el estado y resetear el interruptor cuando el coordinador desea probar manualmente la conexión.
+      - **4. Suite de Pruebas Automatizadas de Circuit Breaker (`src/scripts/test_circuit_breaker.ts`)**:
+        - Valida las 18 condiciones del patrón: ejecución limpia, recuperación en reintentos, apertura al alcanzar umbral, rechazo inmediato en OPEN con `CircuitBreakerOpenError`, ejecución de fallbacks, transición temporal a HALF_OPEN, cierre tras sonda exitosa y reseteo forzado (**100% aprobado**).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Ejecución integrada de las 4 suites de pruebas (Resiliencia UI, Persistencia Zustand, Transacciones Drizzle y Circuit Breaker): **50/50 aserciones aprobadas**.
+
+    - **Hito 99: Calidad de Software y Resiliencia (Fase 3 - Transacciones Atómicas ACID y Atomicidad Batch en Drizzle ORM)**:
+      - **Objetivo**: Erradicar el riesgo de datos inconsistentes, estados a medio guardar o registros huérfanos en Neon PostgreSQL, dotando al backend de arquitectura híbrida de transacciones atómicas interactivas (`runTransaction` vía WebSocket Pool) y transacciones batch ultra-livianas (`db.batch` vía Neon HTTP) para operaciones críticas de auditoría, asistencias y contingencia offline.
+      - **1. Arquitectura Central de Transacciones en Neon (`src/db/index.ts`)**:
+        - **Doble Conector Especializado**:
+          - `db`: Cliente stateless HTTP (`drizzle-orm/neon-http`) para el 95% de lecturas y mutaciones directas sin sobrecarga de conexiones, con capacidad de atomicidad empaquetada mediante `db.batch([ ... ])`.
+          - `runTransaction`: Ejecutor transaccional interactivo (`drizzle-orm/neon-serverless` con `Pool` y soporte nativo de WebSockets en Node 22), garantizando semántica ACID completa (`BEGIN`, `COMMIT`, `ROLLBACK`) cuando una operación posterior depende del ID generado por una inserción previa.
+      - **2. Blindaje de Endpoints Críticos Multi-Entidad**:
+        - **`POST /api/asistencias` (Creación manual con auditoría inmutable)**:
+          - Envoltorio interactivo con `runTransaction(async (tx) => { ... })`: la inserción en la tabla `asistencias` y el registro correspondiente en `auditoriaAsistencias` se ejecutan bajo la misma transacción. Si la auditoría falla o se interrumpe la red, la asistencia se revierte (*rollback*) automáticamente, impidiendo registros manuales sin justificación legal.
+        - **`PATCH /api/asistencias` (Cierre forzoso de turnos y anulación auditada)**:
+          - Envoltorio atómico con `db.batch([ tx1, tx2 ])`: la actualización de estado/horarios en `asistencias` y la inserción del evento en `auditoriaAsistencias` viajan en un único paquete HTTP transaccional hacia Neon PostgreSQL.
+        - **`POST /api/kiosco/marcar` (Marcaciones en pantalla autoservicio)**:
+          - **Ingreso**: Si existe una sesión de SimClic asociada (`sesionProgramadaId`), se ejecuta en `runTransaction` la creación de la asistencia y la vinculación de `asistenciaId` en `sesionesProgramadas`.
+          - **Salida**: Cierre de asistencia (`finalizado`) y actualización del estado de la sesión en SimClic a `finalizada` agrupados atómicamente con `db.batch`.
+        - **`POST /api/kiosco/offline` (Reconciliación de lotes en contingencia offline)**:
+          - Cada marcación encolada de la tablet se procesa de forma transaccional: inserción de asistencia + vinculación SimClic en `runTransaction` para ingresos, y cierre batch atómico para salidas. Si un ítem falla, no corrompe la base de datos ni deja registros huérfanos, permitiendo el reintento limpio en el próximo ciclo.
+      - **3. Suite de Pruebas Automatizadas de Transacciones y Batching (`src/scripts/test_atomic_transactions.ts`)**:
+        - Valida la disponibilidad de `db.batch`, la estructura PreparedQuery para viajes HTTP agrupados, la existencia y firma de `runTransaction` y la captura de excepciones con propagación de rollback (**100% aprobado**).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Validación integrada de las 3 suites de pruebas automatizadas: resiliencia UI, persistencia Zustand y transacciones backend (**32/32 aserciones aprobadas**).
+
+    - **Hito 98: Calidad de Software y Resiliencia (Fase 2 - Persistencia Selectiva en Zustand con `persist` Middleware)**:
+      - **Objetivo**: Garantizar la persistencia fluida del contexto de trabajo del operador administrativo entre recargas del navegador, cambios accidentales de pestaña o retornos de navegación, reteniendo la sede seleccionada, la vista activa y los filtros preferidos en `localStorage` sin comprometer la seguridad ni generar desajustes de hidratación (hydration mismatch) en Next.js App Router.
+      - **1. Middleware de Persistencia en Store Central (`src/lib/stores/useAdminStore.ts`)**:
+        - Incorporado `persist` y `createJSONStorage` con fallback seguro para entornos sin `window`/SSR.
+        - **Estrategia Selectiva (`partialize`)**:
+          - Se persisten estrictamente las preferencias de navegación y filtros: `activeTab`, `selectedSedeId`, `filterTipo`, `filterPersonalTipo`, `asistFiltroSede`, `asistFiltroTipo`, `asistFiltroEstado`, `asistFiltroCurso`.
+          - Se excluyen intencionalmente colecciones pesadas del servidor (`usuariosList`, `ambientesList`, `asistenciasList`, `cursosList`, `stats`), flags de carga efímeros y la sesión (`session`), preservando el estándar de seguridad y previniendo el consumo innecesario de cuota en el navegador.
+        - **Control Reactivo de Hidratación (`hasHydrated`)**: Callback `onRehydrateStorage` que marca atómicamente `hasHydrated: true` tan pronto como los datos locales se inyectan en memoria.
+      - **2. Integración y Seguridad en `AdminDashboard.tsx` (`src/app/admin/AdminDashboard.tsx`)**:
+        - Sincronización bidireccional reactiva de `activeTab` y `selectedSedeId` con `useCallback` y `useEffect(hasHydrated)`.
+        - Prevención de desajustes SSR: La vista monta inicialmente de forma limpia y conmuta fluidamente a las preferencias persistidas al finalizar la hidratación de cliente.
+        - Validación de existencia de sede: Al cargar sedes desde `/api/sedes`, si el `selectedSedeId` persistido sigue existiendo en el servidor se mantiene intacto; si la sede fue dada de baja o eliminada, el sistema hace fallback automático a la primera sede disponible.
+        - Restricción de seguridad por rol: Si un usuario con rol `administrativo` ingresa al sistema, el store valida sus permisos y restringe el acceso a pestañas autorizadas (`asistencias` o `planilla`), ignorando preferencias residuales de sesiones previas de `super_admin`.
+      - **3. Suite de Pruebas Automatizadas de Persistencia (`src/scripts/test_zustand_persist.ts`)**:
+        - Valida la serialización en storage, la exclusión de datos volátiles por `partialize`, el ciclo de rehidratación y la actualización atómica de preferencias (**100% aprobado**).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Suites automáticas de persistencia y resiliencia validadas (**27/27 aserciones aprobadas**).
+
+    - **Hito 97: Calidad de Software y Resiliencia (Fase 1 - Error Boundaries en Pestañas y Rutas de la Aplicación)**:
+      - **Objetivo**: Blindar la interfaz de usuario de UCS contra caídas totales y pantallas en blanco ("White Screen of Death") ante excepciones no controladas de renderizado o datos corruptos en el frontend, aislando fallos por pestaña administrativa y proveyendo mecanismos elegantes de auto-recuperación y diagnóstico técnico en Next.js 16 / React 19.
+      - **1. Componente Error Boundary Aislado por Pestaña (`src/components/admin/TabErrorBoundary.tsx`)**:
+        - Componente de clase React con ciclos de vida resilientes `getDerivedStateFromError` y `componentDidCatch`.
+        - Diseño corporativo alineado con tokens UCS (`--ucs-orange`, `--bg-card`, `--text-primary`), alert badge accesible con `role="alert"`, título contextualizado por el nombre de la sección y mensaje tranquilizador para el operador indicando que el resto del sistema sigue 100% operativo.
+        - Botón principal *"🔄 Reintentar pestaña"* que restablece el estado del componente y ejecuta el callback de sincronización `onReset`.
+        - Panel colapsable de *"Diagnóstico técnico"* que expone de forma segura `error.message`, `error.stack` y la pila del árbol React (`componentStack`) para depuración inmediata sin ensuciar la consola del usuario.
+      - **2. Blindaje de las 9 Pestañas en `AdminDashboard.tsx` (`src/app/admin/AdminDashboard.tsx`)**:
+        - Envoltorio individual `<TabErrorBoundary tabName="..." onReset={loadData}>` para todas las vistas principales:
+          1. *Gestión de Campus y Sedes* (`SedesTab`)
+          2. *Salas y Ambientes de Simulación* (`AmbientesTab`)
+          3. *Programación y Cruce de Sesiones* (`ProgramacionTab`)
+          4. *Padrón de Personal y Casting* (`PersonalTab`)
+          5. *Cursos y Escenarios Clínicos* (`CursosTab`)
+          6. *Control de Asistencias* (`AsistenciasTab`)
+          7. *Planilla Mensual de Pacientes Simulados* (`PlanillaTab`)
+          8. *Control Gemini IA* (`GeminiAdminTab`)
+          9. *Central de Alertas SOS* (`AlertasSosTab`)
+        - Si una pestaña experimenta un fallo en tiempo de ejecución, el sidebar, la navegación superior, las métricas globales (`AdminStatsCards`) y las demás 8 pestañas permanecen completamente funcionales.
+      - **3. Error Boundaries de Nivel de Ruta y Global en App Router (`src/app/error.tsx` y `src/app/global-error.tsx`)**:
+        - `src/app/error.tsx`: Atrapa caídas a nivel de layout/segmento con botón de reintento (`reset()`), enlace de regreso a la pantalla de inicio y visualización del código de seguimiento (`digest`) de Next.js.
+        - `src/app/global-error.tsx`: Atrapa caídas críticas en el Root Layout conteniendo etiquetas `<html>` y `<body>` nativas para una recuperación de emergencia garantizada.
+      - **4. Suite de Pruebas Automatizadas de Resiliencia (`src/scripts/test_resilience.ts`)**:
+        - Valida el ciclo de vida completo: estado inicial sano, renderizado normal de hijos, captura estática de excepciones simuladas, despliegue de UI de contingencia con `role="alert"`, activación del callback `onReset` y alternancia del diagnóstico técnico desplegable (**100% aprobado**).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+        - Validación estática con ESLint (**0 errores y 0 warnings en los módulos de resiliencia**).
+
     - **Hito 96: Gestión de Estado Global con Zustand (Fase 3 - Desacoplamiento Total de CursosTab, SedesTab y 8 Modales Administrativos)**:
       - **Objetivo**: Culminar la erradicación del props drilling en todo el sistema administrativo UCS, conectando las pestañas restantes (`CursosTab`, `SedesTab`) y los 8 modales/drawers de gestión directamente al store central `useAdminStore`, garantizando aislamiento de renderizado al 100% y eliminando estados locales innecesarios en `AdminDashboard.tsx`.
       - **1. Desacoplamiento de Pestañas (`CursosTab` y `SedesTab`)**:

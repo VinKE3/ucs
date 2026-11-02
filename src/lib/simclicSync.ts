@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { sesionesProgramadas } from '@/db/schema';
 import { eq, inArray, or } from 'drizzle-orm';
 import { getCachedCatalogs } from '@/lib/catalogCache';
+import { simclicCircuitBreaker, CircuitBreakerOpenError } from '@/lib/circuitBreaker';
 
 export type ModoSync = 'dia' | 'semana';
 
@@ -297,124 +298,148 @@ export async function syncSimclicSessions(
     return list;
   }
 
-  // 2. Conectar por WebSocket SockJS a SimClic
-  const rawSessions: any[] = await new Promise((resolve, reject) => {
-    const serverId = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const sessionId = Math.random().toString(36).substring(2, 10);
-    const wsUrl = `wss://cientifica.simclic.com/sockjs/${serverId}/${sessionId}/websocket`;
+  // 2. Conectar por WebSocket SockJS a SimClic protegido con Circuit Breaker y Reintentos con Backoff Exponencial
+  const fetchRawSessionsViaWebSocket = (): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const serverId = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const sessionId = Math.random().toString(36).substring(2, 10);
+      const wsUrl = `wss://cientifica.simclic.com/sockjs/${serverId}/${sessionId}/websocket`;
 
-    const collected: any[] = [];
-    let isDone = false;
-    let isSubReady = false;
+      const collected: any[] = [];
+      let isDone = false;
+      let isSubReady = false;
 
-    // Timeout de seguridad (24s para semana completa, 14s para día individual)
-    const timerMs = modo === 'semana' ? 24000 : 14000;
-    const timer = setTimeout(() => {
-      if (!isDone) {
-        isDone = true;
-        try { ws.close(); } catch {}
-        if (!isSubReady) {
-          reject(new Error('Timeout esperando respuesta de SimClic (suscripción no completada)'));
-        } else {
-          resolve(collected);
+      // Timeout de seguridad (24s para semana completa, 14s para día individual)
+      const timerMs = modo === 'semana' ? 24000 : 14000;
+      const timer = setTimeout(() => {
+        if (!isDone) {
+          isDone = true;
+          try { ws.close(); } catch {}
+          if (!isSubReady) {
+            reject(new Error('Timeout esperando respuesta de SimClic (suscripción no completada)'));
+          } else {
+            resolve(collected);
+          }
         }
+      }, timerMs);
+
+      // @ts-ignore
+      const ws = new (globalThis.WebSocket as any)(wsUrl, {
+        headers: {
+          'Origin': 'https://cientifica.simclic.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+        },
+      });
+
+      function sendDDP(msgObj: any) {
+        ws.send(JSON.stringify([JSON.stringify(msgObj)]));
       }
-    }, timerMs);
 
-    // @ts-ignore
-    const ws = new (globalThis.WebSocket as any)(wsUrl, {
-      headers: {
-        'Origin': 'https://cientifica.simclic.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-      },
-    });
+      ws.onmessage = (event: any) => {
+        const raw = event.data.toString();
+        if (raw === 'o') {
+          sendDDP({ msg: 'connect', version: '1', support: ['1'] });
+        } else if (raw.startsWith('a')) {
+          const messages = JSON.parse(raw.slice(1));
+          for (const mStr of messages) {
+            const data = JSON.parse(mStr);
 
-    function sendDDP(msgObj: any) {
-      ws.send(JSON.stringify([JSON.stringify(msgObj)]));
-    }
+            if (data.msg === 'connected') {
+              const passHash = crypto.createHash('sha256').update(password).digest('hex');
+              const userObj = user.includes('@') ? { email: user } : { username: user };
 
-    ws.onmessage = (event: any) => {
-      const raw = event.data.toString();
-      if (raw === 'o') {
-        sendDDP({ msg: 'connect', version: '1', support: ['1'] });
-      } else if (raw.startsWith('a')) {
-        const messages = JSON.parse(raw.slice(1));
-        for (const mStr of messages) {
-          const data = JSON.parse(mStr);
-
-          if (data.msg === 'connected') {
-            const passHash = crypto.createHash('sha256').update(password).digest('hex');
-            const userObj = user.includes('@') ? { email: user } : { username: user };
-
-            sendDDP({
-              msg: 'method',
-              id: 'login-simclic',
-              method: 'login',
-              params: [
-                {
-                  user: userObj,
-                  password: {
-                    digest: passHash,
-                    algorithm: 'sha-256',
+              sendDDP({
+                msg: 'method',
+                id: 'login-simclic',
+                method: 'login',
+                params: [
+                  {
+                    user: userObj,
+                    password: {
+                      digest: passHash,
+                      algorithm: 'sha-256',
+                    },
                   },
-                },
-              ],
-            });
-          }
-
-          if (data.msg === 'result' && data.id === 'login-simclic') {
-            if (data.error) {
-              clearTimeout(timer);
-              isDone = true;
-              ws.close();
-              reject(new Error(`Error al iniciar sesión en SimClic: ${data.error.reason || data.error.message}`));
-              return;
+                ],
+              });
             }
 
-            // Suscribirse a las sesiones de la fecha solicitada o de la semana completa
-            const currentView = modo === 'semana' ? 'TimelineWeek' : 'TimelineDay';
-            sendDDP({
-              msg: 'sub',
-              id: 'sub-sessions-sync',
-              name: 'sessions.byDateAndUser',
-              params: [
-                {
-                  currentDate: { $date: targetDate.getTime() },
-                  currentView,
-                  firstDayOfWeek: 1,
-                },
-                'America/Lima',
-              ],
-            });
-          }
+            if (data.msg === 'result' && data.id === 'login-simclic') {
+              if (data.error) {
+                clearTimeout(timer);
+                isDone = true;
+                ws.close();
+                reject(new Error(`Error al iniciar sesión en SimClic: ${data.error.reason || data.error.message}`));
+                return;
+              }
 
-          if (data.msg === 'added' && data.collection === 'sessions') {
-            collected.push({ ...data.fields, _id: data.id });
-          }
+              // Suscribirse a las sesiones de la fecha solicitada o de la semana completa
+              const currentView = modo === 'semana' ? 'TimelineWeek' : 'TimelineDay';
+              sendDDP({
+                msg: 'sub',
+                id: 'sub-sessions-sync',
+                name: 'sessions.byDateAndUser',
+                params: [
+                  {
+                    currentDate: { $date: targetDate.getTime() },
+                    currentView,
+                    firstDayOfWeek: 1,
+                  },
+                  'America/Lima',
+                ],
+              });
+            }
 
-          if (data.msg === 'ready' && data.subs?.includes('sub-sessions-sync')) {
-            isSubReady = true;
-            clearTimeout(timer);
-            if (!isDone) {
-              isDone = true;
-              setTimeout(() => {
-                try { ws.close(); } catch {}
-                resolve(collected);
-              }, 400);
+            if (data.msg === 'added' && data.collection === 'sessions') {
+              collected.push({ ...data.fields, _id: data.id });
+            }
+
+            if (data.msg === 'ready' && data.subs?.includes('sub-sessions-sync')) {
+              isSubReady = true;
+              clearTimeout(timer);
+              if (!isDone) {
+                isDone = true;
+                setTimeout(() => {
+                  try { ws.close(); } catch {}
+                  resolve(collected);
+                }, 400);
+              }
             }
           }
         }
-      }
-    };
+      };
 
-    ws.onerror = (err: any) => {
-      if (!isDone) {
-        clearTimeout(timer);
-        isDone = true;
-        reject(err);
-      }
+      ws.onerror = (err: any) => {
+        if (!isDone) {
+          clearTimeout(timer);
+          isDone = true;
+          reject(err);
+        }
+      };
+    });
+  };
+
+  let rawSessions: any[] = [];
+  try {
+    rawSessions = await simclicCircuitBreaker.execute(fetchRawSessionsViaWebSocket);
+  } catch (syncError: any) {
+    const isCircuitOpen = syncError instanceof CircuitBreakerOpenError;
+    const duracionMs = Date.now() - startTime;
+    return {
+      success: false,
+      total: 0,
+      creadas: 0,
+      actualizadas: 0,
+      reubicadas: 0,
+      canceladas: 0,
+      fecha: targetDateStr,
+      modo,
+      duracionMs,
+      error: isCircuitOpen
+        ? `⚡ Circuito de protección activado: SimClic no responde temporalmente. Reintento automático en ${Math.ceil(syncError.remainingCooldownMs / 1000)}s.`
+        : `Error al sincronizar con SimClic: ${syncError?.message || syncError}`,
     };
-  });
+  }
 
   function parseMeteorDate(d: any, fallback: Date = new Date()): Date {
     if (!d) return fallback;

@@ -1924,3 +1924,105 @@
   color: #ff5a00 !important;
   text-transform: uppercase;
 }
+
+
+/* ==========================================================================
+   ALERTA DE TRASLADO INTER-SEDES Y JORNADA COMPLETADA PARA TÉCNICOS
+   ========================================================================== */
+
+.trasladoAlertBox {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  padding: 0.85rem 1.15rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.trasladoAlertIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.trasladoAlertTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 0.2rem;
+}
+
+.trasladoAlertText {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.completedShiftBox {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1.5px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  padding: 1.25rem 1.35rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: left;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.completedShiftHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.completedShiftIcon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.completedShiftTitle {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #10b981;
+  margin-bottom: 0.3rem;
+}
+
+.completedShiftMsg {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.completedShiftDetails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.completedShiftItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.completedShiftLabel {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.completedShiftVal {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}

@@ -1508,6 +1508,27 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
 
                       <td>
                         <div style={{ fontWeight: 600 }}>{asist.sedeNombre}</div>
+                        {asist.observaciones && asist.observaciones.includes('Traslado Inter-Sedes') && (
+                          <div style={{ marginTop: '0.2rem' }}>
+                            <span
+                              style={{
+                                fontSize: '0.67rem',
+                                fontWeight: 700,
+                                color: '#38bdf8',
+                                background: 'rgba(56, 189, 248, 0.15)',
+                                border: '1px solid rgba(56, 189, 248, 0.35)',
+                                padding: '0.1rem 0.35rem',
+                                borderRadius: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem',
+                              }}
+                              title={asist.observaciones}
+                            >
+                              🚗 Traslado Inter-Sedes
+                            </span>
+                          </div>
+                        )}
                         <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
                           {asist.ambienteNombre ? (
                             <span>
@@ -1798,6 +1819,10 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                         {asist.motivoModificacion ? (
                           <div style={{ background: 'rgba(255,255,255,0.04)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
                             ⚠️ {asist.motivoModificacion}
+                          </div>
+                        ) : asist.observaciones ? (
+                          <div style={{ background: 'rgba(56, 189, 248, 0.06)', padding: '0.3rem 0.45rem', borderRadius: '6px', color: 'var(--text-primary)', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+                            {asist.observaciones}
                           </div>
                         ) : (
                           <span style={{ color: 'var(--text-muted)' }}>Registro estándar</span>

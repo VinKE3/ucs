@@ -64,6 +64,8 @@ export interface TicketSalidaData {
   tipoPersonal: TipoPersonal;
   ambienteNombre: string;
   sedeNombre: string;
+  sedeSalidaNombre?: string | null;
+  esTrasladoInterSedes?: boolean;
   cursoNombre: string | null;
   horaIngreso: string;
   horaSalida: string;
@@ -147,6 +149,8 @@ export interface AsistenciaAdminItem {
   correo: string | null;
   sedeId: number;
   sedeNombre: string;
+  sedeSalidaNombre?: string | null;
+  esTrasladoInterSedes?: boolean;
   sedeCodigo: string | null;
   ambienteId: number | null;
   ambienteNombre: string | null;

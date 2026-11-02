@@ -3,6 +3,28 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 106: Límite de 1 Turno Diario para Técnicos de Simulación y Trazabilidad Automática de Traslados Inter-Sedes (`KioscoTerminal.tsx`, `route.ts`, `AsistenciasTab.tsx`, `kiosco.module.css`)**:
+      - **Objetivos**:
+        1. **Límite Diario Estricto para Técnicos (`tipoPersonal === 'tecnico'`)**: Dado que el personal técnico cuenta con jornadas completas continuas y horario fijo/rotativo (a diferencia de docentes y pacientes simulados que atienden múltiples talleres/sesiones por día), blindar el Kiosco para permitir estrictamente 1 ingreso y 1 salida por día. Si un técnico ya finalizó su jornada hoy, impedir que se registre un segundo ingreso accidental, mostrando en pantalla el mensaje corporativo: *"Ya completaste tu jornada el día de hoy. Cualquier inconveniente consulta con un administrador."*
+        2. **Detección Automática de Traslado Inter-Sedes (Comisión de Servicio Multi-Campus)**: Resolver el escenario donde un técnico inicia su turno en un campus (ej: Villa a la 1:05 PM) y es requerido con urgencia en otro campus (ej: Ate). El colaborador solo marca su entrada en el primer campus y su salida en el campus de destino. El sistema detecta la discrepancia entre la sede de origen de la asistencia y la sede física de la terminal de salida (`term.sedeId`), preservando la jornada continua y registrando automáticamente la auditoría de comisión.
+      - **Componentes y Endpoints Modificados**:
+        1. **Endpoint de Búsqueda Kiosco (`src/app/api/kiosco/lookup/route.ts`)**:
+           - Si el colaborador es técnico y no tiene asistencia activa, consulta si ya cuenta con una asistencia finalizada hoy (`fecha === hoyStr` y `estado IN ('finalizado', 'ajustado_manual')`).
+           - Retorna el objeto `turnoCompletadoHoy` con horarios reales, tiempo total y sede para retroalimentación visual en pantalla.
+        2. **Endpoint de Marcación Kiosco (`src/app/api/kiosco/marcar/route.ts`)**:
+           - **Ingreso**: Si `user.tipoPersonal === 'tecnico'` y ya existe un turno finalizado en la fecha actual, rechaza la solicitud con HTTP 400 y el mensaje exacto: *"Ya completaste tu jornada el día de hoy. Cualquier inconveniente consulta con un administrador."* (Docentes y Pacientes Simulados permanecen 100% exentos).
+           - **Salida**: Compara `finalSedeSalidaId` (de la terminal autorizada) contra `asistenciaTarget.sedeId`. Si difieren, activa `esTrasladoInterSedes: true`, concatena en `observaciones` la traza: *"🚗 Traslado Inter-Sedes: Ingreso en [Sede A] ➡️ Salida en [Sede B]"* e inyecta `sedeSalidaNombre` en el `ticketSalida`.
+        3. **Interfaz de Terminal Kiosco (`src/app/KioscoTerminal.tsx` y `src/app/kiosco.module.css`)**:
+           - **Tarjeta de Jornada Completada (`.completedShiftBox`)**: Sustituye el botón verde de ingreso por una tarjeta informativa institucional con ícono ✅, mensaje de advertencia y desglose de hora de entrada, salida, tiempo total y campus.
+           - **Aviso de Traslado Inter-Sedes en Vivo (`.trasladoAlertBox`)**: Al identificarse en la sede de destino con turno en curso, despliega banner informativo indicando que el turno inició en otra sede y que la salida computará el traslado continuo.
+           - **Ticket de Salida Mejorado**: Muestra visualmente el traslado de campus (`Campus Villa ➡️ Campus Ate (Traslado Inter-Sedes)`).
+        4. **Panel Administrativo de Asistencias (`src/components/admin/tabs/AsistenciasTab.tsx`)**:
+           - Incorporado badge interactivo celeste `🚗 Traslado Inter-Sedes` en la columna de *Ubicación*.
+           - Renderizado directo de las notas de auditoría en la columna *Observación*.
+      - **Verificación Técnica**:
+        - Suite automatizada de pruebas unitarias y de tipos (`src/scripts/test_tecnico_turno_limite.ts`): **10/10 aserciones aprobadas**.
+        - Compilación estricta de TypeScript con `npx tsc --noEmit` (**0 errores** en todo el proyecto).
+
     - **Hito 105: Nuevas Capacidades de Copilot UCS: Convocatorias de Casting por WhatsApp 1-Click, Acciones Ejecutables con Confirmación (Actionable AI) e Informes Ejecutivos para Decanatura (`geminiService.ts`, `UcsCopilotDrawer.tsx`, `copilot.module.css`)**:
       - **Objetivos**:
         1. **Punto 2 (Convocatoria de Casting por WhatsApp 1-Click)**: Permitir que la IA consulte el banco de pacientes simulados (`casting_perfiles` y `casting_rangos_edad`) filtrando por criterios clínicos (género, edad, biotipo, patología/caso), calcule en vivo las horas acumuladas en la semana frente al tope semanal (`horasSemanalesMax`) y genere enlaces directos a WhatsApp (`https://api.whatsapp.com/send?phone=51...&text=...`) renderizados como píldoras verdes interactivas de 1 solo clic.

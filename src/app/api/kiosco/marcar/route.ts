@@ -102,6 +102,30 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Validar límite de 1 ingreso y 1 salida por día para Técnicos
+      if (user.tipoPersonal === 'tecnico') {
+        const fechaStrHoy = getPeruDateString(now);
+        const existingFinalized = await db
+          .select({ id: asistencias.id })
+          .from(asistencias)
+          .where(
+            and(
+              eq(asistencias.usuarioId, user.id),
+              eq(asistencias.fecha, fechaStrHoy),
+              inArray(asistencias.estado, ['finalizado', 'ajustado_manual'])
+            )
+          )
+          .limit(1);
+
+        if (existingFinalized.length > 0) {
+          return NextResponse.json(
+            { error: 'Ya completaste tu jornada el día de hoy. Cualquier inconveniente consulta con un administrador.' },
+            { status: 400 }
+          );
+        }
+      }
+
+
       // Fecha en zona horaria estricta de Lima Perú (UTC-5)
       const fechaStr = getPeruDateString(now);
 
@@ -517,6 +541,33 @@ export async function POST(request: NextRequest) {
       }
 
       // Transacción atómica batch en Neon: Cierre de turno y actualización de sesión SimClic
+
+      // Detección de traslado inter-sedes (Comisión de servicio entre campus)
+      const finalSedeSalidaId = term.sedeId || (sedeId ? Number(sedeId) : null);
+      let sedeSalidaInfo = null;
+      let esTrasladoInterSedes = false;
+      let observacionesSalida = asistenciaTarget.observaciones;
+
+      if (finalSedeSalidaId && asistenciaTarget.sedeId && finalSedeSalidaId !== asistenciaTarget.sedeId) {
+        esTrasladoInterSedes = true;
+        const [sedeSalidaFound] = await db
+          .select()
+          .from(sedes)
+          .where(eq(sedes.id, finalSedeSalidaId))
+          .limit(1);
+        sedeSalidaInfo = sedeSalidaFound || null;
+
+        const [sedeIngresoFound] = await db
+          .select()
+          .from(sedes)
+          .where(eq(sedes.id, asistenciaTarget.sedeId))
+          .limit(1);
+
+        const notaTraslado = `🚗 Traslado Inter-Sedes: Ingreso en ${sedeIngresoFound?.nombre || 'Sede'} ➡️ Salida en ${sedeSalidaInfo?.nombre || 'Sede'}`;
+        observacionesSalida = observacionesSalida ? `${observacionesSalida} | ${notaTraslado}` : notaTraslado;
+        feedbackSalida += ` • 🚗 Traslado: ${sedeIngresoFound?.nombre || 'Sede'} ➔ ${sedeSalidaInfo?.nombre || 'Sede'}`;
+      }
+
       const [asistenciaActualizada] = await db.batch([
         db
           .update(asistencias)
@@ -525,6 +576,7 @@ export async function POST(request: NextRequest) {
             minutosTotales: minutosTotales,
             minutosExtra: extraMin,
             minutosAnticipo: anticipoMinSalida !== null ? anticipoMinSalida : asistenciaTarget.minutosAnticipo,
+            observaciones: observacionesSalida,
             estado: 'finalizado',
             updatedAt: now,
           })
@@ -610,6 +662,8 @@ export async function POST(request: NextRequest) {
         tipoPersonal: user.tipoPersonal,
         ambienteNombre: ambienteInfo?.nombre || 'Clínica General',
         sedeNombre: sedeInfo?.nombre || 'Sede',
+        sedeSalidaNombre: esTrasladoInterSedes && sedeSalidaInfo ? sedeSalidaInfo.nombre : null,
+        esTrasladoInterSedes,
         cursoNombre: cursoInfo?.nombre || null,
         horaIngreso: asistenciaTarget.horaIngreso,
         horaSalida: now,

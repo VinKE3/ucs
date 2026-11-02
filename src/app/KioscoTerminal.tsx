@@ -69,6 +69,15 @@ interface UsuarioData {
     nota?: string | null;
   } | null;
   saldoDiasCompensatorios?: number | null;
+  turnoCompletadoHoy?: {
+    id: number;
+    horaIngreso: string;
+    horaSalida: string;
+    minutosTotales: number;
+    sedeId: number;
+    sedeNombre: string | null;
+    observaciones?: string | null;
+  } | null;
 }
 
 interface AsistenciaActiva {
@@ -1144,7 +1153,16 @@ export default function KioscoTerminal() {
                       <div>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Campus y Sala:</span>
                         <div style={{ fontWeight: 600, color: 'var(--ucs-blue-sky, #38bdf8)' }}>
-                          {ticketSalida.sedeNombre} • {ticketSalida.ambienteNombre}
+                          {ticketSalida.sedeSalidaNombre && ticketSalida.sedeSalidaNombre !== ticketSalida.sedeNombre ? (
+                            <span>
+                              {ticketSalida.sedeNombre}{' '}
+                              <span style={{ color: 'var(--ucs-orange, #ff5a00)', margin: '0 0.25rem' }}>➡️</span>{' '}
+                              {ticketSalida.sedeSalidaNombre}{' '}
+                              <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>(Traslado Inter-Sedes)</span>
+                            </span>
+                          ) : (
+                            `${ticketSalida.sedeNombre} • ${ticketSalida.ambienteNombre}`
+                          )}
                         </div>
                       </div>
                       {ticketSalida.cursoNombre && (
@@ -1542,6 +1560,18 @@ export default function KioscoTerminal() {
                           </div>
                         </div>
 
+                        {currentSedeId && asistenciaActiva.sedeId && currentSedeId !== asistenciaActiva.sedeId && (
+                          <div className={styles.trasladoAlertBox}>
+                            <span className={styles.trasladoAlertIcon}>🚗</span>
+                            <div>
+                              <div className={styles.trasladoAlertTitle}>Comisión / Traslado Inter-Sedes</div>
+                              <div className={styles.trasladoAlertText}>
+                                Tu turno inició en <strong>{asistenciaActiva.sedeNombre}</strong>. Al registrar tu salida en este terminal, se computará tu jornada de forma continua.
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <button
                           onClick={() => handleMarcar('salida')}
                           disabled={marcando}
@@ -1563,6 +1593,49 @@ export default function KioscoTerminal() {
                         {/* Si es TÉCNICO o ADMINISTRATIVO: ingreso directo a la sede / clínica */}
                         {(usuarioActual.tipoPersonal === 'tecnico' || usuarioActual.tipoPersonal === 'administrativo') ? (
                           <div>
+                            {usuarioActual.tipoPersonal === 'tecnico' && usuarioActual.turnoCompletadoHoy ? (
+                              <div className={styles.completedShiftBox}>
+                                <div className={styles.completedShiftHeader}>
+                                  <span className={styles.completedShiftIcon}>✅</span>
+                                  <div>
+                                    <div className={styles.completedShiftTitle}>Jornada del Día Completada</div>
+                                    <div className={styles.completedShiftMsg}>
+                                      Ya completaste tu jornada el día de hoy. Cualquier inconveniente consulta con un administrador.
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className={styles.completedShiftDetails}>
+                                  <div className={styles.completedShiftItem}>
+                                    <span className={styles.completedShiftLabel}>Ingreso:</span>
+                                    <span className={styles.completedShiftVal}>
+                                      {new Date(usuarioActual.turnoCompletadoHoy.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <div className={styles.completedShiftItem}>
+                                    <span className={styles.completedShiftLabel}>Salida:</span>
+                                    <span className={styles.completedShiftVal}>
+                                      {usuarioActual.turnoCompletadoHoy.horaSalida
+                                        ? new Date(usuarioActual.turnoCompletadoHoy.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+                                        : '--:--'}
+                                    </span>
+                                  </div>
+                                  <div className={styles.completedShiftItem}>
+                                    <span className={styles.completedShiftLabel}>Tiempo Total:</span>
+                                    <span className={styles.completedShiftVal} style={{ color: '#38bdf8' }}>
+                                      {Math.floor((usuarioActual.turnoCompletadoHoy.minutosTotales || 0) / 60)}h {(usuarioActual.turnoCompletadoHoy.minutosTotales || 0) % 60}m
+                                    </span>
+                                  </div>
+                                  <div className={styles.completedShiftItem}>
+                                    <span className={styles.completedShiftLabel}>Campus:</span>
+                                    <span className={styles.completedShiftVal}>
+                                      {usuarioActual.turnoCompletadoHoy.sedeNombre || 'Clínica'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
                             <div className={styles.tecnicoNotice}>
                               <span>💡</span>
                               <span>
@@ -1637,6 +1710,8 @@ export default function KioscoTerminal() {
                                 '🟢 REGISTRAR INGRESO'
                               )}
                             </button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           /* Si es DOCENTE o PACIENTE SIMULADO: debe elegir curso y ambiente */

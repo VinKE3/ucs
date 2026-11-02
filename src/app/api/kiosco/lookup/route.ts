@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { usuarios, asistencias, ambientes, sedes, cursos } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { kioskLookupRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 import { parseSearchParams, kioscoLookupSchema } from '@/lib/validations';
 
@@ -117,6 +117,38 @@ export async function GET(request: Request) {
 
       saldoDiasCompensatorios = movs.reduce((acc, m) => acc + Number(m.dias || 0), 0);
     }
+
+    // Para Técnicos: Verificar si ya completó su jornada/turno hoy (límite de 1 turno por día)
+    let turnoCompletadoHoy = null;
+    if (usuario.tipoPersonal === 'tecnico' && !asistenciaActiva) {
+      const { getPeruDateString } = await import('@/lib/peruTime');
+      const hoyStr = getPeruDateString();
+
+      const [completed] = await db
+        .select({
+          id: asistencias.id,
+          horaIngreso: asistencias.horaIngreso,
+          horaSalida: asistencias.horaSalida,
+          minutosTotales: asistencias.minutosTotales,
+          sedeId: asistencias.sedeId,
+          sedeNombre: sedes.nombre,
+          observaciones: asistencias.observaciones,
+        })
+        .from(asistencias)
+        .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+        .where(
+          and(
+            eq(asistencias.usuarioId, usuario.id),
+            eq(asistencias.fecha, hoyStr),
+            inArray(asistencias.estado, ['finalizado', 'ajustado_manual'])
+          )
+        )
+        .orderBy(desc(asistencias.horaSalida))
+        .limit(1);
+
+      turnoCompletadoHoy = completed || null;
+    }
+
 
     // Enriquecimiento para Docentes y Pacientes Simulados: Detección inteligente de clase en SimClic hoy
     let sesionSugerida = null;
@@ -311,9 +343,11 @@ export async function GET(request: Request) {
         ...usuario,
         turnoHoy,
         saldoDiasCompensatorios,
+        turnoCompletadoHoy,
       },
       asistenciaActiva,
       sesionSugerida,
+      turnoCompletadoHoy,
     });
   } catch (error) {
     console.error('Error en /api/kiosco/lookup:', error);

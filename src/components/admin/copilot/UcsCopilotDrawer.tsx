@@ -16,7 +16,9 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  '🎭 ¿Qué pacientes simulados vienen mañana y en qué salas? Formato WhatsApp',
+  '🎭 Convocatoria casting: actrices mujeres para Dolor Torácico (WhatsApp 1-Click)',
+  '⚡ Cerrar turno de asistencia pendiente del docente que olvidó marcar salida',
+  '📊 Generar informe ejecutivo mensual para Decanatura con KPIs y costos',
   '🔧 ¿Cuál es la cobertura y rol de turnos de los técnicos hoy?',
   '🚨 ¿Hay alertas logísticas o cambios de material (swaps/resets) hoy en Villa?',
   '🧾 ¿Cómo van las horas y liquidación de Pacientes Simulados este mes?',
@@ -412,38 +414,205 @@ const CodeBlockCard: React.FC<{
   );
 };
 
-function parseInlineFormatting(text: string): React.ReactNode {
-  // Parsear **negrita**
-  const boldParts = text.split(/(\*\*.*?\*\*)/g);
-  return boldParts.map((part, pIdx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={pIdx} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-          {part.slice(2, -2)}
-        </strong>
-      );
+
+interface ActionData {
+  tipo: string;
+  titulo: string;
+  descripcion: string;
+  endpoint: string;
+  metodo: string;
+  payload: Record<string, any>;
+  detalle?: Array<{ etiqueta: string; valor: string }>;
+}
+
+const ActionConfirmationCard: React.FC<{ action: ActionData }> = ({ action }) => {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [executedAt, setExecutedAt] = useState<string>('');
+
+  const handleExecute = async () => {
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch(action.endpoint, {
+        method: action.metodo || 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action.payload),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Error en el servidor (${res.status})`);
+      }
+
+      const now = new Date();
+      setStatus('success');
+      setExecutedAt(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      showToast(`✓ ${action.titulo} ejecutada con éxito`, 'success');
+    } catch (err: any) {
+      console.error('Error al ejecutar acción de Copilot:', err);
+      setStatus('error');
+      setErrorMsg(err.message || 'No se pudo completar la acción');
+      showToast(`Error: ${err.message || 'No se pudo completar la acción'}`, 'error');
     }
-    // Parsear `código inline`
-    const codeParts = part.split(/(`.*?`)/g);
-    return codeParts.map((cPart, cIdx) => {
-      if (cPart.startsWith('`') && cPart.endsWith('`')) {
-        return (
-          <code
-            key={`${pIdx}-${cIdx}`}
-            style={{
-              padding: '0.15rem 0.35rem',
-              borderRadius: '4px',
-              background: 'rgba(56, 189, 248, 0.12)',
-              color: '#0284c7',
-              fontSize: '0.8rem',
-              fontFamily: 'monospace',
-            }}
+  };
+
+  const isSuccess = status === 'success';
+
+  return (
+    <div className={`${styles.actionCard} ${isSuccess ? styles.actionCardSuccess : ''}`}>
+      <div className={`${styles.actionCardHeader} ${isSuccess ? styles.actionCardHeaderSuccess : ''}`}>
+        <div className={`${styles.actionCardBadge} ${isSuccess ? styles.actionCardBadgeSuccess : ''}`}>
+          <span>{isSuccess ? '✓' : '⚡'}</span>
+          <span>{isSuccess ? 'Acción Confirmada' : 'Acción Operativa Sugerida'}</span>
+        </div>
+        <span style={{ fontSize: '0.72rem', color: isSuccess ? '#34d399' : '#f59e0b', fontWeight: 700 }}>
+          {action.endpoint}
+        </span>
+      </div>
+
+      <div className={styles.actionCardBody}>
+        <div className={styles.actionCardTitle}>{action.titulo}</div>
+        <div className={styles.actionCardDesc}>{action.descripcion}</div>
+
+        {action.detalle && action.detalle.length > 0 && (
+          <div className={styles.actionCardGrid}>
+            {action.detalle.map((item, idx) => (
+              <div key={idx} className={styles.actionCardItem}>
+                <span className={styles.actionCardItemLabel}>{item.etiqueta}</span>
+                <span className={styles.actionCardItemValue}>{item.valor}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {status === 'idle' && (
+          <button
+            type="button"
+            onClick={handleExecute}
+            className={styles.actionButton}
+            title="Confirmar y ejecutar acción en el sistema"
           >
-            {cPart.slice(1, -1)}
-          </code>
+            <span>⚡</span>
+            <span>Confirmar y Ejecutar Acción</span>
+          </button>
+        )}
+
+        {status === 'loading' && (
+          <button type="button" disabled className={styles.actionButton}>
+            <span>⏳</span>
+            <span>Procesando en base de datos...</span>
+          </button>
+        )}
+
+        {status === 'success' && (
+          <div className={styles.actionSuccessBanner}>
+            <span>✓</span>
+            <span>Acción ejecutada exitosamente a las {executedAt}. Base de datos actualizada.</span>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div
+              style={{
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                color: '#f87171',
+                fontSize: '0.76rem',
+              }}
+            >
+              ⚠️ {errorMsg}
+            </div>
+            <button
+              type="button"
+              onClick={handleExecute}
+              className={styles.actionButton}
+              style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+            >
+              <span>🔄</span>
+              <span>Reintentar Ejecución</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+function parseInlineFormatting(text: string): React.ReactNode {
+  // 1. Parsear enlaces Markdown [label](url)
+  const linkRegex = /(\[.*?\]\(https?:\/\/.*?\))/g;
+  const linkParts = text.split(linkRegex);
+
+  return linkParts.map((lPart, lIdx) => {
+    const match = lPart.match(/^\[(.*?)\]\((https?:\/\/.*?)\)$/);
+    if (match) {
+      const label = match[1];
+      const url = match[2];
+      const isWhatsApp = url.includes('api.whatsapp.com') || url.includes('wa.me');
+      if (isWhatsApp) {
+        return (
+          <a
+            key={`wa-${lIdx}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.whatsappPill}
+            title="Abrir chat en WhatsApp con convocatoria"
+          >
+            <span>📲</span>
+            <span>{label}</span>
+          </a>
         );
       }
-      return cPart;
+      return (
+        <a
+          key={`link-${lIdx}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#38bdf8', textDecoration: 'underline', fontWeight: 600 }}
+        >
+          {label}
+        </a>
+      );
+    }
+
+    // 2. Parsear **negrita**
+    const boldParts = lPart.split(/(\b\*\*.*?\*\*)/g);
+    return boldParts.map((part, pIdx) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={`${lIdx}-${pIdx}`} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      // 3. Parsear `código inline`
+      const codeParts = part.split(/(`.*?`)/g);
+      return codeParts.map((cPart, cIdx) => {
+        if (cPart.startsWith('`') && cPart.endsWith('`')) {
+          return (
+            <code
+              key={`${lIdx}-${pIdx}-${cIdx}`}
+              style={{
+                padding: '0.15rem 0.35rem',
+                borderRadius: '4px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                color: '#0284c7',
+                fontSize: '0.8rem',
+                fontFamily: 'monospace',
+              }}
+            >
+              {cPart.slice(1, -1)}
+            </code>
+          );
+        }
+        return cPart;
+      });
     });
   });
 }
@@ -602,8 +771,24 @@ const FormattedMessage: React.FC<{ text: string; isUser: boolean }> = ({ text, i
       );
     }
 
-    const lang = match[1] || 'text';
+    const lang = (match[1] || 'text').toLowerCase();
     const code = match[2];
+
+    if (lang === 'action') {
+      try {
+        const actionObj = JSON.parse(code.trim());
+        if (actionObj.endpoint && actionObj.payload) {
+          parts.push(
+            <ActionConfirmationCard key={`action-${match.index}`} action={actionObj} />
+          );
+          lastIndex = match.index + match[0].length;
+          continue;
+        }
+      } catch {
+        // Fallback a CodeBlockCard si no es JSON válido
+      }
+    }
+
     parts.push(
       <CodeBlockCard key={`code-${match.index}`} code={code.trim()} lang={lang} />
     );

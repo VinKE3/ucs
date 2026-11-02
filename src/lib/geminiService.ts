@@ -11,8 +11,11 @@ import {
   asistencias,
   turnosProgramadosTecnicos,
   bancoCompensatoriosTecnicos,
+  castingPerfiles,
+  castingRangosEdad,
+  castingEspecialidades,
 } from '@/db/schema';
-import { eq, and, sql, desc, or, ilike } from 'drizzle-orm';
+import { eq, and, sql, desc, or, ilike, inArray, gte, lte } from 'drizzle-orm';
 import { syncSimclicSessions } from '@/lib/simclicSync';
 import { getPeruDateString, getPeruTimeString } from '@/lib/peruTime';
 
@@ -356,6 +359,135 @@ export const GEMINI_TOOLS = [
         },
       },
       required: ['nombreODni'],
+    },
+  },
+  {
+    name: 'convocar_casting_pacientes_simulados',
+    description:
+      'Busca y convoca actores / pacientes simulados (PS) para casos clínicos según criterios de casting (género, rango de edad, biotipo, especialidad médica o caso clínico). Calcula horas acumuladas en la semana para evitar sobrepasar topes, y genera enlaces de WhatsApp directos en 1-clic (wa.me) con el mensaje de citación pre-redactado.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        genero: {
+          type: 'STRING',
+          description:
+            'Género del actor requerido: "femenino", "masculino" o "cualquiera".',
+        },
+        edadMin: {
+          type: 'NUMBER',
+          description: 'Edad mínima requerida (ej: 18, 40, 60).',
+        },
+        edadMax: {
+          type: 'NUMBER',
+          description: 'Edad máxima requerida (ej: 35, 65, 80).',
+        },
+        biotipo: {
+          type: 'STRING',
+          description:
+            'Biotipo físico o contextura (ej: "delgado", "robusto", "atlético").',
+        },
+        casoClinico: {
+          type: 'STRING',
+          description:
+            'Nombre o temática del caso clínico o patología (ej: "Dolor Torácico", "Parto Distócico", "Pediatría - Madre Acompañante", "Crisis Asmática", "Adulto Mayor con EPOC").',
+        },
+        fecha: {
+          type: 'STRING',
+          description:
+            'Fecha de la simulación en formato YYYY-MM-DD. Si se omite, usa la fecha de mañana o próxima citación.',
+        },
+        horario: {
+          type: 'STRING',
+          description:
+            'Horario requerido de la sesión (ej: "08:00 - 12:00", "14:00 - 18:00").',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Sede de la citación (ej: "Villa", "Norte", "Ate").',
+        },
+        limite: {
+          type: 'NUMBER',
+          description: 'Número máximo de candidatos a sugerir (predeterminado: 6).',
+        },
+      },
+    },
+  },
+  {
+    name: 'proponer_cerrar_turno_asistencia',
+    description:
+      'Localiza un turno de asistencia abierto ("en_curso") de un docente, técnico o paciente simulado que olvidó marcar salida o requiere regularización administrativa. Genera una propuesta de acción interactiva estructurada para que el administrador la confirme y ejecute en 1 clic.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        nombreODni: {
+          type: 'STRING',
+          description:
+            'Nombre, apellido o DNI del colaborador con turno abierto pendiente de cierre.',
+        },
+        horaSalidaEstimada: {
+          type: 'STRING',
+          description:
+            'Hora de salida sugerida en formato HH:mm (ej: "21:00" o "18:00"). Si se omite, usa la hora final de su sesión programada o la hora actual.',
+        },
+        motivo: {
+          type: 'STRING',
+          description:
+            'Motivo administrativo de justificación (ej: "Docente olvidó marcar salida al finalizar sesión").',
+        },
+      },
+      required: ['nombreODni'],
+    },
+  },
+  {
+    name: 'proponer_cambio_estado_sala',
+    description:
+      'Localiza un ambiente o sala de simulación y genera una propuesta interactiva estructurada para cambiar su estado (poner en mantenimiento/inactiva por falla de simulador, o reactivarla cuando quede operativa). Requiere confirmación de 1 clic del administrador.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        salaNombreOCodigo: {
+          type: 'STRING',
+          description:
+            'Nombre o código del ambiente (ej: "Consultorio 3", "C-103", "Hospitalización A", "Alta Fidelidad 2").',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Nombre de la sede (ej: "Villa", "Ate", "Norte"). Opcional.',
+        },
+        nuevoEstado: {
+          type: 'STRING',
+          description:
+            'Estado deseado: "mantenimiento" (desactivar sala por falla técnica) o "operativa" (habilitar y reactivar sala).',
+        },
+        motivo: {
+          type: 'STRING',
+          description:
+            'Motivo del cambio de estado (ej: "Falla en simulador SimMan 3G, pase a soporte técnico").',
+        },
+      },
+      required: ['salaNombreOCodigo', 'nuevoEstado'],
+    },
+  },
+  {
+    name: 'generar_informe_ejecutivo',
+    description:
+      'Genera un informe ejecutivo consolidado para Decanatura y Dirección Médica: horas totales de simulación ejecutadas, tasa de ocupación de salas por campus, puntualidad docente y técnicos, y consolidado financiero de honorarios de Pacientes Simulados para el mes.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        mes: {
+          type: 'STRING',
+          description:
+            'Mes en formato YYYY-MM (ej: "2026-10"). Si se omite, usa el mes actual de Perú.',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Filtrar por sede específica ("Villa", "Ate", "Norte") o "todas". Predeterminado: "todas".',
+        },
+      },
     },
   },
 ];
@@ -1288,6 +1420,494 @@ export async function executeGeminiTool(
           alertasReubicadas,
         };
       }
+      case 'convocar_casting_pacientes_simulados': {
+        const [yH, mH, dH] = hoyPeru.split('-').map(Number);
+        const mananaTarget = new Date(Date.UTC(yH, mH - 1, dH + 1, 12, 0, 0));
+        const fechaMananaDef = mananaTarget.toISOString().slice(0, 10);
+
+        const fechaTarget = args.fecha || fechaMananaDef;
+        const horarioTarget = args.horario || '08:00 - 12:00';
+        const sedeTarget = args.sede || 'Campus Villa';
+        const casoTarget = args.casoClinico || 'Simulación Clínica Estándar';
+        const limite = Math.min(Math.max(args.limite || 6, 1), 15);
+
+        // 1. Obtener pacientes simulados activos con sus perfiles de casting
+        const psCandidatos = await db
+          .select({
+            id: usuarios.id,
+            dni: usuarios.dni,
+            nombres: usuarios.nombres,
+            apellidos: usuarios.apellidos,
+            telefono: usuarios.telefono,
+            correo: usuarios.correo,
+            tarifaHora: usuarios.tarifaHora,
+            horasSemanalesMax: usuarios.horasSemanalesMax,
+            perfilId: castingPerfiles.id,
+            edadReal: castingPerfiles.edadReal,
+            genero: castingPerfiles.genero,
+            biotipo: castingPerfiles.biotipo,
+            disponibilidad: castingPerfiles.disponibilidad,
+            experienciaNotas: castingPerfiles.experienciaNotas,
+            activoCasting: castingPerfiles.activoCasting,
+            rangoEdadNombre: castingRangosEdad.nombre,
+            rangoEdadMin: castingRangosEdad.edadMin,
+            rangoEdadMax: castingRangosEdad.edadMax,
+          })
+          .from(usuarios)
+          .leftJoin(castingPerfiles, eq(usuarios.id, castingPerfiles.usuarioId))
+          .leftJoin(castingRangosEdad, eq(castingPerfiles.rangoEdadId, castingRangosEdad.id))
+          .where(
+            and(
+              eq(usuarios.tipoPersonal, 'paciente_simulado'),
+              eq(usuarios.activo, true)
+            )
+          );
+
+        // 2. Filtrado de candidatos
+        let filtrados = psCandidatos.filter((ps) => ps.activoCasting !== false);
+
+        if (args.genero && args.genero.toLowerCase() !== 'cualquiera') {
+          const gen = args.genero.toLowerCase();
+          filtrados = filtrados.filter((ps) => {
+            const g = (ps.genero || '').toLowerCase();
+            if (gen.startsWith('fem') || gen === 'f' || gen === 'mujer' || gen === 'mujeres') {
+              return g.startsWith('fem') || g === 'f';
+            }
+            if (gen.startsWith('masc') || gen === 'm' || gen === 'hombre' || gen === 'varon' || gen === 'varones') {
+              return g.startsWith('masc') || g === 'm';
+            }
+            return g.includes(gen);
+          });
+        }
+
+        if (args.edadMin !== undefined || args.edadMax !== undefined) {
+          const min = args.edadMin ?? 0;
+          const max = args.edadMax ?? 120;
+          filtrados = filtrados.filter((ps) => {
+            const edad = ps.edadReal || (ps.rangoEdadMin ? Math.round((ps.rangoEdadMin + (ps.rangoEdadMax || ps.rangoEdadMin)) / 2) : 30);
+            return edad >= min && edad <= max;
+          });
+        }
+
+        if (args.biotipo) {
+          const bio = args.biotipo.toLowerCase();
+          filtrados = filtrados.filter((ps) => (ps.biotipo || '').toLowerCase().includes(bio));
+        }
+
+        // 3. Calcular rango semanal (Lunes a Domingo) para horas acumuladas
+        const targetDateObj = new Date(fechaTarget + 'T12:00:00Z');
+        const day = targetDateObj.getUTCDay();
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        const monday = new Date(targetDateObj);
+        monday.setUTCDate(targetDateObj.getUTCDate() + diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setUTCDate(monday.getUTCDate() + 6);
+        const inicioSemanaStr = monday.toISOString().slice(0, 10);
+        const finSemanaStr = sunday.toISOString().slice(0, 10);
+
+        // Obtener asistencias de la semana para los candidatos
+        const userIds = filtrados.map((f) => f.id);
+        const asistenciasSemana = userIds.length > 0
+          ? await db
+              .select({
+                usuarioId: asistencias.usuarioId,
+                minutosTotales: asistencias.minutosTotales,
+              })
+              .from(asistencias)
+              .where(
+                and(
+                  inArray(asistencias.usuarioId, userIds),
+                  gte(asistencias.fecha, inicioSemanaStr),
+                  lte(asistencias.fecha, finSemanaStr)
+                )
+              )
+          : [];
+
+        const horasSemanalesMap: Record<number, number> = {};
+        for (const a of asistenciasSemana) {
+          if (!a.usuarioId) continue;
+          horasSemanalesMap[a.usuarioId] = (horasSemanalesMap[a.usuarioId] || 0) + Number(a.minutosTotales || 0);
+        }
+
+        // 4. Mapear resultados con enlaces de WhatsApp y formato de convocatoria
+        const candidatosConvocatoria = filtrados.slice(0, limite).map((ps) => {
+          const minutosSemana = horasSemanalesMap[ps.id] || 0;
+          const horasSemana = Number((minutosSemana / 60).toFixed(1));
+          const topeSemanal = ps.horasSemanalesMax || 24;
+          const horasDisponibles = Math.max(0, Number((topeSemanal - horasSemana).toFixed(1)));
+          const estadoTope = horasSemana >= topeSemanal ? 'TOPE_ALCANZADO' : horasSemana > topeSemanal * 0.8 ? 'CERCA_DEL_TOPE' : 'DISPONIBLE';
+
+          // Formatear teléfono para WhatsApp (+51 para Perú)
+          let cleanPhone = (ps.telefono || '').replace(/\D/g, '');
+          if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
+            cleanPhone = '51' + cleanPhone;
+          }
+
+          const mensajeInvitacion = `👋 Hola *${ps.nombres}*, te saludamos de la Coordinación de Simulación Clínica de la *Universidad Científica del Sur (UCS)*.
+
+🎭 *Convocatoria de Paciente Simulado:*
+📅 *Fecha:* ${fechaTarget}
+⏰ *Horario:* ${horarioTarget}
+🏥 *Sede:* ${sedeTarget}
+🩺 *Caso Clínico:* ${casoTarget}
+
+¿Cuentas con disponibilidad para acompañarnos en esta sesión? Por favor confírmanos por este medio. ¡Muchas gracias!`;
+
+          const urlWhatsapp = cleanPhone.length >= 9
+            ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(mensajeInvitacion)}`
+            : null;
+
+          return {
+            id: ps.id,
+            nombreCompleto: `${ps.nombres} ${ps.apellidos}`,
+            dni: ps.dni,
+            telefono: ps.telefono || 'Sin teléfono registrado',
+            telefonoWhatsapp: cleanPhone || null,
+            edad: ps.edadReal ? `${ps.edadReal} años` : (ps.rangoEdadNombre || 'No especificada'),
+            genero: ps.genero || 'No especificado',
+            biotipo: ps.biotipo || 'Estándar',
+            disponibilidadRegistrada: ps.disponibilidad || 'Semana regular',
+            horasSemanaActual: horasSemana,
+            topeHorasSemanales: topeSemanal,
+            horasDisponiblesSemana: horasDisponibles,
+            estadoTope,
+            urlWhatsappDirecto: urlWhatsapp,
+            textoMensajeInvitacion: mensajeInvitacion,
+          };
+        });
+
+        return {
+          criteriosCasting: {
+            casoClinico: casoTarget,
+            fecha: fechaTarget,
+            horario: horarioTarget,
+            sede: sedeTarget,
+            generoFiltro: args.genero || 'Cualquiera',
+            edadFiltro: args.edadMin || args.edadMax ? `${args.edadMin || 18} - ${args.edadMax || 90} años` : 'Cualquiera',
+            semanaEvaluada: `${inicioSemanaStr} al ${finSemanaStr}`,
+          },
+          totalCandidatosEncontrados: filtrados.length,
+          candidatosPropuestos: candidatosConvocatoria,
+        };
+      }
+
+      case 'proponer_cerrar_turno_asistencia': {
+        const busqueda = (args.nombreODni || '').trim().toLowerCase();
+
+        // Buscar asistencias abiertas en_curso
+        const asistenciasAbiertas = await db
+          .select({
+            id: asistencias.id,
+            fecha: asistencias.fecha,
+            horaIngreso: asistencias.horaIngreso,
+            estado: asistencias.estado,
+            usuarioId: asistencias.usuarioId,
+            dni: usuarios.dni,
+            nombres: usuarios.nombres,
+            apellidos: usuarios.apellidos,
+            tipoPersonal: usuarios.tipoPersonal,
+            sedeId: asistencias.sedeId,
+            sedeNombre: sedes.nombre,
+            ambienteId: asistencias.ambienteId,
+            ambienteNombre: ambientes.nombre,
+            ambienteCodigo: ambientes.codigo,
+          })
+          .from(asistencias)
+          .leftJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+          .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+          .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+          .where(eq(asistencias.estado, 'en_curso'));
+
+        const match = asistenciasAbiertas.find(
+          (a) =>
+            a.dni?.toLowerCase().includes(busqueda) ||
+            `${a.nombres} ${a.apellidos}`.toLowerCase().includes(busqueda) ||
+            a.nombres?.toLowerCase().includes(busqueda) ||
+            a.apellidos?.toLowerCase().includes(busqueda)
+        );
+
+        if (!match) {
+          return {
+            encontrado: false,
+            mensaje: `No se encontró ningún turno abierto ('en_curso') para "${args.nombreODni}".`,
+            turnosAbiertosActuales: asistenciasAbiertas.slice(0, 5).map((a) => ({
+              colaborador: `${a.nombres} ${a.apellidos} (${a.tipoPersonal})`,
+              dni: a.dni,
+              fecha: a.fecha,
+              ingreso: formatTimestampPeru(a.horaIngreso),
+              sede: a.sedeNombre,
+              sala: a.ambienteNombre,
+            })),
+          };
+        }
+
+        // Determinar hora de salida a registrar
+        let horaSalidaIso: string;
+        let horaSalidaDisplay: string;
+        if (args.horaSalidaEstimada && /^\d{2}:\d{2}$/.test(args.horaSalidaEstimada)) {
+          const [h, m] = args.horaSalidaEstimada.split(':').map(Number);
+          const d = new Date(`${match.fecha}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00-05:00`);
+          horaSalidaIso = d.toISOString();
+          horaSalidaDisplay = `${args.horaSalidaEstimada} hrs`;
+        } else {
+          const now = new Date();
+          horaSalidaIso = now.toISOString();
+          horaSalidaDisplay = `${horaPeru} hrs (Hora actual)`;
+        }
+
+        const horaIngresoStr = match.horaIngreso ? formatTimestampPeru(match.horaIngreso) : '--:--';
+        const motivo = args.motivo || 'Cierre de turno pendiente regularizado administrativamente con Copilot UCS';
+
+        const accionPropuesta = {
+          tipo: 'cerrar_turno_asistencia',
+          titulo: 'Cerrar Turno de Asistencia Abierto',
+          descripcion: `Regularizar y cerrar el turno abierto de ${match.nombres} ${match.apellidos} en ${match.sedeNombre || 'Campus'} - ${match.ambienteNombre || 'Sin sala'}.`,
+          endpoint: '/api/asistencias',
+          metodo: 'PATCH',
+          payload: {
+            id: match.id,
+            accion: 'cerrar_turno',
+            motivo,
+            horaSalida: horaSalidaIso,
+          },
+          detalle: [
+            { etiqueta: 'Colaborador', valor: `${match.nombres} ${match.apellidos} (${match.tipoPersonal})` },
+            { etiqueta: 'DNI', valor: match.dni || 'S/D' },
+            { etiqueta: 'Sede / Ambiente', valor: `${match.sedeNombre || 'General'} / ${match.ambienteNombre || 'Sin sala'}` },
+            { etiqueta: 'Fecha / Ingreso', valor: `${match.fecha} a las ${horaIngresoStr}` },
+            { etiqueta: 'Salida a Registrar', valor: horaSalidaDisplay },
+            { etiqueta: 'Motivo de Auditoría', valor: motivo },
+          ],
+        };
+
+        return {
+          encontrado: true,
+          colaborador: `${match.nombres} ${match.apellidos}`,
+          asistenciaId: match.id,
+          accionPropuesta,
+        };
+      }
+
+      case 'proponer_cambio_estado_sala': {
+        const salaQuery = (args.salaNombreOCodigo || '').trim().toLowerCase();
+        const allRooms = await db
+          .select({
+            id: ambientes.id,
+            nombre: ambientes.nombre,
+            codigo: ambientes.codigo,
+            tipo: ambientes.tipo,
+            capacidad: ambientes.capacidad,
+            activo: ambientes.activo,
+            sedeId: ambientes.sedeId,
+            sedeNombre: sedes.nombre,
+          })
+          .from(ambientes)
+          .leftJoin(sedes, eq(ambientes.sedeId, sedes.id));
+
+        let filtered = allRooms.filter(
+          (r) =>
+            r.nombre?.toLowerCase().includes(salaQuery) ||
+            r.codigo?.toLowerCase().includes(salaQuery)
+        );
+
+        if (args.sede) {
+          const s = args.sede.toLowerCase();
+          filtered = filtered.filter((r) => r.sedeNombre?.toLowerCase().includes(s));
+        }
+
+        const room = filtered[0];
+        if (!room) {
+          return {
+            encontrado: false,
+            mensaje: `No se encontró la sala "${args.salaNombreOCodigo}" en las sedes registradas.`,
+          };
+        }
+
+        const nuevoActivo = args.nuevoEstado === 'operativa' || args.nuevoEstado === 'activa';
+        const motivo = args.motivo || (nuevoActivo ? 'Reactivación de sala operativa para simulación' : 'Pase a mantenimiento técnico preventivo/correctivo');
+
+        const accionPropuesta = {
+          tipo: 'cambiar_estado_sala',
+          titulo: nuevoActivo ? 'Reactivar Sala (Poner en Operativa)' : 'Poner Sala en Mantenimiento',
+          descripcion: nuevoActivo
+            ? `Reactivar la sala "${room.nombre}" (${room.codigo || 'S/C'}) en ${room.sedeNombre} para habilitar nuevas clases de simulación.`
+            : `Suspender temporalmente la sala "${room.nombre}" (${room.codigo || 'S/C'}) en ${room.sedeNombre} por mantenimiento o ajuste de maquetas.`,
+          endpoint: '/api/ambientes',
+          metodo: 'PATCH',
+          payload: {
+            id: room.id,
+            activo: nuevoActivo,
+          },
+          detalle: [
+            { etiqueta: 'Sala / Ambiente', valor: `${room.codigo ? `[${room.codigo}] ` : ''}${room.nombre}` },
+            { etiqueta: 'Sede', valor: room.sedeNombre || 'Campus General' },
+            { etiqueta: 'Capacidad / Tipo', valor: `${room.capacidad || 10} personas (${room.tipo || 'Clínica'})` },
+            { etiqueta: 'Estado Actual', valor: room.activo ? '🟢 Operativa' : '🔴 En Mantenimiento' },
+            { etiqueta: 'Nuevo Estado Propuesto', valor: nuevoActivo ? '🟢 Operativa (Habilitada)' : '🔴 En Mantenimiento (Inactiva)' },
+            { etiqueta: 'Motivo', valor: motivo },
+          ],
+        };
+
+        return {
+          encontrado: true,
+          sala: `${room.codigo ? `[${room.codigo}] ` : ''}${room.nombre}`,
+          ambienteId: room.id,
+          accionPropuesta,
+        };
+      }
+
+      case 'generar_informe_ejecutivo': {
+        const mesTarget = args.mes || hoyPeru.slice(0, 7);
+
+        // 1. Sesiones del mes
+        const sesionesMes = await db
+          .select({
+            id: sesionesProgramadas.id,
+            fecha: sesionesProgramadas.fecha,
+            horaInicio: sesionesProgramadas.horaInicio,
+            horaFin: sesionesProgramadas.horaFin,
+            estadoUcs: sesionesProgramadas.estadoUcs,
+            sedeId: sesionesProgramadas.sedeId,
+            sedeNombre: sedes.nombre,
+            ambienteId: sesionesProgramadas.ambienteId,
+            ambienteNombre: ambientes.nombre,
+            cursoId: sesionesProgramadas.cursoId,
+            cursoNombre: cursos.nombre,
+            docenteNombre: sesionesProgramadas.docenteNombreSimclic,
+            pacientesJson: sesionesProgramadas.pacientesSimuladosJson,
+            pacienteNombre: sesionesProgramadas.pacienteSimuladoNombre,
+          })
+          .from(sesionesProgramadas)
+          .leftJoin(sedes, eq(sesionesProgramadas.sedeId, sedes.id))
+          .leftJoin(ambientes, eq(sesionesProgramadas.ambienteId, ambientes.id))
+          .leftJoin(cursos, eq(sesionesProgramadas.cursoId, cursos.id))
+          .where(sql`SUBSTRING(${sesionesProgramadas.fecha}, 1, 7) = ${mesTarget}`);
+
+        let sesionesFiltradas = sesionesMes;
+        if (args.sede && args.sede.toLowerCase() !== 'todas') {
+          const s = args.sede.toLowerCase();
+          sesionesFiltradas = sesionesFiltradas.filter((ses) =>
+            ses.sedeNombre?.toLowerCase().includes(s)
+          );
+        }
+
+        // 2. Asistencias del mes
+        const asistenciasMes = await db
+          .select({
+            id: asistencias.id,
+            fecha: asistencias.fecha,
+            minutosTotales: asistencias.minutosTotales,
+            minutosTardanza: asistencias.minutosTardanza,
+            estado: asistencias.estado,
+            tipoPersonal: usuarios.tipoPersonal,
+            tarifaHora: usuarios.tarifaHora,
+            usuarioId: asistencias.usuarioId,
+            sedeId: asistencias.sedeId,
+            sedeNombre: sedes.nombre,
+            ambienteId: asistencias.ambienteId,
+            ambienteNombre: ambientes.nombre,
+          })
+          .from(asistencias)
+          .leftJoin(usuarios, eq(asistencias.usuarioId, usuarios.id))
+          .leftJoin(sedes, eq(asistencias.sedeId, sedes.id))
+          .leftJoin(ambientes, eq(asistencias.ambienteId, ambientes.id))
+          .where(sql`SUBSTRING(${asistencias.fecha}, 1, 7) = ${mesTarget}`);
+
+        let asistenciasFiltradas = asistenciasMes;
+        if (args.sede && args.sede.toLowerCase() !== 'todas') {
+          const s = args.sede.toLowerCase();
+          asistenciasFiltradas = asistenciasFiltradas.filter((a) =>
+            a.sedeNombre?.toLowerCase().includes(s)
+          );
+        }
+
+        // Métricas agregadas
+        let totalMinutosSimulacion = 0;
+        for (const s of sesionesFiltradas) {
+          if (s.horaInicio && s.horaFin) {
+            const [h1, m1] = s.horaInicio.split(':').map(Number);
+            const [h2, m2] = s.horaFin.split(':').map(Number);
+            const dur = (h2 * 60 + m2) - (h1 * 60 + m1);
+            if (dur > 0) totalMinutosSimulacion += dur;
+          }
+        }
+        const totalHorasSimulacion = Number((totalMinutosSimulacion / 60).toFixed(1));
+
+        // Puntualidad Docente
+        const asistenciasDocentes = asistenciasFiltradas.filter((a) => a.tipoPersonal === 'docente');
+        const totalMarcacionesDocentes = asistenciasDocentes.length;
+        const docentesConTardanza = asistenciasDocentes.filter((a) => (a.minutosTardanza || 0) > 0).length;
+        const totalMinutosTardanzaDocente = asistenciasDocentes.reduce((acc, a) => acc + (a.minutosTardanza || 0), 0);
+        const promedioMinutosTardanza = docentesConTardanza > 0 ? Number((totalMinutosTardanzaDocente / docentesConTardanza).toFixed(1)) : 0;
+        const tasaPuntualidadDocente = totalMarcacionesDocentes > 0
+          ? Number((((totalMarcacionesDocentes - docentesConTardanza) / totalMarcacionesDocentes) * 100).toFixed(1))
+          : 100;
+
+        // Pacientes Simulados / Honorarios
+        const asistenciasPS = asistenciasFiltradas.filter((a) => a.tipoPersonal === 'paciente_simulado');
+        const minutosTotalesPS = asistenciasPS.reduce((acc, a) => acc + Number(a.minutosTotales || 0), 0);
+        const horasTotalesPS = Number((minutosTotalesPS / 60).toFixed(1));
+        const actoresUnicos = new Set(asistenciasPS.map((a) => a.usuarioId).filter(Boolean)).size;
+        let gastoTotalHonorariosPS = 0;
+        for (const a of asistenciasPS) {
+          const horas = (a.minutosTotales || 0) / 60;
+          const tarifa = Number(a.tarifaHora || 35);
+          gastoTotalHonorariosPS += horas * tarifa;
+        }
+        gastoTotalHonorariosPS = Number(gastoTotalHonorariosPS.toFixed(2));
+
+        // Ocupación de salas
+        const salasUsoMap: Record<string, number> = {};
+        for (const s of sesionesFiltradas) {
+          const sala = s.ambienteNombre || 'Sala no identificada';
+          salasUsoMap[sala] = (salasUsoMap[sala] || 0) + 1;
+        }
+        const topSalas = Object.entries(salasUsoMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([sala, sesiones]) => ({ sala, sesiones }));
+
+        // Desglose por sede
+        const sedesMap: Record<string, { sesiones: number; horas: number; asistencias: number }> = {};
+        for (const s of sesionesFiltradas) {
+          const sede = s.sedeNombre || 'Villa';
+          if (!sedesMap[sede]) sedesMap[sede] = { sesiones: 0, horas: 0, asistencias: 0 };
+          sedesMap[sede].sesiones += 1;
+          if (s.horaInicio && s.horaFin) {
+            const [h1, m1] = s.horaInicio.split(':').map(Number);
+            const [h2, m2] = s.horaFin.split(':').map(Number);
+            const dur = (h2 * 60 + m2) - (h1 * 60 + m1);
+            if (dur > 0) sedesMap[sede].horas += Number((dur / 60).toFixed(1));
+          }
+        }
+
+        const desgloseSedes = Object.entries(sedesMap).map(([sede, data]) => ({
+          sede,
+          totalSesiones: data.sesiones,
+          horasSimulacion: Number(data.horas.toFixed(1)),
+        }));
+
+        return {
+          periodoMes: mesTarget,
+          filtroSede: args.sede || 'Todas',
+          resumenKPIs: {
+            totalSesionesProgramadas: sesionesFiltradas.length,
+            totalHorasSimulacion,
+            tasaPuntualidadDocentePorcentaje: tasaPuntualidadDocente,
+            docentesConTardanza,
+            promedioMinutosTardanza,
+            totalMarcacionesDocentes,
+            pacientesSimulados: {
+              actoresMovilizados: actoresUnicos,
+              horasTotalesEfectivas: horasTotalesPS,
+              gastoTotalHonorariosSoles: `S/. ${gastoTotalHonorariosPS.toFixed(2)}`,
+              costoPromedioPorSesionPS: sesionesFiltradas.length > 0 ? `S/. ${(gastoTotalHonorariosPS / sesionesFiltradas.length).toFixed(2)}` : 'S/. 0.00',
+            },
+          },
+          topSalasMayorDemanda: topSalas,
+          desglosePorCampus: desgloseSedes,
+        };
+      }
 
       default:
         return { error: `Herramienta desconocida: ${name}` };
@@ -1405,6 +2025,36 @@ Usuario actual conectado: ${usuario.nombres} ${usuario.apellidos} (DNI: ${usuari
   * Formato nativo de WhatsApp (*negrita* con asteriscos, sin tablas HTML/Markdown dentro del bloque).
   * Líneas limpias y fáciles de leer en un celular.
   * La aplicación web detectará automáticamente el bloque y mostrará botones interactivos de 1-clic: "📋 Copiar para WhatsApp", "⬇️ Descargar .txt" y "📲 Abrir en WhatsApp".
+- CONVOCATORIA DE CASTING POR WHATSAPP EN 1-CLIC:
+  * Cuando uses 'convocar_casting_pacientes_simulados', presenta a los candidatos sugeridos destacando su género, edad, biotipo, horas acumuladas en la semana y estado frente al tope semanal.
+  * Para cada actor que tenga enlace de WhatsApp, incluye en el texto Markdown un enlace interactivo con formato EXACTO:
+    [📲 Convocar por WhatsApp](URL_WHATSAPP_RETORNADA_POR_HERRAMIENTA)
+    Nuestra aplicación web lo convertirá automáticamente en un botón verde interactivo de WhatsApp en 1-clic.
+  * Adicionalmente, incluye el texto del mensaje dentro de un bloque \`\`\`text ... \`\`\` para difusión o copia rápida.
+
+- ACCIONES EJECUTABLES CON CONFIRMACIÓN (ACTIONABLE AI):
+  * Cuando propongas regularizaciones (como 'proponer_cerrar_turno_asistencia' o 'proponer_cambio_estado_sala'), explica brevemente la justificación y emite el objeto \`accionPropuesta\` retornado por la herramienta dentro de un bloque de código EXACTO \`\`\`action ... \`\`\` en formato JSON válido:
+    \`\`\`action
+    {
+      "tipo": "...",
+      "titulo": "...",
+      "descripcion": "...",
+      "endpoint": "...",
+      "metodo": "PATCH",
+      "payload": { ... },
+      "detalle": [ ... ]
+    }
+    \`\`\`
+  * La aplicación web detectará el bloque \`\`\`action y desplegará una tarjeta interactiva con botón "⚡ Confirmar y Ejecutar Acción" para que el usuario confirme la mutación con 1 solo clic. NUNCA alteres las claves del objeto JSON retornado.
+
+- INFORMES EJECUTIVOS PARA DECANATURA Y DIRECCIÓN:
+  * Cuando uses 'generar_informe_ejecutivo', estructura un informe gerencial de alto nivel con:
+    1. Cabecera Institucional: Período analizado, sedes y fecha de emisión.
+    2. 4 Bloques Clave de KPIs: Horas Totales de Simulación, Tasa de Puntualidad Docente, Inversión en Pacientes Simulados y Ocupación de Ambientes.
+    3. Tabla Markdown consolidada por campus.
+    4. Top 5 de salas de mayor demanda.
+    5. Recomendaciones estratégicas para la Dirección Médica.
+
 - Precisión absoluta: Basa siempre tus respuestas en los datos retornados por las herramientas. Si no hay datos, indícalo claramente sin inventar.`,
       },
     ],

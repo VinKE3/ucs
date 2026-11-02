@@ -3,6 +3,29 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 105: Nuevas Capacidades de Copilot UCS: Convocatorias de Casting por WhatsApp 1-Click, Acciones Ejecutables con Confirmación (Actionable AI) e Informes Ejecutivos para Decanatura (`geminiService.ts`, `UcsCopilotDrawer.tsx`, `copilot.module.css`)**:
+      - **Objetivos**:
+        1. **Punto 2 (Convocatoria de Casting por WhatsApp 1-Click)**: Permitir que la IA consulte el banco de pacientes simulados (`casting_perfiles` y `casting_rangos_edad`) filtrando por criterios clínicos (género, edad, biotipo, patología/caso), calcule en vivo las horas acumuladas en la semana frente al tope semanal (`horasSemanalesMax`) y genere enlaces directos a WhatsApp (`https://api.whatsapp.com/send?phone=51...&text=...`) renderizados como píldoras verdes interactivas de 1 solo clic.
+        2. **Punto 3 (Actionable AI - Acciones Ejecutables con Confirmación)**: Dotar al Copilot de la capacidad de proponer regularizaciones operativas (cerrar turnos de asistencia olvidados o conmutar el estado de ambientes entre operativo y mantenimiento). La IA emite un bloque ```action { ... } ``` que el frontend captura y renderiza como tarjeta interactiva `ActionConfirmationCard` con botón *"⚡ Confirmar y Ejecutar Acción"*, ejecutando la mutación en `/api/asistencias` o `/api/ambientes` únicamente tras confirmación explícita del usuario.
+        3. **Punto 4 (Informes Ejecutivos para Decanatura y Dirección)**: Añadir la herramienta de agregación analítica de datos mensuales para calcular horas totales de simulación clínica ejecutadas, tasa de puntualidad docente (%), inversión económica en honorarios de Pacientes Simulados (S/.) y ranking de demanda de salas por campus.
+      - **Componentes y Servicios Implementados**:
+        1. **Motor Gemini Backend (`src/lib/geminiService.ts`)**:
+           - 4 nuevas herramientas declaradas en `GEMINI_TOOLS`: `convocar_casting_pacientes_simulados`, `proponer_cerrar_turno_asistencia`, `proponer_cambio_estado_sala` y `generar_informe_ejecutivo`.
+           - Implementados los ejecutores correspondientes en `executeGeminiTool` con joins a `castingPerfiles`, `castingRangosEdad`, `usuarios`, `asistencias`, `ambientes` y `sesionesProgramadas`.
+           - Reglas de prompt enriquecidas con formateo Markdown para botones WhatsApp, bloques ```action y estructura formal de informe gerencial.
+        2. **Interfaz de Usuario (`src/components/admin/copilot/UcsCopilotDrawer.tsx`)**:
+           - Componente `ActionConfirmationCard`: gestiona estados `idle`, `loading`, `success` y `error` con llamada directa al endpoint correspondiente y notificación Toast.
+           - Parser `parseInlineFormatting`: ampliado con detección de enlaces Markdown, convirtiendo URLs de WhatsApp (`wa.me` / `api.whatsapp.com`) en botones píldora verde interactivos con ícono 📲.
+           - Parser de bloques de código en `FormattedMessage`: intercepta `lang === 'action'`, parsea el JSON y renderiza la tarjeta de confirmación ejecutable.
+           - Nuevos chips en `SUGGESTIONS` para acceder rápidamente a convocatorias de casting, cierres de turno e informes ejecutivos.
+        3. **Estilos Corporativos (`src/components/admin/copilot/copilot.module.css`)**:
+           - `.whatsappPill`: diseño de píldora verde esmeralda con gradiente, glow sutil y animación al hover.
+           - `.actionCard`, `.actionCardBadge`, `.actionButton`, `.actionCardGrid`: diseño de tarjeta de alerta operativa con reborde ámbar y transición a verde esmeralda tras ejecución exitosa.
+      - **Verificación Técnica**:
+        - Suite de pruebas automatizadas (`src/scripts/test_copilot_new_tools.ts`): **13/13 aserciones aprobadas**.
+        - Suite de pruebas de regresión CRUD (`src/scripts/test_crud_complete.ts`): **20/20 pruebas aprobadas**.
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores** en todo el proyecto).
+
     - **Hito 104: Integración de Consulta de Aulas en Navbar Administrativo y FAB Compacto Expandible para Copilot (`AdminNavbar.tsx`, `copilot.module.css`, `UcsCopilotDrawer.tsx`)**:
       - **Objetivos**:
         1. Incorporar acceso directo a *"🔍 Consultar Aulas"* en la barra de navegación superior administrativa (`AdminNavbar.tsx`), preservando la navegación ágil para coordinadores hacia la vista de aulas y docentes espejo.

@@ -452,7 +452,7 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = (props) => 
                   step="0.50"
                   min="0"
                   placeholder="ej: 35.00 (tarifa de respaldo si el curso no fija una)"
-                  value={createForm.tarifaHora || ''}
+                  value={createForm.tarifaHora !== undefined && createForm.tarifaHora !== null ? createForm.tarifaHora : ''}
                   onChange={(e) => setCreateForm({ ...createForm, tarifaHora: e.target.value })}
                   className={styles.inputField}
                 />

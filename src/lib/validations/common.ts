@@ -111,4 +111,5 @@ export const rolSistemaSchema = z.enum([
   'super_admin',
   'admin',
   'administrativo',
+  'ninguno',
 ], { message: 'Rol de sistema inválido' });

@@ -31,7 +31,11 @@ export const crearUsuarioSchema = z.object({
     .optional()
     .or(z.literal('')),
   tipoPersonal: tipoPersonalSchema,
-  rolSistema: rolSistemaSchema.nullable().optional(),
+  rolSistema: rolSistemaSchema
+    .or(z.literal(''))
+    .transform((v) => (!v ? 'ninguno' : v))
+    .nullable()
+    .optional(),
   password: z
     .string()
     .trim()
@@ -47,6 +51,10 @@ export const crearUsuarioSchema = z.object({
     .optional(),
   tarifaHora: z
     .union([z.number(), z.string()])
+    .refine(
+      (v) => v === '' || v === null || v === undefined || (!isNaN(Number(v)) && Number(v) >= 0),
+      { message: 'La tarifa por hora debe ser un número mayor o igual a 0' }
+    )
     .transform((v) => (v === '' || v === null || v === undefined ? null : String(v)))
     .nullable()
     .optional(),
@@ -95,7 +103,11 @@ export const actualizarUsuarioSchema = z.object({
   correo: z.string().trim().toLowerCase().email().nullable().optional().or(z.literal('')),
   telefono: z.string().trim().max(25).nullable().optional().or(z.literal('')),
   tipoPersonal: tipoPersonalSchema.optional(),
-  rolSistema: rolSistemaSchema.nullable().optional(),
+  rolSistema: rolSistemaSchema
+    .or(z.literal(''))
+    .transform((v) => (!v ? 'ninguno' : v))
+    .nullable()
+    .optional(),
   password: z.string().trim().min(6).max(100).nullable().optional().or(z.literal('')),
   horasSemanalesMax: z
     .union([z.number(), z.string()])
@@ -104,6 +116,10 @@ export const actualizarUsuarioSchema = z.object({
     .optional(),
   tarifaHora: z
     .union([z.number(), z.string()])
+    .refine(
+      (v) => v === '' || v === null || v === undefined || (!isNaN(Number(v)) && Number(v) >= 0),
+      { message: 'La tarifa por hora debe ser un número mayor o igual a 0' }
+    )
     .transform((v) => (v === '' || v === null || v === undefined ? null : String(v)))
     .nullable()
     .optional(),

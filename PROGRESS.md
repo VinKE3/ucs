@@ -3,6 +3,24 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 101: Corrección de Validación Zod en Personal (`rolSistema: 'ninguno'`) y Soporte para Tarifa Base Cero (S/. 0.00)**:
+      - **Problema Detectado**: Al editar o registrar un Paciente Simulado y fijar su tarifa base en `0`, el formulario arrojaba el error *"Rol de sistema inválido"* (`campo: rolSistema`) en `/api/usuarios`.
+      - **Causa Raíz**: 
+        1. En `src/lib/validations/common.ts`, el esquema `rolSistemaSchema` solo incluía `['super_admin', 'admin', 'administrativo']`, omitiendo `'ninguno'` (que es el valor predeterminado en `rol_sistema` de PostgreSQL y en `RolSistema` de TypeScript para personal asistencial).
+        2. Al enviar la mutación `PATCH /api/usuarios`, `actualizarUsuarioSchema` rechazaba `'ninguno'`.
+        3. En la interfaz (`ModalCrearPersonal.tsx` y `PersonalTab.tsx`), la condición `tarifaHora || ''` trataba el valor falsy `0` de forma ambigua frente a cadenas vacías.
+      - **Solución Implementada**:
+        1. **Ampliación de `rolSistemaSchema` (`src/lib/validations/common.ts`)**: Añadido `'ninguno'` al enum de Zod.
+        2. **Normalización en `crearUsuarioSchema` y `actualizarUsuarioSchema` (`src/lib/validations/usuarios.ts`)**:
+           - Manejo resiliente de strings vacíos convirtiéndolos a `'ninguno'`.
+           - Regla `refine` en `tarifaHora` para admitir explícitamente tarifas `0` o mayores (`Number(v) >= 0`), transformando valores vacíos a `null` para la base de datos y rechazando valores negativos.
+        3. **Ajuste en Frontend (`ModalCrearPersonal.tsx`, `PersonalTab.tsx`)**:
+           - Reemplazado `createForm.tarifaHora || ''` por `createForm.tarifaHora !== undefined && createForm.tarifaHora !== null ? createForm.tarifaHora : ''` para admitir `'0'` y `0` sin resetear el campo.
+           - Ajustado el badge en la ficha de actor para mostrar correctamente `💰 Base: S/. 0.00/h` cuando un paciente simulado participa ad honorem o con tarifa cero.
+      - **Verificación Técnica**:
+        - Suite de pruebas de validación automatizada (`src/scripts/test_usuario_validation.ts`): **6/6 pruebas aprobadas**.
+        - Compilación TypeScript estricta con `npx tsc --noEmit` (**0 errores**).
+
     - **Hito 100: Calidad de Software y Resiliencia (Fase 4 - Circuit Breaker y Reintentos con Backoff Exponencial para SimClic API)**:
       - **Objetivo**: Proteger el sistema de integración con SimClic contra micro-cortes, caídas externas de servidores universitarios, sobrecargas o bloqueos prolongados de hilos en Node.js, incorporando un motor robusto de **Circuit Breaker** con reintentos inteligentes, *backoff* exponencial con *jitter* aleatorio y degradación elegante.
       - **1. Motor de Circuit Breaker (`src/lib/circuitBreaker.ts`)**:

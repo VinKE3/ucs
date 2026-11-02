@@ -1154,7 +1154,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                     )}
                     {u.tipoPersonal === 'paciente_simulado' && (
                       <>
-                        {u.tarifaHora && (
+                        {u.tarifaHora !== null && u.tarifaHora !== undefined && u.tarifaHora !== '' && (
                           <div
                             style={{
                               fontSize: '0.72rem',

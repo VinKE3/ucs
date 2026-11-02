@@ -402,7 +402,7 @@ export interface CastingPerfilItem {
 export interface EvaluacionSimclicBloque {
   sesion: SesionProgramadaSimclicItem;
   idx: number;
-  estado: 'cubierto' | 'parcial' | 'desatendido';
+  estado: 'cubierto' | 'parcial' | 'desatendido' | 'en_curso' | 'programado';
   etiqueta: string;
   color: string;
   bg: string;
@@ -416,7 +416,7 @@ export interface EvaluacionSimclicBloque {
 
 export interface EvaluacionSimclicResult {
   tieneProgramacion: boolean;
-  categoria: 'todos' | 'tardanza' | 'cobertura_parcial' | 'discrepancia_sala' | 'alineado' | 'sin_prog';
+  categoria: 'todos' | 'en_curso' | 'tardanza' | 'cobertura_parcial' | 'discrepancia_sala' | 'alineado' | 'sin_prog';
   etiqueta: string;
   subetiqueta?: string;
   color: string;
@@ -429,6 +429,9 @@ export interface EvaluacionSimclicResult {
   bloquesCubiertos: number;
   bloquesParciales: number;
   bloquesDesatendidos: number;
+  bloquesEnCurso?: number;
+  bloquesProgramados?: number;
+  bloqueActualIdx?: number;
   porcentajeTotal: number;
   diffMinutos: number;
   esTardanza: boolean;

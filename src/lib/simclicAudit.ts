@@ -106,6 +106,11 @@ export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): Evaluaci
     });
   }
 
+  // Obtener fecha y hora actual en zona horaria Lima para evaluar en tiempo real
+  const todayLimaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+  const isHoy = asist.fecha === todayLimaStr;
+  const nowLimaMins = getMinutosLima(new Date().toISOString());
+
   // Desfase en el primer bloque (Tardanza con margen de 10 min de tolerancia)
   let diffMinutos = 0;
   let esTardanza = false;
@@ -129,31 +134,19 @@ export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): Evaluaci
 
     const duracionBloque = Math.max(0, bFinMins - bIniMins);
     let minutosPresencia = 0;
-
-    if (salidaMins !== null) {
-      // Turno cerrado: calcular intervalo de intersección
-      const solapamientoInicio = Math.max(ingresoMins, bIniMins);
-      const solapamientoFin = Math.min(salidaMins, bFinMins);
-      minutosPresencia = Math.max(0, solapamientoFin - solapamientoInicio);
-    } else {
-      // Turno en curso: si el colaborador ingresó antes de que termine el bloque
-      if (ingresoMins < bFinMins) {
-        const solapamientoInicio = Math.max(ingresoMins, bIniMins);
-        minutosPresencia = Math.max(0, bFinMins - solapamientoInicio);
-      } else {
-        minutosPresencia = 0;
-      }
-    }
-
-    const porcentajeCobertura = duracionBloque > 0 ? Math.min(100, Math.round((minutosPresencia / duracionBloque) * 100)) : 0;
-
-    let estado: 'cubierto' | 'parcial' | 'desatendido' = 'desatendido';
+    let estado: 'cubierto' | 'parcial' | 'desatendido' | 'en_curso' | 'programado' = 'desatendido';
     let etiqueta = '🔴 Desatendido';
     let color = '#ef4444';
     let bg = 'rgba(239, 68, 68, 0.15)';
     let motivoDetalle = '';
 
     if (salidaMins !== null) {
+      // Turno cerrado: calcular intervalo de intersección con horario de salida
+      const solapamientoInicio = Math.max(ingresoMins, bIniMins);
+      const solapamientoFin = Math.min(salidaMins, bFinMins);
+      minutosPresencia = Math.max(0, solapamientoFin - solapamientoInicio);
+      const porcentajeCobertura = duracionBloque > 0 ? Math.min(100, Math.round((minutosPresencia / duracionBloque) * 100)) : 0;
+
       // Verificación de cobertura total:
       // Presencia >= 80% O ingresó a tiempo (<= bIni + 15m) y salió al final (>= bFin - 15m)
       if (porcentajeCobertura >= 80 || (ingresoMins <= bIniMins + 15 && salidaMins >= bFinMins - 15)) {
@@ -190,27 +183,81 @@ export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): Evaluaci
         }
       }
     } else {
-      // Asistencia en curso
-      if (ingresoMins <= bIniMins + 20) {
-        estado = 'cubierto';
-        etiqueta = '🟢 En Curso';
-        color = '#10b981';
-        bg = 'rgba(16, 185, 129, 0.15)';
-        motivoDetalle = 'Turno activo en horario de clase';
-      } else if (ingresoMins < bFinMins) {
-        estado = 'parcial';
-        etiqueta = '⚠️ Parcial';
-        color = '#f59e0b';
-        bg = 'rgba(245, 158, 11, 0.15)';
-        motivoDetalle = `Ingresó con +${ingresoMins - bIniMins}m de retraso al bloque`;
+      // Turno activo / salida pendiente (salidaMins === null)
+      if (isHoy) {
+        if (nowLimaMins < bIniMins) {
+          // Bloque futuro: aún no inicia
+          minutosPresencia = 0;
+          estado = 'programado';
+          etiqueta = '⏳ Programado';
+          color = '#38bdf8';
+          bg = 'rgba(56, 189, 248, 0.12)';
+          motivoDetalle = `Bloque agendado (Inicia a las ${ses.horaInicio})`;
+        } else if (nowLimaMins >= bIniMins && nowLimaMins < bFinMins) {
+          // Bloque activo en desarrollo en este momento
+          const solapamientoInicio = Math.max(ingresoMins, bIniMins);
+          minutosPresencia = Math.max(0, nowLimaMins - solapamientoInicio);
+          const porcentajeTranscurrido = duracionBloque > 0 ? Math.min(100, Math.round((minutosPresencia / duracionBloque) * 100)) : 0;
+          estado = 'en_curso';
+          etiqueta = '🔄 En Curso';
+          color = '#10b981';
+          bg = 'rgba(16, 185, 129, 0.15)';
+          motivoDetalle = `En desarrollo: ${minutosPresencia}m transcurridos de ${duracionBloque}m lectivos (${porcentajeTranscurrido}%)`;
+        } else {
+          // Bloque ya concluido mientras el colaborador continúa en sede
+          const solapamientoInicio = Math.max(ingresoMins, bIniMins);
+          minutosPresencia = Math.max(0, bFinMins - solapamientoInicio);
+          const porcentajeCobertura = duracionBloque > 0 ? Math.min(100, Math.round((minutosPresencia / duracionBloque) * 100)) : 0;
+          if (porcentajeCobertura >= 80 || (ingresoMins <= bIniMins + 15)) {
+            estado = 'cubierto';
+            etiqueta = '🟢 Cubierto';
+            color = '#10b981';
+            bg = 'rgba(16, 185, 129, 0.15)';
+            motivoDetalle = `Bloque completado (${minutosPresencia}m de ${duracionBloque}m lectivos)`;
+          } else if (porcentajeCobertura >= 25) {
+            estado = 'parcial';
+            etiqueta = '⚠️ Parcial';
+            color = '#f59e0b';
+            bg = 'rgba(245, 158, 11, 0.15)';
+            motivoDetalle = `Ingreso tardío al bloque (${minutosPresencia}m de ${duracionBloque}m)`;
+          } else {
+            estado = 'desatendido';
+            etiqueta = '🔴 Desatendido';
+            color = '#ef4444';
+            bg = 'rgba(239, 68, 68, 0.15)';
+            motivoDetalle = 'El colaborador ingresó concluido este bloque';
+          }
+        }
       } else {
-        estado = 'desatendido';
-        etiqueta = '🔴 Desatendido';
-        color = '#ef4444';
-        bg = 'rgba(239, 68, 68, 0.15)';
-        motivoDetalle = 'El bloque culminó antes del ingreso del colaborador';
+        // Asistencia de fecha pasada sin marcar salida
+        if (ingresoMins < bFinMins) {
+          const solapamientoInicio = Math.max(ingresoMins, bIniMins);
+          minutosPresencia = Math.max(0, bFinMins - solapamientoInicio);
+          const porcentajeCobertura = duracionBloque > 0 ? Math.min(100, Math.round((minutosPresencia / duracionBloque) * 100)) : 0;
+          if (porcentajeCobertura >= 80) {
+            estado = 'cubierto';
+            etiqueta = '🟢 Cubierto (Sin salida)';
+            color = '#10b981';
+            bg = 'rgba(16, 185, 129, 0.15)';
+            motivoDetalle = 'Sesión pasada sin marcación de salida';
+          } else {
+            estado = 'parcial';
+            etiqueta = '⚠️ Parcial';
+            color = '#f59e0b';
+            bg = 'rgba(245, 158, 11, 0.15)';
+            motivoDetalle = 'Turno pasado no cerrado';
+          }
+        } else {
+          estado = 'desatendido';
+          etiqueta = '🔴 Desatendido';
+          color = '#ef4444';
+          bg = 'rgba(239, 68, 68, 0.15)';
+          motivoDetalle = 'Culminó antes del ingreso';
+        }
       }
     }
+
+    const porcentajeCobertura = duracionBloque > 0 ? Math.min(100, Math.round((minutosPresencia / duracionBloque) * 100)) : 0;
 
     return {
       sesion: ses,
@@ -231,7 +278,17 @@ export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): Evaluaci
   const bloquesCubiertos = bloquesEvaluados.filter((b) => b.estado === 'cubierto').length;
   const bloquesParciales = bloquesEvaluados.filter((b) => b.estado === 'parcial').length;
   const bloquesDesatendidos = bloquesEvaluados.filter((b) => b.estado === 'desatendido').length;
+  const bloquesEnCurso = bloquesEvaluados.filter((b) => b.estado === 'en_curso').length;
+  const bloquesProgramados = bloquesEvaluados.filter((b) => b.estado === 'programado').length;
   const totalSesiones = sesionesOrdenadas.length;
+
+  let bloqueActualIdx = bloquesEvaluados.findIndex((b) => b.estado === 'en_curso');
+  if (bloqueActualIdx === -1) {
+    bloqueActualIdx = bloquesEvaluados.findIndex((b) => b.estado === 'programado');
+    if (bloqueActualIdx === -1) {
+      bloqueActualIdx = Math.max(0, totalSesiones - 1);
+    }
+  }
 
   const totalMinutosProg = bloquesEvaluados.reduce((acc, b) => acc + b.duracionBloque, 0);
   const totalMinutosPresencia = bloquesEvaluados.reduce((acc, b) => acc + b.minutosPresencia, 0);
@@ -253,6 +310,96 @@ export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): Evaluaci
     Boolean(asist.ambienteNombre) &&
     salasProg.length > 0 &&
     !salasProg.some((s) => s.toLowerCase().includes(asist.ambienteNombre?.toLowerCase() || ''));
+
+  // =========================================================================
+  // DIAGNÓSTICO AUDITOR Y ASIGNACIÓN DE CATEGORÍA
+  // =========================================================================
+
+  const esTurnoActivoHoy = salidaMins === null && isHoy;
+
+  // Regla 0: Turno activo hoy en desarrollo (NO afirmar 100% ni jornada completa antes de tiempo)
+  if (esTurnoActivoHoy) {
+    const bloqueActual = sesionesOrdenadas[bloqueActualIdx];
+    let etiqueta = `🔄 En Curso (Bloque ${bloqueActualIdx + 1} de ${totalSesiones})`;
+    let subetiqueta = '';
+
+    if (bloquesEnCurso > 0) {
+      subetiqueta = `${bloquesCubiertos > 0 ? `${bloquesCubiertos} cubierto(s) • ` : ''}1 en desarrollo • ${bloquesProgramados} próximo(s)`;
+    } else if (bloquesProgramados > 0) {
+      subetiqueta = `En receso • Próximo bloque: ${bloqueActual?.horaInicio || 'Pendiente'}`;
+    } else {
+      subetiqueta = `Bloques concluidos • Pendiente marcar salida`;
+    }
+
+    if (esTardanza) {
+      subetiqueta += ` • Tardanza +${diffMinutos}m`;
+    }
+
+    return {
+      tieneProgramacion: true,
+      categoria: 'en_curso',
+      etiqueta,
+      subetiqueta,
+      color: '#38bdf8',
+      bg: 'rgba(56, 189, 248, 0.15)',
+      primerBloque,
+      ultimoBloque,
+      bloqueInicio: primerBloque.horaInicio,
+      bloqueFin: ultimoBloque.horaFin,
+      totalSesiones,
+      bloquesCubiertos,
+      bloquesParciales,
+      bloquesDesatendidos,
+      bloquesEnCurso,
+      bloquesProgramados,
+      bloqueActualIdx,
+      porcentajeTotal,
+      diffMinutos,
+      esTardanza,
+      retiroAnticipadoMinutos: 0,
+      esRetiroAnticipado: false,
+      horaSalidaRealStr,
+      horaIngresoRealStr,
+      discrepanciaSala,
+      salasProg,
+      bloquesEvaluados,
+      resumenTexto: `Jornada en desarrollo. Participando en Bloque ${bloqueActualIdx + 1} de ${totalSesiones} (${bloqueActual?.cursoNombreSimclic || 'Simulación'}). Concluye oficialmente a las ${ultimoBloque.horaFin}.`,
+    };
+  }
+
+  // Si es un turno de fecha pasada que nunca marcó salida
+  if (salidaMins === null && !isHoy) {
+    return {
+      tieneProgramacion: true,
+      categoria: 'cobertura_parcial',
+      etiqueta: '⚠️ Salida No Registrada',
+      subetiqueta: `Turno del ${asist.fecha} sin marcación de salida en Kiosco`,
+      color: '#f59e0b',
+      bg: 'rgba(245, 158, 11, 0.15)',
+      primerBloque,
+      ultimoBloque,
+      bloqueInicio: primerBloque.horaInicio,
+      bloqueFin: ultimoBloque.horaFin,
+      totalSesiones,
+      bloquesCubiertos,
+      bloquesParciales,
+      bloquesDesatendidos,
+      bloquesEnCurso: 0,
+      bloquesProgramados: 0,
+      bloqueActualIdx: Math.max(0, totalSesiones - 1),
+      porcentajeTotal,
+      diffMinutos,
+      esTardanza,
+      retiroAnticipadoMinutos: 0,
+      esRetiroAnticipado: false,
+      horaSalidaRealStr: 'Sin salida',
+      horaIngresoRealStr,
+      discrepanciaSala,
+      salasProg,
+      bloquesEvaluados,
+      resumenTexto: `Asistencia extemporánea del ${asist.fecha} sin marcación de salida registrada en terminal.`,
+    };
+  }
 
   // =========================================================================
   // DIAGNÓSTICO AUDITOR Y ASIGNACIÓN DE CATEGORÍA

@@ -3,6 +3,31 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 107: Auditoría Bloque a Bloque SimClic en Tiempo Real y Trazabilidad Multi-Curso / Multi-Bloque (`simclicAudit.ts`, `ModalAuditoriaProgramacion.tsx`, `AsistenciasTab.tsx`, `types/admin.ts`)**:
+      - **Problema Diagnosticado**:
+        Al auditar colaboradores en turno activo (ej: Piero Moroni a las 15:30 con jornada de 14:30 a 22:00 en 3 bloques de Simulación Clínica Integrada y Externado en Cirugía; o Josefa Arellano con 2 bloques de Externado en Pediatría), el motor auditaba falsamente todos los bloques como `100% Cubierto` y `3/3 bloques cubiertos (100% Jornada completa)` antes de que los bloques futuros hubieran empezado, asumiendo presencia hasta el fin del bloque en vez de computar los minutos transcurridos respecto a la hora real de Lima.
+      - **Solución Técnica y Operativa**:
+        1. **Motor de Tiempo Real (`src/lib/simclicAudit.ts`)**:
+           - Discriminación estricta de estados temporales para asistencias activas (`salidaMins === null && isHoy`):
+             - `programado`: Bloques futuros (`nowLimaMins < bIniMins`), 0% presencia, etiqueta `⏳ Programado`, color celeste, indicando inicio y ambiente oficial.
+             - `en_curso`: Bloque activo en desarrollo (`nowLimaMins >= bIniMins && nowLimaMins < bFinMins`), presencia calculada exactamente contra el reloj de Lima (`nowLimaMins - Math.max(ingresoMins, bIniMins)`), etiqueta `🔄 En Curso`.
+             - `cubierto` / `parcial`: Bloques concluidos durante la jornada activa mientras el colaborador continúa en sede.
+           - Nueva categoría global `en_curso`: badge dinámico `🔄 En Curso (Bloque X de Y)`, subetiqueta `1 en desarrollo • X próximo(s)`, evitando el falso `100% Conforme` prematuro.
+           - Asistencias pasadas sin cierre: categorización como `⚠️ Salida No Registrada`.
+        2. **Modal Auditoría SimClic 360° (`src/components/admin/modals/ModalAuditoriaProgramacion.tsx`)**:
+           - KPI 3 Cobertura de Bloques: badge celeste `🔄 En Curso (Bloque X de Y)` con conteo de sesiones en desarrollo y próximas.
+           - Encabezado: porcentaje de cumplimiento adaptado a `Jornada en desarrollo: X% transcurrido`.
+           - Tarjetas de bloque: bloques futuros con borde neutral y 0% de progreso; bloque activo con borde esmeralda y barra de progreso viva según minutos lectivos transcurridos.
+        3. **Panel Administrativo y Acordeón (`src/components/admin/tabs/AsistenciasTab.tsx`)**:
+           - Nueva píldora de filtro rápido en cabecera: `🔄 En Curso (X)` para aislar instantáneamente las sesiones en desarrollo.
+           - Badge de rotación en la columna *Curso / Asignatura*: `🔄 X cursos en el día` cuando el colaborador rota por distintas asignaturas en la misma jornada (ej: Piero: Simulación Clínica Integrada ➡️ Externado en Cirugía).
+           - Tarjetas del acordeón expandible alineadas con los estilos visuales de `en_curso` y `programado`.
+        4. **Tipos de Datos (`src/types/admin.ts`)**:
+           - `EvaluacionSimclicBloque.estado` ampliado a `'cubierto' | 'parcial' | 'desatendido' | 'en_curso' | 'programado'`.
+           - `EvaluacionSimclicResult.categoria` enriquecido con `'en_curso'`, y campos opcionales `bloquesEnCurso`, `bloquesProgramados`, `bloqueActualIdx`.
+      - **Verificación Técnica**:
+        - Suite de prueba unitaria y de casos reales (`src/scripts/test_piero_josefa_simclic.ts`): Casos de Piero (en curso vs turno completado) y Josefa (rotación y discrepancia de sala L 214 vs L 213) **100% aprobados**.
+        - Verificación de tipos TypeScript estricta (`npx tsc --noEmit`): **0 errores** en todo el repositorio.
     - **Hito 106: Límite de 1 Turno Diario para Técnicos de Simulación y Trazabilidad Automática de Traslados Inter-Sedes (`KioscoTerminal.tsx`, `route.ts`, `AsistenciasTab.tsx`, `kiosco.module.css`)**:
       - **Objetivos**:
         1. **Límite Diario Estricto para Técnicos (`tipoPersonal === 'tecnico'`)**: Dado que el personal técnico cuenta con jornadas completas continuas y horario fijo/rotativo (a diferencia de docentes y pacientes simulados que atienden múltiples talleres/sesiones por día), blindar el Kiosco para permitir estrictamente 1 ingreso y 1 salida por día. Si un técnico ya finalizó su jornada hoy, impedir que se registre un segundo ingreso accidental, mostrando en pantalla el mensaje corporativo: *"Ya completaste tu jornada el día de hoy. Cualquier inconveniente consulta con un administrador."*

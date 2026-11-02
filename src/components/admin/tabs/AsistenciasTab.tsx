@@ -111,7 +111,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
   const [itemsPorPaginaResumen, setItemsPorPaginaResumen] = useState<number>(15);
 
   // Estados para Auditoría SimClic y Acordeón
-  const [filtroSimclic, setFiltroSimclic] = useState<'todos' | 'cobertura_parcial' | 'tardanza' | 'discrepancia_sala' | 'alineado' | 'sin_prog'>('todos');
+  const [filtroSimclic, setFiltroSimclic] = useState<'todos' | 'en_curso' | 'cobertura_parcial' | 'tardanza' | 'discrepancia_sala' | 'alineado' | 'sin_prog'>('todos');
   const [filasExpandidas, setFilasExpandidas] = useState<Set<number>>(new Set());
   const [asistenciaParaAuditoriaProg, setAsistenciaParaAuditoriaProg] = useState<AsistenciaAdminItem | null>(null);
 
@@ -452,18 +452,20 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     let discrepanciaSala = 0;
     let alineado = 0;
     let sinProg = 0;
+    let enCurso = 0;
 
     for (const a of asistenciasList) {
       if (a.tipoPersonal !== 'docente' && a.tipoPersonal !== 'paciente_simulado') continue;
       const evalSim = evaluarCumplimientoSimclic(a);
-      if (evalSim.categoria === 'cobertura_parcial') coberturaParcial++;
+      if (evalSim.categoria === 'en_curso') enCurso++;
+      else if (evalSim.categoria === 'cobertura_parcial') coberturaParcial++;
       else if (evalSim.categoria === 'tardanza') tardanza++;
       else if (evalSim.categoria === 'discrepancia_sala') discrepanciaSala++;
       else if (evalSim.categoria === 'alineado') alineado++;
       else if (evalSim.categoria === 'sin_prog') sinProg++;
     }
 
-    return { coberturaParcial, tardanza, discrepanciaSala, alineado, sinProg };
+    return { coberturaParcial, tardanza, discrepanciaSala, alineado, sinProg, enCurso };
   }, [asistenciasList]);
 
   const asistenciasConFiltroSimclic = useMemo(() => {
@@ -1357,6 +1359,14 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
             </button>
             <button
               type="button"
+              onClick={() => setFiltroSimclic('en_curso')}
+              className={`${styles.simclicPillBtn} ${filtroSimclic === 'en_curso' ? styles.simclicPillBtnActive : ''}`}
+              style={{ color: '#38bdf8', borderColor: filtroSimclic === 'en_curso' ? '#38bdf8' : undefined }}
+            >
+              🔄 En Curso ({metricasSimclic.enCurso})
+            </button>
+            <button
+              type="button"
               onClick={() => setFiltroSimclic('cobertura_parcial')}
               className={`${styles.simclicPillBtn} ${filtroSimclic === 'cobertura_parcial' ? styles.simclicPillBtnActive : ''}`}
               style={{ color: '#f59e0b', borderColor: filtroSimclic === 'cobertura_parcial' ? '#f59e0b' : undefined }}
@@ -1563,6 +1573,35 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                                 Código: {asist.cursoCodigo}
                               </span>
                             )}
+                            {(() => {
+                              if (!asist.sesionesProgramadasDia) return null;
+                              const cursosDistintos = Array.from(new Set(
+                                asist.sesionesProgramadasDia.map((s) => s.cursoNombreSimclic).filter(Boolean)
+                              ));
+                              if (cursosDistintos.length > 1) {
+                                return (
+                                  <span
+                                    style={{
+                                      fontSize: '0.67rem',
+                                      fontWeight: 700,
+                                      color: '#38bdf8',
+                                      background: 'rgba(56, 189, 248, 0.12)',
+                                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.2rem',
+                                      width: 'fit-content',
+                                    }}
+                                    title={`Rotación de asignaturas en el día: ${cursosDistintos.join(' ➡️ ')}`}
+                                  >
+                                    🔄 {cursosDistintos.length} cursos en el día
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         ) : (
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
@@ -1925,13 +1964,13 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                                     key={sesion.id || bloque.idx}
                                     style={{
                                       background: 'var(--bg-card)',
-                                      border: `1.5px solid ${bloque.estado === 'desatendido' ? 'rgba(239, 68, 68, 0.4)' : bloque.estado === 'parcial' ? 'rgba(245, 158, 11, 0.4)' : 'var(--border-color)'}`,
+                                      border: `1.5px solid ${bloque.estado === 'desatendido' ? 'rgba(239, 68, 68, 0.4)' : bloque.estado === 'parcial' ? 'rgba(245, 158, 11, 0.4)' : bloque.estado === 'en_curso' ? 'rgba(16, 185, 129, 0.45)' : bloque.estado === 'programado' ? 'rgba(56, 189, 248, 0.3)' : 'var(--border-color)'}`,
                                       borderRadius: '10px',
                                       padding: '0.75rem 0.95rem',
                                       display: 'flex',
                                       flexDirection: 'column',
                                       gap: '0.35rem',
-                                      boxShadow: bloque.estado !== 'cubierto' ? '0 2px 6px rgba(0, 0, 0, 0.15)' : 'none',
+                                      boxShadow: bloque.estado === 'en_curso' ? '0 0 8px rgba(16, 185, 129, 0.15)' : bloque.estado !== 'cubierto' && bloque.estado !== 'programado' ? '0 2px 6px rgba(0, 0, 0, 0.15)' : 'none',
                                     }}
                                   >
                                     {/* Cabecera del Bloque */}
@@ -1992,7 +2031,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                                     </div>
 
                                     {/* Diagnóstico de Presencia */}
-                                    <div style={{ fontSize: '0.72rem', color: bloque.estado === 'desatendido' ? '#ef4444' : bloque.estado === 'parcial' ? '#f59e0b' : 'var(--text-muted)', fontWeight: 600 }}>
+                                    <div style={{ fontSize: '0.72rem', color: bloque.color, fontWeight: 600 }}>
                                       ⏱️ {bloque.motivoDetalle}
                                     </div>
 

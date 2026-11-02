@@ -197,10 +197,10 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
               </div>
             </div>
 
-            {/* KPI 3: Cobertura de Bloques / Jornada (NUEVO) */}
+            {/* KPI 3: Cobertura de Bloques / Jornada */}
             <div style={{
-              background: evalSim.categoria === 'cobertura_parcial' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.08)',
-              border: `1px solid ${evalSim.categoria === 'cobertura_parcial' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.25)'}`,
+              background: evalSim.categoria === 'en_curso' ? 'rgba(56, 189, 248, 0.08)' : evalSim.categoria === 'cobertura_parcial' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+              border: `1px solid ${evalSim.categoria === 'en_curso' ? 'rgba(56, 189, 248, 0.35)' : evalSim.categoria === 'cobertura_parcial' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.25)'}`,
               borderRadius: '10px',
               padding: '0.85rem',
             }}>
@@ -208,12 +208,16 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
               <div style={{ fontSize: '1.15rem', fontWeight: 800, marginTop: '0.2rem', color: evalSim.color }}>
                 {evalSim.totalSesiones === 0
                   ? 'Sin sesiones'
+                  : evalSim.categoria === 'en_curso'
+                  ? `🔄 En Curso (${(evalSim.bloqueActualIdx ?? 0) + 1}/${evalSim.totalSesiones})`
                   : evalSim.bloquesCubiertos === evalSim.totalSesiones
                   ? `✅ 100% (${evalSim.totalSesiones}/${evalSim.totalSesiones})`
                   : `⚠️ ${evalSim.bloquesCubiertos}/${evalSim.totalSesiones} (${evalSim.porcentajeTotal}%)`}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                {evalSim.bloquesDesatendidos > 0
+                {evalSim.categoria === 'en_curso'
+                  ? `${(evalSim.bloquesEnCurso || 0) > 0 ? '1 en desarrollo' : 'En pausa'} • ${evalSim.bloquesProgramados || 0} próximo(s)`
+                  : evalSim.bloquesDesatendidos > 0
                   ? `${evalSim.bloquesDesatendidos} desatendido(s) • ${evalSim.bloquesCubiertos} cubierto(s)`
                   : evalSim.esRetiroAnticipado
                   ? `Retiro anticipado (${Math.floor(evalSim.retiroAnticipadoMinutos / 60)}h ${evalSim.retiroAnticipadoMinutos % 60}m)`
@@ -296,7 +300,11 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
               </h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Cumplimiento global: <strong style={{ color: evalSim.color }}>{evalSim.porcentajeTotal}%</strong>
+                  {evalSim.categoria === 'en_curso' ? (
+                    <>Jornada en desarrollo: <strong style={{ color: evalSim.color }}>{evalSim.porcentajeTotal}% transcurrido</strong></>
+                  ) : (
+                    <>Cumplimiento global: <strong style={{ color: evalSim.color }}>{evalSim.porcentajeTotal}%</strong></>
+                  )}
                 </span>
                 {asistencia.tipoPersonal === 'paciente_simulado' && (
                   <span style={{ fontSize: '0.75rem', color: '#00e699', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
@@ -333,13 +341,13 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
                       key={sesion.id || bloque.idx}
                       style={{
                         background: 'var(--bg-card)',
-                        border: `1.5px solid ${bloque.estado === 'desatendido' ? 'rgba(239, 68, 68, 0.45)' : bloque.estado === 'parcial' ? 'rgba(245, 158, 11, 0.45)' : 'var(--border-color)'}`,
+                        border: `1.5px solid ${bloque.estado === 'desatendido' ? 'rgba(239, 68, 68, 0.45)' : bloque.estado === 'parcial' ? 'rgba(245, 158, 11, 0.45)' : bloque.estado === 'en_curso' ? 'rgba(16, 185, 129, 0.45)' : bloque.estado === 'programado' ? 'rgba(56, 189, 248, 0.3)' : 'var(--border-color)'}`,
                         borderRadius: '12px',
                         padding: '1rem 1.25rem',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '0.55rem',
-                        boxShadow: bloque.estado !== 'cubierto' ? '0 2px 8px rgba(0, 0, 0, 0.2)' : 'none',
+                        boxShadow: bloque.estado === 'en_curso' ? '0 0 12px rgba(16, 185, 129, 0.15)' : bloque.estado !== 'cubierto' && bloque.estado !== 'programado' ? '0 2px 8px rgba(0, 0, 0, 0.2)' : 'none',
                       }}
                     >
                       {/* Fila 1: Horario, Nombre del Curso y Badges de Estado */}
@@ -433,8 +441,8 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
                       </div>
 
                       {/* Detalle del Diagnóstico */}
-                      <div style={{ fontSize: '0.78rem', color: bloque.estado === 'desatendido' ? '#ef4444' : bloque.estado === 'parcial' ? '#f59e0b' : '#10b981', fontWeight: 600 }}>
-                        {bloque.estado === 'cubierto' ? '✅ ' : bloque.estado === 'parcial' ? '⚠️ ' : '🔴 '}
+                      <div style={{ fontSize: '0.78rem', color: bloque.color, fontWeight: 600 }}>
+                        {bloque.estado === 'cubierto' ? '✅ ' : bloque.estado === 'parcial' ? '⚠️ ' : bloque.estado === 'en_curso' ? '🔄 ' : bloque.estado === 'programado' ? '⏳ ' : '🔴 '}
                         {bloque.motivoDetalle}
                       </div>
 

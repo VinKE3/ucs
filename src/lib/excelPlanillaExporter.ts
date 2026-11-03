@@ -1,4 +1,5 @@
 import type { AsistenciaAdminItem, UsuarioItem } from '@/types/admin';
+import { calcularHorasEfectivasSesion } from '@/lib/planillaPsCalculos';
 
 export interface ActorPlanillaExportItem {
   usuarioId: number;
@@ -11,6 +12,8 @@ export interface ActorPlanillaExportItem {
   totalSesiones: number;
   sesionesEnCurso: number;
   minutosTotales: number;
+  minutosPermanenciaFisica?: number;
+  minutosDescontadosVentanas?: number;
   horasDecimal: number;
   horasFormato: string;
   cursosMap: Map<string, {
@@ -640,18 +643,22 @@ export async function exportarExcelPlanillaConGraficos({
   actores.forEach((act) => {
     if (act.asistenciasActor && act.asistenciasActor.length > 0) {
       act.asistenciasActor.forEach((asist) => {
-        const minutos = asist.minutosTotales || 0;
-        const horasSesion = minutos / 60;
+        const calc = calcularHorasEfectivasSesion(
+          asist,
+          [],
+          act.tarifaHoraBase,
+          'simclic_efectivo'
+        );
+        const minutos = calc.minutosEfectivos;
+        const horasSesion = calc.horasEfectivasDecimal;
         const h = Math.floor(minutos / 60);
         const m = minutos % 60;
+        const subtotal = calc.totalAPagar;
+        const tarifa = calc.bloques[0]?.tarifa || act.tarifaHoraBase || 25;
 
-        let tarifa = 0;
-        if (asist.cursoTarifaHoraPs !== undefined && asist.cursoTarifaHoraPs !== null && asist.cursoTarifaHoraPs !== '') {
-          tarifa = Number(asist.cursoTarifaHoraPs);
-        } else if (act.tarifaHoraBase) {
-          tarifa = act.tarifaHoraBase;
-        }
-        const subtotal = horasSesion * tarifa;
+        const duracionStr = calc.tieneVentanasSimclic
+          ? `${h}h ${m}m (✂️ -${calc.horasDescontadasFormato} receso)`
+          : `${h}h ${m}m`;
 
         const dIng = new Date(asist.horaIngreso);
         const hIng = dIng.toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
@@ -669,12 +676,12 @@ export async function exportarExcelPlanillaConGraficos({
           curso: asist.cursoNombre || 'Simulación General',
           ingreso: hIng,
           salida: hSal,
-          duracion: `${h}h ${m}m`,
+          duracion: duracionStr,
           horasDec: Number(horasSesion.toFixed(2)),
           tarifa: tarifa > 0 ? tarifa : 'N/A',
           subtotal: Number(subtotal.toFixed(2)),
           estado: asist.estado === 'finalizado' ? 'Finalizado' : 'En Curso',
-          obs: asist.motivoModificacion || asist.observaciones || '—',
+          obs: asist.motivoModificacion || asist.observaciones || (calc.tieneVentanasSimclic ? `Receso descontado: ${calc.horasDescontadasFormato}` : '—'),
         });
 
         row.height = 20;

@@ -13,6 +13,7 @@ import type {
 import { exportarExcelPlanillaConGraficos } from '@/lib/excelPlanillaExporter';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
+import { calcularHorasEfectivasSesion } from '@/lib/planillaPsCalculos';
 
 export interface PlanillaTabProps {
   asistenciasList?: AsistenciaAdminItem[];
@@ -35,8 +36,12 @@ export interface FilaPlanillaActor {
   totalSesiones: number;
   sesionesEnCurso: number;
   minutosTotales: number;
+  minutosPermanenciaFisica?: number;
+  minutosDescontadosVentanas?: number;
   horasDecimal: number;
   horasFormato: string;
+  horasDescontadasFormato?: string;
+  tieneVentanasDescontadas?: boolean;
   cursosMap: Map<string, { cursoId: number | null; cursoNombre: string; horas: number; tarifa: number; subtotal: number; sesionesCount: number }>;
   totalAPagar: number;
   estadoPlanilla: 'listo' | 'en_curso';
@@ -83,6 +88,9 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
   // Filtros reactivos
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'listo' | 'en_curso'>('todos');
+
+  // Modo de cálculo de horas: SimClic Efectivo (Auto - descarta ventanas libres) vs Permanencia Física Bruta
+  const [modoCalculo, setModoCalculo] = useState<'simclic_efectivo' | 'permanencia_fisica'>('simclic_efectivo');
 
   // Asistencias cargadas dinámicamente para el período
   const [asistenciasMes, setAsistenciasMes] = useState<AsistenciaAdminItem[]>([]);
@@ -243,21 +251,13 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
       const tipo = a.tipoPersonal || uInfo?.tipoPersonal;
       if (tipo !== 'paciente_simulado') continue;
 
-      let tarifaSesion: number = 0;
-      if (a.cursoTarifaHoraPs !== undefined && a.cursoTarifaHoraPs !== null && a.cursoTarifaHoraPs !== '') {
-        tarifaSesion = Number(a.cursoTarifaHoraPs);
-      } else if (a.cursoId) {
-        const cFound = cursosList.find((c) => c.id === a.cursoId);
-        if (cFound?.tarifaHoraPs !== undefined && cFound?.tarifaHoraPs !== null && cFound?.tarifaHoraPs !== '') {
-          tarifaSesion = Number(cFound.tarifaHoraPs);
-        }
-      }
-      if (tarifaSesion === 0 && uInfo?.tarifaHora) {
-        tarifaSesion = Number(uInfo.tarifaHora);
-      }
-
-      const min = a.minutosTotales || 0;
-      const subtotal = (min / 60) * tarifaSesion;
+      const calc = calcularHorasEfectivasSesion(
+        a,
+        cursosList,
+        uInfo?.tarifaHora ? Number(uInfo.tarifaHora) : null,
+        modoCalculo
+      );
+      const subtotal = calc.totalAPagar;
 
       if (a.fecha >= fQ1Desde && a.fecha <= fQ1Hasta) {
         totalMontoQ1 += subtotal;
@@ -271,12 +271,11 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
       montoQ2: totalMontoQ2,
       montoMes: totalMontoQ1 + totalMontoQ2,
     };
-  }, [asistenciasMes, usuariosList, cursosList, anioSeleccionado, mesSeleccionado]);
+  }, [asistenciasMes, usuariosList, cursosList, anioSeleccionado, mesSeleccionado, modoCalculo]);
 
   // Consolidación de datos de Pacientes Simulados para el corte actual
   const { actoresPlanilla, kpisPlanilla } = useMemo(() => {
     const map = new Map<number, FilaPlanillaActor>();
-    const nowTimestamp = Date.now();
 
     for (const a of asistenciasMes) {
       if (a.estado === 'anulado') continue;
@@ -306,8 +305,12 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
           totalSesiones: 0,
           sesionesEnCurso: 0,
           minutosTotales: 0,
+          minutosPermanenciaFisica: 0,
+          minutosDescontadosVentanas: 0,
           horasDecimal: 0,
           horasFormato: '0h 0m',
+          horasDescontadasFormato: '0h 0m',
+          tieneVentanasDescontadas: false,
           cursosMap: new Map(),
           totalAPagar: 0,
           estadoPlanilla: 'listo',
@@ -319,56 +322,47 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
 
       item.asistenciasActor.push(a);
 
-      // Minutos de la sesión
-      let minutos = a.minutosTotales || 0;
+      const calc = calcularHorasEfectivasSesion(
+        a,
+        cursosList,
+        item.tarifaHoraBase,
+        modoCalculo
+      );
+
       if (a.estado === 'en_curso') {
         item.sesionesEnCurso++;
         item.estadoPlanilla = 'en_curso';
-        if (a.horaIngreso) {
-          const diff = Math.round((nowTimestamp - new Date(a.horaIngreso).getTime()) / 60000);
-          if (diff > 0) minutos = diff;
-        }
       }
 
       item.totalSesiones++;
-      item.minutosTotales += minutos;
+      item.minutosTotales += calc.minutosEfectivos;
+      item.minutosPermanenciaFisica = (item.minutosPermanenciaFisica || 0) + calc.minutosFisicos;
+      item.minutosDescontadosVentanas = (item.minutosDescontadosVentanas || 0) + calc.minutosDescontadosVentana;
+      if (calc.tieneVentanasSimclic) {
+        item.tieneVentanasDescontadas = true;
+      }
+      item.totalAPagar += calc.totalAPagar;
 
-      // Determinación de tarifa para esta sesión
-      let tarifaSesion: number = 0;
-      if (a.cursoTarifaHoraPs !== undefined && a.cursoTarifaHoraPs !== null && a.cursoTarifaHoraPs !== '') {
-        tarifaSesion = Number(a.cursoTarifaHoraPs);
-      } else if (a.cursoId) {
-        const cFound = cursosList.find((c) => c.id === a.cursoId);
-        if (cFound?.tarifaHoraPs !== undefined && cFound?.tarifaHoraPs !== null && cFound?.tarifaHoraPs !== '') {
-          tarifaSesion = Number(cFound.tarifaHoraPs);
+      // Agrupar por curso según los bloques liquidados
+      calc.bloques.forEach((b) => {
+        const cNombre = b.cursoNombre;
+        const cExistente = item!.cursosMap.get(cNombre);
+        if (!cExistente) {
+          item!.cursosMap.set(cNombre, {
+            cursoId: b.cursoId,
+            cursoNombre: cNombre,
+            horas: b.horasDecimal,
+            tarifa: b.tarifa,
+            subtotal: b.subtotal,
+            sesionesCount: 1,
+          });
+        } else {
+          cExistente.horas = Number((cExistente.horas + b.horasDecimal).toFixed(2));
+          cExistente.subtotal = Number((cExistente.subtotal + b.subtotal).toFixed(2));
+          cExistente.sesionesCount++;
+          if (!cExistente.tarifa && b.tarifa > 0) cExistente.tarifa = b.tarifa;
         }
-      }
-      if (tarifaSesion === 0 && item.tarifaHoraBase) {
-        tarifaSesion = item.tarifaHoraBase;
-      }
-
-      const horasSesion = minutos / 60;
-      const subtotalSesion = horasSesion * tarifaSesion;
-      item.totalAPagar += subtotalSesion;
-
-      // Agrupar por curso
-      const cNombre = a.cursoNombre || 'Simulación General';
-      const cExistente = item.cursosMap.get(cNombre);
-      if (!cExistente) {
-        item.cursosMap.set(cNombre, {
-          cursoId: a.cursoId || null,
-          cursoNombre: cNombre,
-          horas: horasSesion,
-          tarifa: tarifaSesion,
-          subtotal: subtotalSesion,
-          sesionesCount: 1,
-        });
-      } else {
-        cExistente.horas += horasSesion;
-        cExistente.subtotal += subtotalSesion;
-        cExistente.sesionesCount++;
-        if (!cExistente.tarifa && tarifaSesion > 0) cExistente.tarifa = tarifaSesion;
-      }
+      });
     }
 
     const lista = Array.from(map.values()).map((actor) => {
@@ -376,10 +370,15 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
       const h = Math.floor(actor.minutosTotales / 60);
       const m = Math.floor(actor.minutosTotales % 60);
 
+      const minDesc = actor.minutosDescontadosVentanas || 0;
+      const hDesc = Math.floor(minDesc / 60);
+      const mDesc = minDesc % 60;
+
       return {
         ...actor,
         horasDecimal: Number(horasNetas.toFixed(2)),
         horasFormato: `${h}h ${m}m`,
+        horasDescontadasFormato: `${hDesc}h ${mDesc}m`,
         totalAPagar: Number(actor.totalAPagar.toFixed(2)),
       };
     }).sort((a, b) => b.totalAPagar - a.totalAPagar);
@@ -388,6 +387,7 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
     const totalActores = lista.length;
     const totalMinutosGral = lista.reduce((acc, curr) => acc + curr.minutosTotales, 0);
     const totalMontoGral = lista.reduce((acc, curr) => acc + curr.totalAPagar, 0);
+    const totalMinutosDescontadosGral = lista.reduce((acc, curr) => acc + (curr.minutosDescontadosVentanas || 0), 0);
     const cursosSet = new Set<string>();
     lista.forEach((act) => act.cursosMap.forEach((_, cNom) => cursosSet.add(cNom)));
 
@@ -397,11 +397,13 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
         totalActores,
         totalHorasDecimal: (totalMinutosGral / 60).toFixed(1),
         totalHorasFormato: `${Math.floor(totalMinutosGral / 60)}h ${totalMinutosGral % 60}m`,
+        totalMinutosDescontadosGral,
+        totalHorasDescontadasFormato: `${Math.floor(totalMinutosDescontadosGral / 60)}h ${totalMinutosDescontadosGral % 60}m`,
         totalMontoGral: Number(totalMontoGral.toFixed(2)),
         totalCursos: cursosSet.size,
       },
     };
-  }, [asistenciasMes, usuariosList, cursosList, fechaDesdeEfectiva, fechaHastaEfectiva]);
+  }, [asistenciasMes, usuariosList, cursosList, fechaDesdeEfectiva, fechaHastaEfectiva, modoCalculo]);
 
   // Filtrado reactivo en pantalla
   const actoresFiltrados = useMemo(() => {
@@ -859,6 +861,77 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
             <span>Mes Completo: <strong style={{ color: '#10b981' }}>S/. {comparativaQuincenal.montoMes.toFixed(2)}</strong></span>
           </div>
         </div>
+
+        {/* SELECTOR DE REGLA DE HORAS: SIMCLIC EFECTIVO VS PERMANENCIA */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            borderTop: '1px solid var(--border-color)',
+            paddingTop: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+              ⚡ Cómputo de Horas:
+            </span>
+            <div style={{ display: 'inline-flex', background: 'var(--bg-secondary)', padding: '0.2rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                onClick={() => setModoCalculo('simclic_efectivo')}
+                style={{
+                  background: modoCalculo === 'simclic_efectivo' ? '#10b981' : 'transparent',
+                  color: modoCalculo === 'simclic_efectivo' ? '#ffffff' : 'var(--text-muted)',
+                  border: 'none',
+                  padding: '0.3rem 0.75rem',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  boxShadow: modoCalculo === 'simclic_efectivo' ? '0 1px 4px rgba(16, 185, 129, 0.4)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Descuenta automáticamente recesos y ventanas libres entre bloques SimClic (Recomendado para Martha)"
+              >
+                <span>⚡</span> SimClic Efectivo (Auto - Descuenta Ventanas)
+              </button>
+              <button
+                type="button"
+                onClick={() => setModoCalculo('permanencia_fisica')}
+                style={{
+                  background: modoCalculo === 'permanencia_fisica' ? '#f59e0b' : 'transparent',
+                  color: modoCalculo === 'permanencia_fisica' ? '#ffffff' : 'var(--text-muted)',
+                  border: 'none',
+                  padding: '0.3rem 0.75rem',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  boxShadow: modoCalculo === 'permanencia_fisica' ? '0 1px 4px rgba(245, 158, 11, 0.4)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Calcula sobre el 100% de la permanencia física bruta registrada en Kiosco sin descontar recesos"
+              >
+                <span>🏢</span> Permanencia Bruta en Kiosco
+              </button>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.74rem', color: modoCalculo === 'simclic_efectivo' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+            {modoCalculo === 'simclic_efectivo'
+              ? '✓ Excluyendo automáticamente horas libres intermedias según SimClic'
+              : '⚠️ Liquidando sobre el total de horas transcurridas entre entrada y salida'}
+          </div>
+        </div>
       </div>
 
       {/* TARJETAS DE MÉTRICAS (KPIs) DEL PERÍODO */}
@@ -911,6 +984,11 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             {kpisPlanilla.totalHorasDecimal} horas efectivas netas
+            {(kpisPlanilla.totalMinutosDescontadosGral || 0) > 0 && modoCalculo === 'simclic_efectivo' && (
+              <span style={{ color: '#38bdf8', fontWeight: 700, marginLeft: '0.35rem' }} title={`Se descontaron ${kpisPlanilla.totalHorasDescontadasFormato} de recesos entre clases de SimClic`}>
+                (✂️ -{kpisPlanilla.totalHorasDescontadasFormato} recesos)
+              </span>
+            )}
           </div>
         </div>
 
@@ -1205,6 +1283,24 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                       {actor.horasDecimal.toFixed(1)} hrs netas
                     </div>
+                    {(actor.minutosDescontadosVentanas || 0) > 0 && modoCalculo === 'simclic_efectivo' && (
+                      <div
+                        style={{
+                          fontSize: '0.67rem',
+                          color: '#38bdf8',
+                          background: 'rgba(56, 189, 248, 0.1)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          borderRadius: '4px',
+                          padding: '0.1rem 0.35rem',
+                          marginTop: '0.2rem',
+                          display: 'inline-block',
+                          fontWeight: 700,
+                        }}
+                        title={`Se descontaron ${actor.horasDescontadasFormato} de receso/ventanas entre clases de SimClic (Permanencia física: ${Math.floor((actor.minutosPermanenciaFisica || 0) / 60)}h ${(actor.minutosPermanenciaFisica || 0) % 60}m)`}
+                      >
+                        ✂️ -{actor.horasDescontadasFormato} ventana
+                      </div>
+                    )}
                   </td>
 
                   <td

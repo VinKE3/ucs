@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { UsuarioItem, AsistenciaAdminItem } from '@/types/admin';
+import { calcularHorasEfectivasSesion } from '@/lib/planillaPsCalculos';
 
 export interface DesgloseCursoPS {
   cursoId: number | null;
@@ -94,12 +95,15 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
     ];
 
     const sesionesRows = asistencias.map((a) => {
-      const min = a.minutosTotales || 0;
-      const horas = min / 60;
-      let tarifa = 0;
-      if (a.cursoTarifaHoraPs) tarifa = Number(a.cursoTarifaHoraPs);
-      else if (usuario.tarifaHora) tarifa = Number(usuario.tarifaHora);
-      const sub = horas * tarifa;
+      const calc = calcularHorasEfectivasSesion(
+        a,
+        [],
+        usuario.tarifaHora ? Number(usuario.tarifaHora) : null,
+        'simclic_efectivo'
+      );
+      const horas = calc.horasEfectivasDecimal;
+      const sub = calc.totalAPagar;
+      const descNota = calc.tieneVentanasSimclic ? ` (-${calc.horasDescontadasFormato} receso)` : '';
 
       const horaIn = a.horaIngreso ? new Date(a.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '-';
       const horaOut = a.horaSalida ? new Date(a.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : 'En curso';
@@ -111,7 +115,7 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
         `"${a.sedeNombre || ''}"`,
         `"${a.ambienteNombre || 'General'}"`,
         `"${a.cursoNombre || 'Sin curso'}"`,
-        horas.toFixed(2),
+        `"${horas.toFixed(2)}${descNota}"`,
         sub.toFixed(2),
       ].join(';');
     });
@@ -462,12 +466,14 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
                   </thead>
                   <tbody>
                     {asistencias.map((a, idx) => {
-                      const min = a.minutosTotales || 0;
-                      const hrs = min / 60;
-                      let tar = 0;
-                      if (a.cursoTarifaHoraPs) tar = Number(a.cursoTarifaHoraPs);
-                      else if (usuario.tarifaHora) tar = Number(usuario.tarifaHora);
-                      const sub = hrs * tar;
+                      const calc = calcularHorasEfectivasSesion(
+                        a,
+                        [],
+                        usuario.tarifaHora ? Number(usuario.tarifaHora) : null,
+                        'simclic_efectivo'
+                      );
+                      const hrs = calc.horasEfectivasDecimal;
+                      const sub = calc.totalAPagar;
 
                       const hIn = a.horaIngreso ? new Date(a.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '-';
                       const hOut = a.horaSalida ? new Date(a.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : 'Activo';
@@ -478,7 +484,14 @@ export const ModalComprobanteLiquidacion: React.FC<ModalComprobanteLiquidacionPr
                           <td style={{ padding: '0.4rem 0.6rem', fontFamily: 'monospace' }}>{hIn} - {hOut}</td>
                           <td style={{ padding: '0.4rem 0.6rem' }}>{a.sedeNombre} • {a.ambienteNombre || 'General'}</td>
                           <td style={{ padding: '0.4rem 0.6rem' }}>{a.cursoNombre || 'Simulación General'}</td>
-                          <td style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontFamily: 'monospace' }}>{hrs.toFixed(2)}h</td>
+                          <td style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontFamily: 'monospace' }}>
+                            {hrs.toFixed(2)}h
+                            {calc.tieneVentanasSimclic && (
+                              <span style={{ fontSize: '0.67rem', color: '#0284c7', display: 'block' }}>
+                                (✂️ -{calc.horasDescontadasFormato})
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontWeight: 600, fontFamily: 'monospace' }}>
                             S/. {sub.toFixed(2)}
                           </td>

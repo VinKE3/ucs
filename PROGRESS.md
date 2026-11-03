@@ -3,6 +3,31 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 109: Descuento Automático de Ventanas Libres SimClic y Liquidación Multicurso con Tarifas Diferenciadas en Planilla PS (`planillaPsCalculos.ts`, `PlanillaTab.tsx`, `ModalPlanillaPS.tsx`, `ModalComprobanteLiquidacion.tsx`, `excelPlanillaExporter.ts`, `test_planilla_ventanas_simclic.ts`)**:
+      - **Problema Diagnosticado**:
+        - Los pacientes simulados registran habitualmente una sola entrada al llegar (ej: 07:00 am) y una sola salida al finalizar su jornada (ej: 15:00 pm).
+        - Si en SimClic cuentan con 2 o más bloques separados por horas libres intermedias (ej: 07:00-10:00 Simulación Quirúrgica, y 12:00-15:00 Ecografía, con receso libre de 10:00 a 12:00), el cálculo bruto por Kiosco computaba 8 horas físicas en lugar de las 6 horas lectivas académicas.
+        - Esto forzaba a la administradora (Martha) a revisar SimClic a mano y realizar cortes o ajustes manuales registro por registro para descontar las horas libres no lectivas.
+        - Además, se requerían tarifas diferenciadas por curso: tarifa general de S/. 25.00/h vs tarifa de Ecografía a S/. 15.00/h.
+      - **Solución Técnica y Operativa**:
+        1. **Motor de Cálculo Especializado (`src/lib/planillaPsCalculos.ts`)**:
+           - `resolverTarifaPs`: Asigna automáticamente S/. 15.00/h a Ecografía (e.g. 'Ecografía', 'Diplomado de Ecografía') y S/. 25.00/h a los demás cursos (o tarifa base configurada en usuario/curso).
+           - `calcularHorasEfectivasSesion`:
+             - Analiza bloque por bloque la presencia efectiva del colaborador contra la programación académica oficial.
+             - Descarta automáticamente las ventanas/recesos libres intermedios entre bloques (`minutosDescontadosVentana = minutosFisicos - minutosEfectivos`).
+             - Preserva íntegramente las asistencias sin programación en SimClic liquidándolas sobre la permanencia física.
+        2. **Pestaña de Planilla Mensual (`src/components/admin/tabs/PlanillaTab.tsx`)**:
+           - Incorporado selector interactivo: `[⚡ SimClic Efectivo (Auto - Descuenta Ventanas)]` (Recomendado/Por defecto) vs `[🏢 Permanencia Bruta en Kiosco]`.
+           - Renderizado del badge distintivo celeste en la columna de horas: `✂️ -Xh Ym ventana` con tooltip informativo (`Se descontaron Xh de receso entre clases de SimClic (Permanencia física: Yh)`).
+           - KPI de Horas Computadas actualizado con el desglose de horas libres descontadas en el período.
+        3. **Modales y Exportación Excel (`ModalPlanillaPS.tsx`, `ModalComprobanteLiquidacion.tsx`, `excelPlanillaExporter.ts`)**:
+           - Modal de Planilla: alineado con la regla de horas efectivas y badges de receso descontado.
+           - Comprobante de Liquidación Individual: exportación CSV y detalle de turnos reflejando horas netas y notas de receso.
+           - Exportador Excel: Libro `.xlsx` con desglose exacto de horas lectivas y columnas de notas de receso descontado.
+      - **Verificación Técnica**:
+        - Suite de pruebas unitarias (`src/scripts/test_planilla_ventanas_simclic.ts`): Casos de Piero (8h físicas ➡️ 6h efectivas SimClic, S/. 120), tardanzas (07:30 ➡️ 5.5h, S/. 107.50) y asistencias sin SimClic **100% aprobados**.
+        - Compilación estricta de TypeScript (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 108: Discriminación Estricta de Nombres y Familiares en SimClic vs Directorio y Badges de Sede en Personal de Clínica (`PersonalTab.tsx`, `kiosco/lookup/route.ts`, `test_matching_edwin_sara.ts`)**:
       - **Problema Diagnosticado**:
         - En el directorio de *Personal de Clínica*, **Edwin David Puma Castillo** (DNI 40090505, Paciente Simulado) figuraba con la alerta errónea: `⚠️ En clase - ¡Sin marcar! • 15:20-17:00 • CONSULTORIO 4 - L 106 • [815382] Simulación Quirúrgica`.

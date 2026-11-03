@@ -5,6 +5,7 @@ import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, UsuarioItem, CursoAdminItem } from '@/types/admin';
 import { exportarExcelPlanillaConGraficos } from '@/lib/excelPlanillaExporter';
 import { showAlert, showError, showToast } from '@/lib/alerts';
+import { calcularHorasEfectivasSesion } from '@/lib/planillaPsCalculos';
 
 interface ModalPlanillaPSProps {
   isOpen: boolean;
@@ -27,8 +28,12 @@ export interface FilaPlanillaActor {
   totalSesiones: number;
   sesionesEnCurso: number;
   minutosTotales: number;
+  minutosPermanenciaFisica?: number;
+  minutosDescontadosVentanas?: number;
   horasDecimal: number;
   horasFormato: string;
+  horasDescontadasFormato?: string;
+  tieneVentanasDescontadas?: boolean;
   cursosMap: Map<string, { cursoNombre: string; horas: number; tarifa: number; subtotal: number }>;
   totalAPagar: number;
   estadoPlanilla: 'listo' | 'en_curso';
@@ -233,8 +238,12 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
           totalSesiones: 0,
           sesionesEnCurso: 0,
           minutosTotales: 0,
+          minutosPermanenciaFisica: 0,
+          minutosDescontadosVentanas: 0,
           horasDecimal: 0,
           horasFormato: '0h 0m',
+          horasDescontadasFormato: '0h 0m',
+          tieneVentanasDescontadas: false,
           cursosMap: new Map(),
           totalAPagar: 0,
           estadoPlanilla: 'listo',
@@ -243,53 +252,44 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
         map.set(a.usuarioId, item);
       }
 
-      // Minutos de la sesión
-      let minutos = a.minutosTotales || 0;
+      const calc = calcularHorasEfectivasSesion(
+        a,
+        cursosList,
+        item.tarifaHoraBase,
+        'simclic_efectivo'
+      );
+
       if (a.estado === 'en_curso') {
         item.sesionesEnCurso++;
         item.estadoPlanilla = 'en_curso';
-        if (a.horaIngreso) {
-          const diff = Math.round((nowTimestamp - new Date(a.horaIngreso).getTime()) / 60000);
-          if (diff > 0) minutos = diff;
-        }
       }
 
       item.totalSesiones++;
-      item.minutosTotales += minutos;
+      item.minutosTotales += calc.minutosEfectivos;
+      item.minutosPermanenciaFisica = (item.minutosPermanenciaFisica || 0) + calc.minutosFisicos;
+      item.minutosDescontadosVentanas = (item.minutosDescontadosVentanas || 0) + calc.minutosDescontadosVentana;
+      if (calc.tieneVentanasSimclic) {
+        item.tieneVentanasDescontadas = true;
+      }
+      item.totalAPagar += calc.totalAPagar;
 
-      // Determinación de tarifa para esta sesión
-      let tarifaSesion: number = 0;
-      if (a.cursoTarifaHoraPs !== undefined && a.cursoTarifaHoraPs !== null && a.cursoTarifaHoraPs !== '') {
-        tarifaSesion = Number(a.cursoTarifaHoraPs);
-      } else if (a.cursoId) {
-        const cFound = cursosList.find((c) => c.id === a.cursoId);
-        if (cFound?.tarifaHoraPs !== undefined && cFound?.tarifaHoraPs !== null && cFound?.tarifaHoraPs !== '') {
-          tarifaSesion = Number(cFound.tarifaHoraPs);
+      // Agrupar por curso según los bloques liquidados
+      calc.bloques.forEach((b) => {
+        const cNombre = b.cursoNombre;
+        const cExistente = item!.cursosMap.get(cNombre);
+        if (!cExistente) {
+          item!.cursosMap.set(cNombre, {
+            cursoNombre: cNombre,
+            horas: b.horasDecimal,
+            tarifa: b.tarifa,
+            subtotal: b.subtotal,
+          });
+        } else {
+          cExistente.horas = Number((cExistente.horas + b.horasDecimal).toFixed(2));
+          cExistente.subtotal = Number((cExistente.subtotal + b.subtotal).toFixed(2));
+          if (!cExistente.tarifa && b.tarifa > 0) cExistente.tarifa = b.tarifa;
         }
-      }
-      if (tarifaSesion === 0 && item.tarifaHoraBase) {
-        tarifaSesion = item.tarifaHoraBase;
-      }
-
-      const horasSesion = minutos / 60;
-      const subtotalSesion = horasSesion * tarifaSesion;
-      item.totalAPagar += subtotalSesion;
-
-      // Agrupar por curso
-      const cNombre = a.cursoNombre || 'Simulación General';
-      const cExistente = item.cursosMap.get(cNombre);
-      if (!cExistente) {
-        item.cursosMap.set(cNombre, {
-          cursoNombre: cNombre,
-          horas: horasSesion,
-          tarifa: tarifaSesion,
-          subtotal: subtotalSesion,
-        });
-      } else {
-        cExistente.horas += horasSesion;
-        cExistente.subtotal += subtotalSesion;
-        if (!cExistente.tarifa && tarifaSesion > 0) cExistente.tarifa = tarifaSesion;
-      }
+      });
     }
 
     const lista = Array.from(map.values()).map((actor) => {
@@ -297,10 +297,15 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
       const h = Math.floor(actor.minutosTotales / 60);
       const m = Math.floor(actor.minutosTotales % 60);
 
+      const minDesc = actor.minutosDescontadosVentanas || 0;
+      const hDesc = Math.floor(minDesc / 60);
+      const mDesc = minDesc % 60;
+
       return {
         ...actor,
         horasDecimal: Number(horasNetas.toFixed(2)),
         horasFormato: `${h}h ${m}m`,
+        horasDescontadasFormato: `${hDesc}h ${mDesc}m`,
         totalAPagar: Number(actor.totalAPagar.toFixed(2)),
       };
     }).sort((a, b) => b.totalAPagar - a.totalAPagar);
@@ -1059,6 +1064,24 @@ export const ModalPlanillaPS: React.FC<ModalPlanillaPSProps> = ({
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                             {actor.horasDecimal.toFixed(2)} hrs
                           </div>
+                          {(actor.minutosDescontadosVentanas || 0) > 0 && (
+                            <div
+                              style={{
+                                fontSize: '0.67rem',
+                                color: '#38bdf8',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                borderRadius: '4px',
+                                padding: '0.1rem 0.35rem',
+                                marginTop: '0.2rem',
+                                display: 'inline-block',
+                                fontWeight: 700,
+                              }}
+                              title={`Se descontaron ${actor.horasDescontadasFormato} de receso/ventanas entre clases de SimClic (Permanencia física: ${Math.floor((actor.minutosPermanenciaFisica || 0) / 60)}h ${(actor.minutosPermanenciaFisica || 0) % 60}m)`}
+                            >
+                              ✂️ -{actor.horasDescontadasFormato} ventana
+                            </div>
+                          )}
                         </td>
 
                         <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>

@@ -53,23 +53,71 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = (props) => 
 
   return (
     <div className={styles.modalBackdrop}>
-      <div className={styles.modal} style={{ maxWidth: '540px' }}>
-        <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>
+      <div
+        className={styles.modal}
+        style={{
+          maxWidth: '560px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          padding: '1.5rem 1.75rem 1.25rem',
+        }}
+      >
+        <div
+          className={styles.modalHeader}
+          style={{
+            flexShrink: 0,
+            paddingBottom: '0.65rem',
+            marginBottom: '0.5rem',
+            borderBottom: '1px solid var(--border-color)',
+          }}
+        >
+          <h2 className={styles.modalTitle} style={{ fontSize: '1.15rem' }}>
             {createForm.isEdit
               ? `✏️ Editar Personal (${createForm.nombres} ${createForm.apellidos})`
               : 'Registrar Nuevo Personal'}
           </h2>
-          <button onClick={onClose} className={styles.closeBtn}>✕</button>
+          <button onClick={onClose} className={styles.closeBtn} title="Cerrar ventana">✕</button>
         </div>
 
         {createError && (
-          <div style={{ padding: '0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem' }}>
+          <div
+            style={{
+              flexShrink: 0,
+              padding: '0.75rem',
+              borderRadius: '8px',
+              background: 'rgba(239,68,68,0.15)',
+              color: '#fca5a5',
+              border: '1px solid rgba(239,68,68,0.3)',
+              fontSize: '0.85rem',
+              marginBottom: '0.5rem',
+            }}
+          >
             {createError}
           </div>
         )}
 
-        <form onSubmit={onSubmit} className={styles.formGrid}>
+        <form
+          onSubmit={onSubmit}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              overflowY: 'auto',
+              flex: 1,
+              minHeight: 0,
+              paddingRight: '0.4rem',
+              scrollbarWidth: 'thin',
+            }}
+          >
+            <div className={styles.formGrid}>
           <div>
             <label className={styles.label}>DNI / Documento *</label>
             <input
@@ -537,7 +585,18 @@ export const ModalCrearPersonal: React.FC<ModalCrearPersonalProps> = (props) => 
             </>
           )}
 
-          <div className={`${styles.fullWidth} ${styles.modalFooter}`}>
+          </div>
+          </div>
+
+          <div
+            className={styles.modalFooter}
+            style={{
+              flexShrink: 0,
+              marginTop: '0.75rem',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--border-color)',
+            }}
+          >
             <button
               type="button"
               onClick={onClose}

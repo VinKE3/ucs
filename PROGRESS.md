@@ -3,6 +3,20 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 110: Footer Fijo Persistente y Contenedor Scrolleable en Modal de Edición de Personal (`ModalCrearPersonal.tsx`)**:
+      - **Problema Diagnosticado**:
+        - Al registrar o editar colaboradores con densa carga de configuración (particularmente Técnicos de Simulación y Administrativos), el formulario incluye el bloque de *Horario y Turno Obligatorio* con selector de jornada flexible rotativa, botones de turnos predeterminados (Mañana, Tarde, Jornada), selectores de hora de entrada, salida y minutos de tolerancia, más el selector de *Rol de Acceso al Sistema Web*.
+        - Debido a que el modal tenía un `max-height: 92vh` con `overflow: hidden` y el formulario `<form>` no contaba con un contenedor con `overflow-y: auto`, los elementos inferiores y la botonera de acciones (`Cancelar` y `Guardar Cambios`) quedaban cortados y fuera de la pantalla, impidiendo guardar los cambios en laptops y pantallas estándar.
+      - **Solución Implementada**:
+        1. **Estructura Flexbox con Footer Fijo**:
+           - La tarjeta del modal (`.modal`) ahora se estructura de forma vertical desacoplada: cabecera fija arriba (`.modalHeader` con `flexShrink: 0` y separador), cuerpo intermedio scrolleable con `overflow-y: auto`, `minHeight: 0`, `flex: 1` y barra de desplazamiento suave (`scrollbarWidth: 'thin'`).
+           - La botonera de acciones (`.modalFooter`) se desacopló del grid interno y se reubicó de manera fija en la base del formulario con `flexShrink: 0`, borde superior y separación nítida.
+        2. **Garantía de Guardado**:
+           - Los botones `Cancelar` y `Guardar Cambios` (o `Crear Personal`) permanecen **100% visibles e interactivos en todo momento**, sin importar el alto del monitor ni la cantidad de campos configurados.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`npx tsc --noEmit`): **0 errores**.
+        - Suite de validaciones de usuario Zod (`test_usuario_validation.ts`): **6/6 pruebas aprobadas**.
+
     - **Hito 109: Descuento Automático de Ventanas Libres SimClic y Liquidación Multicurso con Tarifas Diferenciadas en Planilla PS (`planillaPsCalculos.ts`, `PlanillaTab.tsx`, `ModalPlanillaPS.tsx`, `ModalComprobanteLiquidacion.tsx`, `excelPlanillaExporter.ts`, `test_planilla_ventanas_simclic.ts`)**:
       - **Problema Diagnosticado**:
         - Los pacientes simulados registran habitualmente una sola entrada al llegar (ej: 07:00 am) y una sola salida al finalizar su jornada (ej: 15:00 pm).

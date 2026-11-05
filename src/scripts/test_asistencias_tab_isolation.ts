@@ -201,3 +201,4 @@ if (!asistenciasTabContent.includes('{asistenciasFiltradas.length}')) {
 console.log('✅ Aprobado: AsistenciasTab.tsx integra asistenciasFiltradas en métricas, tabla y KPIs.');
 
 console.log('\n🎉 ¡TODAS LAS PRUEBAS DE AISLAMIENTO DE ASISTENCIAS PASARON EXITOSAMENTE (100%)!');
+

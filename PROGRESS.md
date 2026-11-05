@@ -3,6 +3,26 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 111: Cotejo Inteligente de Ambientes y Normalización de Sufijos de Sede SimClic (`simclicAudit.ts`, `test_salas_norte_matching.ts`)**:
+      - **Problema Diagnosticado**:
+        - En el panel de asistencias de Campus Norte, 13 de 15 registros de Pacientes Simulados figuraban erróneamente con la alerta `🔄 Cambio / Discrepancia de Sala` (ej: *"Marcó en Sala de Habilidades 1 - Norte vs Sala de Habilidades 1"* o *"Marcó en SALA ALTA FIDELIDAD 1 - NORTE vs SALA ALTA FIDELIDAD 1"*).
+        - **Causa Raíz**:
+          1. En la base de datos de UCS y terminales de Kiosco, los nombres de sala en sedes desconcentradas incluyen el sufijo de campus (ej: `Sala de Habilidades 1 - Norte`, código `SLOSLA28`). En SimClic, como la sede se selecciona a nivel de campus global, el nombre de la sala viene limpio como `Sala de Habilidades 1`.
+          2. La lógica previa evaluaba `!salasProg.some(s => s.toLowerCase().includes(asist.ambienteNombre?.toLowerCase()))`. Al ser la cadena de la marcación más larga por tener ` - Norte`, la condición `.includes()` retornaba `false`.
+          3. Además, no cotejaba por el ID interno de ambiente (`ambienteId`) ni por el código oficial de SimClic (`SLOSLA28`), los cuales coinciden al 100%.
+      - **Solución Implementada**:
+        1. **Motor de Cotejo Jerárquico Multicriterio (`sonAmbientesCoincidentes` en `simclicAudit.ts`)**:
+           - **Nivel 1 (ID PostgreSQL)**: Coincidencia directa por `asist.ambienteId === ses.ambienteId`.
+           - **Nivel 2 (Código Oficial SimClic)**: Coincidencia por código de ambiente normalizado (ej: `SLOSLA28 === SLOSLA28`, `SLOSLA25 === SLOSLA25`, `SLOSTA01 === SLOSTA01`).
+           - **Nivel 3 (Código de Laboratorio)**: En salas con código de laboratorio (ej: `L 214` vs `L 213`), exige coincidencia numérica estricta, detectando fielmente discrepancias reales.
+           - **Nivel 4 (Consultorios / Salas Numeradas)**: Emparejamiento por número de consultorio (ej: `Consultorio 1` vs `Consultorio 1 - Norte`).
+           - **Nivel 5 (Normalización Bidireccional sin Sufijos de Sede)**: Función `normalizarNombreSala` que remueve tildes, caracteres especiales y los sufijos `- Norte`, `- Villa`, `- Ate`, comparando cadenas equivalentes en ambas direcciones.
+        2. **Resultados Inmediatos**:
+           - Los 13 falsos positivos de Campus Norte pasan inmediatamente de `🔄 Discrepancia Sala` a `🟢 Conformes / Alineados`.
+      - **Verificación Técnica**:
+        - Suite de pruebas unitarias automatizada (`src/scripts/test_salas_norte_matching.ts`): Casos Dina Cáceres, Wendy Gutiérrez, Yesennia Berrocal y discrepancia real de Josefa Arellano **100% aprobados**.
+        - Compilación TypeScript estricta (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 110: Footer Fijo Persistente y Contenedor Scrolleable en Modal de Edición de Personal (`ModalCrearPersonal.tsx`)**:
       - **Problema Diagnosticado**:
         - Al registrar o editar colaboradores con densa carga de configuración (particularmente Técnicos de Simulación y Administrativos), el formulario incluye el bloque de *Horario y Turno Obligatorio* con selector de jornada flexible rotativa, botones de turnos predeterminados (Mañana, Tarde, Jornada), selectores de hora de entrada, salida y minutos de tolerancia, más el selector de *Rol de Acceso al Sistema Web*.

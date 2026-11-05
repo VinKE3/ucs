@@ -47,6 +47,86 @@ export function formatMinutosADuracion(minutos: number): string {
  * - Desatenciones / Inasistencias (retiro antes del bloque, ingreso posterior o < 25% presencia).
  * - Retiros anticipados de la jornada respecto al último bloque programado.
  */
+/**
+ * Normaliza nombres de ambiente para comparación clínica:
+ * Remueve sufijos de sede (- Norte, - Villa, - Ate), tildes y caracteres especiales.
+ */
+export function normalizarNombreSala(nombre?: string | null): string {
+  if (!nombre) return '';
+  return nombre
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s*-\s*(norte|villa|ate)\b/gi, '')
+    .replace(/[-_.,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Determina si el ambiente donde marcó el colaborador en Kiosco coincide
+ * con el ambiente programado en la sesión de SimClic mediante cotejo jerárquico:
+ * 1. ID interno de sala en PostgreSQL
+ * 2. Código oficial de ambiente (ej: SLOSLA28, SLOSTA01, SLOSLA25)
+ * 3. Código de laboratorio estricto (ej: L 214 vs L 213)
+ * 4. Nombre normalizado (ignorando sufijos de campus '- Norte', '- Villa', etc.)
+ */
+export function sonAmbientesCoincidentes(
+  asist: { ambienteId?: number | null; ambienteCodigo?: string | null; ambienteNombre?: string | null },
+  ses: { ambienteId?: number | null; ambienteCodigoSimclic?: string | null; ambienteNombreSimclic?: string | null }
+): boolean {
+  // 1. Coincidencia directa por ID interno de sala en PostgreSQL
+  if (asist.ambienteId && ses.ambienteId && asist.ambienteId === ses.ambienteId) {
+    return true;
+  }
+
+  // 2. Coincidencia por código oficial de ambiente SimClic (ej: SLOSLA28, SLOSTA01, SLOSLA25)
+  const codAsist = (asist.ambienteCodigo || '').trim().toLowerCase();
+  const codSimclic = (ses.ambienteCodigoSimclic || '').trim().toLowerCase();
+  if (codAsist && codSimclic && codAsist === codSimclic) {
+    return true;
+  }
+
+  const nomAsist = (asist.ambienteNombre || '').trim();
+  const nomSimclic = (ses.ambienteNombreSimclic || '').trim();
+  if (!nomAsist || !nomSimclic) return false;
+
+  // 3. Coincidencia por código de laboratorio explícito (ej: 'L 213' vs 'L 214', 'L 109' vs 'L 110')
+  const labAsist = nomAsist.match(/\bL\s*[-]?\s*(\d{3})\b/i);
+  const labSimclic = nomSimclic.match(/\bL\s*[-]?\s*(\d{3})\b/i);
+  if (labAsist && labSimclic) {
+    return labAsist[1] === labSimclic[1];
+  }
+
+  // 4. Coincidencia por Consultorio / Sala numerada
+  const consAsist = nomAsist.match(/\bconsultorio\s*0?(\d+)\b/i);
+  const consSimclic = nomSimclic.match(/\bconsultorio\s*0?(\d+)\b/i);
+  if (consAsist && consSimclic) {
+    return consAsist[1] === consSimclic[1];
+  }
+
+  const altaAsist = nomAsist.match(/\balta\s*(?:fidelidad)?\s*0?(\d+)\b/i);
+  const altaSimclic = nomSimclic.match(/\balta\s*(?:fidelidad)?\s*0?(\d+)\b/i);
+  if (altaAsist && altaSimclic) {
+    return altaAsist[1] === altaSimclic[1];
+  }
+
+  const habAsist = nomAsist.match(/\bhabilidades\s*0?(\d+)\b/i);
+  const habSimclic = nomSimclic.match(/\bhabilidades\s*0?(\d+)\b/i);
+  if (habAsist && habSimclic) {
+    return habAsist[1] === habSimclic[1];
+  }
+
+  // 5. Comparación bidireccional de nombres normalizados (sin '- Norte', '- Villa', '- Ate')
+  const normAsist = normalizarNombreSala(nomAsist);
+  const normSimclic = normalizarNombreSala(nomSimclic);
+
+  if (normAsist === normSimclic) return true;
+  if (normAsist.includes(normSimclic) || normSimclic.includes(normAsist)) return true;
+
+  return false;
+}
+
 export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): EvaluacionSimclicResult {
   const sesiones = asist.sesionesProgramadasDia || [];
 
@@ -304,12 +384,10 @@ export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): Evaluaci
   const esRetiroAnticipado = salidaMins !== null && salidaMins < ultFinMins - 20;
   const retiroAnticipadoMinutos = esRetiroAnticipado && salidaMins !== null ? ultFinMins - salidaMins : 0;
 
-  // Verificación de discrepancia de salas agendadas
+  // Verificación de discrepancia de salas agendadas con cotejo inteligente (ID, código y nombre normalizado)
   const salasProg: string[] = Array.from(new Set(sesionesOrdenadas.map((s) => s.ambienteNombreSimclic).filter((s): s is string => Boolean(s))));
-  const discrepanciaSala =
-    Boolean(asist.ambienteNombre) &&
-    salasProg.length > 0 &&
-    !salasProg.some((s) => s.toLowerCase().includes(asist.ambienteNombre?.toLowerCase() || ''));
+  const coincideConAlgunaSala = sesionesOrdenadas.some((ses) => sonAmbientesCoincidentes(asist, ses));
+  const discrepanciaSala = Boolean(asist.ambienteNombre) && sesionesOrdenadas.length > 0 && !coincideConAlgunaSala;
 
   // =========================================================================
   // DIAGNÓSTICO AUDITOR Y ASIGNACIÓN DE CATEGORÍA

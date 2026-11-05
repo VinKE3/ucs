@@ -180,16 +180,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   const [cursoLoading, setCursoLoading] = useState(false);
   const [cursoError, setCursoError] = useState<string | null>(null);
 
-  // Asistencias y Auditoría
-  const [asistenciasList, setAsistenciasList] = useState<AsistenciaAdminItem[]>([]);
-  const [loadingAsistencias, setLoadingAsistencias] = useState(false);
-  const [asistFiltroSede, setAsistFiltroSede] = useState('todas');
-  const [asistFiltroTipo, setAsistFiltroTipo] = useState('todos');
-  const [asistFiltroEstado, setAsistFiltroEstado] = useState('todos');
-  const [asistFiltroCurso, setAsistFiltroCurso] = useState('todos');
-  const [asistFiltroFechaDesde, setAsistFiltroFechaDesde] = useState('');
-  const [asistFiltroFechaHasta, setAsistFiltroFechaHasta] = useState('');
-  const [asistSearch, setAsistSearch] = useState('');
 
   // Modales de Corrección de Asistencias
   const [selectedAsistencia, setSelectedAsistencia] = useState<AsistenciaAdminItem | null>(null);
@@ -540,51 +530,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }
   }, [selectedSedeId, filterTipo, searchAmbiente, loadAmbientes]);
 
-  const loadAsistencias = useCallback(async () => {
-    try {
-      setLoadingAsistencias(true);
-      const url = new URL('/api/asistencias', window.location.origin);
-      if (asistFiltroSede !== 'todas') url.searchParams.set('sedeId', asistFiltroSede);
-      if (asistFiltroTipo !== 'todos') url.searchParams.set('tipoPersonal', asistFiltroTipo);
-      if (asistFiltroEstado !== 'todos') url.searchParams.set('estado', asistFiltroEstado);
-      if (asistFiltroCurso !== 'todos') url.searchParams.set('cursoId', asistFiltroCurso);
-      if (asistFiltroFechaDesde) url.searchParams.set('fechaDesde', asistFiltroFechaDesde);
-      if (asistFiltroFechaHasta) url.searchParams.set('fechaHasta', asistFiltroFechaHasta);
-      if (asistSearch.trim()) url.searchParams.set('q', asistSearch.trim());
-
-      const res = await fetch(url.toString());
-      if (res.ok) {
-        const data = await res.json();
-        const asists = data.asistencias || [];
-        setAsistenciasList(asists);
-        store.setAsistenciasList(asists);
-      }
-    } catch (err) {
-      console.error('Error cargando asistencias:', err);
-    } finally {
-      setLoadingAsistencias(false);
-    }
-  }, [asistFiltroSede, asistFiltroTipo, asistFiltroEstado, asistFiltroCurso, asistFiltroFechaDesde, asistFiltroFechaHasta, asistSearch]);
-
-  useEffect(() => {
-    if (activeTab === 'asistencias') {
-      loadAsistencias();
-    }
-  }, [activeTab, loadAsistencias]);
-
   // ==========================================
   // HANDLERS DE ACCIÓN
   // ==========================================
-  const handleExportCsv = () => {
-    const url = new URL('/api/asistencias/export', window.location.origin);
-    if (asistFiltroSede !== 'todas') url.searchParams.set('sedeId', asistFiltroSede);
-    if (asistFiltroTipo !== 'todos') url.searchParams.set('tipoPersonal', asistFiltroTipo);
-    if (asistFiltroEstado !== 'todos') url.searchParams.set('estado', asistFiltroEstado);
-    if (asistFiltroCurso !== 'todos') url.searchParams.set('cursoId', asistFiltroCurso);
-    if (asistFiltroFechaDesde) url.searchParams.set('fechaDesde', asistFiltroFechaDesde);
-    if (asistFiltroFechaHasta) url.searchParams.set('fechaHasta', asistFiltroFechaHasta);
-    window.open(url.toString(), '_blank');
-  };
 
   const handleSaveCurso = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -735,7 +683,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
       setShowCerrarTurnoModal(false);
       setSelectedAsistencia(null);
       setMotivoCierre('');
-      await loadAsistencias();
+      await store.loadAsistencias();
       await loadData();
       if (selectedSedeId) {
         loadAmbientes(selectedSedeId, filterTipo, searchAmbiente);
@@ -753,7 +701,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     docenteActual: OcupanteItem,
     ambienteNombre: string
   ) => {
-    const asistEncontrada = asistenciasList.find((a) => a.id === docenteAnterior.asistenciaId);
+    const asistEncontrada = store.asistenciasList.find((a) => a.id === docenteAnterior.asistenciaId);
     if (asistEncontrada) {
       setSelectedAsistencia(asistEncontrada);
     } else {
@@ -815,7 +763,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         setShowAnularModal(false);
         setSelectedAsistencia(null);
         setMotivoAnulacion('');
-        await loadAsistencias();
+        await store.loadAsistencias();
         await loadData();
       }
     } catch (err) {
@@ -1512,7 +1460,6 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         {activeTab === 'asistencias' && (
           <TabErrorBoundary tabName="Control de Asistencias" onReset={loadData}>
             <AsistenciasTab
-              onExportCsv={handleExportCsv}
               onOpenCerrarTurnoModal={openCerrarTurnoModal}
               onOpenAnularModal={openAnularModal}
               onOpenCrearAsistenciaManual={() => setShowCrearAsistenciaManualModal(true)}
@@ -1655,7 +1602,7 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
         isOpen={showCrearAsistenciaManualModal}
         onClose={() => setShowCrearAsistenciaManualModal(false)}
         onSuccess={() => {
-          loadAsistencias();
+          store.loadAsistencias();
           loadData();
         }}
       />

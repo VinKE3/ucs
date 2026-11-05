@@ -142,12 +142,43 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
   useEffect(() => {
     setNowTimestamp(Date.now());
   }, [asistenciasList]);
-  const totalMinutosValidos = asistenciasList
+
+  // Filtrado defensivo en memoria (garantiza aislamiento estricto por sede, rol y estado
+  // aun si asistenciasList retiene datos de otras sedes en el store o tras mutaciones)
+  const asistenciasFiltradas = useMemo(() => {
+    let list = asistenciasList;
+    if (asistFiltroSede && asistFiltroSede !== 'todas') {
+      list = list.filter((a) => String(a.sedeId) === String(asistFiltroSede));
+    }
+    if (asistFiltroTipo && asistFiltroTipo !== 'todos') {
+      list = list.filter((a) => a.tipoPersonal === asistFiltroTipo);
+    }
+    if (asistFiltroEstado && asistFiltroEstado !== 'todos') {
+      list = list.filter((a) => a.estado === asistFiltroEstado);
+    }
+    if (asistFiltroCurso && asistFiltroCurso !== 'todos') {
+      list = list.filter((a) => String(a.cursoId) === String(asistFiltroCurso));
+    }
+    if (asistSearch && asistSearch.trim()) {
+      const q = asistSearch.trim().toLowerCase();
+      list = list.filter(
+        (a) =>
+          (a.nombres && a.nombres.toLowerCase().includes(q)) ||
+          (a.apellidos && a.apellidos.toLowerCase().includes(q)) ||
+          (a.dni && a.dni.includes(q)) ||
+          (a.cursoNombre && a.cursoNombre.toLowerCase().includes(q)) ||
+          (a.ambienteNombre && a.ambienteNombre.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [asistenciasList, asistFiltroSede, asistFiltroTipo, asistFiltroEstado, asistFiltroCurso, asistSearch]);
+
+  const totalMinutosValidos = asistenciasFiltradas
     .filter((a) => a.estado !== 'anulado' && a.minutosTotales)
     .reduce((acc, a) => acc + (a.minutosTotales || 0), 0);
 
   const horasTotalesDecimal = (totalMinutosValidos / 60).toFixed(1);
-  const totalEnCurso = asistenciasList.filter((a) => a.estado === 'en_curso').length;
+  const totalEnCurso = asistenciasFiltradas.filter((a) => a.estado === 'en_curso').length;
 
   const getTipoBadge = (tipo: string) => {
     switch (tipo) {
@@ -226,7 +257,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
 
     const map = new Map<number, ColaboradorMapItem>();
 
-    for (const a of asistenciasList) {
+    for (const a of asistenciasFiltradas) {
       if (a.estado === 'anulado') continue;
 
       let item = map.get(a.usuarioId);
@@ -352,7 +383,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
         horaSalidaEsperada: val.horaSalidaEsperada,
       }))
       .sort((a, b) => b.minutosTotales - a.minutosTotales);
-  }, [asistenciasList, usuariosList, cursosList, nowTimestamp]);
+  }, [asistenciasFiltradas, usuariosList, cursosList, nowTimestamp]);
 
   // Función de evaluación adaptativa: ¿un turno en curso es prolongado o excedió su horario?
   const evaluarTurnoProlongado = useCallback((asist: AsistenciaAdminItem) => {
@@ -442,8 +473,8 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
 
   // Turnos en curso con salida pendiente o que excedieron su horario/duración prevista
   const turnosProlongados = useMemo(() => {
-    return asistenciasList.filter((a) => evaluarTurnoProlongado(a).esProlongado);
-  }, [asistenciasList, evaluarTurnoProlongado]);
+    return asistenciasFiltradas.filter((a) => evaluarTurnoProlongado(a).esProlongado);
+  }, [asistenciasFiltradas, evaluarTurnoProlongado]);
 
   // Métricas y filtrado rápido por cumplimiento SimClic
   const metricasSimclic = useMemo(() => {
@@ -454,7 +485,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     let sinProg = 0;
     let enCurso = 0;
 
-    for (const a of asistenciasList) {
+    for (const a of asistenciasFiltradas) {
       if (a.tipoPersonal !== 'docente' && a.tipoPersonal !== 'paciente_simulado') continue;
       const evalSim = evaluarCumplimientoSimclic(a);
       if (evalSim.categoria === 'en_curso') enCurso++;
@@ -466,16 +497,16 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     }
 
     return { coberturaParcial, tardanza, discrepanciaSala, alineado, sinProg, enCurso };
-  }, [asistenciasList]);
+  }, [asistenciasFiltradas]);
 
   const asistenciasConFiltroSimclic = useMemo(() => {
-    if (filtroSimclic === 'todos') return asistenciasList;
-    return asistenciasList.filter((a) => {
+    if (filtroSimclic === 'todos') return asistenciasFiltradas;
+    return asistenciasFiltradas.filter((a) => {
       if (a.tipoPersonal !== 'docente' && a.tipoPersonal !== 'paciente_simulado') return false;
       const evalSim = evaluarCumplimientoSimclic(a);
       return evalSim.categoria === filtroSimclic;
     });
-  }, [asistenciasList, filtroSimclic]);
+  }, [asistenciasFiltradas, filtroSimclic]);
 
   // Paginación de Turnos Detallados
   const totalDetalle = asistenciasConFiltroSimclic.length;
@@ -766,7 +797,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
         <div className={styles.metricsBar}>
           <div className={styles.metricsLeft}>
             <div className={styles.metricItem}>
-              <span className={styles.metricVal}>{asistenciasList.length}</span>
+              <span className={styles.metricVal}>{asistenciasFiltradas.length}</span>
               <span className={styles.metricLbl}>Registros</span>
             </div>
 
@@ -908,7 +939,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
             gap: '0.4rem',
           }}
         >
-          <span>📋</span> Turnos Detallados ({asistenciasList.length})
+          <span>📋</span> Turnos Detallados ({asistenciasFiltradas.length})
         </button>
 
         <button
@@ -1355,7 +1386,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
               onClick={() => setFiltroSimclic('todos')}
               className={`${styles.simclicPillBtn} ${filtroSimclic === 'todos' ? styles.simclicPillBtnActive : ''}`}
             >
-              Todos ({asistenciasList.length})
+              Todos ({asistenciasFiltradas.length})
             </button>
             <button
               type="button"

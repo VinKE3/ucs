@@ -3,6 +3,28 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 112: Aislamiento Estricto de Filtros de Sede y Desacoplamiento de Asistencias (`AdminDashboard.tsx`, `AsistenciasTab.tsx`, `test_asistencias_tab_isolation.ts`)**:
+      - **Problema Diagnosticado**:
+        - Al regularizar un turno de Paciente Simulado o Docente en Campus Norte (o cualquier sede) mediante el modal `ModalCerrarTurno`, la interfaz ejecutaba un refresco y cargaba registros de todas las sedes (ej: aparecían pacientes de Campus Villa), perdiendo el contexto de la sede seleccionada.
+        - **Causa Raíz**:
+          1. En `AdminDashboard.tsx`, sobrevivían 7 estados locales residuales (`asistenciasList`, `asistFiltroSede = 'todas'`, `asistFiltroTipo`, `asistFiltroEstado`, `asistFiltroCurso`, `asistSearch` y `loadingAsistencias`).
+          2. `handleConfirmCerrarTurno`, `handleConfirmAnular` y `ModalCrearAsistenciaManual.onSuccess` invocaban a una función local `loadAsistencias()`, la cual consultaba `/api/asistencias` usando el valor local `asistFiltroSede = 'todas'` en lugar del store de Zustand, y ejecutaba `store.setAsistenciasList(asists)`, sobrescribiendo el store con asistencias de toda la universidad.
+          3. `handleExportCsv` en `AdminDashboard.tsx` también exportaba con los filtros locales desactualizados, anulando el exportador reactivo de `AsistenciasTab`.
+          4. `AsistenciasTab.tsx` no contaba con filtrado defensivo en memoria para `sedeId`, renderizando directamente la lista cruda del store.
+      - **Solución Implementada**:
+        1. **Desacoplamiento Total de `AdminDashboard.tsx`**:
+           - Eliminados todos los estados locales redundantes de asistencias y la función local `loadAsistencias()`.
+           - `handleConfirmCerrarTurno`, `handleConfirmAnular` y creación manual ahora invocan directamente a `await store.loadAsistencias()`, el cual respeta estrictamente los filtros activos del operador (Campus Norte, rol, estado, etc.).
+           - `handleCerrarTurnoPorRelevo` ahora consulta `store.asistenciasList`.
+           - Removida la prop `onExportCsv` de `<AsistenciasTab />`, permitiendo que la pestaña utilice su exportador propio con los filtros del store.
+        2. **Filtrado Defensivo Multicapa en Memoria (`AsistenciasTab.tsx`)**:
+           - Introducido `asistenciasFiltradas` con filtrado estricto por `asistFiltroSede`, `asistFiltroTipo`, `asistFiltroEstado`, `asistFiltroCurso` y `asistSearch`.
+           - Todas las métricas (Registros, Horas Totales, En Curso), contadores de pestañas, acordeones, turnos prolongados y resumen de colaboradores se calculan sobre `asistenciasFiltradas`.
+           - Garantiza al 100% que ninguna asistencia de Campus Villa o Ate pueda mostrarse cuando Campus Norte esté seleccionado, aun ante latencias o mutaciones.
+      - **Verificación Técnica**:
+        - Suite automatizada de pruebas de aislamiento (`src/scripts/test_asistencias_tab_isolation.ts`): **6/6 pruebas aprobadas**.
+        - Compilación TypeScript estricta (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 111: Cotejo Inteligente de Ambientes y Normalización de Sufijos de Sede SimClic (`simclicAudit.ts`, `test_salas_norte_matching.ts`)**:
       - **Problema Diagnosticado**:
         - En el panel de asistencias de Campus Norte, 13 de 15 registros de Pacientes Simulados figuraban erróneamente con la alerta `🔄 Cambio / Discrepancia de Sala` (ej: *"Marcó en Sala de Habilidades 1 - Norte vs Sala de Habilidades 1"* o *"Marcó en SALA ALTA FIDELIDAD 1 - NORTE vs SALA ALTA FIDELIDAD 1"*).

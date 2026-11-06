@@ -225,3 +225,4 @@ if (!res4.esProlongado || !res4.etiquetaAlerta.includes('Turno del 2026-11-04'))
 console.log(`✅ Test 4 Aprobado: Turno de fecha pasada se detecta fielmente: "${res4.etiquetaAlerta}".`);
 
 console.log('\n🎉 TODOS LOS TESTS DE EVALUACIÓN INTELIGENTE DE TURNOS PROLONGADOS PASARON EXITOSAMENTE!');
+

@@ -3,6 +3,14 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 115: Homogeneización de Tarifa Base en Cero (S/. 0.00) para todos los Pacientes Simulados (`usuarios`, PostgreSQL)**:
+      - **Objetivo**:
+        - Establecer el precio base (`tarifa_hora`) en 0.00 para la totalidad de los Pacientes Simulados registrados en el sistema, asegurando que la liquidación se rija de forma pura e inequívoca por el catálogo de tarifas de cursos (S/. 25.00/h simulación general, S/. 15.00/h ecografía) y eliminando valores base residuales (ej: S/. 30.00) que distorsionaban fichas o modales informativos.
+      - **Acción Ejecutada**:
+        - Se recorrieron los 41 Pacientes Simulados en la base de datos Neon PostgreSQL.
+        - Los 27 perfiles que aún conservaban tarifas base históricas de S/. 30.00 fueron actualizados a `tarifa_hora = '0.00'`.
+        - Verificación del 100% de los pacientes simulados con tarifa base en S/. 0.00.
+
     - **Hito 114: Evaluación Dinámica de Turnos Prolongados basada en Cierre de Bloques SimClic (`AsistenciasTab.tsx`, `test_turnos_prolongados_simclic.ts`)**:
       - **Problema Diagnosticado**:
         - En la pestaña de *Historial de Asistencias*, aparecía la alerta amarilla `"Alerta de Salidas Pendientes: 12 turnos que excedieron su horario o duración prevista"`.

@@ -13,33 +13,51 @@ export function resolverTarifaPs(
   cursoNombre: string | null | undefined,
   cursoTarifaHoraPs: string | number | null | undefined,
   tarifaUsuarioBase: number | null | undefined,
-  cursosList: CursoAdminItem[] = []
+  cursosList: CursoAdminItem[] = [],
+  cursoCodigo?: string | null | undefined
 ): number {
   if (cursoTarifaHoraPs !== undefined && cursoTarifaHoraPs !== null && cursoTarifaHoraPs !== '') {
     const val = Number(cursoTarifaHoraPs);
     if (!isNaN(val) && val > 0) return val;
   }
 
+  // 1. Búsqueda por ID en el catálogo
+  let cFound: CursoAdminItem | undefined;
   if (cursoId) {
-    const cFound = cursosList.find((c) => c.id === cursoId);
+    cFound = cursosList.find((c) => c.id === cursoId);
     if (cFound?.tarifaHoraPs !== undefined && cFound?.tarifaHoraPs !== null && cFound?.tarifaHoraPs !== '') {
       const val = Number(cFound.tarifaHoraPs);
       if (!isNaN(val) && val > 0) return val;
     }
   }
 
-  // Comprobar si el curso corresponde a Ecografía
+  // 2. Si no se halló tarifa por ID o el curso tenía tarifa null, buscar por código exacto o nombre en el catálogo
+  if (cursoCodigo || cursoNombre) {
+    const normCodigo = (cursoCodigo || '').trim().toLowerCase();
+    const normNombre = (cursoNombre || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    const cByCodeOrName = cursosList.find((c) => {
+      if (normCodigo && c.codigo && c.codigo.trim().toLowerCase() === normCodigo) return true;
+      if (normNombre && c.nombre) {
+        const cNorm = c.nombre.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (cNorm === normNombre) return true;
+      }
+      return false;
+    });
+
+    if (cByCodeOrName?.tarifaHoraPs !== undefined && cByCodeOrName?.tarifaHoraPs !== null && cByCodeOrName?.tarifaHoraPs !== '') {
+      const val = Number(cByCodeOrName.tarifaHoraPs);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+
+  // 3. Comprobar si el curso corresponde a Ecografía
   const cNorm = (cursoNombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (cNorm.includes('ecograf')) {
     return 15;
   }
 
-  // Tarifa base del usuario
-  if (tarifaUsuarioBase && !isNaN(tarifaUsuarioBase) && tarifaUsuarioBase > 0) {
-    return tarifaUsuarioBase;
-  }
-
-  // Tarifa institucional por defecto para cualquier otro curso
+  // 4. Tarifa general institucional por defecto para cursos regulares de simulación clínica
   return 25;
 }
 
@@ -108,7 +126,7 @@ export function calcularHorasEfectivasSesion(
     const cursoId = asist.cursoId || null;
     const cursoNombre = asist.cursoNombre || 'Simulación General';
     const cursoCodigo = asist.cursoCodigo || null;
-    const tarifa = resolverTarifaPs(cursoId, cursoNombre, asist.cursoTarifaHoraPs, tarifaUsuarioBase, cursosList);
+    const tarifa = resolverTarifaPs(cursoId, cursoNombre, asist.cursoTarifaHoraPs, tarifaUsuarioBase, cursosList, cursoCodigo);
     const horasDecimal = Number((minutosFisicos / 60).toFixed(2));
     const subtotal = Number((horasDecimal * tarifa).toFixed(2));
 
@@ -172,7 +190,7 @@ export function calcularHorasEfectivasSesion(
       const cursoId = ses.cursoId || asist.cursoId || null;
       const cursoNombre = ses.cursoNombreSimclic || asist.cursoNombre || 'Simulación General';
       const cursoCodigo = ses.cursoCodigoSimclic || asist.cursoCodigo || null;
-      const tarifa = resolverTarifaPs(cursoId, cursoNombre, asist.cursoTarifaHoraPs, tarifaUsuarioBase, cursosList);
+      const tarifa = resolverTarifaPs(cursoId, cursoNombre, asist.cursoTarifaHoraPs, tarifaUsuarioBase, cursosList, cursoCodigo);
       const horasDecimal = Number((minutosPresencia / 60).toFixed(2));
       const subtotal = Number((horasDecimal * tarifa).toFixed(2));
 
@@ -197,7 +215,7 @@ export function calcularHorasEfectivasSesion(
     const cursoId = asist.cursoId || null;
     const cursoNombre = asist.cursoNombre || 'Simulación General';
     const cursoCodigo = asist.cursoCodigo || null;
-    const tarifa = resolverTarifaPs(cursoId, cursoNombre, asist.cursoTarifaHoraPs, tarifaUsuarioBase, cursosList);
+    const tarifa = resolverTarifaPs(cursoId, cursoNombre, asist.cursoTarifaHoraPs, tarifaUsuarioBase, cursosList, cursoCodigo);
     const horasDecimal = Number((minutosFisicos / 60).toFixed(2));
     const subtotal = Number((horasDecimal * tarifa).toFixed(2));
 

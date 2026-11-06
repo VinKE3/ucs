@@ -3,6 +3,35 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 113: Corrección de Tarifa Horaria y Precedencia Estricta en Vinculación de Cursos (`planillaPsCalculos.ts`, `simclicSync.ts`, `fix_ext_gyo_tarifa_and_relink.ts`, `test_tarifa_ps_relink_resolution.ts`)**:
+      - **Problema Diagnosticado**:
+        - En el reporte y modal de liquidación de Paciente Simulado (caso Meri Lucía Ludeña, DNI `45784931`), el curso *Externado en Ginecología y Obstetricia* se liquidaba a **S/. 30.00 / h** (`5.3 hrs × S/. 30.00 = S/. 157.50`), a pesar de que en el catálogo de Cursos figuraba configurado a **S/. 25.00 / h**, mientras que los demás 5 cursos de la colaboradora sí liquidaban a S/. 25.00 / h.
+        - **Causa Raíz Descubierta**:
+          1. **Colisión de Búsqueda de Subcadenas Inversa en `simclicSync.ts`**:
+             En `resolveCurso`, la función ejecutaba un `.find()` evaluando simultáneamente prefijo, código y nombre con `(c.nombre.includes(name) || name.includes(c.nombre))`. Al evaluar el curso 60 (*Ginecología y Obstetricia*, sin tarifa) que aparecía antes en el array, la condición `'externado en ginecología y obstetricia'.includes('ginecología y obstetricia')` era verdadera. Por ello, el curso 60 ganaba la búsqueda, dejando sin evaluar al curso 61 (*Externado en Ginecología y Obstetricia*, código `001071`, tarifa S/. 25.00/h). Esto provocó que 253 sesiones programadas y 5 asistencias se vincularan erróneamente a `cursoId = 60`.
+          2. **Falta de Búsqueda Secundaria por Nombre/Código en `resolverTarifaPs`**:
+             Al evaluar la tarifa de una sesión con `cursoId = 60`, `cFound` tenía `tarifaHoraPs = null`. Al no buscar por código (`001071`) ni nombre en el catálogo, la función caía en la prioridad de tarifa base del usuario (`tarifaUsuarioBase = 30.00` registrado en la tabla `usuarios`), cobrando S/. 30.00/h en vez de S/. 25.00/h.
+      - **Solución Implementada**:
+        1. **Precedencia Estricta de Cotejo en `simclicSync.ts` (`resolveCurso`)**:
+           - Nivel 1: Coincidencia por código oficial exacto (`c.codigo === code`).
+           - Nivel 2: Coincidencia por prefijo exacto (`c.prefijo === prefijo`).
+           - Nivel 3: Coincidencia por nombre exacto normalizado sin acentos (`cNorm === nameNorm`).
+           - Nivel 4: Subcadena directa del catálogo (`cNorm.includes(nameNorm)`).
+           - Nivel 5: Subcadena inversa ponderada seleccionando siempre el candidato con nombre más largo y específico.
+        2. **Resolución Jerárquica y Búsqueda Cruzada en `resolverTarifaPs` (`planillaPsCalculos.ts`)**:
+           - Incorporado el parámetro `cursoCodigo`.
+           - Si el curso por ID no cuenta con tarifa configurada, se ejecuta una búsqueda por código o nombre exacto normalizado en el catálogo de cursos antes de cualquier fallback.
+           - La tarifa estándar institucional de S/. 25.00/h prevalece como regla institucional general de simulación clínica, evitando que tarifas base desactualizadas o históricas de usuario contaminen los cursos regulares.
+        3. **Saneamiento y Revinculación en Neon PostgreSQL**:
+           - Revinculadas las 253 sesiones de *Externado en Ginecología y Obstetricia* (`001071`) y las 5 asistencias con `cursoId: 60` hacia `cursoId: 61`.
+           - Parametrizada la tarifa en el curso 60 a S/. 25.00/h como salvaguarda adicional.
+        4. **Resultado**:
+           - En la ficha y liquidación de Meri Lucía, *Externado en Ginecología y Obstetricia* (2 sesiones, 5.25 hrs) liquida exactamente a **5.25 hrs × S/. 25.00 = S/. 131.25** (ahorro corregido de S/. 26.25), alineándose al 100% con los demás cursos y el catálogo oficial.
+      - **Verificación Técnica**:
+        - Suite de pruebas de regresión (`test_tarifa_ps_relink_resolution.ts`): **4/4 pruebas aprobadas**.
+        - Suite de planilla SimClic (`test_planilla_ventanas_simclic.ts`): **100% aprobado**.
+        - Compilación estricta TypeScript (`tsc --noEmit`): **0 errores**.
+
     - **Hito 112: Aislamiento Estricto de Filtros de Sede y Desacoplamiento de Asistencias (`AdminDashboard.tsx`, `AsistenciasTab.tsx`, `test_asistencias_tab_isolation.ts`)**:
       - **Problema Diagnosticado**:
         - Al regularizar un turno de Paciente Simulado o Docente en Campus Norte (o cualquier sede) mediante el modal `ModalCerrarTurno`, la interfaz ejecutaba un refresco y cargaba registros de todas las sedes (ej: aparecían pacientes de Campus Villa), perdiendo el contexto de la sede seleccionada.

@@ -164,13 +164,53 @@ export async function syncSimclicSessions(
   function resolveCurso(courseSimclic?: { code?: string; name?: string }, prefijo?: string | null) {
     const code = (courseSimclic?.code || '').trim();
     const name = (courseSimclic?.name || '').toLowerCase().trim();
+    const nameNorm = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    return allCursos.find((c) => {
-      if (prefijo && c.prefijo && c.prefijo.toLowerCase() === prefijo.toLowerCase()) return true;
-      if (code && c.codigo && c.codigo.trim() === code) return true;
-      if (name && (c.nombre.toLowerCase().includes(name) || name.includes(c.nombre.toLowerCase()))) return true;
-      return false;
-    }) || null;
+    // 1. Prioridad: Coincidencia por código exacto
+    if (code) {
+      const byCode = allCursos.find((c) => c.codigo && c.codigo.trim() === code);
+      if (byCode) return byCode;
+    }
+
+    // 2. Prioridad: Coincidencia por prefijo exacto
+    if (prefijo) {
+      const byPrefijo = allCursos.find(
+        (c) => c.prefijo && c.prefijo.trim().toLowerCase() === prefijo.trim().toLowerCase()
+      );
+      if (byPrefijo) return byPrefijo;
+    }
+
+    // 3. Prioridad: Coincidencia por nombre exacto (insensible a acentos/mayúsculas)
+    if (nameNorm) {
+      const byExactName = allCursos.find((c) => {
+        const cNorm = (c.nombre || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return cNorm === nameNorm;
+      });
+      if (byExactName) return byExactName;
+    }
+
+    // 4. Prioridad: Catálogo contiene nombre SimClic (ej. nombre SimClic más corto pero específico)
+    if (nameNorm) {
+      const bySubstr = allCursos.find((c) => {
+        const cNorm = (c.nombre || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return cNorm.includes(nameNorm);
+      });
+      if (bySubstr) return bySubstr;
+    }
+
+    // 5. Fallback: Nombre SimClic contiene nombre del catálogo (elegir el más específico/largo)
+    if (nameNorm && nameNorm.length > 5) {
+      const candidates = allCursos.filter((c) => {
+        const cNorm = (c.nombre || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return cNorm.length > 5 && nameNorm.includes(cNorm);
+      });
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => b.nombre.length - a.nombre.length);
+        return candidates[0];
+      }
+    }
+
+    return null;
   }
 
   function resolveDocente(leadInstructor?: { username?: string; firstName?: string; lastName?: string }) {

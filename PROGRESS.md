@@ -3,6 +3,28 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 114: Evaluación Dinámica de Turnos Prolongados basada en Cierre de Bloques SimClic (`AsistenciasTab.tsx`, `test_turnos_prolongados_simclic.ts`)**:
+      - **Problema Diagnosticado**:
+        - En la pestaña de *Historial de Asistencias*, aparecía la alerta amarilla `"Alerta de Salidas Pendientes: 12 turnos que excedieron su horario o duración prevista"`.
+        - Al revisar los registros (ej. Rosa Puma Castillo, Anabell Quispe Huayta, Anthony Mauro Ramos Espinoza, Brissa Molina), figuraban en color naranja con el badge `"⚠️ Sesión Prolongada (5h 4m)"`, a pesar de que sus sesiones programadas en SimClic continuaban activas (ej. Anthony Mauro con 10 bloques hasta las 21:15, Brissa Molina con 5 bloques hasta las 22:00, Rosa Puma hasta las 19:45).
+        - **Causa Raíz**:
+          - La función `evaluarTurnoProlongado` en `AsistenciasTab.tsx` utilizaba una regla estática ciega para Docentes y Pacientes Simulados: `if (diffMinsActual >= 300) esProlongado: true` (5 horas continuas).
+          - Esta condición ignoraba totalmente la programación académica oficial de SimClic (`asist.sesionesProgramadasDia`), disparando falsas alarmas e inflando el contador de salidas pendientes de colaboradores que estaban cumpliendo con su jornada académica.
+      - **Solución Implementada**:
+        1. **Gobierno Estricto por Cierre del Último Bloque de SimClic**:
+           - Para Pacientes Simulados y Docentes con bloques en SimClic, el sistema determina la hora de fin de su **último bloque agendado del día** (`maxFinMins` / `ultimoFinStr`, ej: 19:45, 21:15, 22:00).
+           - Mientras el colaborador esté dentro de su franja horaria programada de clases, se mantiene en estado `🟢 En Curso` limpio, sin falsas alarmas ni inclusión en la barra amarilla de salidas pendientes.
+        2. **Tolerancia Académica de Cortesía (10 Minutos)**:
+           - Se otorga una ventana de gracia de 10 minutos posteriores al cierre del último bloque para que el colaborador pueda ordenarse, retirarse y marcar salida en el Kiosco.
+           - Si transcurren más de 10 minutos tras el fin del último bloque y la asistencia continúa abierta (ej: son las 19:56 tras un bloque finalizado a las 19:45), recién se activa la alerta de salida pendiente real: `⚠️ Salida Pendiente (+11m tras 19:45)`.
+        3. **Manejo Preventivo para Marcaciones Libres y Turnos Anteriores**:
+           - Marcaciones abiertas de días anteriores se detectan de inmediato como `⚠️ Salida Omitida (Turno del YYYY-MM-DD)`.
+           - Marcaciones libres de docentes/actores sin programación SimClic se alertan preventivamente solo si superan 6 horas continuas (`>= 360 min`).
+           - Para personal Técnico y Administrativo se preserva la lógica de jornada laboral (+30 min de cortesía tras su hora de salida o 570 min).
+      - **Verificación Técnica**:
+        - Suite automatizada de pruebas (`src/scripts/test_turnos_prolongados_simclic.ts`): **4/4 pruebas aprobadas**.
+        - Compilación estricta TypeScript (`tsc --noEmit`): **0 errores**.
+
     - **Hito 113: Corrección de Tarifa Horaria y Precedencia Estricta en Vinculación de Cursos (`planillaPsCalculos.ts`, `simclicSync.ts`, `fix_ext_gyo_tarifa_and_relink.ts`, `test_tarifa_ps_relink_resolution.ts`)**:
       - **Problema Diagnosticado**:
         - En el reporte y modal de liquidación de Paciente Simulado (caso Meri Lucía Ludeña, DNI `45784931`), el curso *Externado en Ginecología y Obstetricia* se liquidaba a **S/. 30.00 / h** (`5.3 hrs × S/. 30.00 = S/. 157.50`), a pesar de que en el catálogo de Cursos figuraba configurado a **S/. 25.00 / h**, mientras que los demás 5 cursos de la colaboradora sí liquidaban a S/. 25.00 / h.

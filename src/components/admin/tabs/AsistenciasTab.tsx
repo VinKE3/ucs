@@ -394,8 +394,19 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     const diffMinsActual = Math.max(0, Math.round((nowTimestamp - new Date(asist.horaIngreso).getTime()) / 60000));
     const esTecnicoOAdmin = asist.tipoPersonal === 'tecnico' || asist.tipoPersonal === 'administrativo';
 
+    // 1. Si es un turno de una fecha anterior que quedó sin marcar salida en el kiosco
+    const todayLimaStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date(nowTimestamp));
+    if (asist.fecha && asist.fecha < todayLimaStr) {
+      return {
+        esProlongado: true,
+        diffMinsActual,
+        etiquetaAlerta: `⚠️ Salida Omitida (Turno del ${asist.fecha})`,
+        esTecnicoOAdmin,
+      };
+    }
+
+    // 2. Personal Técnico o Administrativo (con horario laboral institucional)
     if (esTecnicoOAdmin) {
-      // Personal con jornada laboral programada (ej. 8-9h: 13:00 - 22:00, 06:00 - 15:00)
       const uInfo = usuariosMap.get(asist.usuarioId);
       const salidaProg = asist.horaSalidaProgramada || uInfo?.horaSalidaEsperada;
 
@@ -453,12 +464,71 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
       };
     }
 
-    // Para Docentes y Pacientes Simulados: actividad por sesión/escenario (umbral >= 5 horas continuas)
-    if (diffMinsActual >= 300) {
+    // 3. Para Docentes y Pacientes Simulados: Gobierno estricto por bloques de SimClic
+    const sesiones = (asist.sesionesProgramadasDia || []).filter(
+      (s) => Boolean(s.horaInicio && s.horaFin)
+    );
+
+    if (sesiones.length > 0) {
+      // Encontrar la hora de cierre del último bloque del día
+      let maxFinMins = 0;
+      let ultimoFinStr = '';
+      for (const s of sesiones) {
+        try {
+          const [fH, fM] = s.horaFin.split(':').map(Number);
+          const fTotal = fH * 60 + fM;
+          if (fTotal > maxFinMins) {
+            maxFinMins = fTotal;
+            ultimoFinStr = s.horaFin;
+          }
+        } catch {}
+      }
+
+      if (maxFinMins > 0) {
+        // Hora actual de Lima en minutos desde medianoche
+        const parts = new Intl.DateTimeFormat('es-PE', {
+          timeZone: 'America/Lima',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: false,
+        }).formatToParts(new Date(nowTimestamp));
+        const nowH = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+        const nowM = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+        const nowMinsLima = nowH * 60 + nowM;
+
+        // Minutos transcurridos desde que concluyó su último bloque oficial
+        const minsDesdeFinSimclic = nowMinsLima - maxFinMins;
+
+        // Tolerancia de cortesía: Solo alertar si ya excedió 10 minutos tras su último bloque de SimClic
+        if (minsDesdeFinSimclic >= 10) {
+          const horasExceso = Math.floor(minsDesdeFinSimclic / 60);
+          const minsExceso = minsDesdeFinSimclic % 60;
+          const tiempoExcesoTexto = horasExceso > 0 ? `+${horasExceso}h ${minsExceso}m` : `+${minsExceso}m`;
+          return {
+            esProlongado: true,
+            diffMinsActual,
+            etiquetaAlerta: `⚠️ Salida Pendiente (${tiempoExcesoTexto} tras ${ultimoFinStr})`,
+            esTecnicoOAdmin: false,
+          };
+        }
+
+        // Está dentro del desarrollo de sus clases o dentro de los 10 min de cortesía tras terminar
+        return {
+          esProlongado: false,
+          diffMinsActual,
+          etiquetaAlerta: '',
+          esTecnicoOAdmin: false,
+        };
+      }
+    }
+
+    // 4. Si NO cuenta con bloques en SimClic (marcó libre o apoyo no agendado)
+    // Umbral de prevención académica: >= 6 horas continuas (360 min)
+    if (diffMinsActual >= 360) {
       return {
         esProlongado: true,
         diffMinsActual,
-        etiquetaAlerta: `⚠️ Sesión Prolongada (${Math.floor(diffMinsActual / 60)}h ${diffMinsActual % 60}m)`,
+        etiquetaAlerta: `⚠️ Sesión Sin Programar (${Math.floor(diffMinsActual / 60)}h ${diffMinsActual % 60}m)`,
         esTecnicoOAdmin: false,
       };
     }
@@ -1877,7 +1947,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                                 padding: '0.15rem 0.45rem',
                                 borderRadius: '4px',
                               }}
-                              title={esTecnicoOAdmin ? 'Este turno excedió la hora de salida programada sin marcar salida en el kiosco.' : 'Esta sesión lleva más de 5 horas abierta sin marcar salida.'}
+                              title={esTecnicoOAdmin ? 'Este turno excedió la hora de salida programada (+30m cortesía) sin marcar en el kiosco.' : 'Esta sesión excedió su último bloque de SimClic (+10m cortesía) sin marcar salida en el kiosco.'}
                             >
                               {etiquetaAlerta}
                             </span>

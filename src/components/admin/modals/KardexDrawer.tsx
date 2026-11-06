@@ -825,6 +825,80 @@ export function KardexDrawer(props: KardexDrawerProps) {
                 </div>
               </div>
 
+              {/* CONTROL INTERNO: HORARIO EXACTO CON SEGUNDOS PARA EL PERÍODO HOY */}
+              {periodo === 'hoy' && (
+                <div
+                  style={{
+                    background: 'var(--bg-card, rgba(255, 255, 255, 0.7))',
+                    border: '1px dashed rgba(59, 130, 246, 0.45)',
+                    borderRadius: '8px',
+                    padding: '0.65rem 0.85rem',
+                    marginBottom: '0.75rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span style={{ fontSize: '0.95rem' }}>🎯</span>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Horario Exacto con Segundos (Control Interno):
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: '#2563eb', background: 'rgba(59, 130, 246, 0.12)', padding: '0.12rem 0.45rem', borderRadius: '4px', fontWeight: 700 }}>
+                      Kiosco • Tiempo Real
+                    </span>
+                  </div>
+
+                  {asistencias.length === 0 ? (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.2rem 0' }}>
+                      Sin marcaciones registradas el día de hoy.
+                    </div>
+                  ) : (
+                    asistencias.map((a, aIdx) => {
+                      const inSecStr = a.horaIngreso
+                        ? new Date(a.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                        : '--:--:--';
+                      const outSecStr = a.horaSalida
+                        ? new Date(a.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                        : (a.estado === 'en_curso' ? 'En curso (Pendiente)' : '--:--:--');
+
+                      return (
+                        <div
+                          key={a.id || aIdx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: 'var(--bg-elevated, rgba(0, 0, 0, 0.04))',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '6px',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.82rem',
+                            flexWrap: 'wrap',
+                            gap: '0.6rem',
+                            border: '1px solid var(--border-color)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Entrada:</span>
+                            <strong style={{ color: 'var(--ucs-clinical-green, #10b981)', letterSpacing: '0.02em', fontSize: '0.88rem' }}>{inSecStr}</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: a.horaSalida ? '#38bdf8' : '#fbbf24', display: 'inline-block' }} />
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Salida:</span>
+                            <strong style={{ color: a.horaSalida ? '#2563eb' : '#d97706', letterSpacing: '0.02em', fontSize: '0.88rem' }}>{outSecStr}</strong>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem' }}>
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '0.6rem' }}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Puntualidad</div>
@@ -1364,12 +1438,14 @@ export function KardexDrawer(props: KardexDrawerProps) {
                     ? new Date(a.horaIngreso).toLocaleTimeString('es-PE', {
                         hour: '2-digit',
                         minute: '2-digit',
+                        ...(periodo === 'hoy' ? { second: '2-digit' } : {}),
                       })
                     : '-';
                   const horaOut = a.horaSalida
                     ? new Date(a.horaSalida).toLocaleTimeString('es-PE', {
                         hour: '2-digit',
                         minute: '2-digit',
+                        ...(periodo === 'hoy' ? { second: '2-digit' } : {}),
                       })
                     : null;
 

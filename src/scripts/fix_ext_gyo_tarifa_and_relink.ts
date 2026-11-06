@@ -87,3 +87,4 @@ run().catch((err) => {
   console.error('❌ Error en actualización:', err);
   process.exit(1);
 });
+

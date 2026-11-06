@@ -3,6 +3,45 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 118: Aislamiento Estricto por Sede de Bloques SimClic en Asistencias y Auditoría Multi-Campus (`simclicAudit.ts`, `asistencias/route.ts`, `ModalAuditoriaProgramacion.tsx`, `AsistenciasTab.tsx`, `test_kledy_multisede.ts`)**:
+      - **Problema Diagnosticado (Caso Kledy Benjamin Dongo Pflucker)**:
+        - Pacientes simulados o docentes con jornada desconcentrada multi-sede (ej. Kledy Dongo: mañana en Campus Ate, tarde en Campus Norte) marcaban entrada (10:15) y salida (12:01) en Ate tras completar sus 2 bloques de la mañana, y luego marcaban entrada (14:30) en Norte para sus 4 bloques de Ecografía.
+        - Sin embargo, en el modal y panel de auditoría de Campus Ate, aparecía una falsa alerta crítica:
+          *"⚠️ Alerta de Cobertura Parcial / Retiro Anticipado Detectada: 2 de 6 bloques cubiertos (20%). El colaborador registró salida en el terminal Kiosco a las 12:01 p. m., retirándose 9h 14m antes de la conclusión de la última sesión programada (programada hasta las 21:15). ⚠️ 4 bloque(s) programados quedaron completamente desatendidos sin presencia registrada en sala."*
+        - **Causas Raíz Detectadas**:
+          1. En `/api/asistencias/route.ts`, `sesMatch` filtraba únicamente por fecha y colaborador, omitiendo la sede (`s.sedeId !== asist.sedeId`).
+          2. Al filtrar por sede en la vista administrativa (ej. Campus Ate), la API solo retornaba la marcación de Ate, por lo que `asistenciasMismoDia.length === 1`. Esto provocaba que todos los bloques del día (incluyendo los de Campus Norte) se le asignaran a la asistencia de Ate.
+          3. Ni `evaluarCumplimientoSimclic` ni `ModalAuditoriaProgramacion` ni el acordeón de `AsistenciasTab` discriminaban los bloques por sede, tratando las clases de Campus Norte como desatendidas en Campus Ate.
+      - **Solución Implementada**:
+        1. **Motor de Cotejo Jerárquico de Sedes (`coincidenSedesSimclic` en `src/lib/simclicAudit.ts`)**:
+           - Valida correspondencia unívoca por `sedeId` (PostgreSQL) y correspondencia textual normalizada bidireccional (`sedeNombreSimclic` vs `asist.sedeNombre`/`codigo`).
+           - Si una sesión pertenece explícitamente a Campus Norte, queda descartada de plano para marcaciones de Campus Ate (y viceversa).
+        2. **Aislamiento en API Backend (`src/app/api/asistencias/route.ts`)**:
+           - `sesMatch` aplica `coincidenSedesSimclic`.
+           - La agrupación contextual de múltiples turnos se segmenta por sede: `${a.usuarioId}_${a.fecha}_${a.sedeId}`, permitiendo que los turnos en distintas sedes coexistan limpiamente.
+        3. **Filtrado Defensivo en Auditoría y Frontend (`simclicAudit.ts`, `ModalAuditoriaProgramacion.tsx`, `AsistenciasTab.tsx`)**:
+           - `evaluarCumplimientoSimclic` y el modal de auditoría evalúan únicamente las sesiones del campus correspondiente a la marcación.
+           - La asistencia de Ate ahora figura con **2/2 bloques cubiertos (100%), 0 desatendidos, estado 🟢 Conforme / Alineado y sin alerta de retiro anticipado**.
+           - La asistencia de Norte evalúa únicamente sus 4 bloques de la tarde/noche (14:30 a 21:15) en estado `🔄 En curso` sin falsos desatendidos matutinos.
+      - **Verificación Técnica**:
+        - Suite de pruebas automatizadas (`src/scripts/test_kledy_multisede.ts`): **100% aprobada** (3/3 casos verificados).
+        - Suites de regresión (`test_salas_norte_matching.ts`, `test_turnos_prolongados_simclic.ts`, `test_asistencias_tab_isolation.ts`, `test_planilla_ventanas_simclic.ts`): **100% aprobadas**.
+        - Compilación estricta TypeScript (`npx tsc --noEmit`): **0 errores**.
+
+    - **Hito 117: Visualización de Horario Exacto con Segundos y Control Interno en Kardex de Colaborador (`KardexDrawer.tsx`)**:
+      - **Objetivo / Necesidad**:
+        - En el Kardex individual de colaborador (`KardexDrawer.tsx`), permitir a los administradores auditar las marcaciones con precisión al segundo (especialmente útil para validar tolerancias al milímetro en técnicos/administrativos y constatar marcas en tiempo real desde el Kiosco) durante la jornada del día en curso (`periodo === 'hoy'`).
+      - **Solución Implementada**:
+        1. **Módulo de Control Interno en Auditoría de Desempeño y Puntualidad**:
+           - Para el filtro `periodo === 'hoy'`, se incorporó el bloque interactivo *🎯 Horario Exacto con Segundos (Control Interno)* con etiqueta *Kiosco • Tiempo Real*.
+           - Renderizado de timestamps con segundos completos (`HH:mm:ss a`) mediante `toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })`.
+           - Puntos indicadores de estado y tipografía monoespaciada con soporte nativo de alto contraste para temas claro y oscuro institucional (`var(--bg-card)`, `var(--bg-elevated)`, `var(--text-primary)`, `var(--border-color)`).
+        2. **Precisión al Segundo en la Lista de Sesiones / Turnos**:
+           - En las tarjetas del historial de asistencias dentro del Kardex, si el período seleccionado es `hoy`, `horaIn` y `horaOut` activan condicionalmente `{ second: '2-digit' }`, preservando la vista estándar sin segundos para consultas semanales o mensuales.
+      - **Verificación Técnica**:
+        - Verificación estricta de TypeScript (`npx tsc --noEmit`): **0 errores**.
+        - Suite de auditoría y tests de regresión: **100% aprobadas**.
+
     - **Hito 116: Auto-Refresco en Vivo Silencioso del Panel de Admin y Sincronización Ultrarrápida de Cola Offline del Kiosco (`AsistenciasTab.tsx`, `useAdminStore.ts`, `KioscoTerminal.tsx`, `AdminDashboard.tsx`)**:
       - **Problema Diagnosticado**:
         - Al marcar un colaborador su asistencia en un terminal de Kiosco, la marcación no aparecía automáticamente en la pantalla del administrador hasta que este realizara un refresco manual completo (F5), cambiara un filtro o presionara el botón de recargar.

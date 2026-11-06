@@ -127,8 +127,51 @@ export function sonAmbientesCoincidentes(
   return false;
 }
 
+/**
+ * Cotejo jerárquico de sedes / campus para garantizar que los bloques programados
+ * en una sede (ej: Campus Norte) no contaminen o generen falsas alarmas de desatención
+ * en marcaciones de otra sede (ej: Campus Ate) durante jornadas multi-sede.
+ */
+export function coincidenSedesSimclic(
+  sesSedeId?: number | null,
+  sesSedeNombre?: string | null,
+  asistSedeId?: number | null,
+  asistSedeNombre?: string | null,
+  asistSedeCodigo?: string | null
+): boolean {
+  // 1. Coincidencia directa por ID de sede de PostgreSQL
+  if (sesSedeId && asistSedeId) {
+    return sesSedeId === asistSedeId;
+  }
+
+  const sesNom = (sesSedeNombre || '').toLowerCase().trim();
+  const aNom = (asistSedeNombre || '').toLowerCase().trim();
+  const aCod = (asistSedeCodigo || '').toLowerCase().trim();
+
+  // Si la sesión no especifica sede, se asume compatible (ej: virtual o general)
+  if (!sesNom) return true;
+
+  const esNorteSes = sesNom.includes('norte');
+  const esAteSes = sesNom.includes('ate');
+  const esVillaSes = sesNom.includes('villa');
+
+  const esNorteAsist = aNom.includes('norte') || aCod.includes('norte');
+  const esAteAsist = aNom.includes('ate') || aCod.includes('ate');
+  const esVillaAsist = aNom.includes('villa') || aCod.includes('villa');
+
+  if (esNorteSes) return esNorteAsist;
+  if (esAteSes) return esAteAsist;
+  if (esVillaSes) return esVillaAsist;
+
+  return aNom.includes(sesNom) || sesNom.includes(aNom);
+}
+
 export function evaluarCumplimientoSimclic(asist: AsistenciaAdminItem): EvaluacionSimclicResult {
-  const sesiones = asist.sesionesProgramadasDia || [];
+  const rawSesiones = asist.sesionesProgramadasDia || [];
+  // Filtrado defensivo: aislar únicamente los bloques programados que corresponden a la sede de la asistencia
+  const sesiones = rawSesiones.filter((s) =>
+    coincidenSedesSimclic(s.sedeId, s.sedeNombreSimclic, asist.sedeId, asist.sedeNombre, asist.sedeCodigo)
+  );
 
   if (sesiones.length === 0) {
     return {

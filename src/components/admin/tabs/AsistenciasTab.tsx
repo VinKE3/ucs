@@ -9,8 +9,8 @@ import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAudit
 import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
 
-import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion } from '@/lib/simclicAudit';
-export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion };
+import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion, coincidenSedesSimclic } from '@/lib/simclicAudit';
+export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion, coincidenSedesSimclic };
 
 interface AsistenciasTabProps {
   asistenciasList?: AsistenciaAdminItem[];
@@ -494,7 +494,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
 
     // 3. Para Docentes y Pacientes Simulados: Gobierno estricto por bloques de SimClic
     const sesiones = (asist.sesionesProgramadasDia || []).filter(
-      (s) => Boolean(s.horaInicio && s.horaFin)
+      (s) => Boolean(s.horaInicio && s.horaFin) && coincidenSedesSimclic(s.sedeId, s.sedeNombreSimclic, asist.sedeId, asist.sedeNombre, asist.sedeCodigo)
     );
 
     if (sesiones.length > 0) {
@@ -1595,7 +1595,10 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
 
                   const { esProlongado, diffMinsActual, etiquetaAlerta, esTecnicoOAdmin } = evaluarTurnoProlongado(asist);
                   const evalSim = evaluarCumplimientoSimclic(asist);
-                  const tieneSimclic = Boolean(asist.sesionesProgramadasDia && asist.sesionesProgramadasDia.length > 0);
+                  const sesionesSede = (asist.sesionesProgramadasDia || []).filter((s) =>
+                    coincidenSedesSimclic(s.sedeId, s.sedeNombreSimclic, asist.sedeId, asist.sedeNombre, asist.sedeCodigo)
+                  );
+                  const tieneSimclic = sesionesSede.length > 0;
                   const isExpanded = filasExpandidas.has(asist.id);
 
                   return (
@@ -1621,7 +1624,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                               fontWeight: 700,
                               transition: 'all 0.15s ease',
                             }}
-                            title={isExpanded ? 'Contraer bloques programados' : `Ver ${asist.sesionesProgramadasDia!.length} bloque(s) programados en SimClic`}
+                            title={isExpanded ? 'Contraer bloques programados' : `Ver ${sesionesSede.length} bloque(s) programados en SimClic`}
                           >
                             {isExpanded ? '▼' : '▶'}
                           </button>
@@ -1703,9 +1706,9 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                               </span>
                             )}
                             {(() => {
-                              if (!asist.sesionesProgramadasDia) return null;
+                              if (sesionesSede.length === 0) return null;
                               const cursosDistintos = Array.from(new Set(
-                                asist.sesionesProgramadasDia.map((s) => s.cursoNombreSimclic).filter(Boolean)
+                                sesionesSede.map((s) => s.cursoNombreSimclic).filter(Boolean)
                               ));
                               if (cursosDistintos.length > 1) {
                                 return (
@@ -2051,7 +2054,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <span style={{ fontSize: '1.1rem' }}>📋</span>
                                 <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                                  Cronograma Programado SimClic ({asist.sesionesProgramadasDia!.length} Bloque{asist.sesionesProgramadasDia!.length > 1 ? 's' : ''})
+                                  Cronograma Programado SimClic ({sesionesSede.length} Bloque{sesionesSede.length > 1 ? 's' : ''})
                                 </span>
                                 <span style={{
                                   fontSize: '0.75rem',
@@ -2061,7 +2064,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                                   padding: '0.15rem 0.45rem',
                                   borderRadius: '4px',
                                 }}>
-                                  Total Planificado: {asist.sesionesProgramadasDia!.reduce((acc, s) => {
+                                  Total Planificado: {sesionesSede.reduce((acc, s) => {
                                     try {
                                       const [hIniH, hIniM] = s.horaInicio.split(':').map(Number);
                                       const [hFinH, hFinM] = s.horaFin.split(':').map(Number);

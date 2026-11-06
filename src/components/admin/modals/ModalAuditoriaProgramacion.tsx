@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SesionProgramadaSimclicItem } from '@/types/admin';
-import { evaluarCumplimientoSimclic } from '@/lib/simclicAudit';
+import { evaluarCumplimientoSimclic, coincidenSedesSimclic } from '@/lib/simclicAudit';
 
 interface ModalAuditoriaProgramacionProps {
   isOpen: boolean;
@@ -25,7 +25,9 @@ export const ModalAuditoriaProgramacion: React.FC<ModalAuditoriaProgramacionProp
   if (!isOpen || !asistencia || !mounted) return null;
 
   const evalSim = evaluarCumplimientoSimclic(asistencia);
-  const sesiones: SesionProgramadaSimclicItem[] = asistencia.sesionesProgramadasDia || [];
+  const sesiones: SesionProgramadaSimclicItem[] = (asistencia.sesionesProgramadasDia || []).filter((s) =>
+    coincidenSedesSimclic(s.sedeId, s.sedeNombreSimclic, asistencia.sedeId, asistencia.sedeNombre, asistencia.sedeCodigo)
+  );
 
   // Parsear horas de entrada y salida real
   const dateIngreso = new Date(asistencia.horaIngreso);

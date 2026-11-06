@@ -5,6 +5,7 @@ import { desc, eq, and, gte, lte, or, like, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { getPeruTimeString } from '@/lib/peruTime';
 import { parseJsonBody, crearAsistenciaManualSchema, modificarAsistenciaSchema } from '@/lib/validations';
+import { coincidenSedesSimclic } from '@/lib/simclicAudit';
 
 export const dynamic = 'force-dynamic';
 
@@ -171,10 +172,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Agrupar asistencias por usuario y fecha para resolución contextual de múltiples turnos
+    // Agrupar asistencias por usuario, fecha y sede para resolución contextual de múltiples turnos
     const asistenciasPorUsuarioFecha = new Map<string, typeof list>();
     for (const a of list) {
-      const key = `${a.usuarioId}_${a.fecha}`;
+      const key = `${a.usuarioId}_${a.fecha}_${a.sedeId}`;
       if (!asistenciasPorUsuarioFecha.has(key)) asistenciasPorUsuarioFecha.set(key, []);
       asistenciasPorUsuarioFecha.get(key)!.push(a);
     }
@@ -203,6 +204,12 @@ export async function GET(request: Request) {
       const sesMatch = sesionesPorFecha.filter((s) => {
         if (s.fecha !== asist.fecha) return false;
 
+        // 1. Aislamiento Estricto por Sede / Campus:
+        // Una sesión programada en Campus Norte nunca debe adjudicarse a una marcación de Campus Ate (ni viceversa).
+        if (!coincidenSedesSimclic(s.sedeId, s.sedeNombreSimclic, asist.sedeId, asist.sedeNombre, asist.sedeCodigo)) {
+          return false;
+        }
+
         if (asist.tipoPersonal === 'docente') {
           if (s.docenteId && s.docenteId === asist.usuarioId) return true;
           const sDocEmail = (s.docenteCorreoSimclic || '').toLowerCase().trim();
@@ -223,10 +230,10 @@ export async function GET(request: Request) {
         return false;
       });
 
-      // Si el colaborador tiene múltiples marcaciones en el mismo día,
+      // Si el colaborador tiene múltiples marcaciones en el mismo día en la MISMA SEDE,
       // asociamos cada bloque a la marcación más relevante por proximidad horaria o vinculación
       let sesAsignadas = sesMatch;
-      const key = `${asist.usuarioId}_${asist.fecha}`;
+      const key = `${asist.usuarioId}_${asist.fecha}_${asist.sedeId}`;
       const asistenciasMismoDia = asistenciasPorUsuarioFecha.get(key) || [asist];
 
       if (asistenciasMismoDia.length > 1) {

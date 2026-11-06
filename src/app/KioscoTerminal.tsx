@@ -460,6 +460,30 @@ export default function KioscoTerminal() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Drenador activo de cola offline: reintento rápido cada 15 segundos solo si hay marcaciones pendientes
+    const intervalQueue = setInterval(() => {
+      if (navigator.onLine) {
+        obtenerColaMarcacionesOffline().then((cola) => {
+          setOfflineQueueCount(cola.length);
+          if (cola.length > 0) {
+            procesarColaOffline();
+          }
+        });
+      }
+    }, 15000);
+
+    const handleWindowFocus = () => {
+      if (navigator.onLine) {
+        obtenerColaMarcacionesOffline().then((cola) => {
+          setOfflineQueueCount(cola.length);
+          if (cola.length > 0) {
+            procesarColaOffline();
+          }
+        });
+      }
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
     // Ciclo periódico cada 25 minutos para refrescar el snapshot de SimClic del día
     const intervalSnapshot = setInterval(() => {
       if (navigator.onLine) {
@@ -471,6 +495,8 @@ export default function KioscoTerminal() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(intervalQueue);
       clearInterval(intervalSnapshot);
     };
   }, [terminalInfo?.sedeId, selectedSedeId]);
@@ -716,6 +742,13 @@ export default function KioscoTerminal() {
 
         const cola = await obtenerColaMarcacionesOffline();
         setOfflineQueueCount(cola.length);
+
+        // Disparo inmediato en segundo plano para intentar subir la marcación sin demoras
+        setTimeout(() => {
+          if (navigator.onLine) {
+            procesarColaOffline();
+          }
+        }, 2000);
 
         if (accion === 'salida') {
           setTicketSalida({

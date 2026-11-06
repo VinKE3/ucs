@@ -379,6 +379,29 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     loadData();
   }, []);
 
+  // Refresco adaptativo de datos locales (Personal, Estadísticas, Sedes) al reenfocar o en pestaña Personal
+  const lastFocusDataTimestampRef = useRef<number>(0);
+  useEffect(() => {
+    const handleFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusDataTimestampRef.current < 10000) return; // Cooldown de 10s
+      lastFocusDataTimestampRef.current = now;
+      loadData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadData]);
+
+  useEffect(() => {
+    if (activeTab !== 'personal') return;
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      loadData();
+    }, 25000); // Cada 25s actualiza quién está en clínica en la pestaña Personal
+    return () => clearInterval(interval);
+  }, [activeTab, loadData]);
+
   // Sincronización Global en Segundo Plano con SimClic (Multi-tab)
   const isGlobalSyncingRef = useRef(false);
   const [lastGlobalSyncTime, setLastGlobalSyncTime] = useState<Date | null>(null);

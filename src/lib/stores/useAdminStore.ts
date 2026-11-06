@@ -85,7 +85,7 @@ export interface AdminStoreState {
   setAsistFiltroFechaHasta: (fecha: string) => void;
   asistSearch: string;
   setAsistSearch: (search: string) => void;
-  loadAsistencias: () => Promise<void>;
+  loadAsistencias: (silent?: boolean) => Promise<void>;
 
   // 6. Cursos y Carreras
   cursosList: CursoAdminItem[];
@@ -228,7 +228,7 @@ export const useAdminStore = create<AdminStoreState>()(
   setAsistFiltroFechaHasta: (asistFiltroFechaHasta) => set({ asistFiltroFechaHasta }),
   asistSearch: '',
   setAsistSearch: (asistSearch) => set({ asistSearch }),
-  loadAsistencias: async () => {
+  loadAsistencias: async (silent = false) => {
     const {
       asistFiltroSede,
       asistFiltroTipo,
@@ -239,7 +239,7 @@ export const useAdminStore = create<AdminStoreState>()(
       asistSearch,
     } = get();
 
-    set({ loadingAsistencias: true });
+    if (!silent) set({ loadingAsistencias: true });
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       const url = new URL('/api/asistencias', origin);
@@ -259,7 +259,7 @@ export const useAdminStore = create<AdminStoreState>()(
     } catch (err) {
       console.error('Error cargando asistencias en useAdminStore:', err);
     } finally {
-      set({ loadingAsistencias: false });
+      if (!silent) set({ loadingAsistencias: false });
     }
   },
 

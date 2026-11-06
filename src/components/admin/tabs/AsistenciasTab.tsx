@@ -100,6 +100,34 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     asistFiltroFechaHasta,
     asistSearch,
   ]);
+
+  // Auto-refresco en vivo silencioso cada 15 segundos y al reenfocar la ventana
+  useEffect(() => {
+    // Sondeo periódico cada 15 segundos (Zero-Waste: se pausa si la pestaña está minimizada u oculta)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      store.loadAsistencias(true);
+    }, 15000);
+
+    const handleFocus = () => {
+      store.loadAsistencias(true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        store.loadAsistencias(true);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
   const [modoVista, setModoVista] = useState<'detallado' | 'resumen'>('detallado');
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => Date.now());
 
@@ -1052,7 +1080,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
               </tr>
             </thead>
             <tbody>
-              {loadingAsistencias ? (
+              {loadingAsistencias && asistenciasFiltradas.length === 0 ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={`skeleton-resumen-${i}`} className={styles.skeletonTableRow}>
                     <td>
@@ -1527,7 +1555,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
               </tr>
             </thead>
             <tbody>
-              {loadingAsistencias ? (
+              {loadingAsistencias && asistenciasFiltradas.length === 0 ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={`skeleton-asist-${i}`} className={styles.skeletonTableRow}>
                     <td><div className={styles.skeletonCell} style={{ width: '20px', height: '20px', borderRadius: '4px' }} /></td>

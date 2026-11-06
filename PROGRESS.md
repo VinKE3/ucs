@@ -3,6 +3,30 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 116: Auto-Refresco en Vivo Silencioso del Panel de Admin y Sincronización Ultrarrápida de Cola Offline del Kiosco (`AsistenciasTab.tsx`, `useAdminStore.ts`, `KioscoTerminal.tsx`, `AdminDashboard.tsx`)**:
+      - **Problema Diagnosticado**:
+        - Al marcar un colaborador su asistencia en un terminal de Kiosco, la marcación no aparecía automáticamente en la pantalla del administrador hasta que este realizara un refresco manual completo (F5), cambiara un filtro o presionara el botón de recargar.
+        - **Causas Raíz Detectadas**:
+          1. **Ausencia de Polling y Window Focus en Admin**: Ni `AsistenciasTab.tsx` ni `AdminDashboard.tsx` contaban con un ciclo de auto-refresco en segundo plano para asistencias o personal activo; los datos se cargaban una sola vez al montar el componente.
+          2. **Flicker de Skeleton**: En `useAdminStore.ts`, invocar `loadAsistencias()` forzaba `loadingAsistencias: true`, lo cual reemplazaba la tabla entera por filas esqueleto en cada llamada.
+          3. **Cuello de Botella de 25 Minutos en Cola Offline del Kiosco**: Si el Kiosco sufría un micro-corte o lentitud de red al marcar (ej. caso Benjamín Alcántara en Campus Norte), la marcación se resguardaba en IndexedDB, pero el temporizador de vaciado hacia Neon PostgreSQL corría únicamente cada 25 minutos (`25 * 60 * 1000`).
+      - **Solución Implementada**:
+        1. **Auto-Refresco Silencioso de Alta Frecuencia (15s) en `AsistenciasTab.tsx`**:
+           - Sondeo periódico cada 15 segundos en segundo plano mientras la pestaña esté visible.
+           - Detección de re-enfoque de ventana (`window focus` y `visibilitychange`): en cuanto el operador vuelve a la pestaña de UCS, se actualizan las asistencias al instante.
+           - Protección *Zero-Waste*: Si la pestaña está minimizada o en segundo plano, el sondeo se detiene para cuidar al 100% el cómputo del plan gratuito de Neon.
+        2. **Carga no Disruptiva Stale-While-Revalidate (`useAdminStore.ts`)**:
+           - `loadAsistencias` ahora soporta el parámetro `silent = true`.
+           - Las filas esqueleto únicamente se renderizan en el montaje inicial cuando no existen registros (`asistenciasFiltradas.length === 0`), eliminando cualquier parpadeo de pantalla durante los refrescos automáticos.
+        3. **Refresco Reactivo de Personal y "En Clínica Ahora" (`AdminDashboard.tsx`)**:
+           - `AdminDashboard.tsx` refresca el directorio de personal y contadores en vivo al reenfocar la ventana o cada 25 segundos cuando la pestaña activa sea `personal`.
+        4. **Drenador Activo de Cola Offline en Kiosco (`KioscoTerminal.tsx`)**:
+           - Al encolar una marcación en IndexedDB por micro-corte, el Kiosco programa un intento inmediato de subida a los 2 segundos.
+           - Si la cola tiene elementos pendientes (`offlineQueueCount > 0`), un drenador activo reintenta la sincronización con Neon cada 15 segundos (y al reenfocar la tablet), reduciendo la latencia de 25 minutos a pocos segundos.
+      - **Verificación Técnica**:
+        - Compilación estricta TypeScript (`npx tsc --noEmit`): **0 errores**.
+        - Suites automatizadas (`test_asistencias_tab_isolation.ts`, `test_turnos_prolongados_simclic.ts`, `test_tarifa_ps_relink_resolution.ts`): **100% aprobadas**.
+
     - **Hito 115: Homogeneización de Tarifa Base en Cero (S/. 0.00) para todos los Pacientes Simulados (`usuarios`, PostgreSQL)**:
       - **Objetivo**:
         - Establecer el precio base (`tarifa_hora`) en 0.00 para la totalidad de los Pacientes Simulados registrados en el sistema, asegurando que la liquidación se rija de forma pura e inequívoca por el catálogo de tarifas de cursos (S/. 25.00/h simulación general, S/. 15.00/h ecografía) y eliminando valores base residuales (ej: S/. 30.00) que distorsionaban fichas o modales informativos.

@@ -1777,6 +1777,94 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                             <span style={{ color: 'var(--text-muted)' }}>Clínica General (Soporte)</span>
                           )}
                         </div>
+                        {/* BLOQUE OPCIÓN B: TERMINALES DE MARCACIÓN (ENTRADA / SALIDA) */}
+                        <div
+                          style={{
+                            marginTop: '0.35rem',
+                            paddingTop: '0.25rem',
+                            borderTop: '1px dashed var(--border-color, rgba(255, 255, 255, 0.08))',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.2rem',
+                            fontSize: '0.72rem',
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {/* Entrada / Ingreso */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              color: 'var(--text-secondary, #94a3b8)',
+                            }}
+                            title={`Terminal de Ingreso: ${asist.terminalIngresoNombre || (asist.tipoRegistro === 'admin_manual' ? 'Creación Manual Admin' : 'Kiosco Autoservicio')}`}
+                          >
+                            <span
+                              style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: '#10b981',
+                                display: 'inline-block',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ fontWeight: 700, color: '#10b981', fontSize: '0.68rem', letterSpacing: '0.02em' }}>In:</span>
+                            <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }}>
+                              {asist.tipoRegistro === 'admin_manual' ? '👤 ' : '📱 '}
+                              {asist.terminalIngresoNombre || (asist.tipoRegistro === 'admin_manual' ? 'Admin Manual' : 'Kiosco Oficial')}
+                            </span>
+                          </div>
+
+                          {/* Salida */}
+                          {asist.estado !== 'en_curso' && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                color: 'var(--text-secondary, #94a3b8)',
+                              }}
+                              title={`Terminal de Salida: ${
+                                asist.terminalSalidaNombre ||
+                                (asist.estado === 'ajustado_manual' ? 'Ajuste / Auto-Cierre Sistema' : 'Kiosco Autoservicio')
+                              }`}
+                            >
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  background: asist.estado === 'ajustado_manual' ? '#f59e0b' : '#ef4444',
+                                  display: 'inline-block',
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  color: asist.estado === 'ajustado_manual' ? '#f59e0b' : '#f87171',
+                                  fontSize: '0.68rem',
+                                  letterSpacing: '0.02em',
+                                }}
+                              >
+                                Out:
+                              </span>
+                              <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }}>
+                                {asist.terminalSalidaNombre?.includes('Auto-Cierre')
+                                  ? '🤖 '
+                                  : asist.terminalSalidaNombre?.includes('Admin') || asist.tipoRegistro === 'admin_manual'
+                                  ? '👤 '
+                                  : '📱 '}
+                                {asist.terminalSalidaNombre ||
+                                  (asist.estado === 'ajustado_manual'
+                                    ? (asist.motivoModificacion?.includes('Cierre automático') ? 'Auto-Cierre Sistema' : 'Ajuste Admin')
+                                    : 'Kiosco Oficial')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       <td>

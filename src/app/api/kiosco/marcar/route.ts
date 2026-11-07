@@ -413,6 +413,8 @@ export async function POST(request: NextRequest) {
                 estado: 'en_curso',
                 tipoRegistro: 'kiosco_autoservicio',
                 observaciones: notaObservacion,
+                terminalIngresoId: term.id,
+                terminalIngresoNombre: term.nombre,
               })
               .returning();
 
@@ -444,6 +446,8 @@ export async function POST(request: NextRequest) {
               estado: 'en_curso',
               tipoRegistro: 'kiosco_autoservicio',
               observaciones: notaObservacion,
+              terminalIngresoId: term.id,
+              terminalIngresoNombre: term.nombre,
             })
             .returning();
           nuevaAsistencia = inserted;
@@ -578,6 +582,8 @@ export async function POST(request: NextRequest) {
             minutosAnticipo: anticipoMinSalida !== null ? anticipoMinSalida : asistenciaTarget.minutosAnticipo,
             observaciones: observacionesSalida,
             estado: 'finalizado',
+            terminalSalidaId: term.id,
+            terminalSalidaNombre: term.nombre,
             updatedAt: now,
           })
           .where(eq(asistencias.id, asistenciaTarget.id))

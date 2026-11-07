@@ -3,6 +3,36 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 127: Trazabilidad de Terminales Kiosco en Ubicación de Asistencias (Opción B: Entrada y Salida Diferenciadas) (`schema.ts`, `migrate_asistencias_terminales.ts`, `marcar/route.ts`, `offline/route.ts`, `autoCierreTurnos.ts`, `asistencias/route.ts`, `AsistenciasTab.tsx`, `KardexDrawer.tsx`, `excelAsistenciasExporter.ts`, `test_terminales_ubicacion.ts`)**:
+      - **Petición del Usuario**:
+        - En la columna "UBICACIÓN" de la tabla de Asistencias, incorporar la información de desde qué terminal física de Kiosco se marcó la asistencia.
+        - Seleccionada la **Opción B**: mostrar de forma diferenciada la terminal de ingreso (`🟢 In:`) y de salida (`🔴 Out:`) debajo del nombre de la sala.
+      - **Solución Implementada**:
+        1. **Modelado e Inmutabilidad en Base de Datos (`schema.ts`, `migrate_asistencias_terminales.ts`)**:
+           - Columnas agregadas a la tabla `asistencias`:
+             - `terminal_ingreso_id` (FK `terminales_kiosco.id`), `terminal_ingreso_nombre` (`varchar(150)`).
+             - `terminal_salida_id` (FK `terminales_kiosco.id`), `terminal_salida_nombre` (`varchar(150)`).
+           - Garantiza persistencia histórica inmutable incluso si un dispositivo es revocado o renombrado en el futuro.
+        2. **Captura en Tiempo Real en Kiosco Online y Offline (`marcar/route.ts`, `offline/route.ts`)**:
+           - En marcación de entrada: asocia de forma atómica el ID y nombre oficial de la terminal autorizada (`term.id`, `term.nombre`).
+           - En marcación de salida: registra la terminal física donde el colaborador marcó retiro (conservando intacta la de ingreso si marcó en tablets distintas o en traslado).
+        3. **Auditoría de Regularizaciones y Cierres Automáticos (`autoCierreTurnos.ts`, `asistencias/route.ts`)**:
+           - Para turnos regularizados por el cron nocturno o acción masiva: `terminalSalidaNombre = '🤖 Auto-Cierre Sistema'`.
+           - Para turnos creados o ajustados por coordinadores: `terminalIngresoNombre = '👤 Creación Manual Admin'` / `'👤 Regularizado por Admin'`.
+        4. **Diseño Visual en Columna UBICACIÓN (`AsistenciasTab.tsx`)**:
+           - Micro-bloque estilizado con borde superior punteado sutil debajo del ambiente:
+             - `🟢 In:  📱 [Nombre Terminal]` (o `👤 Admin Manual` / `📱 Kiosco Oficial`).
+             - `🔴 Out: 📱 [Nombre Terminal]` (o `🤖 Auto-Cierre Sistema` con punto ámbar para `ajustado_manual`).
+             - En turnos en curso, únicamente se renderiza la línea de ingreso sin saturar la fila.
+             - Tooltips completos y truncado defensivo con elipsis (`text-overflow: ellipsis`) para nombres largos.
+        5. **Integración en Kardex y Exportador Excel (`KardexDrawer.tsx`, `excelAsistenciasExporter.ts`)**:
+           - En el Kardex del colaborador: se visualizan las terminales de ingreso y salida en cada turno auditado.
+           - En el reporte Excel (.xlsx): añadidas las columnas *"Terminal Ingreso"* y *"Terminal Salida"* adyacentes a las horas.
+      - **Verificación Técnica**:
+        - Suite de pruebas de terminales (`test_terminales_ubicacion.ts`): **100% aprobada**.
+        - Suite de regresión y aislamiento (`test_asistencias_tab_isolation.ts`): **100% aprobada**.
+        - Compilación TypeScript estricta (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 126: Modo Híbrido de Compartir por WhatsApp (Captura Visual HD / Mensaje de Texto / Descarga PNG) en `/consulta` (`page.tsx`, `consulta.module.css`)**:
       - **Objetivo & Petición**:
         - Implementar una prueba del modo híbrido al presionar el botón `📲 Compartir` en las tarjetas de clases:

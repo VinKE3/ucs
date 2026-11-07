@@ -66,6 +66,10 @@ export interface TicketSalidaData {
   sedeNombre: string;
   sedeSalidaNombre?: string | null;
   esTrasladoInterSedes?: boolean;
+  terminalIngresoId?: number | null;
+  terminalIngresoNombre?: string | null;
+  terminalSalidaId?: number | null;
+  terminalSalidaNombre?: string | null;
   cursoNombre: string | null;
   horaIngreso: string;
   horaSalida: string;
@@ -131,6 +135,10 @@ export interface AmbienteAdminItem {
 }
 
 export interface AsistenciaAdminItem {
+  terminalIngresoId?: number | null;
+  terminalIngresoNombre?: string | null;
+  terminalSalidaId?: number | null;
+  terminalSalidaNombre?: string | null;
   id: number;
   fecha: string;
   horaIngreso: string;

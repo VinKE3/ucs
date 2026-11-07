@@ -128,6 +128,12 @@ export const asistencias = pgTable('asistencias', {
   
   observaciones: text('observaciones'), // Ej: "Escenario OSCE Pediatría", "Guardia de tarde"
   
+  // Control de Dispositivo / Terminal Kiosco de Marcación (Ingreso y Salida)
+  terminalIngresoId: integer('terminal_ingreso_id').references(() => terminalesKiosco.id, { onDelete: 'set null' }),
+  terminalIngresoNombre: varchar('terminal_ingreso_nombre', { length: 150 }),
+  terminalSalidaId: integer('terminal_salida_id').references(() => terminalesKiosco.id, { onDelete: 'set null' }),
+  terminalSalidaNombre: varchar('terminal_salida_nombre', { length: 150 }),
+
   // Auditoría en caso de modificación o anulación
   modificadoPorId: integer('modificado_por_id').references(() => usuarios.id),
   motivoModificacion: text('motivo_modificacion'),

@@ -1442,6 +1442,22 @@ export function KardexDrawer(props: KardexDrawerProps) {
                           {a.ambienteNombre ? ` • 📍 ${a.ambienteNombre}` : ' • 🛠️ Soporte General'}
                         </span>
                       </div>
+                      {(a.terminalIngresoNombre || a.terminalSalidaNombre) && (
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                          {a.terminalIngresoNombre && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                              <strong style={{ color: '#10b981' }}>In:</strong> {a.terminalIngresoNombre}
+                            </span>
+                          )}
+                          {a.terminalSalidaNombre && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: a.estado === 'ajustado_manual' ? '#f59e0b' : '#ef4444' }} />
+                              <strong style={{ color: a.estado === 'ajustado_manual' ? '#f59e0b' : '#f87171' }}>Out:</strong> {a.terminalSalidaNombre}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {a.cursoNombre && (
                         <div className={styles.sessionCourse}>

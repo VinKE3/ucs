@@ -44,6 +44,11 @@ export async function GET(request: Request) {
         minutosTardanza: asistencias.minutosTardanza,
         minutosAnticipo: asistencias.minutosAnticipo,
         minutosExtra: asistencias.minutosExtra,
+        // Terminales Kiosco (Ingreso y Salida)
+        terminalIngresoId: asistencias.terminalIngresoId,
+        terminalIngresoNombre: asistencias.terminalIngresoNombre,
+        terminalSalidaId: asistencias.terminalSalidaId,
+        terminalSalidaNombre: asistencias.terminalSalidaNombre,
         // Usuario
         usuarioId: usuarios.id,
         dni: usuarios.dni,

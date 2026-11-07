@@ -261,6 +261,7 @@ export async function ejecutarAutoCierreTurnos(opciones: AutoCierreOpciones = {}
           minutosExtra: nuevosMinutosExtra,
           modificadoPorId: adminUserId,
           motivoModificacion: motivo,
+          terminalSalidaNombre: '🤖 Auto-Cierre Sistema',
           updatedAt: new Date(),
         })
         .where(eq(asistencias.id, asist.id)),

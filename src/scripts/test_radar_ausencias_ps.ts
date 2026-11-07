@@ -5,7 +5,7 @@ console.log('🧪 Iniciando Test Suite: Filtro de Ausencias y Alertas de Pacient
 // 1. Simular sesiones para el test
 const nowMinutes = 13 * 60; // 13:00 (1:00 p.m.)
 
-const sesionesMock: SesionProgramadaTimelineItem[] = [
+const sesionesMock: any[] = [
   // Sesión 1: Concluida en la mañana (07:00 a 08:40), PS Angelo Caceres NO marcó
   {
     id: 101,

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { getPeruDateString } from '@/lib/peruTime';
 import styles from './consulta.module.css';
 
 interface EspejoDocente {
@@ -80,25 +81,169 @@ interface CursoItem {
 }
 
 export default function ConsultaPublicaPage() {
-  const getHoyLima = () => {
-    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const getNowMinutesLima = () => {
+    const parts = new Intl.DateTimeFormat('es-PE', {
+      timeZone: 'America/Lima',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const h = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+    const m = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+    return h * 60 + m;
   };
 
-  const [fecha, setFecha] = useState<string>(getHoyLima);
+  const getHoyLima = useCallback(() => getPeruDateString(), []);
+
+  const [fecha, setFecha] = useState<string>(() => getPeruDateString());
   const [selectedSede, setSelectedSede] = useState<string>('todas');
   const [activeTab, setActiveTab] = useState<'docente' | 'curso' | 'ambiente'>('docente');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Datos del backend
-  const [docentes, setDocentes] = useState<DocenteItem[]>([]);
-  const [cursos, setCursos] = useState<CursoItem[]>([]);
+  // Datos del backend (crudos)
+  const [rawDocentes, setRawDocentes] = useState<DocenteItem[]>([]);
+  const [rawCursos, setRawCursos] = useState<CursoItem[]>([]);
   const [sedesList, setSedesList] = useState<string[]>([]);
-  const [todasLasSesiones, setTodasLasSesiones] = useState<SesionConsulta[]>([]);
+  const [rawTodasLasSesiones, setRawTodasLasSesiones] = useState<SesionConsulta[]>([]);
   const [ambientesInventario, setAmbientesInventario] = useState<any[]>([]);
+
+  // Reloj reactivo en vivo de Lima: se actualiza cada 15 segundos para que los minutos restantes,
+  // badges de "EN CURSO" y estados de clases cambien inmediatamente en pantalla sin esperar recargas
+  const [nowMinutesLima, setNowMinutesLima] = useState<number>(getNowMinutesLima);
+
+  useEffect(() => {
+    const updateTick = () => {
+      setNowMinutesLima(getNowMinutesLima());
+      // Si cruzó la medianoche, asegurar que la fecha sincronice automáticamente con el nuevo día en Lima
+      const hoyPeru = getPeruDateString();
+      setFecha((prev) => (prev !== hoyPeru ? hoyPeru : prev));
+    };
+    updateTick();
+    const timer = setInterval(updateTick, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Recalcular estado de tiempo y etiqueta relativa dinámicamente según el minuto actual de Lima
+  const calcularTiempoSesionLive = useCallback((horaInicio: string, horaFin: string, fechaStr: string, currentMins: number) => {
+    const hoyStr = getHoyLima();
+    if (fechaStr < hoyStr) {
+      return {
+        estadoTiempo: 'finalizada' as const,
+        tiempoRelativo: `Concluida a las ${horaFin}`,
+      };
+    }
+    if (fechaStr > hoyStr) {
+      return {
+        estadoTiempo: 'proxima' as const,
+        tiempoRelativo: `Programada`,
+      };
+    }
+
+    const [hIniH, hIniM] = (horaInicio || '00:00').split(':').map(Number);
+    const [hFinH, hFinM] = (horaFin || '00:00').split(':').map(Number);
+    const iniMinutes = (hIniH || 0) * 60 + (hIniM || 0);
+    const finMinutes = (hFinH || 0) * 60 + (hFinM || 0);
+
+    if (currentMins >= finMinutes) {
+      return {
+        estadoTiempo: 'finalizada' as const,
+        tiempoRelativo: `Concluida a las ${horaFin}`,
+      };
+    }
+
+    if (currentMins >= iniMinutes && currentMins < finMinutes) {
+      const restantes = finMinutes - currentMins;
+      const str = restantes >= 60
+        ? `Quedan ${Math.floor(restantes / 60)}h ${restantes % 60}m`
+        : restantes <= 1
+        ? `Por finalizar (< 1 min)`
+        : `Quedan ${restantes} min`;
+      return {
+        estadoTiempo: 'en_curso' as const,
+        tiempoRelativo: str,
+      };
+    }
+
+    const faltantes = iniMinutes - currentMins;
+    let str = '';
+    if (faltantes <= 1) {
+      str = 'Inicia en breve';
+    } else if (faltantes < 60) {
+      str = `Inicia en ${faltantes} min`;
+    } else {
+      str = `Inicia en ${Math.floor(faltantes / 60)}h ${faltantes % 60}m`;
+    }
+    return {
+      estadoTiempo: 'proxima' as const,
+      tiempoRelativo: str,
+    };
+  }, []);
+
+  // Derivar colecciones con tiempos 100% sincronizados en tiempo real
+  const docentes = useMemo(() => {
+    return rawDocentes.map((d) => ({
+      ...d,
+      sesiones: d.sesiones.map((s) => {
+        const t = calcularTiempoSesionLive(s.horaInicio, s.horaFin, s.fecha, nowMinutesLima);
+        return {
+          ...s,
+          estadoTiempo: t.estadoTiempo,
+          tiempoRelativo: t.tiempoRelativo,
+          espejos: (s.espejos || []).map((esp) => {
+            const et = calcularTiempoSesionLive(esp.horaInicio, esp.horaFin, s.fecha, nowMinutesLima);
+            return {
+              ...esp,
+              estadoTiempo: et.estadoTiempo,
+              tiempoRelativo: et.tiempoRelativo,
+            };
+          }),
+        };
+      }),
+    }));
+  }, [rawDocentes, nowMinutesLima, calcularTiempoSesionLive]);
+
+  const cursos = useMemo(() => {
+    return rawCursos.map((c) => ({
+      ...c,
+      sesiones: c.sesiones.map((s) => {
+        const t = calcularTiempoSesionLive(s.horaInicio, s.horaFin, s.fecha, nowMinutesLima);
+        return {
+          ...s,
+          estadoTiempo: t.estadoTiempo,
+          tiempoRelativo: t.tiempoRelativo,
+          espejos: (s.espejos || []).map((esp) => {
+            const et = calcularTiempoSesionLive(esp.horaInicio, esp.horaFin, s.fecha, nowMinutesLima);
+            return {
+              ...esp,
+              estadoTiempo: et.estadoTiempo,
+              tiempoRelativo: et.tiempoRelativo,
+            };
+          }),
+        };
+      }),
+    }));
+  }, [rawCursos, nowMinutesLima, calcularTiempoSesionLive]);
+
+  const todasLasSesiones = useMemo(() => {
+    return rawTodasLasSesiones.map((s) => {
+      const t = calcularTiempoSesionLive(s.horaInicio, s.horaFin, s.fecha, nowMinutesLima);
+      return {
+        ...s,
+        estadoTiempo: t.estadoTiempo,
+        tiempoRelativo: t.tiempoRelativo,
+        espejos: (s.espejos || []).map((esp) => {
+          const et = calcularTiempoSesionLive(esp.horaInicio, esp.horaFin, s.fecha, nowMinutesLima);
+          return {
+            ...esp,
+            estadoTiempo: et.estadoTiempo,
+            tiempoRelativo: et.tiempoRelativo,
+          };
+        }),
+      };
+    });
+  }, [rawTodasLasSesiones, nowMinutesLima, calcularTiempoSesionLive]);
 
   // Búsqueda y selección
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,6 +289,96 @@ export default function ConsultaPublicaPage() {
       console.warn('Error al olvidar perfil:', err);
     }
   }, []);
+
+  // Notificación flotante de WhatsApp
+  const [wspToast, setWspToast] = useState<string | null>(null);
+
+  // Compartir horario completo del docente por WhatsApp
+  const handleCompartirWspHorario = useCallback((docente: DocenteItem) => {
+    const fechaObj = new Date(fecha + 'T12:00:00');
+    const fechaFormat = isNaN(fechaObj.getTime())
+      ? fecha
+      : fechaObj.toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const fechaCap = fechaFormat.charAt(0).toUpperCase() + fechaFormat.slice(1);
+
+    const lineas: string[] = [
+      `🏥 *UCS SIMULACIÓN CLÍNICA - HORARIO DOCENTE*`,
+      `👨‍🏫 *Docente:* ${docente.docenteNombre}`,
+      `📅 *Fecha:* ${fechaCap}`,
+      `📊 *Carga:* ${docente.totalClases} ${docente.totalClases === 1 ? 'clase' : 'clases'} (${docente.totalHorasStr})`,
+      docente.carreras.length > 0 ? `🎓 *Carrera:* ${docente.carreras.join(' • ')}` : '',
+      `─────────────────────────`,
+      `🗓️ *DETALLE DE CLASES:*`,
+    ].filter(Boolean);
+
+    docente.sesiones.forEach((s, idx) => {
+      const estadoTag = s.estadoTiempo === 'en_curso' ? ' • 🔴 *EN CURSO AHORA*' : s.estadoTiempo === 'proxima' ? ' • ⚡ *PRÓXIMA*' : '';
+      lineas.push(
+        `\n*${idx + 1}.* 🕒 *${s.horaInicio} - ${s.horaFin}*${estadoTag}`,
+        `   📚 *Curso:* ${s.cursoNombre || s.titulo}`,
+        `   🚪 *Sala:* ${s.ambienteNombre || 'Por confirmar'}${s.ambienteCodigo ? ` (${s.ambienteCodigo})` : ''}${s.sedeNombre ? ` • ${s.sedeNombre}` : ''}`
+      );
+      if (s.escenarioNombre) {
+        lineas.push(`   🩺 *Caso:* ${s.escenarioNombre}`);
+      }
+      if (s.psNombre || s.pacienteSimuladoNombre) {
+        const psStatus = s.psEstado === 'en_sede' ? `(En sede ${s.psHoraIngreso || ''})` : s.psEstado === 'salio' ? '(Salida registrada)' : '(Por ingresar)';
+        lineas.push(`   🎭 *Actor/PS:* ${s.psNombre || s.pacienteSimuladoNombre} ${psStatus}`);
+      }
+    });
+
+    lineas.push(
+      `\n─────────────────────────`,
+      `🔗 *Consulta interactiva en vivo:*`,
+      `https://ucs-iota.vercel.app/consulta`
+    );
+
+    const fullMsg = lineas.join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullMsg).catch(() => {});
+    }
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullMsg)}`;
+    window.open(url, '_blank');
+
+    setWspToast('¡Horario completo copiado al portapapeles y abriendo WhatsApp!');
+    setTimeout(() => setWspToast(null), 3500);
+  }, [fecha]);
+
+  // Compartir una clase específica por WhatsApp
+  const handleCompartirWspSesion = useCallback((docente: DocenteItem, sesion: SesionConsulta) => {
+    const lineas: string[] = [
+      `🏥 *UCS SIMULACIÓN - CLASE PROGRAMADA*`,
+      `👨‍🏫 *Docente:* ${docente.docenteNombre}`,
+      `📅 *Fecha:* ${fecha}`,
+      `🕒 *Horario:* ${sesion.horaInicio} - ${sesion.horaFin}${sesion.estadoTiempo === 'en_curso' ? ' (EN CURSO AHORA)' : ''}`,
+      `📚 *Curso:* ${sesion.cursoNombre || sesion.titulo}`,
+      `🚪 *Ambiente:* ${sesion.ambienteNombre || 'Por confirmar'}${sesion.ambienteCodigo ? ` (${sesion.ambienteCodigo})` : ''}${sesion.sedeNombre ? ` • ${sesion.sedeNombre}` : ''}`,
+    ];
+
+    if (sesion.escenarioNombre) {
+      lineas.push(`🩺 *Caso:* ${sesion.escenarioNombre}`);
+    }
+    if (sesion.psNombre || sesion.pacienteSimuladoNombre) {
+      lineas.push(`🎭 *Actor/PS:* ${sesion.psNombre || sesion.pacienteSimuladoNombre}`);
+    }
+
+    lineas.push(
+      `\n🔗 *Ver en vivo:* https://ucs-iota.vercel.app/consulta`
+    );
+
+    const msg = lineas.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(msg).catch(() => {});
+    }
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+
+    setWspToast(`¡Clase ${sesion.horaInicio} copiada y abriendo WhatsApp!`);
+    setTimeout(() => setWspToast(null), 3500);
+  }, [fecha]);
 
   // Referencia al input de búsqueda para enfoque automático
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -238,7 +473,10 @@ export default function ConsultaPublicaPage() {
       setError(null);
     }
     try {
-      const res = await fetch(`/api/consulta?fecha=${fecha}`);
+      const res = await fetch(`/api/consulta?fecha=${fecha}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
       if (data.success) {
         // Filtrar defensivamente clases y ambientes virtuales
@@ -284,10 +522,10 @@ export default function ConsultaPublicaPage() {
           (a: any) => !isVirtual(a.nombre, a.codigo)
         );
 
-        setDocentes(cleanedDocentes);
-        setCursos(cleanedCursos);
+        setRawDocentes(cleanedDocentes);
+        setRawCursos(cleanedCursos);
         setSedesList(data.sedesDelDia || []);
-        setTodasLasSesiones(cleanedSesiones);
+        setRawTodasLasSesiones(cleanedSesiones);
         setAmbientesInventario(cleanedAmbientes);
         setError(null);
       } else if (!isSilent) {
@@ -349,7 +587,7 @@ export default function ConsultaPublicaPage() {
     runBackgroundSync(false);
   };
 
-  // Recarga silenciosa de solo lectura cada 15 minutos en segundo plano (Zero-Waste: solo lee de la BD, no escribe en SimClic)
+  // Recarga silenciosa de solo lectura cada 3 minutos en segundo plano (Zero-Waste: solo lee de la BD, no escribe en SimClic)
   useEffect(() => {
     const hoy = getHoyLima();
     if (fecha !== hoy) return;
@@ -360,12 +598,12 @@ export default function ConsultaPublicaPage() {
       // Si la pestaña está oculta, no hacer nada
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       loadData(true);
-    }, 900000); // 15 minutos (solo lectura ligera de BD)
+    }, 180000); // 3 minutos (solo lectura ligera de BD)
 
     const handleFocus = () => {
       const now = Date.now();
-      // Throttle de al menos 10 minutos entre re-enfoques
-      if (now - lastFocusSync > 600000) {
+      // Throttle de al menos 45 segundos entre re-enfoques
+      if (now - lastFocusSync > 45000) {
         lastFocusSync = now;
         loadData(true);
       }
@@ -409,12 +647,9 @@ export default function ConsultaPublicaPage() {
     return null;
   }, [selectedDocenteId, docentes, searchQuery, filteredDocentes]);
 
-  // Encontrar la sesión más relevante según la hora actual en Lima, Perú
+  // Encontrar la sesión más relevante según la hora actual en Lima, Perú (reactiva con nowMinutesLima)
   const getSesionMasCercana = useCallback((sesiones: SesionConsulta[]): SesionConsulta | null => {
     if (!sesiones || sesiones.length === 0) return null;
-
-    const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-    const nowMins = limaDate.getHours() * 60 + limaDate.getMinutes();
 
     const getMins = (hStr: string) => {
       const [h, m] = (hStr || '00:00').split(':').map(Number);
@@ -425,20 +660,20 @@ export default function ConsultaPublicaPage() {
     const enCurso = sesiones.find((s) => {
       const ini = getMins(s.horaInicio);
       const fin = getMins(s.horaFin);
-      return nowMins >= ini && nowMins < fin;
+      return nowMinutesLima >= ini && nowMinutesLima < fin;
     });
     if (enCurso) return enCurso;
 
     // 2. Si no hay en curso, la clase más próxima hacia adelante (que comience después de nowMins)
     const futuras = sesiones
-      .filter((s) => getMins(s.horaInicio) >= nowMins)
+      .filter((s) => getMins(s.horaInicio) >= nowMinutesLima)
       .sort((a, b) => getMins(a.horaInicio) - getMins(b.horaInicio));
     if (futuras.length > 0) return futuras[0];
 
     // 3. Si ya concluyeron todas las clases del día, la última que terminó (más cercana en retrospectiva)
     const pasadas = [...sesiones].sort((a, b) => getMins(b.horaFin) - getMins(a.horaFin));
     return pasadas[0] || sesiones[0];
-  }, []);
+  }, [nowMinutesLima]);
 
   // Sesión objetivo (más cercana en el tiempo) del docente actualmente seleccionado
   const sesionObjetivo = useMemo(() => {
@@ -750,7 +985,7 @@ export default function ConsultaPublicaPage() {
             <div className={styles.emptyIcon}>⚠️</div>
             <h3 className={styles.emptyTitle}>Error al cargar programación</h3>
             <p className={styles.emptyText}>{error}</p>
-            <button onClick={() => setFecha(new Date().toISOString().slice(0, 10))} className={styles.resetBtn}>
+            <button onClick={() => setFecha(getPeruDateString())} className={styles.resetBtn}>
               Reintentar Hoy
             </button>
           </div>
@@ -805,15 +1040,28 @@ export default function ConsultaPublicaPage() {
                         </div>
                       </div>
 
-                      <div className={styles.docenteStats}>
-                        <div className={styles.statItem}>
-                          <div className={styles.statValue}>{currentDocente.totalClases}</div>
-                          <div className={styles.statLabel}>Clases Hoy</div>
+                      <div className={styles.docenteActionsRight}>
+                        <div className={styles.docenteStats}>
+                          <div className={styles.statItem}>
+                            <div className={styles.statValue}>{currentDocente.totalClases}</div>
+                            <div className={styles.statLabel}>Clases Hoy</div>
+                          </div>
+                          <div className={styles.statItem}>
+                            <div className={styles.statValue}>{currentDocente.totalHorasStr}</div>
+                            <div className={styles.statLabel}>Carga Horaria</div>
+                          </div>
                         </div>
-                        <div className={styles.statItem}>
-                          <div className={styles.statValue}>{currentDocente.totalHorasStr}</div>
-                          <div className={styles.statLabel}>Carga Horaria</div>
-                        </div>
+
+                        {/* BOTÓN COMPARTIR HORARIO POR WHATSAPP (DESKTOP Y MÓVIL) */}
+                        <button
+                          type="button"
+                          onClick={() => handleCompartirWspHorario(currentDocente)}
+                          className={styles.shareWspHeaderBtn}
+                          title="Compartir el horario completo de hoy por WhatsApp"
+                        >
+                          <span className={styles.shareWspIcon}>📲</span>
+                          <span className={styles.shareWspText}>Compartir por WhatsApp</span>
+                        </button>
                       </div>
 
                       {/* OPCIÓN MÓVIL: RECORDAR MI PERFIL (PUNTO 3: SOLO SMARTPHONES) */}
@@ -972,9 +1220,21 @@ export default function ConsultaPublicaPage() {
                                   </span>
                                 </div>
 
-                                {sesion.sedeNombre && (
-                                  <span className={styles.sedeBadge}>📍 {sesion.sedeNombre}</span>
-                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                  {sesion.sedeNombre && (
+                                    <span className={styles.sedeBadge}>📍 {sesion.sedeNombre}</span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCompartirWspSesion(currentDocente, sesion)}
+                                    className={styles.shareWspClassBtn}
+                                    title="Compartir datos de esta clase por WhatsApp"
+                                  >
+                                    <span>📲</span>
+                                    <span>Compartir</span>
+                                  </button>
+                                </div>
                               </div>
 
                               {/* 2. DESTACADO DE SALA / AMBIENTE (Respuesta inmediata a "¿Dónde me toca?") */}
@@ -1112,6 +1372,125 @@ export default function ConsultaPublicaPage() {
                                     </span>
                                   </div>
 
+                                  {/* TABLA DE DOCENTES ESPEJO (VISTA ESCRITORIO) */}
+                                  <div className={styles.mirrorTableWrapper}>
+                                    <table className={styles.mirrorTable}>
+                                      <thead>
+                                        <tr>
+                                          <th>👨‍🏫 Docente Espejo</th>
+                                          <th>🚪 Ambiente / Sala</th>
+                                          <th>🩺 Escenario / Caso Clínico</th>
+                                          <th>🎭 Paciente Simulado</th>
+                                          <th style={{ textAlign: 'center' }}>⏳ Estado</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {espejosVisibles.map((esp) => {
+                                          const nombreMostrado = esp.docenteNombre && esp.docenteNombre !== 'Sin Docente'
+                                            ? esp.docenteNombre
+                                            : (esp.docenteCorreo ? esp.docenteCorreo.split('@')[0] : 'Docente Espejo');
+
+                                          return (
+                                            <tr key={`tbl-${esp.id}`} className={styles.mirrorTableRow}>
+                                              <td className={styles.mirrorTableDocCell}>
+                                                <div className={styles.mirrorTableDocGroup}>
+                                                  <span className={styles.mirrorTableAvatar}>👨‍🏫</span>
+                                                  <div>
+                                                    <div className={styles.mirrorTableDocName}>{nombreMostrado}</div>
+                                                    {esp.docenteCorreo && (
+                                                      <div className={styles.mirrorTableDocEmail}>{esp.docenteCorreo}</div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </td>
+
+                                              <td className={styles.mirrorTableRoomCell}>
+                                                <div className={styles.mirrorTableRoomBox}>
+                                                  <span className={styles.mirrorTableRoomName}>{esp.ambienteNombre}</span>
+                                                  {esp.ambienteCodigo && (
+                                                    <span className={styles.mirrorTableRoomCode}>Pabellón: {esp.ambienteCodigo}</span>
+                                                  )}
+                                                  {esp.sedeNombre && (
+                                                    <span className={styles.mirrorTableSedeTag}>📍 {esp.sedeNombre}</span>
+                                                  )}
+                                                </div>
+                                              </td>
+
+                                              <td className={styles.mirrorTableCaseCell}>
+                                                {esp.escenarioNombre ? (
+                                                  <div className={styles.mirrorTableCaseBox}>
+                                                    <span className={styles.mirrorTableCaseLabel}>Caso Clínico:</span>
+                                                    <span className={styles.mirrorTableCaseTitle}>{esp.escenarioNombre}</span>
+                                                  </div>
+                                                ) : (
+                                                  <span className={styles.mirrorTableEmpty}>— Caso General</span>
+                                                )}
+                                              </td>
+
+                                              <td className={styles.mirrorTablePsCell}>
+                                                {(esp.psTiene || esp.pacienteSimuladoNombre) ? (
+                                                  <div
+                                                    className={`${styles.mirrorTablePsBox} ${
+                                                      esp.psEstado === 'en_sede'
+                                                        ? styles.mirrorPsBadgeEnSede
+                                                        : esp.psEstado === 'salio'
+                                                        ? styles.mirrorPsBadgeSalio
+                                                        : styles.mirrorPsBadgePendiente
+                                                    }`}
+                                                  >
+                                                    <div className={styles.mirrorTablePsName}>
+                                                      <span>🎭</span>
+                                                      <span>{esp.psNombre || esp.pacienteSimuladoNombre}</span>
+                                                    </div>
+                                                    <div className={styles.mirrorTablePsStatus}>
+                                                      {esp.psEstado === 'en_sede' ? (
+                                                        <span className={styles.mirrorPsEnSedeTag}>
+                                                          <span className={styles.psRadarDotLive} />
+                                                          En Sede {esp.psHoraIngreso ? `(${esp.psHoraIngreso})` : ''}
+                                                        </span>
+                                                      ) : esp.psEstado === 'salio' ? (
+                                                        <span className={styles.mirrorPsSalioTag}>
+                                                          Salida registrada
+                                                        </span>
+                                                      ) : (
+                                                        <span className={styles.mirrorPsPendingTag}>
+                                                          🟡 Por ingresar
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <span className={styles.mirrorTableEmpty}>— Sin actor</span>
+                                                )}
+                                              </td>
+
+                                              <td className={styles.mirrorTableStatusCell} style={{ textAlign: 'center' }}>
+                                                {esp.tiempoRelativo ? (
+                                                  <span
+                                                    className={`${styles.mirrorTimePill} ${
+                                                      esp.estadoTiempo === 'en_curso'
+                                                        ? styles.mirrorTimePillEnCurso
+                                                        : esp.estadoTiempo === 'proxima'
+                                                        ? styles.mirrorTimePillProxima
+                                                        : styles.mirrorTimePillFinalizada
+                                                    }`}
+                                                  >
+                                                    {esp.estadoTiempo === 'en_curso' && (
+                                                      <span className={styles.pulseLiveDot} />
+                                                    )}
+                                                    {esp.tiempoRelativo}
+                                                  </span>
+                                                ) : (
+                                                  <span className={styles.mirrorTimePill}>Programado</span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+
                                   <div className={styles.mirrorGrid}>
                                     {espejosVisibles.map((esp) => {
                                       const nombreMostrado = esp.docenteNombre && esp.docenteNombre !== 'Sin Docente'
@@ -1238,6 +1617,14 @@ export default function ConsultaPublicaPage() {
                       </div>
 
                       <div className={styles.docenteFooterActions}>
+                        <button
+                          type="button"
+                          onClick={() => handleCompartirWspHorario(currentDocente)}
+                          className={styles.docenteFooterShareWspBtn}
+                        >
+                          <span>📲</span> Compartir por WhatsApp
+                        </button>
+
                         <button
                           type="button"
                           onClick={handleNuevaBusqueda}
@@ -1677,6 +2064,13 @@ export default function ConsultaPublicaPage() {
           <span>{currentDocente ? 'Buscar otro docente' : 'Subir al buscador'}</span>
           <span className={styles.floatingKbd}>Esc</span>
         </button>
+      )}
+      {/* NOTIFICACIÓN FLOTANTE AL COMPARTIR POR WHATSAPP */}
+      {wspToast && (
+        <div className={styles.wspToastFloating}>
+          <span className={styles.wspToastIcon}>📲</span>
+          <span>{wspToast}</span>
+        </div>
       )}
     </div>
   );

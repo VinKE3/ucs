@@ -3,13 +3,20 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sesionesProgramadas, usuarios, sedes, ambientes, cursos, asistencias } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
+import { getPeruDateString } from '@/lib/peruTime';
 
 export const dynamic = 'force-dynamic';
 
-function getTodayPeru(): string {
-  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+function getMinutesLimaNow(): number {
+  const parts = new Intl.DateTimeFormat('es-PE', {
+    timeZone: 'America/Lima',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const h = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+  const m = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+  return h * 60 + m;
 }
 
 function formatHoraPeru(d: Date | string | null | undefined): string | null {
@@ -30,8 +37,7 @@ function formatHoraPeru(d: Date | string | null | undefined): string | null {
 // Determinar estado de la sesión y texto relativo de tiempo según la hora actual en Lima, Perú
 function calcularDetalleTiempo(horaInicio: string, horaFin: string, fechaStr: string) {
   try {
-    const limaDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
-    const hoyStr = getTodayPeru();
+    const hoyStr = getPeruDateString();
 
     // Si la fecha es pasada
     if (fechaStr < hoyStr) {
@@ -55,7 +61,7 @@ function calcularDetalleTiempo(horaInicio: string, horaFin: string, fechaStr: st
     const [hIniH, hIniM] = (horaInicio || '00:00').split(':').map(Number);
     const [hFinH, hFinM] = (horaFin || '00:00').split(':').map(Number);
 
-    const nowMinutes = limaDate.getHours() * 60 + limaDate.getMinutes();
+    const nowMinutes = getMinutesLimaNow();
     const iniMinutes = (hIniH || 0) * 60 + (hIniM || 0);
     const finMinutes = (hFinH || 0) * 60 + (hFinM || 0);
 
@@ -206,7 +212,7 @@ export async function GET(request: Request) {
     if (!parsed.success) {
       return parsed.response;
     }
-    const fecha = parsed.data.fecha || getTodayPeru();
+    const fecha = parsed.data.fecha || getPeruDateString();
     const sedeIdParam = parsed.data.sedeId;
 
     // 1. Obtener todas las sesiones programadas para la fecha
@@ -506,16 +512,25 @@ export async function GET(request: Request) {
       ])
     ).sort();
 
-    return NextResponse.json({
-      success: true,
-      fecha,
-      totalSesiones: rawSessions.length,
-      sedesDelDia,
-      docentesDelDia,
-      cursosDelDia,
-      todasLasSesiones: sesionesConEspejos,
-      ambientesInventario: allAmbientesDB,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        fecha,
+        totalSesiones: rawSessions.length,
+        sedesDelDia,
+        docentesDelDia,
+        cursosDelDia,
+        todasLasSesiones: sesionesConEspejos,
+        ambientesInventario: allAmbientesDB,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Error en /api/consulta:', error);
     return NextResponse.json(

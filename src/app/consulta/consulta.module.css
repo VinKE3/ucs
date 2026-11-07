@@ -583,6 +583,125 @@
   font-weight: 700;
 }
 
+/* Acciones del Docente (Stats + Botón WhatsApp) */
+.docenteActionsRight {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.shareWspHeaderBtn {
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.65rem 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.shareWspHeaderBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.45);
+  filter: brightness(1.05);
+}
+
+.shareWspHeaderBtn:active {
+  transform: translateY(0);
+}
+
+.shareWspIcon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.shareWspText {
+  letter-spacing: 0.01em;
+}
+
+/* Botón individual de compartir clase en cada tarjeta */
+.shareWspClassBtn {
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.45);
+  color: #047857;
+  padding: 0.28rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+:global([data-theme="dark"]) .shareWspClassBtn {
+  background: rgba(37, 211, 102, 0.18);
+  border-color: rgba(37, 211, 102, 0.45);
+  color: #25d366;
+}
+
+.shareWspClassBtn:hover {
+  background: #25d366;
+  color: #ffffff;
+  border-color: #25d366;
+  transform: translateY(-1px);
+}
+
+/* Botón de compartir en el footer */
+.docenteFooterShareWspBtn {
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.docenteFooterShareWspBtn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+/* Floating Toast Notification */
+.wspToastFloating {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #06152d;
+  color: #ffffff;
+  border: 1.5px solid #25d366;
+  padding: 0.85rem 1.35rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  z-index: 99999;
+  animation: slideUpFade 0.25s ease-out;
+}
+
+.wspToastIcon {
+  font-size: 1.25rem;
+}
+
 /* ==========================================================================
    TARJETAS DE SESIÓN / CLASE
    ========================================================================== */
@@ -1344,10 +1463,211 @@
   opacity: 0.85;
 }
 
+/* ==========================================================================
+   VISTA TABULAR DE DOCENTES ESPEJO (DESKTOP)
+   ========================================================================== */
+.mirrorTableWrapper {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(6, 21, 45, 0.04);
+  margin-top: 0.5rem;
+}
+
+:global([data-theme="dark"]) .mirrorTableWrapper {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.mirrorTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.mirrorTable th {
+  background: #f0fdf4;
+  color: #047857;
+  font-weight: 800;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 2px solid #a7f3d0;
+  white-space: nowrap;
+}
+
+:global([data-theme="dark"]) .mirrorTable th {
+  background: rgba(16, 185, 129, 0.14);
+  color: #34d399;
+  border-bottom: 1.5px solid rgba(16, 185, 129, 0.3);
+}
+
+.mirrorTableRow {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background 0.15s ease;
+}
+
+:global([data-theme="dark"]) .mirrorTableRow {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mirrorTableRow:last-child {
+  border-bottom: none;
+}
+
+.mirrorTableRow:hover {
+  background: #f0fdf4;
+}
+
+:global([data-theme="dark"]) .mirrorTableRow:hover {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.mirrorTable td {
+  padding: 0.95rem 1.1rem;
+  vertical-align: middle;
+}
+
+.mirrorTableDocCell {
+  min-width: 200px;
+}
+
+.mirrorTableDocGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.mirrorTableAvatar {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.mirrorTableDocName {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+:global([data-theme="light"]) .mirrorTableDocName {
+  color: #06152d;
+}
+
+.mirrorTableDocEmail {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.mirrorTableRoomCell {
+  min-width: 170px;
+}
+
+.mirrorTableRoomBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mirrorTableRoomName {
+  font-weight: 800;
+  color: #0284c7;
+  font-size: 0.88rem;
+}
+
+:global([data-theme="dark"]) .mirrorTableRoomName {
+  color: var(--ucs-blue-sky);
+}
+
+.mirrorTableRoomCode {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.mirrorTableSedeTag {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.mirrorTableCaseCell {
+  min-width: 240px;
+  max-width: 380px;
+}
+
+.mirrorTableCaseBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.mirrorTableCaseLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #0284c7;
+  text-transform: uppercase;
+}
+
+:global([data-theme="dark"]) .mirrorTableCaseLabel {
+  color: var(--ucs-blue-sky);
+}
+
+.mirrorTableCaseTitle {
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+  font-size: 0.85rem;
+}
+
+:global([data-theme="light"]) .mirrorTableCaseTitle {
+  color: #0c4a6e;
+}
+
+.mirrorTablePsCell {
+  min-width: 210px;
+}
+
+.mirrorTablePsBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.mirrorTablePsName {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.mirrorTablePsStatus {
+  font-size: 0.74rem;
+}
+
+.mirrorTableEmpty {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.mirrorTableStatusCell {
+  min-width: 130px;
+  white-space: nowrap;
+}
+
+/* En Desktop se muestra la Tabla, la vista de Cards se oculta */
 .mirrorGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 1.25rem;
+  display: none;
 }
 
 .mirrorCard {
@@ -1670,9 +1990,32 @@
   color: #fbbf24;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
+  .mirrorTableWrapper {
+    display: none !important;
+  }
   .mirrorGrid {
+    display: grid !important;
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .docenteActionsRight {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .shareWspHeaderBtn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+  .wspToastFloating {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    justify-content: center;
   }
   .mirrorCard {
     flex-direction: column;

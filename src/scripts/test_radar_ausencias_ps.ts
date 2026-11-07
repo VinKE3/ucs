@@ -197,3 +197,4 @@ if (resPedroTilde.length !== 1) {
 console.log('✅ Aprobado: Búsqueda multi-token insensible a mayúsculas y tildes funcionando al 100%.\n');
 
 console.log('🎉 TODOS LOS TESTS DE AUDITORÍA Y FILTRO DE PS PASARON CON 100% DE ÉXITO!');
+

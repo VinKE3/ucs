@@ -604,6 +604,28 @@ export async function exportarExcelAsistenciasConGraficos({
       ? `${evalSim.bloquesCubiertos}/${evalSim.totalSesiones} (${evalSim.porcentajeTotal}%)`
       : 'N/A';
 
+    let estadoLabel = 'En Curso';
+    let estadoFillArgb = 'FFFEF3C7';
+    let estadoFontArgb = 'FFD97706';
+
+    if (a.estado === 'finalizado') {
+      estadoLabel = 'Finalizado';
+      estadoFillArgb = 'FFDCFCE7';
+      estadoFontArgb = 'FF16A34A';
+    } else if (a.estado === 'ajustado_manual') {
+      estadoLabel = 'Ajustado Manual';
+      estadoFillArgb = 'FFFEF9C3';
+      estadoFontArgb = 'FFB45309';
+    } else if (a.estado === 'anulado') {
+      estadoLabel = 'Anulado';
+      estadoFillArgb = 'FFFEE2E2';
+      estadoFontArgb = 'FFDC2626';
+    } else {
+      estadoLabel = 'En Curso';
+      estadoFillArgb = 'FFFEF3C7';
+      estadoFontArgb = 'FFD97706';
+    }
+
     const row = wsTurnos.addRow({
       num: idx + 1,
       fecha: a.fecha,
@@ -617,7 +639,7 @@ export async function exportarExcelAsistenciasConGraficos({
       ingreso: hIngStr,
       salida: hSalStr,
       horasDec: Number(((a.minutosTotales || 0) / 60).toFixed(2)),
-      estado: a.estado === 'finalizado' ? 'Finalizado' : 'En Curso',
+      estado: estadoLabel,
       diagnostico: diagTexto,
       cobertura: coberturaTexto,
       tardanza: a.minutosTardanza || (evalSim ? evalSim.diffMinutos : 0) || '0',
@@ -644,13 +666,8 @@ export async function exportarExcelAsistenciasConGraficos({
 
     // Colores condicionales en Estado
     const estadoCell = row.getCell('estado');
-    if (a.estado === 'finalizado') {
-      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
-      estadoCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF16A34A' } };
-    } else {
-      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
-      estadoCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFD97706' } };
-    }
+    estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estadoFillArgb } };
+    estadoCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: estadoFontArgb } };
 
     if (idx % 2 === 1) {
       row.eachCell((cell, colNumber) => {

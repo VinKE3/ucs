@@ -3,6 +3,38 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 123: Corrección de Estado "Ajustado Manual" en Exportador Excel (.xlsx) (`excelAsistenciasExporter.ts`)**:
+      - **Problema Diagnosticado (Caso Técnico Jean Pieer Pinchi Bernuy, Campus Villa)**:
+        - Al descargar el reporte en Excel (`.xlsx`), para el técnico Jean Pieer Pinchi aparecían dos turnos con estado `🟡 En Curso`:
+          1. Fila 1 (`2026-11-07`): Entrada 06:06 a. m., Salida En curso, Horas: 0 (turno activo real de hoy).
+          2. Fila 2 (`2026-11-06`): Entrada 06:29 a. m., Salida 03:00 p. m., Horas: 8.52, pero con Estado `En Curso` y fondo amarillo a pesar de tener salida y la observación *"Colaborador omitió marcar salida al retirarse"*.
+        - **Causa Raíz Identificada**:
+          - En `src/lib/excelAsistenciasExporter.ts`, la celda de *Estado* se determinaba con una condición binaria incompleta:
+            `estado: a.estado === 'finalizado' ? 'Finalizado' : 'En Curso'`
+          - Por tanto, cualquier turno con estado `ajustado_manual` (como el del día 6 que fue regularizado por el administrador) o `anulado`, caía en la rama `else`, asignándosele erróneamente el texto y el color ámbar de `En Curso`.
+      - **Solución Implementada**:
+        1. **Mapeo Fiel de los 4 Estados del Sistema en Excel**:
+           - 🟢 `finalizado` ➡️ `Finalizado` (Fondo verde `#DCFCE7`, texto verde oscuro `#16A34A`).
+           - 🟡 `en_curso` ➡️ `En Curso` (Fondo ámbar `#FEF3C7`, texto naranja `#D97706`).
+           - 🟠 `ajustado_manual` ➡️ `Ajustado Manual` (Fondo amarillo suave `#FEF9C3`, texto ámbar oscuro `#B45309`).
+           - 🔴 `anulado` ➡️ `Anulado` (Fondo rojo `#FEE2E2`, texto carmesí `#DC2626`).
+      - **Verificación Técnica**:
+        - Consulta directa en base de datos PostgreSQL confirmando que el registro de ayer (ID 152) está debidamente cerrado como `ajustado_manual` con 511 minutos y salida a las 15:00:00.
+        - Compilación TypeScript (`npx tsc --noEmit`): **0 errores**.
+
+    - **Hito 122: Control Total de Segundos en Detalle de Turnos del Kardex y Remoción de Bloque Redundante (`KardexDrawer.tsx`)**:
+      - **Objetivo & Petición**:
+        - 1. Eliminar por completo el bloque superior punteado *"🎯 Horario Exacto con Segundos (Control Interno)"* de la tarjeta de *Auditoría de Desempeño y Puntualidad* para limpiar visualmente la interfaz.
+        - 2. Unificar el control de segundos de forma permanente y para todos los días: que en el listado de *📋 Detalle de Turnos y Sesiones*, las horas de Entrada y Salida se muestren SIEMPRE con sus segundos exactos (`HH:mm:ss a`), ya sea consultando el período `Hoy`, `Esta Semana`, `Este Mes` o `Histórico`.
+      - **Solución Implementada**:
+        1. **Eliminación del Bloque Redundante**:
+           - Removido el recuadro condicional con borde punteado de la cabecera del Kardex.
+        2. **Precisión al Segundo Universal en Turnos y Sesiones**:
+           - En el mapeo de asistencias del Kardex (`asistencias.map`), `horaIn` y `horaOut` ahora se formatean permanentemente con `{ timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }`.
+           - En las tarjetas del historial, las horas se muestran siempre al segundo (ej: `05:25:19 a. m. — Activo` o `05:51:12 a. m. — 03:51:45 p. m.`) en cualquier rango temporal seleccionado.
+      - **Verificación Técnica**:
+        - Compilación TypeScript (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 121: Sistema Dual de Auto-Cierre de Turnos Omitidos (Cron Nocturno 00:05 + Botón de 1 Clic en Lote en Asistencias) (`autoCierreTurnos.ts`, `cron/cerrar-turnos-omitidos`, `asistencias/auto-cerrar`, `AsistenciasTab.tsx`, `ModalCerrarTurno.tsx`, `vercel.json`, `test_auto_cierre_turnos.ts`)**:
       - **Problema Diagnosticado**:
         - Cuando el personal (técnicos, administrativos, pacientes simulados o docentes) olvidaba registrar su marcación de salida en el terminal Kiosco al concluir su turno o jornada académica, sus registros permanecían indefinidamente en estado `🟡 En Curso` en días posteriores (ej: casos reales de Benjamín Alcántara La Torre en Campus Norte y Javier Alfonso Tapia Silva en Campus Ate).

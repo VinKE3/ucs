@@ -857,10 +857,10 @@ export default function ConsultaPublicaPage() {
 
   return (
     <div className={styles.container}>
-      {/* CABECERA INSTITUCIONAL (EXACTAMENTE 3 RENGLONES) */}
+      {/* CABECERA INSTITUCIONAL (EN UN SOLO RENGLÓN EN ESCRITORIO) */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          {/* RENGLÓN 1: LOGO INSTITUCIONAL (MÁS GRANDE Y PROMINENTE) */}
+          {/* LADO IZQUIERDO: LOGO INSTITUCIONAL */}
           <div className={styles.headerRowLogo}>
             <Link href="/consulta" title="Portal de Consulta de Horarios y Ambientes" className={styles.brandLink}>
               <img
@@ -871,7 +871,7 @@ export default function ConsultaPublicaPage() {
             </Link>
           </div>
 
-          {/* RENGLÓN 2: FECHA BLOQUEADA DE HOY (PROTAGONISTA Y CLARA) */}
+          {/* CENTRO: FECHA BLOQUEADA DE HOY */}
           <div className={styles.headerRowDate}>
             <div
               className={styles.lockedDateBadge}
@@ -884,7 +884,7 @@ export default function ConsultaPublicaPage() {
             </div>
           </div>
 
-          {/* RENGLÓN 3: HERRAMIENTAS (SWITCH THEME + SIMCLIC EN VIVO + ACTUALIZAR) */}
+          {/* LADO DERECHO: HERRAMIENTAS (SWITCH THEME + SIMCLIC EN VIVO + ACTUALIZAR) */}
           <div className={styles.headerRowControls}>
             <ThemeToggle />
 

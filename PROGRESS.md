@@ -3,6 +3,20 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 124: Cabecera Unificada en un Solo Renglón para Escritorio en `/consulta` (`consulta.module.css`, `page.tsx`)**:
+      - **Problema Diagnosticado**:
+        - En la versión de escritorio del portal público `/consulta`, los elementos de la cabecera (Logo institucional de Científica/SIM, píldora de fecha "Hoy, DD/MM/AAAA" y controles de herramientas: tema, estado SimClic y botón Actualizar) se encontraban apilados verticalmente en 3 renglones centrados.
+        - Esto consumía excesivo espacio vertical, empujando la sección de búsqueda y los resultados de clases activas fuera de la vista inicial visible sin scroll.
+      - **Solución Implementada**:
+        1. **Distribución de 3 Zonas en Renglón Único en Desktop (`min-width: 861px`)**:
+           - **Izquierda (`.headerRowLogo`)**: Logo institucional nítido y proporcionado (`height: 48px`, max `250px`), alineado a la izquierda.
+           - **Centro (`.headerRowDate`)**: Píldora de fecha institucional `📅 Hoy, DD/MM/AAAA` centrada como punto focal de la consulta del día.
+           - **Derecha (`.headerRowControls`)**: Controles agrupados sin quiebre de línea (`ThemeToggle`, badge `🟢 SimClic en vivo` y botón `🔄 Actualizar`), alineados a la derecha.
+        2. **Diseño Adaptativo Móvil / Tablet (`@media (max-width: 860px)`)**:
+           - En pantallas móviles o tablets estrechas, la cabecera conmuta automáticamente a disposición en columna con flex-wrap para evitar solapamientos o desbordes horizontales.
+      - **Verificación Técnica**:
+        - Compilación TypeScript (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 123: Corrección de Estado "Ajustado Manual" en Exportador Excel (.xlsx) (`excelAsistenciasExporter.ts`)**:
       - **Problema Diagnosticado (Caso Técnico Jean Pieer Pinchi Bernuy, Campus Villa)**:
         - Al descargar el reporte en Excel (`.xlsx`), para el técnico Jean Pieer Pinchi aparecían dos turnos con estado `🟡 En Curso`:

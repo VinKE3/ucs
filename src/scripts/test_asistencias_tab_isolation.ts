@@ -128,6 +128,21 @@ const mockAsistencias: AsistenciaMock[] = [
     ambienteNombre: 'Sala de Alta Fidelidad 1 - Ate',
     minutosTotales: 150,
   },
+  {
+    id: 5,
+    usuarioId: 105,
+    nombres: 'Miguel Angel',
+    apellidos: 'Quispe Estrella',
+    dni: '41021521',
+    sedeId: 1, // Campus Villa
+    sedeNombre: 'Campus Villa',
+    tipoPersonal: 'tecnico',
+    estado: 'en_curso',
+    cursoId: null,
+    cursoNombre: null,
+    ambienteNombre: 'Clínica General (Soporte)',
+    minutosTotales: 0,
+  },
 ];
 
 // Función espejo exacta implementada en AsistenciasTab.tsx
@@ -154,14 +169,39 @@ function filtrarAsistenciasDefensivo(
   }
   if (asistSearch && asistSearch.trim()) {
     const q = asistSearch.trim().toLowerCase();
-    list = list.filter(
-      (a) =>
-        (a.nombres && a.nombres.toLowerCase().includes(q)) ||
-        (a.apellidos && a.apellidos.toLowerCase().includes(q)) ||
-        (a.dni && a.dni.includes(q)) ||
-        (a.cursoNombre && a.cursoNombre.toLowerCase().includes(q)) ||
-        (a.ambienteNombre && a.ambienteNombre.toLowerCase().includes(q))
-    );
+    const tokens = q.split(/\s+/).filter(Boolean);
+    list = list.filter((a) => {
+      const nomCompleto = `${a.nombres || ''} ${a.apellidos || ''}`.toLowerCase();
+      const dni = a.dni || '';
+      const curso = (a.cursoNombre || '').toLowerCase();
+      const amb = (a.ambienteNombre || '').toLowerCase();
+      const sede = (a.sedeNombre || '').toLowerCase();
+
+      // 1. Coincidencia directa completa
+      if (
+        nomCompleto.includes(q) ||
+        dni.includes(q) ||
+        curso.includes(q) ||
+        amb.includes(q) ||
+        sede.includes(q)
+      ) {
+        return true;
+      }
+
+      // 2. Coincidencia multi-token (ej: "miguel quispe" encuentra a "Miguel Angel Quispe Estrella")
+      if (tokens.length > 1) {
+        return tokens.every(
+          (t) =>
+            nomCompleto.includes(t) ||
+            dni.includes(t) ||
+            curso.includes(t) ||
+            amb.includes(t) ||
+            sede.includes(t)
+        );
+      }
+
+      return false;
+    });
   }
   return list;
 }
@@ -184,6 +224,26 @@ if (busquedaDina.length !== 1 || busquedaDina[0].nombres !== 'Dina') {
   throw new Error('FALLO: La búsqueda dentro de Campus Norte no aisló a Dina.');
 }
 console.log('✅ Aprobado: Búsqueda combinada con sede funciona con precisión quirúrgica.');
+
+// Escenario B.2: Búsqueda Insensible a Mayúsculas/Minúsculas y Multi-Token (Caso Miguel)
+const testMigLower = filtrarAsistenciasDefensivo(mockAsistencias, 'todas', 'todos', 'todos', 'todos', 'mig');
+const testMigCap = filtrarAsistenciasDefensivo(mockAsistencias, 'todas', 'todos', 'todos', 'todos', 'Mig');
+const testMigUpper = filtrarAsistenciasDefensivo(mockAsistencias, 'todas', 'todos', 'todos', 'todos', 'MIGUEL');
+const testMigMultiToken = filtrarAsistenciasDefensivo(mockAsistencias, 'todas', 'todos', 'todos', 'todos', 'miguel quispe');
+
+if (testMigLower.length !== 1 || testMigLower[0].nombres !== 'Miguel Angel') {
+  throw new Error('FALLO: Búsqueda con "mig" en minúsculas falló al encontrar a Miguel Angel.');
+}
+if (testMigCap.length !== 1 || testMigCap[0].nombres !== 'Miguel Angel') {
+  throw new Error('FALLO: Búsqueda con "Mig" capitalizado falló al encontrar a Miguel Angel.');
+}
+if (testMigUpper.length !== 1 || testMigUpper[0].nombres !== 'Miguel Angel') {
+  throw new Error('FALLO: Búsqueda con "MIGUEL" en mayúsculas falló.');
+}
+if (testMigMultiToken.length !== 1 || testMigMultiToken[0].apellidos !== 'Quispe Estrella') {
+  throw new Error('FALLO: Búsqueda multi-token "miguel quispe" falló.');
+}
+console.log('✅ Aprobado: Búsqueda 100% case-insensitive (mig === Mig === MIGUEL) y multi-token (miguel quispe).');
 
 // Escenario C: Verificación del archivo AsistenciasTab.tsx
 const asistenciasTabPath = path.join(process.cwd(), 'src/components/admin/tabs/AsistenciasTab.tsx');

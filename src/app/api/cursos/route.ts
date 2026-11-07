@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { cursos, carreras, asistencias, usuarios, sesionesProgramadas } from '@/db/schema';
 import { getSession } from '@/lib/auth';
 import { parseJsonBody, parseSearchParams, crearCursoSchema, actualizarCursoSchema, idParamSchema } from '@/lib/validations';
-import { eq, ne, desc, asc, like, or, sql, and } from 'drizzle-orm';
+import { eq, ne, desc, asc, ilike, or, sql, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,11 +64,11 @@ export async function GET(request: Request) {
       const pattern = `%${q}%`;
       conditions.push(
         or(
-          like(cursos.nombre, pattern),
-          like(cursos.codigo, pattern),
-          like(cursos.prefijo, pattern),
-          like(carreras.nombre, pattern),
-          like(carreras.codigo, pattern)
+          ilike(cursos.nombre, pattern),
+          ilike(cursos.codigo, pattern),
+          ilike(cursos.prefijo, pattern),
+          ilike(carreras.nombre, pattern),
+          ilike(carreras.codigo, pattern)
         )
       );
     }

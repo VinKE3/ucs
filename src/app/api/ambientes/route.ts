@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { ambientes, sedes, asistencias, usuarios, cursos } from '@/db/schema';
-import { eq, ne, and, like, or, sql } from 'drizzle-orm';
+import { eq, ne, and, ilike, or, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { isAmbienteVirtual } from '@/lib/logisticaSimulacion';
 import { invalidateCatalogCache } from '@/lib/catalogCache';
@@ -51,8 +51,8 @@ export async function GET(request: Request) {
       const pattern = `%${q}%`;
       conditions.push(
         or(
-          like(ambientes.nombre, pattern),
-          like(ambientes.codigo, pattern)
+          ilike(ambientes.nombre, pattern),
+          ilike(ambientes.codigo, pattern)
         )
       );
     }

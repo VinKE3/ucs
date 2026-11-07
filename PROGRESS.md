@@ -3,6 +3,22 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 119: Búsqueda Insensible a Mayúsculas/Minúsculas (Case-Insensitive) y Soporte Multi-Token (`asistencias/route.ts`, `ambientes/route.ts`, `cursos/route.ts`, `AsistenciasTab.tsx`, `test_asistencias_tab_isolation.ts`)**:
+      - **Problema Diagnosticado**:
+        - En el buscador del panel de asistencias (y en ambientes/cursos), al escribir con mayúscula inicial (ej: `Mig`) sí aparecían los resultados (ej: `Miguel Angel Quispe Estrella`), pero al escribir en minúsculas (ej: `mig`), la tabla arrojaba `0 Registros` ("No se encontraron asistencias").
+        - **Causa Raíz**:
+          1. En los endpoints de la API (`/api/asistencias`, `/api/ambientes`, `/api/cursos`), las consultas SQL de Drizzle ORM utilizaban el operador `like(...)`. En PostgreSQL, el operador `LIKE` es estrictamente sensible a mayúsculas y minúsculas (`CASE-SENSITIVE`), requiriendo `ILIKE` (`ilike(...)`) para búsquedas insensibles.
+          2. Al tipear `mig`, la API ejecutaba `WHERE usuarios.nombres LIKE '%mig%'`, fallando al cotejar `"Miguel Angel"` y devolviendo un array vacío que vaciaba la tabla.
+      - **Solución Implementada**:
+        1. **Migración a `ilike` en Endpoints SQL**:
+           - Reemplazado `like(...)` por `ilike(...)` en `/api/asistencias` (`nombres`, `apellidos`, `dni`, `cursos.nombre`, `ambientes.nombre`).
+           - Reemplazado `like(...)` por `ilike(...)` en `/api/ambientes` y `/api/cursos`.
+        2. **Búsqueda Inteligente Multi-Token y Nombre Completo en Frontend (`AsistenciasTab.tsx`)**:
+           - Ampliado el filtrado reactivo en memoria: además de coincidir directamente contra nombre o apellido, ahora evalúa el nombre completo concatenado (`nombres + apellidos`) y soporta búsqueda multi-token (ej: escribir `miguel quispe` o `quispe miguel` encuentra exitosamente a `Miguel Angel Quispe Estrella`).
+      - **Verificación Técnica**:
+        - Suite de pruebas automatizadas (`test_asistencias_tab_isolation.ts`): Casos `mig`, `Mig`, `MIGUEL` y `miguel quispe` **100% aprobados**.
+        - Compilación estricta TypeScript (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 118: Aislamiento Estricto por Sede de Bloques SimClic en Asistencias y Auditoría Multi-Campus (`simclicAudit.ts`, `asistencias/route.ts`, `ModalAuditoriaProgramacion.tsx`, `AsistenciasTab.tsx`, `test_kledy_multisede.ts`)**:
       - **Problema Diagnosticado (Caso Kledy Benjamin Dongo Pflucker)**:
         - Pacientes simulados o docentes con jornada desconcentrada multi-sede (ej. Kledy Dongo: mañana en Campus Ate, tarde en Campus Norte) marcaban entrada (10:15) y salida (12:01) en Ate tras completar sus 2 bloques de la mañana, y luego marcaban entrada (14:30) en Norte para sus 4 bloques de Ecografía.

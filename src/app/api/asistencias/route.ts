@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, runTransaction } from '@/db';
 import { asistencias, usuarios, sedes, ambientes, auditoriaAsistencias, cursos, sesionesProgramadas } from '@/db/schema';
-import { desc, eq, and, gte, lte, or, like, inArray } from 'drizzle-orm';
+import { desc, eq, and, gte, lte, or, ilike, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { getPeruTimeString } from '@/lib/peruTime';
 import { parseJsonBody, crearAsistenciaManualSchema, modificarAsistenciaSchema } from '@/lib/validations';
@@ -110,10 +110,11 @@ export async function GET(request: Request) {
       const pattern = `%${q}%`;
       conditions.push(
         or(
-          like(usuarios.dni, pattern),
-          like(usuarios.nombres, pattern),
-          like(usuarios.apellidos, pattern),
-          like(cursos.nombre, pattern)
+          ilike(usuarios.dni, pattern),
+          ilike(usuarios.nombres, pattern),
+          ilike(usuarios.apellidos, pattern),
+          ilike(cursos.nombre, pattern),
+          ilike(ambientes.nombre, pattern)
         )
       );
     }

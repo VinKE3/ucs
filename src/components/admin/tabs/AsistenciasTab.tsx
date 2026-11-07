@@ -189,14 +189,39 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     }
     if (asistSearch && asistSearch.trim()) {
       const q = asistSearch.trim().toLowerCase();
-      list = list.filter(
-        (a) =>
-          (a.nombres && a.nombres.toLowerCase().includes(q)) ||
-          (a.apellidos && a.apellidos.toLowerCase().includes(q)) ||
-          (a.dni && a.dni.includes(q)) ||
-          (a.cursoNombre && a.cursoNombre.toLowerCase().includes(q)) ||
-          (a.ambienteNombre && a.ambienteNombre.toLowerCase().includes(q))
-      );
+      const tokens = q.split(/\s+/).filter(Boolean);
+      list = list.filter((a) => {
+        const nomCompleto = `${a.nombres || ''} ${a.apellidos || ''}`.toLowerCase();
+        const dni = a.dni || '';
+        const curso = (a.cursoNombre || '').toLowerCase();
+        const amb = (a.ambienteNombre || '').toLowerCase();
+        const sede = (a.sedeNombre || '').toLowerCase();
+
+        // 1. Coincidencia directa completa
+        if (
+          nomCompleto.includes(q) ||
+          dni.includes(q) ||
+          curso.includes(q) ||
+          amb.includes(q) ||
+          sede.includes(q)
+        ) {
+          return true;
+        }
+
+        // 2. Coincidencia multi-token (ej: "miguel quispe" encuentra a "Miguel Angel Quispe Estrella")
+        if (tokens.length > 1) {
+          return tokens.every(
+            (t) =>
+              nomCompleto.includes(t) ||
+              dni.includes(t) ||
+              curso.includes(t) ||
+              amb.includes(t) ||
+              sede.includes(t)
+          );
+        }
+
+        return false;
+      });
     }
     return list;
   }, [asistenciasList, asistFiltroSede, asistFiltroTipo, asistFiltroEstado, asistFiltroCurso, asistSearch]);

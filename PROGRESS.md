@@ -3,6 +3,38 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 120: Filtro de Inasistencias y Sistema de Alertas para Pacientes Simulados (PS) en Radar SimClic (`RadarLlegadaActores.tsx`, `ProgramacionTab.tsx`, `test_radar_ausencias_ps.ts`)**:
+      - **Problema Diagnosticado**:
+        - En el sub-panel *Radar Llegada PS* de *Programación SimClic 360°*, los turnos de pacientes simulados que concluían sin haber marcado asistencia en Kiosco (ej. bloques de Angelo Caceres Puma con badge `❌ NO MARCÓ ASISTENCIA`) no contaban con un filtro dedicado ni alerta visible en el encabezado.
+        - **Causas Raíz Identificadas**:
+          1. El header hero del Radar únicamente evaluaba `metricasRadar.criticos > 0`. Si las clases habían concluido, mostraba erróneamente `🟢 COBERTURA EN REGLA` a pesar de haber inasistencias consumadas.
+          2. En las tarjetas KPI superiores y en la barra de chips, solo existían opciones para `Críticos`, `En camino`, `En sala`, `Más tarde` y `Finalizados`. No existía el chip ni KPI de `❌ No asistieron / Inasistencias` (`filtroRiesgo === 'ausente'`).
+          3. Las inasistencias (`ausente`) se ordenaban con peso 6 (al final de la lista de 117 turnos), quedando sepultadas debajo de las sesiones regulares finalizadas.
+          4. La variable `presente` realizaba un `Boolean(ps.presente || ses.psPresente)`, provocando que en salas con múltiples actores, si uno marcaba, el otro heredaba falsamente el estado de presencia de la sala.
+          5. En el panel superior de `ProgramacionTab.tsx`, el botón y las métricas solo contabilizaban `psRiesgoCount` (turnos activos o por iniciar), dejando en cero la alerta de PS una vez que los turnos terminaban.
+      - **Solución Implementada**:
+        1. **Nueva Tarjeta KPI y Chip de Filtrado Directo**:
+           - Añadida la 6ta tarjeta KPI en la fila principal: `❌ No Asistieron (${metricasRadar.ausentes})` con acento carmesí (`#f43f5e`), borde interactivo y click reactivo para activar `setFiltroRiesgo('ausente')`.
+           - Añadido el chip `❌ No asistieron (${metricasRadar.ausentes})` en la barra de herramientas.
+        2. **Banner Destacado de Alerta de Ausentismo**:
+           - Si existen inasistencias confirmadas en el día (`metricasRadar.ausentes > 0`), se despliega un banner de advertencia con botón de 1 clic: `🔍 Filtrar Solo Inasistencias (${metricasRadar.ausentes})`.
+           - El badge del encabezado ahora discrimina fielmente: `🚨 X EN RIESGO CRÍTICO`, `❌ X NO ASISTIERON`, y solo muestra `🟢 COBERTURA EN REGLA` cuando ambos contadores están en 0.
+        3. **Aislamiento Estricto de Presencia por Actor**:
+           - `const presente = typeof ps.presente === 'boolean' ? ps.presente : Boolean(ses.psPresente);`, evitando que un PS ausente sea marcado falsamente como presente por otro actor en la misma sala.
+        4. **Prioridad y Estilización de Tarjetas de Inasistencia**:
+           - Prioridad en `ordenPeso` elevada a 2 (justo después de críticos), colocando las inasistencias al principio de la vista general.
+           - Borde carmesí (`borderLeft: 5px solid #f43f5e`), badge rojo suave y caja de alerta contextual explicativa (`alertBox`).
+           - Generador de mensaje de WhatsApp individual adaptado a la condición de inasistencia concluida.
+           - Reporte consolidado de WhatsApp con sección estructurada de inasistencias confirmadas.
+        5. **Integración en Barra Superior de `ProgramacionTab.tsx`**:
+           - Cálculo reactivo de `psAusentesCount`.
+           - Nueva píldora KPI interactiva `❌ PS No Asistieron` en la barra superior que abre directamente el Radar filtrado por `ausente`.
+           - Indicador badge en la pestaña `🎭 Radar Llegada PS`.
+      - **Verificación Técnica**:
+        - Suite de pruebas automatizadas (`src/scripts/test_radar_ausencias_ps.ts`): **100% aprobada** (conteo de inasistencias, aislamiento multi-PS, búsqueda normalizada multi-token).
+        - Suites de regresión (`test_kledy_multisede.ts`, `test_asistencias_tab_isolation.ts`): **100% aprobadas**.
+        - Compilación estricta TypeScript (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 119: Búsqueda Insensible a Mayúsculas/Minúsculas (Case-Insensitive) y Soporte Multi-Token (`asistencias/route.ts`, `ambientes/route.ts`, `cursos/route.ts`, `AsistenciasTab.tsx`, `test_asistencias_tab_isolation.ts`)**:
       - **Problema Diagnosticado**:
         - En el buscador del panel de asistencias (y en ambientes/cursos), al escribir con mayúscula inicial (ej: `Mig`) sí aparecían los resultados (ej: `Miguel Angel Quispe Estrella`), pero al escribir en minúsculas (ej: `mig`), la tabla arrojaba `0 Registros` ("No se encontraron asistencias").

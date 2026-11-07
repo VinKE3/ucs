@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type {
   SesionProgramadaTimelineItem,
   UsuarioItem,
@@ -16,6 +16,7 @@ interface RadarLlegadaActoresProps {
   nowMinutes: number;
   esHoy: boolean;
   usuariosList?: UsuarioItem[];
+  filtroInicial?: NivelRiesgoLlegada | 'todos';
   onVerDetalleSesion?: (ses: SesionProgramadaTimelineItem) => void;
   onOpenCrearAsistenciaManual?: () => void;
   onIrAGantt?: () => void;
@@ -64,13 +65,20 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
   nowMinutes,
   esHoy,
   usuariosList = [],
+  filtroInicial,
   onVerDetalleSesion,
   onOpenCrearAsistenciaManual,
   onIrAGantt,
 }) => {
   // Filtros interactivos del radar
-  const [filtroRiesgo, setFiltroRiesgo] = useState<string>('todos');
+  const [filtroRiesgo, setFiltroRiesgo] = useState<NivelRiesgoLlegada | 'todos'>(filtroInicial || 'todos');
   const [busqueda, setBusqueda] = useState<string>('');
+
+  useEffect(() => {
+    if (filtroInicial) {
+      setFiltroRiesgo(filtroInicial);
+    }
+  }, [filtroInicial]);
 
   // 1. Extraer y aplanar todas las citaciones individuales de actores
   const actoresList = useMemo(() => {
@@ -154,7 +162,7 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
         }
 
         const minutosParaInicio = ses.startMins - nowMinutes;
-        const presente = Boolean(ps.presente || ses.psPresente);
+        const presente = typeof ps.presente === 'boolean' ? ps.presente : Boolean(ses.psPresente);
         let horaIngresoReal: string | null = null;
 
         if (ps.horaIngreso) {
@@ -228,18 +236,18 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
 
     // Ordenar con prioridad operativa:
     // 1. Críticos (<15 min / en curso sin marcar)
-    // 2. Próximos (16-35 min)
-    // 3. En sala (presentes)
-    // 4. Programados más tarde
-    // 5. Finalizados
-    // 6. Ausentes
+    // 2. Ausentes (clase finalizada sin marcación)
+    // 3. Próximos (16-35 min)
+    // 4. En sala (presentes)
+    // 5. Programados más tarde
+    // 6. Finalizados
     const ordenPeso: Record<NivelRiesgoLlegada, number> = {
       critico: 1,
-      proximo: 2,
-      en_sala: 3,
-      programado_tarde: 4,
-      finalizado: 5,
-      ausente: 6,
+      ausente: 2,
+      proximo: 3,
+      en_sala: 4,
+      programado_tarde: 5,
+      finalizado: 6,
     };
 
     list.sort((a, b) => {
@@ -265,7 +273,7 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
     return { total, criticos, proximos, enSala, masTarde, finalizados, ausentes };
   }, [actoresList]);
 
-  // Filtrado según chips y búsqueda
+  // Filtrado según chips y búsqueda inteligente (insensible a mayúsculas, minúsculas y tildes)
   const actoresFiltrados = useMemo(() => {
     let result = actoresList;
 
@@ -274,16 +282,20 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
     }
 
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase().trim();
-      result = result.filter(
-        (a) =>
-          a.actorNombre.toLowerCase().includes(q) ||
-          a.personaje.toLowerCase().includes(q) ||
-          a.salaNombre.toLowerCase().includes(q) ||
-          (a.salaCodigo && a.salaCodigo.toLowerCase().includes(q)) ||
-          a.curso.toLowerCase().includes(q) ||
-          a.docenteNombre.toLowerCase().includes(q)
-      );
+      const normText = (s: string) =>
+        (s || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      const tokens = normText(busqueda).split(/\s+/).filter(Boolean);
+      result = result.filter((a) => {
+        const fullTarget = normText(
+          `${a.actorNombre} ${a.personaje} ${a.salaNombre} ${a.salaCodigo || ''} ${a.curso} ${a.docenteNombre}`
+        );
+        return tokens.every((tok) => fullTarget.includes(tok));
+      });
     }
 
     return result;
@@ -291,7 +303,10 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
 
   // Generador de Mensaje de WhatsApp Individual
   const handleEnviarWspIndividual = (actor: ItemRadarActor) => {
-    const mensaje = `Hola *${actor.actorNombre}*, te saludamos de la Coordinación de Simulación Clínica UCS (${actor.sedeNombre}). Te recordamos tu citación de hoy a las *${actor.horaInicio}* en la sala *${actor.salaNombre}* para el caso *${actor.personaje}* (${actor.curso}). ¿Estás en camino? Por favor confirma tu llegada. ¡Gracias!`;
+    const mensaje =
+      actor.nivelRiesgo === 'ausente'
+        ? `Hola *${actor.actorNombre}*, te saludamos de la Coordinación de Simulación Clínica UCS (${actor.sedeNombre}). Registramos que tenías programada la citación de hoy de *${actor.horaInicio} a ${actor.horaFin}* en la sala *${actor.salaNombre}* para el caso *${actor.personaje}* (${actor.curso}) y no registraste marcación de asistencia en el Kiosco. Por favor comunícate a la brevedad con la coordinación para regularizar tu estatus. ¡Muchas gracias!`
+        : `Hola *${actor.actorNombre}*, te saludamos de la Coordinación de Simulación Clínica UCS (${actor.sedeNombre}). Te recordamos tu citación de hoy a las *${actor.horaInicio}* en la sala *${actor.salaNombre}* para el caso *${actor.personaje}* (${actor.curso}). ¿Estás en camino? Por favor confirma tu llegada. ¡Gracias!`;
     const url = actor.telefonoWsp
       ? `https://api.whatsapp.com/send?phone=${actor.telefonoWsp}&text=${encodeURIComponent(mensaje)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
@@ -304,7 +319,7 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
     const lineas: string[] = [
       `🎭 *UCS SIMULACIÓN - REPORTE DE LLEGADA DE ACTORES (PS)*`,
       `📅 Fecha: ${fechaFormat} | 🏛️ Sede: ${nombreSede}`,
-      `📊 Resumen: ${metricasRadar.total} citaciones | 🟢 ${metricasRadar.enSala} en sala | 🚨 ${metricasRadar.criticos} en riesgo crítico | 🟡 ${metricasRadar.proximos} próximos`,
+      `📊 Resumen: ${metricasRadar.total} citaciones | 🟢 ${metricasRadar.enSala} en sala | 🚨 ${metricasRadar.criticos} en riesgo crítico | ❌ ${metricasRadar.ausentes} inasistencias | 🟡 ${metricasRadar.proximos} próximos`,
       `------------------------------------------`,
     ];
 
@@ -318,6 +333,16 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
               ? `Inició hace ${Math.abs(a.minutosParaInicio)}m`
               : `Faltan ${a.minutosParaInicio}m`;
           lineas.push(`• *${a.actorNombre}* (${a.horaInicio}) | 🚪 ${a.salaNombre} | 🎭 ${a.personaje} | ⚠️ *${tiempoStr}*`);
+        });
+      lineas.push(``);
+    }
+
+    if (metricasRadar.ausentes > 0) {
+      lineas.push(`❌ *INASISTENCIAS CONFIRMADAS (NO REGISTRARON INGRESO EN KIOSCO):*`);
+      actoresList
+        .filter((a) => a.nivelRiesgo === 'ausente')
+        .forEach((a) => {
+          lineas.push(`• *${a.actorNombre}* (${a.horaInicio} - ${a.horaFin}) | 🚪 ${a.salaNombre} | 🎭 ${a.personaje} | ❌ Sin marcación`);
         });
       lineas.push(``);
     }
@@ -371,22 +396,52 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
               Radar Preventivo de Llegada de Pacientes Simulados
             </h3>
-            <span
-              style={{
-                background: metricasRadar.criticos > 0 ? '#ef4444' : '#10b981',
-                color: '#ffffff',
-                padding: '0.2rem 0.65rem',
-                borderRadius: '12px',
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                letterSpacing: '0.4px',
-                animation: metricasRadar.criticos > 0 ? 'pulse 1.8s infinite' : 'none',
-              }}
-            >
-              {metricasRadar.criticos > 0
-                ? `🚨 ${metricasRadar.criticos} EN RIESGO CRÍTICO`
-                : '🟢 COBERTURA EN REGLA'}
-            </span>
+            {metricasRadar.criticos > 0 && (
+              <span
+                style={{
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.4px',
+                  animation: 'pulse 1.8s infinite',
+                }}
+              >
+                🚨 {metricasRadar.criticos} EN RIESGO CRÍTICO
+              </span>
+            )}
+            {metricasRadar.ausentes > 0 && (
+              <span
+                style={{
+                  background: '#f43f5e',
+                  color: '#ffffff',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.4px',
+                }}
+              >
+                ❌ {metricasRadar.ausentes} NO ASISTIERON
+              </span>
+            )}
+            {metricasRadar.criticos === 0 && metricasRadar.ausentes === 0 && (
+              <span
+                style={{
+                  background: '#10b981',
+                  color: '#ffffff',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.4px',
+                }}
+              >
+                🟢 COBERTURA EN REGLA
+              </span>
+            )}
           </div>
           <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
             Auditoría en tiempo real para la Coordinación de PS: detecta ausencias 15 minutos antes de la simulación, coordina suplencias y contacta por WhatsApp en 1 clic.
@@ -464,6 +519,55 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
         </div>
       </div>
 
+      {/* BANNER DESTACADO DE ALERTA DE AUSENTISMO / NO MARCARON */}
+      {metricasRadar.ausentes > 0 && esHoy && (
+        <div
+          style={{
+            background: 'rgba(244, 63, 94, 0.12)',
+            border: '1px solid rgba(244, 63, 94, 0.4)',
+            borderRadius: '12px',
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
+            boxShadow: '0 4px 14px rgba(244, 63, 94, 0.15)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>⚠️</span>
+            <div>
+              <div style={{ color: '#f43f5e', fontWeight: 800, fontSize: '0.9rem' }}>
+                Alerta de Inasistencias: {metricasRadar.ausentes} citación(es) de Pacientes Simulados concluyeron sin marcación hoy
+              </div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
+                Los actores programados no registraron ingreso en Kiosco durante el transcurso de sus sesiones académicas.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltroRiesgo(filtroRiesgo === 'ausente' ? 'todos' : 'ausente')}
+            style={{
+              padding: '0.45rem 0.95rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: filtroRiesgo === 'ausente' ? 'var(--ucs-blue, #0d346c)' : '#f43f5e',
+              color: '#ffffff',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s',
+            }}
+          >
+            {filtroRiesgo === 'ausente' ? '✓ Mostrando Inasistencias (Ver Todos)' : `🔍 Filtrar Solo Inasistencias (${metricasRadar.ausentes})`}
+          </button>
+        </div>
+      )}
+
       {/* 2. TARJETAS KPI DE SEMÁFORO DE RIESGO */}
       <div
         style={{
@@ -527,6 +631,40 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
           </div>
           <div style={{ fontSize: '0.72rem', color: '#ef4444' }}>
             {metricasRadar.criticos > 0 ? '⚠️ No han marcado en Kiosco' : 'Sin alertas de ausencia'}
+          </div>
+        </div>
+
+        {/* KPI 3: INASISTENCIAS / NO ASISTIERON */}
+        <div
+          onClick={() => setFiltroRiesgo('ausente')}
+          style={{
+            background:
+              filtroRiesgo === 'ausente'
+                ? 'rgba(244, 63, 94, 0.2)'
+                : metricasRadar.ausentes > 0
+                ? 'rgba(244, 63, 94, 0.08)'
+                : 'var(--bg-elevated)',
+            border:
+              metricasRadar.ausentes > 0
+                ? '2px solid #f43f5e'
+                : filtroRiesgo === 'ausente'
+                ? '2px solid #f43f5e'
+                : '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '0.9rem 1.1rem',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            boxShadow: metricasRadar.ausentes > 0 ? '0 0 12px rgba(244, 63, 94, 0.22)' : 'none',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f43f5e', textTransform: 'uppercase' }}>
+            ❌ No Asistieron ({metricasRadar.ausentes})
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#f43f5e', marginTop: '0.2rem' }}>
+            {metricasRadar.ausentes}
+          </div>
+          <div style={{ fontSize: '0.72rem', color: metricasRadar.ausentes > 0 ? '#f43f5e' : 'var(--text-muted)' }}>
+            {metricasRadar.ausentes > 0 ? '⚠️ No marcaron en Kiosco' : 'Sin inasistencias'}
           </div>
         </div>
 
@@ -652,14 +790,17 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>
             Filtrar:
           </span>
-          {[
-            { id: 'todos', label: `Todos (${metricasRadar.total})` },
-            { id: 'critico', label: `🚨 Críticos (${metricasRadar.criticos})`, color: '#ef4444' },
-            { id: 'proximo', label: `🟡 En camino (${metricasRadar.proximos})`, color: '#f59e0b' },
-            { id: 'en_sala', label: `🟢 En sala (${metricasRadar.enSala})`, color: '#10b981' },
-            { id: 'programado_tarde', label: `⚪ Más tarde (${metricasRadar.masTarde})` },
-            { id: 'finalizado', label: `🏁 Finalizados (${metricasRadar.finalizados})` },
-          ].map((chip) => (
+          {(
+            [
+              { id: 'todos', label: `Todos (${metricasRadar.total})`, color: undefined },
+              { id: 'critico', label: `🚨 Críticos (${metricasRadar.criticos})`, color: '#ef4444' },
+              { id: 'ausente', label: `❌ No asistieron (${metricasRadar.ausentes})`, color: '#f43f5e' },
+              { id: 'proximo', label: `🟡 En camino (${metricasRadar.proximos})`, color: '#f59e0b' },
+              { id: 'en_sala', label: `🟢 En sala (${metricasRadar.enSala})`, color: '#10b981' },
+              { id: 'programado_tarde', label: `⚪ Más tarde (${metricasRadar.masTarde})`, color: undefined },
+              { id: 'finalizado', label: `🏁 Finalizados (${metricasRadar.finalizados})`, color: undefined },
+            ] as { id: NivelRiesgoLlegada | 'todos'; label: string; color?: string }[]
+          ).map((chip) => (
             <button
               key={chip.id}
               type="button"
@@ -763,10 +904,32 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
               colorBadge = '#c084fc';
               badgeText = '🏁 TURNO FINALIZADO';
             } else if (actor.nivelRiesgo === 'ausente') {
-              borderLeftColor = '#6b7280';
-              bgBadge = 'rgba(107, 114, 128, 0.2)';
-              colorBadge = '#9ca3af';
+              borderLeftColor = '#f43f5e';
+              bgBadge = 'rgba(244, 63, 94, 0.18)';
+              colorBadge = '#f43f5e';
               badgeText = '❌ NO MARCÓ ASISTENCIA';
+              alertBox = (
+                <div
+                  style={{
+                    background: 'rgba(244, 63, 94, 0.1)',
+                    border: '1px solid rgba(244, 63, 94, 0.35)',
+                    color: '#f43f5e',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  <span>❌</span>
+                  <span>
+                    Inasistencia registrada: la citación concluyó ({actor.horaInicio} - {actor.horaFin}) sin que el paciente simulado marcara ingreso en el terminal Kiosco.
+                  </span>
+                </div>
+              );
             }
 
             return (
@@ -784,6 +947,8 @@ export const RadarLlegadaActores: React.FC<RadarLlegadaActoresProps> = ({
                   boxShadow:
                     actor.nivelRiesgo === 'critico'
                       ? '0 4px 15px rgba(239, 68, 68, 0.15)'
+                      : actor.nivelRiesgo === 'ausente'
+                      ? '0 4px 15px rgba(244, 63, 94, 0.15)'
                       : '0 2px 8px rgba(0, 0, 0, 0.05)',
                   transition: 'all 0.15s ease',
                 }}

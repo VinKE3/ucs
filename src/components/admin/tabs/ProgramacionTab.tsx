@@ -244,7 +244,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       }
 
       for (const ps of psItems) {
-        const presente = Boolean(ps.presente || ses.psPresente);
+        const presente = typeof ps.presente === 'boolean' ? ps.presente : Boolean(ses.psPresente);
         if (!presente) {
           const minsParaInicio = ses.startMins - nowMinutes;
           if (nowMinutes < ses.endMins && minsParaInicio <= 15) {
@@ -255,6 +255,39 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     }
     return count;
   }, [sesiones, nowMinutes, esHoy]);
+
+  // Conteo en vivo de Inasistencias de Pacientes Simulados hoy (turnos concluidos sin marcación en Kiosco)
+  const psAusentesCount = useMemo(() => {
+    if (!esHoy) return 0;
+    let count = 0;
+    for (const ses of sesiones) {
+      if (ses.estadoUcs === 'cancelada' || (ses as any).estadoSimclic === 'Cancelled') continue;
+      const psItems: any[] = [];
+      if (ses.pacientesSimulados && Array.isArray(ses.pacientesSimulados) && ses.pacientesSimulados.length > 0) {
+        psItems.push(...ses.pacientesSimulados);
+      } else if (ses.pacientesSimuladosJson && Array.isArray(ses.pacientesSimuladosJson) && ses.pacientesSimuladosJson.length > 0) {
+        psItems.push(...ses.pacientesSimuladosJson);
+      } else if (ses.pacienteSimuladoNombre) {
+        psItems.push({
+          nombre: ses.pacienteSimuladoNombre,
+          presente: ses.psPresente,
+        });
+      }
+
+      for (const ps of psItems) {
+        const presente = typeof ps.presente === 'boolean' ? ps.presente : Boolean(ses.psPresente);
+        if (!presente) {
+          if (nowMinutes >= ses.endMins) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
+  }, [sesiones, nowMinutes, esHoy]);
+
+  // Filtro de riesgo inicial al navegar al radar
+  const [filtroRadarInicial, setFiltroRadarInicial] = useState<'ausente' | 'critico' | 'todos'>('todos');
 
   // Modal de detalle
   const [sesionSeleccionada, setSesionSeleccionada] = useState<SesionProgramadaTimelineItem | null>(null);
@@ -1088,7 +1121,10 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             </div>
 
             <div
-              onClick={() => setVistaModo('radar_actores')}
+              onClick={() => {
+                setFiltroRadarInicial('todos');
+                setVistaModo('radar_actores');
+              }}
               className={styles.metricItem}
               style={{
                 cursor: 'pointer',
@@ -1107,7 +1143,10 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
             {psRiesgoCount > 0 && esHoy && (
               <div
-                onClick={() => setVistaModo('radar_actores')}
+                onClick={() => {
+                  setFiltroRadarInicial('critico');
+                  setVistaModo('radar_actores');
+                }}
                 className={styles.metricItem}
                 style={{
                   borderLeft: '2px solid #ef4444',
@@ -1123,6 +1162,29 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                   {psRiesgoCount}
                 </span>
                 <span className={styles.metricLbl}>🚨 PS en Riesgo (&lt;15m)</span>
+              </div>
+            )}
+
+            {psAusentesCount > 0 && esHoy && (
+              <div
+                onClick={() => {
+                  setFiltroRadarInicial('ausente');
+                  setVistaModo('radar_actores');
+                }}
+                className={styles.metricItem}
+                style={{
+                  borderLeft: '2px solid #f43f5e',
+                  paddingLeft: '1rem',
+                  cursor: 'pointer',
+                  background: 'rgba(244, 63, 94, 0.1)',
+                  borderRadius: '6px',
+                }}
+                title="Hacer clic para filtrar los Pacientes Simulados que no asistieron hoy"
+              >
+                <span className={styles.metricVal} style={{ color: '#f43f5e' }}>
+                  {psAusentesCount}
+                </span>
+                <span className={styles.metricLbl}>❌ PS No Asistieron</span>
               </div>
             )}
 
@@ -1266,7 +1328,10 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
             <button
               type="button"
-              onClick={() => setVistaModo('radar_actores')}
+              onClick={() => {
+                setFiltroRadarInicial('todos');
+                setVistaModo('radar_actores');
+              }}
               style={{
                 padding: '0.4rem 0.85rem',
                 borderRadius: '7px',
@@ -1284,7 +1349,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
               title="Radar preventivo de llegada y ausentismo de actores / pacientes simulados"
             >
               <span>🎭</span> Radar Llegada PS
-              {psRiesgoCount > 0 && esHoy && (
+              {psRiesgoCount > 0 && esHoy ? (
                 <span
                   style={{
                     background: '#ef4444',
@@ -1294,11 +1359,28 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                     borderRadius: '10px',
                     fontWeight: 800,
                     marginLeft: '0.2rem',
+                    animation: 'pulse 1.8s infinite',
                   }}
+                  title={`${psRiesgoCount} en riesgo crítico`}
                 >
                   {psRiesgoCount}
                 </span>
-              )}
+              ) : psAusentesCount > 0 && esHoy ? (
+                <span
+                  style={{
+                    background: '#f43f5e',
+                    color: '#ffffff',
+                    fontSize: '0.68rem',
+                    padding: '0.1rem 0.4rem',
+                    borderRadius: '10px',
+                    fontWeight: 800,
+                    marginLeft: '0.2rem',
+                  }}
+                  title={`${psAusentesCount} inasistencias confirmadas`}
+                >
+                  {psAusentesCount}
+                </span>
+              ) : null}
             </button>
           </div>
         </div>
@@ -2235,6 +2317,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           nowMinutes={nowMinutes}
           esHoy={esHoy}
           usuariosList={usuariosList}
+          filtroInicial={filtroRadarInicial}
           onVerDetalleSesion={(ses) => setSesionSeleccionada(ses)}
           onOpenCrearAsistenciaManual={onOpenCrearAsistenciaManual}
           onIrAGantt={() => setVistaModo('gantt')}

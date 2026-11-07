@@ -60,6 +60,24 @@ export const ModalCerrarTurno: React.FC<ModalCerrarTurnoProps> = ({
   const baseDate = new Date(selectedAsistencia.horaIngreso);
   const dateStr = `${baseDate.getFullYear()}-${pad(baseDate.getMonth() + 1)}-${pad(baseDate.getDate())}`;
 
+  // Sesiones de SimClic para cálculo de fin de jornada académica
+  const sesionesSimclic = (selectedAsistencia.sesionesProgramadasDia || []).filter(
+    (s) => Boolean(s.horaInicio && s.horaFin)
+  );
+  let maxSimclicFin = '';
+  if (sesionesSimclic.length > 0) {
+    let maxM = 0;
+    for (const s of sesionesSimclic) {
+      try {
+        const [h, m] = s.horaFin.split(':').map(Number);
+        if (h * 60 + m > maxM) {
+          maxM = h * 60 + m;
+          maxSimclicFin = s.horaFin;
+        }
+      } catch {}
+    }
+  }
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorValidacion(null);
@@ -230,6 +248,35 @@ export const ModalCerrarTurno: React.FC<ModalCerrarTurnoProps> = ({
                     title="Ajusta exactamente a su horario programado asignado"
                   >
                     🎯 Horario Programado ({selectedAsistencia.horaEntradaProgramada} - {selectedAsistencia.horaSalidaProgramada || 'Fin'})
+                  </button>
+                )}
+
+                {maxSimclicFin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const primerInicio = sesionesSimclic[0]?.horaInicio || selectedAsistencia.horaEntradaProgramada || '07:00';
+                      const ingDate = new Date(selectedAsistencia.horaIngreso);
+                      const actualIngIso = `${dateStr}T${pad(ingDate.getHours())}:${pad(ingDate.getMinutes())}`;
+                      setHoraIngresoInput(actualIngIso);
+                      setHoraSalidaInput(`${dateStr}T${maxSimclicFin}`);
+                      setMotivoCierre(
+                        `Regularización SimClic: El personal concluyó su último bloque académico a las ${maxSimclicFin} (${sesionesSimclic.length} bloques). Se ajusta salida por omisión de marcación en kiosco.`
+                      );
+                      setErrorValidacion(null);
+                    }}
+                    className={styles.pillBtn}
+                    style={{
+                      fontSize: '0.72rem',
+                      padding: '0.2rem 0.55rem',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      borderColor: '#10b981',
+                      color: '#10b981',
+                      fontWeight: 700,
+                    }}
+                    title="Ajusta la salida al horario de fin del último bloque programado en SimClic"
+                  >
+                    🩺 Fin de SimClic ({maxSimclicFin} • {sesionesSimclic.length} bloques)
                   </button>
                 )}
 

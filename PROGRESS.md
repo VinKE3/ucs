@@ -3,6 +3,32 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 121: Sistema Dual de Auto-Cierre de Turnos Omitidos (Cron Nocturno 00:05 + Botón de 1 Clic en Lote en Asistencias) (`autoCierreTurnos.ts`, `cron/cerrar-turnos-omitidos`, `asistencias/auto-cerrar`, `AsistenciasTab.tsx`, `ModalCerrarTurno.tsx`, `vercel.json`, `test_auto_cierre_turnos.ts`)**:
+      - **Problema Diagnosticado**:
+        - Cuando el personal (técnicos, administrativos, pacientes simulados o docentes) olvidaba registrar su marcación de salida en el terminal Kiosco al concluir su turno o jornada académica, sus registros permanecían indefinidamente en estado `🟡 En Curso` en días posteriores (ej: casos reales de Benjamín Alcántara La Torre en Campus Norte y Javier Alfonso Tapia Silva en Campus Ate).
+        - Estos turnos huérfanos distorsionaban las métricas acumuladas de personal activo, impedían cerrar planillas de forma limpia y obligaban al administrador a abrir manualmente un modal de edición uno por uno para ingresar fecha, hora y justificación.
+      - **Solución Implementada (Estrategia Dual)**:
+        1. **Motor Centralizado de Auto-Cierre Inteligente (`src/lib/autoCierreTurnos.ts`)**:
+           - **Para Técnicos y Administrativos**: Evalúa su horario oficial programado (`horaSalidaProgramada` o `horaSalidaEsperada`, ej. 22:00 para Benjamín Alcántara). Calcula minutos totales, puntualidad con tolerancia institucional (10 min) y asigna 0 minutos extra no autorizados.
+           - **Para Pacientes Simulados y Docentes**: Realiza el cruce con los bloques oficiales de SimClic (`sesionesProgramadas`) aislados estrictamente por campus (`coincidenSedesSimclic`). Determina la hora exacta de fin del último bloque lectivo del día (ej. 17:00 para Javier Tapia, cubriendo sus 8 bloques).
+           - **Trazabilidad y Auditoría Inmutable**: Actualiza el estado a `ajustado_manual`, setea el motivo oficial `🤖 Cierre automático del sistema: salida no marcada en Kiosco. Regularizado a horario programado (HH:mm)` e inserta un registro histórico inalterable en `auditoria_asistencias` con acción `AUTO_CIERRE_OMISION`.
+        2. **Cron Nocturno Automático en Vercel (`src/app/api/cron/cerrar-turnos-omitidos/route.ts`, `vercel.json`)**:
+           - Endpoint GET programado para ejecutarse diariamente a las 00:05 am hora de Lima (`05:05 UTC` en `vercel.json`: `"5 5 * * *"`).
+           - Identifica todos los turnos huérfanos de fechas pasadas (`fecha < hoyLima`) y los regulariza de forma desatendida mientras duerme la clínica.
+        3. **Acción en Lote de 1 Clic para Administradores (`src/app/api/asistencias/auto-cerrar/route.ts`, `AsistenciasTab.tsx`)**:
+           - En el banner amarillo de advertencia (`Alerta de Salidas Pendientes`) de la pestaña *Historial de Asistencias*, se incorporó el botón interactivo de acción masiva: `⚡ Auto-Cerrar a Horario Programado (N)`.
+           - Diálogo SweetAlert2 con confirmación explicativa y ejecución atómica por lotes que recarga reactivamente el store con `store.loadAsistencias()`.
+        4. **Atajo Inteligente SimClic en Modal Individual (`ModalCerrarTurno.tsx`)**:
+           - Si un administrador decide regularizar un turno de forma individual mediante `ModalCerrarTurno`, ahora dispone del botón píldora: `🩺 Fin de SimClic (HH:mm • N bloques)` que autocompleta ingreso, salida oficial y motivo de auditoría con un solo clic.
+      - **Saneamiento Inmediato y Verificación Técnica**:
+        - Ejecutado el auto-cierre para los dos casos reales en Neon PostgreSQL:
+          - Benjamín Alcántara (ID 178): Cerrado a las 22:00 (525 min / 8h 45m).
+          - Javier Alfonso Tapia (ID 156): Cerrado a las 17:00 (610 min / 10h 10m).
+          - Contador de turnos huérfanos pendientes reducido inmediatamente a **0**.
+        - Suite de pruebas automatizadas (`src/scripts/test_auto_cierre_turnos.ts`): **100% aprobada**.
+        - Suites de regresión (`test_salas_norte_matching.ts`, `test_turnos_prolongados_simclic.ts`, `test_asistencias_tab_isolation.ts`, `test_kledy_multisede.ts`, `test_radar_ausencias_ps.ts`): **100% aprobadas**.
+        - Compilación estricta TypeScript (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 120: Filtro de Inasistencias y Sistema de Alertas para Pacientes Simulados (PS) en Radar SimClic (`RadarLlegadaActores.tsx`, `ProgramacionTab.tsx`, `test_radar_ausencias_ps.ts`)**:
       - **Problema Diagnosticado**:
         - En el sub-panel *Radar Llegada PS* de *Programación SimClic 360°*, los turnos de pacientes simulados que concluían sin haber marcado asistencia en Kiosco (ej. bloques de Angelo Caceres Puma con badge `❌ NO MARCÓ ASISTENCIA`) no contaban con un filtro dedicado ni alerta visible en el encabezado.

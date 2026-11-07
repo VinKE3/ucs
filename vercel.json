@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/simclic",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/cerrar-turnos-omitidos",
+      "schedule": "5 5 * * *"
     }
   ]
 }

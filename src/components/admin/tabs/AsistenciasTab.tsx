@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import styles from '@/app/admin/admin.module.css';
 import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, ResumenColaboradorItem } from '@/types/admin';
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
-import { showAlert, showError, showToast } from '@/lib/alerts';
+import { showAlert, showError, showToast, confirmModal } from '@/lib/alerts';
 import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAuditoriaProgramacion';
 import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
@@ -599,6 +599,56 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     return asistenciasFiltradas.filter((a) => evaluarTurnoProlongado(a).esProlongado);
   }, [asistenciasFiltradas, evaluarTurnoProlongado]);
 
+  // Estado y acción para Auto-Cierre en lote de 1 clic
+  const [isAutoCerrando, setIsAutoCerrando] = useState(false);
+
+  const handleAutoCerrarPendientes = async () => {
+    if (turnosProlongados.length === 0) return;
+
+    const count = turnosProlongados.length;
+    const confirmed = await confirmModal({
+      title: `¿Auto-Cerrar ${count} turno${count > 1 ? 's' : ''} pendiente${count > 1 ? 's' : ''}?`,
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5;">
+          <p style="margin-bottom: 0.5rem;">El sistema regularizará y cerrará automáticamente los turnos pendientes:</p>
+          <ul style="margin: 0 0 0.75rem 1.25rem; padding: 0;">
+            <li><b>Técnicos / Administrativos:</b> Su horario oficial de salida programada.</li>
+            <li><b>Pacientes Simulados / Docentes:</b> El horario de fin de su último bloque en SimClic.</li>
+          </ul>
+          <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0;">
+            Se guardará la trazabilidad en la auditoría inmutable indicando cierre automático por omisión en Kiosco.
+          </p>
+        </div>
+      `,
+      icon: 'warning',
+      confirmText: `⚡ Sí, Regularizar (${count})`,
+      cancelText: 'Cancelar',
+    });
+
+    if (!confirmed) return;
+
+    setIsAutoCerrando(true);
+    try {
+      const ids = turnosProlongados.map((a) => a.id);
+      const res = await fetch('/api/asistencias/auto-cerrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asistenciaIds: ids }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudo completar el auto-cierre.');
+      }
+      showToast(`⚡ ${data.totalCerrados} turno(s) regularizados exitosamente a su horario oficial`, 'success');
+      await store.loadAsistencias();
+    } catch (err: any) {
+      console.error('Error en auto-cierre:', err);
+      showError(err.message || 'Error al regularizar turnos');
+    } finally {
+      setIsAutoCerrando(false);
+    }
+  };
+
   // Métricas y filtrado rápido por cumplimiento SimClic
   const metricasSimclic = useMemo(() => {
     let coberturaParcial = 0;
@@ -1025,20 +1075,42 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setAsistFiltroEstado('en_curso')}
-            className={styles.actionBtn}
-            style={{
-              padding: '0.45rem 0.95rem',
-              fontSize: '0.82rem',
-              background: '#f59e0b',
-              color: '#06152d',
-              fontWeight: 700,
-            }}
-          >
-            Filtrar Salidas Pendientes ({turnosProlongados.length})
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setAsistFiltroEstado('en_curso')}
+              className={styles.actionBtn}
+              style={{
+                padding: '0.45rem 0.95rem',
+                fontSize: '0.82rem',
+                background: 'rgba(245, 158, 11, 0.15)',
+                color: '#f59e0b',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                fontWeight: 600,
+              }}
+            >
+              🔍 Filtrar Pendientes ({turnosProlongados.length})
+            </button>
+            <button
+              type="button"
+              onClick={handleAutoCerrarPendientes}
+              disabled={isAutoCerrando}
+              className={styles.actionBtn}
+              style={{
+                padding: '0.45rem 0.95rem',
+                fontSize: '0.82rem',
+                background: '#f59e0b',
+                color: '#06152d',
+                fontWeight: 700,
+                border: 'none',
+                opacity: isAutoCerrando ? 0.7 : 1,
+                cursor: isAutoCerrando ? 'not-allowed' : 'pointer',
+              }}
+              title="Cierra automáticamente los turnos pendientes al horario programado oficial"
+            >
+              {isAutoCerrando ? '⏳ Regularizando...' : `⚡ Auto-Cerrar a Horario Programado (${turnosProlongados.length})`}
+            </button>
+          </div>
         </div>
       )}
 

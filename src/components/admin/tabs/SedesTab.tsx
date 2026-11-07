@@ -7,6 +7,8 @@ import type { SessionPayload } from '@/lib/auth';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
 import dynamic from 'next/dynamic';
 
+import { ModalConfiguracionKiosco } from '@/components/admin/modals/ModalConfiguracionKiosco';
+
 const ModalGestionTerminales = dynamic(
   () => import('@/components/admin/modals/ModalGestionTerminales').then((m) => ({ default: m.ModalGestionTerminales })),
   { ssr: false }
@@ -38,6 +40,7 @@ export const SedesTab: React.FC<SedesTabProps> = (props) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showTerminalesModal, setShowTerminalesModal] = useState(false);
   const [terminalesModalTab, setTerminalesModalTab] = useState<'terminales' | 'codigos'>('terminales');
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const sedesFiltradas = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -127,6 +130,26 @@ export const SedesTab: React.FC<SedesTabProps> = (props) => {
               >
                 <span>🖥️</span>
                 <span>Terminales Kiosco</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(true)}
+                className={styles.secondaryActionBtn}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 1rem',
+                  fontSize: '0.85rem',
+                  borderColor: 'rgba(56, 189, 248, 0.4)',
+                  color: '#38bdf8',
+                  background: 'rgba(56, 189, 248, 0.08)',
+                }}
+                title="Configuración de Kiosco: activar o desactivar biometría y registro con cámara"
+              >
+                <span>⚙️</span>
+                <span>Configuración</span>
               </button>
             </>
           )}
@@ -346,6 +369,12 @@ export const SedesTab: React.FC<SedesTabProps> = (props) => {
         onClose={() => setShowTerminalesModal(false)}
         sedesList={sedesList}
         initialTab={terminalesModalTab}
+      />
+
+      {/* MODAL DE CONFIGURACIÓN GLOBAL DE KIOSCO */}
+      <ModalConfiguracionKiosco
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
       />
     </section>
   );

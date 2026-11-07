@@ -62,6 +62,7 @@ export interface MarcacionOfflineItem {
   sesionProgramadaId?: number | null;
   timestampLocal: string; // ISO String milimétrico
   observaciones?: string | null;
+  fotoBase64?: string | null;
   creadoAt: number;
 }
 

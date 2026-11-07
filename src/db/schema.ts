@@ -134,6 +134,10 @@ export const asistencias = pgTable('asistencias', {
   terminalSalidaId: integer('terminal_salida_id').references(() => terminalesKiosco.id, { onDelete: 'set null' }),
   terminalSalidaNombre: varchar('terminal_salida_nombre', { length: 150 }),
 
+  // Evidencia Fotográfica y Biometría Visual de Seguridad (Kiosco)
+  fotoIngresoUrl: text('foto_ingreso_url'),
+  fotoIngresoTimestamp: timestamp('foto_ingreso_timestamp', { withTimezone: true }),
+
   // Auditoría en caso de modificación o anulación
   modificadoPorId: integer('modificado_por_id').references(() => usuarios.id),
   motivoModificacion: text('motivo_modificacion'),

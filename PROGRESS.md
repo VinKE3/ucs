@@ -3,6 +3,40 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 128: Biometría Visual y Evidencia Fotográfica en Kiosco con Vercel Blob y Fallback Local Resiliente (`KioscoTerminal.tsx`, `fotoStorage.ts`, `marcar/route.ts`, `asistencias/route.ts`, `AsistenciasTab.tsx`, `ModalFotoEvidencia.tsx`, `migrate_foto_asistencias.ts`, `schema.ts`, `test_foto_asistencia.ts`, `SedesTab.tsx`, `ModalConfiguracionKiosco.tsx`, `api/kiosco/configuracion`)**:
+      - **Petición del Usuario**:
+        - Implementar una demo para capturar una foto con la cámara integrada de la PC al momento de registrar ingreso en el Kiosco (`/kiosco`), dirigida a Pacientes Simulados (PS) y Técnicos.
+        - Almacenar la imagen en baja resolución pero nítida (~8-12 KB WebP) para prevenir suplantación de identidad ("buddy punching") sin saturar la base de datos de Neon Tech.
+        - Conectar Vercel Blob (`@vercel/blob`) y configurar variables de entorno en `.env.local`.
+      - **Solución Implementada**:
+        1. **Persistencia Híbrida Inteligente (`src/lib/fotoStorage.ts`)**:
+           - Integración oficial con `@vercel/blob`: Si `BLOB_READ_WRITE_TOKEN` está configurado en `.env.local`, sube la fotografía a la nube con compresión WebP (`asistencias/YYYY-MM-DD/asist_...webp`) retornando la URL pública de CDN de Vercel.
+           - Fallback de Respaldo Local Automático: Si no se cuenta con token en desarrollo/demo o si la red falla, almacena el archivo físicamente en `public/uploads/asistencias/` y devuelve `/uploads/asistencias/...`. Cero caídas o errores 500 durante la demo.
+        2. **Captura Fotográfica en Kiosco (`KioscoTerminal.tsx`)**:
+           - Detección reactiva: activa la cámara integrada automáticamente cuando el colaborador identificado es `paciente_simulado` o `tecnico` y está registrando ingreso (`!asistenciaActiva`).
+           - Widget visual en vivo: renderiza una tarjeta biométrica con video en vivo (efecto espejo, indicador pulsante verde de cámara activa y mensaje orientador) ubicada justo sobre los botones de ingreso.
+           - Disparo atómico en canvas (320x240 px, WebP 60% de calidad, ~8-12 KB) transmitido vía payload `fotoBase64`.
+           - Fail-safe absoluto: Si la cámara está bloqueada, en uso o no disponible, no bloquea el ingreso del usuario.
+        3. **Base de Datos y Modelado (`schema.ts`, `migrate_foto_asistencias.ts`)**:
+           - Columnas en tabla `asistencias`: `foto_ingreso_url TEXT` y `foto_ingreso_timestamp TIMESTAMP WITH TIME ZONE`.
+           - Migración Drizzle/PostgreSQL ejecutada en Neon Tech de producción.
+        4. **Visualización y Auditoría en Dashboard Administrativo (`AsistenciasTab.tsx`, `ModalFotoEvidencia.tsx`)**:
+           - En la columna "PERSONAL" del historial de asistencias, se renderiza el botón interactivo `📷 Foto Ingreso` junto al badge del colaborador si cuenta con evidencia fotográfica.
+           - Modal dedicado `ModalFotoEvidencia.tsx`: visualizador de alta definición, datos del colaborador, DNI, fecha/hora exacta, sede, sala, terminal de registro y enlace directo a la imagen original.
+        5. **Botón y Modal de Configuración Global de Kiosco (`SedesTab.tsx`, `ModalConfiguracionKiosco.tsx`, `api/kiosco/configuracion/route.ts`)**:
+           - En la pestaña **Sedes**, se agregó el botón **`⚙️ Configuración`** junto a *Terminales Kiosco*.
+           - Modal interactivo con interruptores (Switch ON/OFF):
+             - **Biometría Visual / Cámara**: Permite habilitar o deshabilitar la captura con cámara web en el Kiosco con 1 clic sin tener que modificar código.
+             - **Modo Estricto vs Flexible**: Permite alternar entre modo Fail-Safe (recomendado) o foto estrictamente obligatoria.
+           - Persistencia en base de datos Neon PostgreSQL (`configuracion_sistema`).
+        6. **Configuración y Resiliencia Offline (`kioskOfflineStorage.ts`, `validations/kiosco.ts`)**:
+           - Integrado `fotoBase64` en validaciones Zod y soporte en la cola de IndexedDB para marcaciones offline.
+      - **Verificación Técnica**:
+        - Suite de pruebas de fotos (`test_foto_asistencia.ts`): **100% aprobada**.
+        - Suite de terminales (`test_terminales_ubicacion.ts`): **100% aprobada**.
+        - Suite de aislamiento (`test_asistencias_tab_isolation.ts`): **100% aprobada**.
+        - Compilación TypeScript estricta (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 127: Trazabilidad de Terminales Kiosco en Ubicación de Asistencias (Opción B: Entrada y Salida Diferenciadas) (`schema.ts`, `migrate_asistencias_terminales.ts`, `marcar/route.ts`, `offline/route.ts`, `autoCierreTurnos.ts`, `asistencias/route.ts`, `AsistenciasTab.tsx`, `KardexDrawer.tsx`, `excelAsistenciasExporter.ts`, `test_terminales_ubicacion.ts`)**:
       - **Petición del Usuario**:
         - En la columna "UBICACIÓN" de la tabla de Asistencias, incorporar la información de desde qué terminal física de Kiosco se marcó la asistencia.

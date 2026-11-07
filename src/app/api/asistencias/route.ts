@@ -49,6 +49,9 @@ export async function GET(request: Request) {
         terminalIngresoNombre: asistencias.terminalIngresoNombre,
         terminalSalidaId: asistencias.terminalSalidaId,
         terminalSalidaNombre: asistencias.terminalSalidaNombre,
+        // Evidencia Fotográfica (Vercel Blob)
+        fotoIngresoUrl: asistencias.fotoIngresoUrl,
+        fotoIngresoTimestamp: asistencias.fotoIngresoTimestamp,
         // Usuario
         usuarioId: usuarios.id,
         dni: usuarios.dni,

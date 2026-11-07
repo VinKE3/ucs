@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { sedes, ambientes, asistencias, usuarios, cursos } from '@/db/schema';
+import { sedes, ambientes, asistencias, usuarios, cursos, configuracionSistema } from '@/db/schema';
 import { eq, and, isNotNull } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -99,7 +99,20 @@ export async function GET() {
         }),
     }));
 
-    return NextResponse.json({ sedes: sedesConAmbientes });
+    const [cfgBio] = await db
+      .select({ valor: configuracionSistema.valor })
+      .from(configuracionSistema)
+      .where(eq(configuracionSistema.clave, 'kiosco_biometria_activa'))
+      .limit(1);
+
+    const biometriaActiva = cfgBio ? cfgBio.valor !== 'false' : true;
+
+    return NextResponse.json({
+      sedes: sedesConAmbientes,
+      config: {
+        biometriaActiva,
+      },
+    });
   } catch (error) {
     console.error('Error cargando sedes para kiosco:', error);
     return NextResponse.json({ error: 'Error al consultar sedes' }, { status: 500 });

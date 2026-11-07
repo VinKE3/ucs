@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import styles from './kiosco.module.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -170,6 +170,14 @@ export default function KioscoTerminal() {
   const [terminalChecking, setTerminalChecking] = useState(true);
   const [terminalAuthorized, setTerminalAuthorized] = useState(false);
   const [terminalInfo, setTerminalInfo] = useState<TerminalData | null>(null);
+
+  // Biometría Visual de Seguridad en Kiosco (Técnicos y Pacientes Simulados)
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const [cameraActive, setCameraActive] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraLoading, setCameraLoading] = useState<boolean>(false);
+  const [biometriaHabilitada, setBiometriaHabilitada] = useState<boolean>(true);
 
   // Modal para autorizar terminal
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -447,6 +455,7 @@ export default function KioscoTerminal() {
         .then((r) => r.json())
         .then((d) => {
           if (d.sedes) setSedesList(d.sedes);
+          if (d.config && typeof d.config.biometriaActiva === "boolean") setBiometriaHabilitada(d.config.biometriaActiva);
         })
         .catch(() => {});
     };
@@ -514,6 +523,9 @@ export default function KioscoTerminal() {
         if (resSedes.ok) {
           const data = await resSedes.json();
           setSedesList(data.sedes || []);
+          if (data.config && typeof data.config.biometriaActiva === 'boolean') {
+            setBiometriaHabilitada(data.config.biometriaActiva);
+          }
           if (data.sedes && data.sedes.length > 0) {
             if (terminalInfo?.sedeId) {
               setSelectedSedeId(terminalInfo.sedeId);
@@ -715,6 +727,25 @@ export default function KioscoTerminal() {
     setMarcando(true);
     setSearchError(null);
 
+    // Capturar fotograma de cámara si corresponde a biometría visual en ingreso
+    let fotoBase64: string | undefined = undefined;
+    if (accion === 'ingreso' && requiereFotoIngreso && videoRef.current && videoRef.current.videoWidth > 0) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.translate(320, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+          fotoBase64 = canvas.toDataURL('image/webp', 0.6);
+        }
+      } catch (camErr) {
+        console.warn('⚠️ No se pudo capturar foto de verificación:', camErr);
+      }
+    }
+
     const currentSede = terminalInfo?.sedeId || selectedSedeId || 1;
 
     // Función auxiliar para registrar marcación en IndexedDB si no hay red o si falla la conexión
@@ -738,6 +769,7 @@ export default function KioscoTerminal() {
           sesionProgramadaId: (!modoManual && sesionSugerida?.ambienteId === selectedAmbienteId) ? sesionSugerida.id : undefined,
           timestampLocal: now.toISOString(),
           observaciones: '💾 Modo Autónomo Offline (Cola IndexedDB)',
+          fotoBase64: fotoBase64 || undefined,
         });
 
         const cola = await obtenerColaMarcacionesOffline();
@@ -821,6 +853,7 @@ export default function KioscoTerminal() {
           accion,
           asistenciaId: asistenciaActiva?.id,
           terminalToken: legacyToken || undefined,
+          fotoBase64: fotoBase64 || undefined,
         }),
       });
 
@@ -839,6 +872,13 @@ export default function KioscoTerminal() {
         tipo: data.tipo,
         mensaje: data.mensaje,
       });
+
+      // Detener cámara al marcar exitosamente
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+      setCameraActive(false);
 
       // Refrescar ocupación de salas en segundo plano sin congelar la pantalla
       fetch('/api/kiosco/sedes')
@@ -873,6 +913,249 @@ export default function KioscoTerminal() {
     } finally {
       setMarcando(false);
     }
+  };
+
+  const requiereFotoIngreso = Boolean(
+    biometriaHabilitada &&
+    usuarioActual &&
+    !asistenciaActiva &&
+    (usuarioActual.tipoPersonal === 'paciente_simulado' || usuarioActual.tipoPersonal === 'tecnico')
+  );
+
+  // Ciclo de vida y activación de la cámara integrada del Kiosco
+  const initCamera = useCallback(async () => {
+    if (!requiereFotoIngreso) {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+      setCameraActive(false);
+      setCameraError(null);
+      setCameraLoading(false);
+      return;
+    }
+
+    setCameraLoading(true);
+    try {
+      setCameraError(null);
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setCameraError('Dispositivo sin compatibilidad para captura de cámara');
+        return;
+      }
+
+      // Detener cualquier stream anterior antes de solicitar uno nuevo
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+
+      // Iniciar con la restricción más pura y compatible (video: true)
+      // Esto fuerza a Chromium a abrir el diálogo de permisos de forma instantánea
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+      setCameraActive(true);
+      setCameraError(null);
+    } catch (err: any) {
+      console.warn('⚠️ No se pudo inicializar la cámara integrada en Kiosco:', err);
+      setCameraActive(false);
+      const errName = err?.name || '';
+      if (errName === 'NotReadableError' || errName === 'TrackStartError' || errName === 'AbortError') {
+        setCameraError('⚠️ La cámara está ocupada por otra app (cierra la aplicación "Cámara" de Windows, Zoom o Teams y pulsa Reintentar).');
+      } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+        setCameraError('⚠️ Permiso bloqueado en Chrome. Haz clic en el ícono de ajustes/candado junto a localhost:3000 y activa "Cámara".');
+      } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        setCameraError('⚠️ No se detectó ninguna cámara web conectada al equipo.');
+      } else {
+        setCameraError(`⚠️ ${err.message || 'Cámara no disponible'} (${errName || 'Error'})`);
+      }
+    } finally {
+      setCameraLoading(false);
+    }
+  }, [requiereFotoIngreso]);
+
+  useEffect(() => {
+    initCamera();
+
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+    };
+  }, [initCamera]);
+
+  const renderCameraVerificationWidget = () => {
+    if (!requiereFotoIngreso) return null;
+    return (
+      <div
+        style={{
+          marginBottom: '1rem',
+          padding: '0.75rem 1rem',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
+          border: '1.5px solid rgba(56, 189, 248, 0.35)',
+          borderRadius: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.9rem',
+          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: '94px',
+            height: '76px',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            backgroundColor: '#020617',
+            border: cameraActive ? '2px solid #10b981' : '1.5px dashed #64748b',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <video
+            ref={(el) => {
+              videoRef.current = el;
+              if (el) {
+                el.muted = true;
+                if (mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
+                  el.srcObject = mediaStreamRef.current;
+                  el.play().catch(() => {});
+                }
+              }
+            }}
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={() => {
+              if (videoRef.current) {
+                videoRef.current.play().catch(() => {});
+              }
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transform: 'scaleX(-1)',
+              display: cameraActive ? 'block' : 'none',
+            }}
+          />
+          {!cameraActive && (
+            <span style={{ fontSize: '1.4rem', color: '#64748b' }}>📷</span>
+          )}
+          {cameraActive && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '5px',
+                right: '5px',
+                width: '9px',
+                height: '9px',
+                borderRadius: '50%',
+                backgroundColor: '#10b981',
+                boxShadow: '0 0 8px #10b981',
+              }}
+              title="Cámara web activa en vivo"
+            />
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>
+              🛡️ Biometría Visual de Seguridad
+            </span>
+            {cameraActive ? (
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  padding: '0.1rem 0.45rem',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  color: '#34d399',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                }}
+              >
+                ● En vivo
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  padding: '0.1rem 0.45rem',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                  color: '#facc15',
+                  border: '1px solid rgba(234, 179, 8, 0.35)',
+                }}
+              >
+                {cameraLoading ? 'Conectando...' : 'Standby'}
+              </span>
+            )}
+          </div>
+          <p style={{ margin: '0.2rem 0 0', fontSize: '0.74rem', color: cameraActive ? '#94a3b8' : '#fca5a5', lineHeight: 1.35 }}>
+            {cameraActive
+              ? 'Mire a la cámara. Al marcar ingreso se capturará una fotografía testigo de baja resolución para prevenir suplantación.'
+              : (cameraError || 'Iniciando cámara integrada del dispositivo...')}
+          </p>
+
+          {!cameraActive && (
+            <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <button
+                type="button"
+                disabled={cameraLoading}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  initCamera();
+                }}
+                style={{
+                  padding: '0.3rem 0.75rem',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  color: cameraLoading ? '#94a3b8' : '#38bdf8',
+                  background: cameraLoading ? 'rgba(51, 65, 85, 0.4)' : 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  borderRadius: '6px',
+                  cursor: cameraLoading ? 'wait' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  width: 'fit-content',
+                }}
+              >
+                <span>{cameraLoading ? '🌀' : '🔄'}</span>
+                <span>{cameraLoading ? 'Conectando cámara...' : 'Reintentar activación de cámara'}</span>
+              </button>
+
+              <div style={{
+                fontSize: '0.71rem',
+                color: '#94a3b8',
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                borderRadius: '6px',
+                padding: '0.35rem 0.55rem',
+                lineHeight: 1.35,
+              }}>
+                💡 <strong>Si no aparece el cartel de permiso:</strong> haz clic en el ícono de ajustes (o candado) a la izquierda de <code>localhost:3000</code> en la barra de URL de Chrome y enciende el interruptor de <strong>Cámara</strong>.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const resetearTerminal = () => {
@@ -1729,6 +2012,7 @@ export default function KioscoTerminal() {
                               </div>
                             )}
 
+                            {renderCameraVerificationWidget()}
                             <button
                               onClick={() => handleMarcar('ingreso')}
                               disabled={marcando}
@@ -1870,6 +2154,7 @@ export default function KioscoTerminal() {
                                   </div>
                                 )}
 
+                                {renderCameraVerificationWidget()}
                                 {/* BOTÓN 1-TAP CONFIRMAR INGRESO DIRECTO */}
                                 <button
                                   type="button"
@@ -2169,6 +2454,8 @@ export default function KioscoTerminal() {
                                 </div>
                               );
                             })()}
+
+                                {renderCameraVerificationWidget()}
 
                                 <button
                                   onClick={() => handleMarcar('ingreso')}

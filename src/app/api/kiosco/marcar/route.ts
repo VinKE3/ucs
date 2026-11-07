@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return parsed.response;
     }
 
-    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones, sesionProgramadaId } = parsed.data;
+    const { usuarioId, sedeId, ambienteId, cursoId, accion, asistenciaId, observaciones, sesionProgramadaId, fotoBase64 } = parsed.data;
     const cookieToken = request.cookies.get('ucs_terminal_token')?.value;
     const terminalToken = cookieToken || request.headers.get('x-terminal-token') || parsed.data.terminalToken;
 
@@ -452,6 +452,35 @@ export async function POST(request: NextRequest) {
             .returning();
           nuevaAsistencia = inserted;
         }
+
+      // Guardar evidencia fotográfica si se envió captura de cámara
+      if (nuevaAsistencia?.id && fotoBase64) {
+        try {
+          const { guardarFotoAsistencia } = await import('@/lib/fotoStorage');
+          const fotoUrl = await guardarFotoAsistencia({
+            fotoBase64,
+            usuarioId: user.id,
+            asistenciaId: nuevaAsistencia.id,
+            tipoPersonal: user.tipoPersonal,
+          });
+          if (fotoUrl) {
+            const [updatedWithFoto] = await db
+              .update(asistencias)
+              .set({
+                fotoIngresoUrl: fotoUrl,
+                fotoIngresoTimestamp: now,
+              })
+              .where(eq(asistencias.id, nuevaAsistencia.id))
+              .returning();
+            if (updatedWithFoto) {
+              nuevaAsistencia = updatedWithFoto;
+            }
+          }
+        } catch (fotoErr) {
+          console.warn('⚠️ No se pudo procesar la foto de ingreso en Kiosco:', fotoErr);
+        }
+      }
+
       } catch (insertError: any) {
         // Blindaje contra Double-Tap: Captura infracción del índice único uq_asistencia_activa_usuario
         if (

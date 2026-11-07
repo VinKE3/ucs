@@ -6,6 +6,7 @@ import type { AsistenciaAdminItem, SedeAdminItem, CursoAdminItem, UsuarioItem, R
 import { DateRangePicker } from '@/app/admin/DateRangePicker';
 import { showAlert, showError, showToast, confirmModal } from '@/lib/alerts';
 import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAuditoriaProgramacion';
+import { ModalFotoEvidencia } from '@/components/admin/modals/ModalFotoEvidencia';
 import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
 
@@ -142,6 +143,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
   const [filtroSimclic, setFiltroSimclic] = useState<'todos' | 'en_curso' | 'cobertura_parcial' | 'tardanza' | 'discrepancia_sala' | 'alineado' | 'sin_prog'>('todos');
   const [filasExpandidas, setFilasExpandidas] = useState<Set<number>>(new Set());
   const [asistenciaParaAuditoriaProg, setAsistenciaParaAuditoriaProg] = useState<AsistenciaAdminItem | null>(null);
+  const [fotoModalAsistencia, setFotoModalAsistencia] = useState<AsistenciaAdminItem | null>(null);
 
   const toggleFilaExpandida = (id: number) => {
     setFilasExpandidas((prev) => {
@@ -1740,8 +1742,34 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                             {asist.nombres} {asist.apellidos}
                           </strong>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          DNI: {asist.dni} • {getTipoBadge(asist.tipoPersonal)}
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
+                          <span>DNI: {asist.dni}</span> • {getTipoBadge(asist.tipoPersonal)}
+                          {asist.fotoIngresoUrl && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFotoModalAsistencia(asist);
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                padding: '0.15rem 0.45rem',
+                                fontSize: '0.68rem',
+                                fontWeight: 600,
+                                color: '#10b981',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                              }}
+                              title="Ver fotografía de evidencia de ingreso capturada en Kiosco"
+                            >
+                              <span>📷</span>
+                              <span>Foto Ingreso</span>
+                            </button>
+                          )}
                         </div>
                       </td>
 
@@ -2523,7 +2551,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
       )}
 
       {/* MODAL AUDITORÍA DE PROGRAMACIÓN 360° */}
-      {asistenciaParaAuditoriaProg && (
+{asistenciaParaAuditoriaProg && (
         <ModalAuditoriaProgramacion
           isOpen={Boolean(asistenciaParaAuditoriaProg)}
           asistencia={asistenciaParaAuditoriaProg}
@@ -2531,6 +2559,15 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
         />
       )}
 
-    </section>
+    
+      {/* MODAL EVIDENCIA FOTOGRÁFICA EN KIOSCO */}
+      {fotoModalAsistencia && (
+        <ModalFotoEvidencia
+          isOpen={Boolean(fotoModalAsistencia)}
+          asistencia={fotoModalAsistencia}
+          onClose={() => setFotoModalAsistencia(null)}
+        />
+      )}
+</section>
   );
 };

@@ -17,6 +17,7 @@ export const kioscoMarcarSchema = z.object({
   sesionProgramadaId: optionalIdSchema,
   observaciones: z.string().trim().max(500, 'Las observaciones no pueden exceder 500 caracteres').nullable().optional(),
   terminalToken: z.string().trim().nullable().optional(),
+  fotoBase64: z.string().nullable().optional(),
 });
 
 export const kioscoAutorizarSchema = z.object({
@@ -46,6 +47,7 @@ export const kioscoOfflineItemSchema = z.object({
   sesionProgramadaId: optionalIdSchema,
   timestampLocal: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'timestampLocal debe ser una fecha ISO válida' }),
   observaciones: z.string().max(500).nullable().optional(),
+  fotoBase64: z.string().nullable().optional(),
 });
 
 export const kioscoOfflineBatchSchema = z.object({

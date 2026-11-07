@@ -3,6 +3,30 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 125: Conversión de la Tarjeta del Docente Principal a Formato Tabular en `/consulta` (`page.tsx`, `consulta.module.css`)**:
+      - **Petición del Usuario**:
+        - Realizar una prueba visual en el portal público `/consulta` transformando la card del docente principal en una tabla análoga a la tabla de Docentes Espejo en paralelo.
+        - Mantener intacta la barra superior con el horario y estados (`🕒 10:20 - 11:10`, `Quedan 33 min`, `🔴 EN CURSO AHORA`, `● En Curso`, `Campus Villa`, `Compartir`).
+        - Ubicar inmediatamente debajo el título del curso (`📚 Semiología basada en la Simulación`).
+        - Reemplazar las tarjetas fragmentadas (`roomHighlight`, `scenarioCard`, `psRadarCard`) por una tabla estructurada para el Docente Principal.
+      - **Solución Implementada**:
+        1. **Orden Visual y Jerarquía**:
+           - **Barra Superior**: Horario, tiempo relativo, target pill y botón WhatsApp conservados sin alteración.
+           - **Título del Curso (`.courseTitleBanner`)**: Ubicado directamente debajo de la barra superior con tipografía `h3.courseName`.
+        2. **Tabla del Docente Principal (`.mainDocTableWrapper`, `.mainDocTable`)**:
+           - Construida con idéntica métrica y anchos de columna que la tabla de Docentes Espejo para lograr una alineación vertical perfecta:
+             - `👨‍🏫 Docente Principal`: Nombre del docente, correo y badge distintivo `📍 Mi Sala (Titular)`.
+             - `🚪 Ambiente / Sala`: Nombre destacado del ambiente, pabellón/código y sede.
+             - `🩺 Escenario / Caso Clínico`: Nombre del caso clínico o fallback `— Caso General`.
+             - `🎭 Paciente Simulado`: Nombre del actor con radar de estado Kiosco (`🟢 En Sede (Marcó HH:mm)`, `🟡 Por ingresar` o `Salida registrada`).
+             - `⏳ Estado`: Píldora de estado en tiempo real (`Clase en desarrollo` con pulso dinámico, `✓ Listo para ingreso` o `Turno concluido`).
+           - Estilizada con acento institucional azul cielo (`#bae6fd` / `#0284c7` / `#f0f9ff`) para diferenciarla armónicamente de la tabla verde esmeralda de Docentes Espejo.
+        3. **Responsividad Móvil Segura (`.mainDocMobileCard`)**:
+           - En pantallas móviles (`<= 768px`), la tabla conmuta automáticamente a una tarjeta compacta y fluida para evitar scroll horizontal indeseado o roturas de diseño.
+      - **Verificación Técnica**:
+        - Compilación TypeScript (`npx tsc --noEmit`): **0 errores**.
+        - Suite de regresión (`test_asistencias_tab_isolation.ts`): **100% aprobado**.
+
     - **Hito 124: Cabecera Unificada en un Solo Renglón para Escritorio en `/consulta` (`consulta.module.css`, `page.tsx`)**:
       - **Problema Diagnosticado**:
         - En la versión de escritorio del portal público `/consulta`, los elementos de la cabecera (Logo institucional de Científica/SIM, píldora de fecha "Hoy, DD/MM/AAAA" y controles de herramientas: tema, estado SimClic y botón Actualizar) se encontraban apilados verticalmente en 3 renglones centrados.

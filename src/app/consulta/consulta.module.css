@@ -1467,6 +1467,120 @@
 }
 
 /* ==========================================================================
+   VISTA TABULAR DE DOCENTE PRINCIPAL (DESKTOP)
+   ========================================================================== */
+.courseTitleBanner {
+  margin-top: 0.25rem;
+  margin-bottom: 0.15rem;
+}
+
+.mainDocTableWrapper {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1.5px solid #bae6fd;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(6, 21, 45, 0.04);
+}
+
+:global([data-theme="dark"]) .mainDocTableWrapper {
+  background: var(--bg-secondary);
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.mainDocTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.mainDocTable th {
+  background: #f0f9ff;
+  color: #0369a1;
+  font-weight: 800;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 2px solid #bae6fd;
+  white-space: nowrap;
+}
+
+:global([data-theme="dark"]) .mainDocTable th {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.3);
+}
+
+.mainDocTableRow {
+  transition: background 0.15s ease;
+}
+
+.mainDocTableRow:hover {
+  background: #f8fafc;
+}
+
+:global([data-theme="dark"]) .mainDocTableRow:hover {
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.mainDocTableRow td {
+  padding: 0.95rem 1.1rem;
+  vertical-align: middle;
+}
+
+.mainDocRoomName {
+  font-weight: 900;
+  color: #0284c7;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+:global([data-theme="dark"]) .mainDocRoomName {
+  color: var(--ucs-blue-sky);
+}
+
+.titularBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.12rem 0.45rem;
+  border-radius: 9999px;
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  margin-top: 0.25rem;
+}
+
+:global([data-theme="dark"]) .titularBadge {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.mainDocMobileCard {
+  display: none;
+  background: #ffffff;
+  border: 1.5px solid #bae6fd;
+  border-radius: 14px;
+  padding: 1.15rem 1.4rem;
+  box-shadow: 0 2px 10px rgba(6, 21, 45, 0.05);
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+:global([data-theme="dark"]) .mainDocMobileCard {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================================================================
    VISTA TABULAR DE DOCENTES ESPEJO (DESKTOP)
    ========================================================================== */
 .mirrorTableWrapper {
@@ -1994,6 +2108,12 @@
 }
 
 @media (max-width: 768px) {
+  .mainDocTableWrapper {
+    display: none !important;
+  }
+  .mainDocMobileCard {
+    display: block !important;
+  }
   .mirrorTableWrapper {
     display: none !important;
   }

@@ -1317,115 +1317,222 @@ export default function ConsultaPublicaPage() {
                                 </div>
                               </div>
 
-                              {/* 2. DESTACADO DE SALA / AMBIENTE (Respuesta inmediata a "¿Dónde me toca?") */}
-                              <div className={styles.roomHighlight}>
-                                <div className={styles.roomInfo}>
-                                  <span className={styles.roomIcon}>🚪</span>
-                                  <div className={styles.roomText}>
-                                    <span className={styles.roomLabel}>Ambiente Asignado:</span>
-                                    <span className={styles.roomName}>
-                                      {sesion.ambienteNombre || 'Ambiente por confirmar'}
-                                    </span>
-                                    {sesion.ambienteCodigo && (
-                                      <span className={styles.roomCode}>
-                                        Pabellón / Código: {sesion.ambienteCodigo}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className={styles.roomStatusTag}>
-                                  {sesion.estadoTiempo === 'en_curso' ? (
-                                    <span className={styles.roomTagLive}>
-                                      <span className={styles.pulseLiveDot} /> Clase en desarrollo
-                                    </span>
-                                  ) : sesion.estadoTiempo === 'proxima' ? (
-                                    <span className={styles.roomTagReady}>
-                                      ✓ Listo para ingreso
-                                    </span>
-                                  ) : (
-                                    <span className={styles.roomTagClosed}>
-                                      Turno concluido
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* 3. Datos del Curso y Escenario */}
-                              <div className={styles.courseDetails}>
+                              {/* 2. TÍTULO DEL CURSO (Directo debajo de la cabecera) */}
+                              <div className={styles.courseTitleBanner}>
                                 <h3 className={styles.courseName}>
                                   📚 {sesion.cursoNombre || sesion.titulo}
                                 </h3>
+                              </div>
 
-                                {sesion.escenarioNombre && (
-                                  <div className={styles.scenarioCard}>
-                                    <span className={styles.scenarioIcon}>🩺</span>
-                                    <div className={styles.scenarioContent}>
-                                      <span className={styles.scenarioLabel}>Escenario Clínico / Caso:</span>
-                                      <span className={styles.scenarioTitle}>{sesion.escenarioNombre}</span>
-                                    </div>
-                                  </div>
-                                )}
+                              {/* 3. TABLA DEL DOCENTE PRINCIPAL (VISTA ESCRITORIO) */}
+                              <div className={styles.mainDocTableWrapper}>
+                                <table className={styles.mainDocTable}>
+                                  <thead>
+                                    <tr>
+                                      <th>👨‍🏫 Docente Principal</th>
+                                      <th>🚪 Ambiente / Sala</th>
+                                      <th>🩺 Escenario / Caso Clínico</th>
+                                      <th>🎭 Paciente Simulado</th>
+                                      <th style={{ textAlign: 'center' }}>⏳ Estado</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr className={styles.mainDocTableRow}>
+                                      <td className={styles.mirrorTableDocCell}>
+                                        <div className={styles.mirrorTableDocGroup}>
+                                          <span className={styles.mirrorTableAvatar}>👨‍🏫</span>
+                                          <div>
+                                            <div className={styles.mirrorTableDocName}>
+                                              {currentDocente.docenteNombre}
+                                            </div>
+                                            {currentDocente.docenteCorreo && (
+                                              <div className={styles.mirrorTableDocEmail}>
+                                                {currentDocente.docenteCorreo}
+                                              </div>
+                                            )}
+                                            <span className={styles.titularBadge}>📍 Mi Sala (Titular)</span>
+                                          </div>
+                                        </div>
+                                      </td>
 
-                                {/* 4. RADAR DE PAZ MENTAL: PACIENTE SIMULADO (ACTOR) */}
-                                {(sesion.psTiene || sesion.pacienteSimuladoNombre) && (
-                                  <div
-                                    className={`${styles.psRadarCard} ${
-                                      sesion.psEstado === 'en_sede'
-                                        ? styles.psRadarEnSede
-                                        : sesion.psEstado === 'salio'
-                                        ? styles.psRadarSalio
-                                        : styles.psRadarPendiente
-                                    }`}
-                                  >
-                                    <div className={styles.psRadarHeader}>
-                                      <div className={styles.psRadarIndicator}>
-                                        {sesion.psEstado === 'en_sede' ? (
-                                          <>
-                                            <span className={styles.psRadarDotLive} />
-                                            <span className={styles.psRadarStatusText}>
-                                              ACTOR EN SEDE (LISTO PARA EL CASO)
+                                      <td className={styles.mirrorTableRoomCell}>
+                                        <div className={styles.mirrorTableRoomBox}>
+                                          <span className={styles.mainDocRoomName}>
+                                            {sesion.ambienteNombre || 'Ambiente por confirmar'}
+                                          </span>
+                                          {sesion.ambienteCodigo && (
+                                            <span className={styles.mirrorTableRoomCode}>
+                                              Pabellón: {sesion.ambienteCodigo}
                                             </span>
-                                          </>
-                                        ) : sesion.psEstado === 'salio' ? (
-                                          <>
-                                            <span className={styles.psRadarDotSalio} />
-                                            <span className={styles.psRadarStatusText}>
-                                              TURNO FINALIZADO (SALIDA REGISTRADA)
+                                          )}
+                                          {sesion.sedeNombre && (
+                                            <span className={styles.mirrorTableSedeTag}>
+                                              📍 {sesion.sedeNombre}
                                             </span>
-                                          </>
+                                          )}
+                                        </div>
+                                      </td>
+
+                                      <td className={styles.mirrorTableCaseCell}>
+                                        {sesion.escenarioNombre ? (
+                                          <div className={styles.mirrorTableCaseBox}>
+                                            <span className={styles.mirrorTableCaseLabel}>Caso Clínico:</span>
+                                            <span className={styles.mirrorTableCaseTitle}>
+                                              {sesion.escenarioNombre}
+                                            </span>
+                                          </div>
                                         ) : (
-                                          <>
-                                            <span className={styles.psRadarDotPending} />
-                                            <span className={styles.psRadarStatusText}>
-                                              ACTOR PROGRAMADO (PENDIENTE INGRESO)
-                                            </span>
-                                          </>
+                                          <span className={styles.mirrorTableEmpty}>— Caso General</span>
+                                        )}
+                                      </td>
+
+                                      <td className={styles.mirrorTablePsCell}>
+                                        {(sesion.psTiene || sesion.pacienteSimuladoNombre) ? (
+                                          <div
+                                            className={`${styles.mirrorTablePsBox} ${
+                                              sesion.psEstado === 'en_sede'
+                                                ? styles.mirrorPsBadgeEnSede
+                                                : sesion.psEstado === 'salio'
+                                                ? styles.mirrorPsBadgeSalio
+                                                : styles.mirrorPsBadgePendiente
+                                            }`}
+                                          >
+                                            <div className={styles.mirrorTablePsName}>
+                                              <span>🎭</span>
+                                              <span>{sesion.psNombre || sesion.pacienteSimuladoNombre}</span>
+                                            </div>
+                                            <div className={styles.mirrorTablePsStatus}>
+                                              {sesion.psEstado === 'en_sede' ? (
+                                                <span className={styles.mirrorPsEnSedeTag}>
+                                                  <span className={styles.psRadarDotLive} />
+                                                  En Sede {sesion.psHoraIngreso ? `(${sesion.psHoraIngreso})` : ''}
+                                                </span>
+                                              ) : sesion.psEstado === 'salio' ? (
+                                                <span className={styles.mirrorPsSalioTag}>
+                                                  Salida registrada
+                                                </span>
+                                              ) : (
+                                                <span className={styles.mirrorPsPendingTag}>
+                                                  🟡 Por ingresar
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className={styles.mirrorTableEmpty}>— Sin actor</span>
+                                        )}
+                                      </td>
+
+                                      <td className={styles.mirrorTableStatusCell} style={{ textAlign: 'center' }}>
+                                        {sesion.estadoTiempo === 'en_curso' ? (
+                                          <span className={`${styles.mirrorTimePill} ${styles.mirrorTimePillEnCurso}`}>
+                                            <span className={styles.pulseLiveDot} />
+                                            Clase en desarrollo
+                                          </span>
+                                        ) : sesion.estadoTiempo === 'proxima' ? (
+                                          <span className={`${styles.mirrorTimePill} ${styles.mirrorTimePillProxima}`}>
+                                            ✓ Listo para ingreso
+                                          </span>
+                                        ) : (
+                                          <span className={`${styles.mirrorTimePill} ${styles.mirrorTimePillFinalizada}`}>
+                                            Turno concluido
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              {/* 4. TARJETA DEL DOCENTE PRINCIPAL (VISTA MÓVIL) */}
+                              <div className={styles.mainDocMobileCard}>
+                                <div className={styles.mirrorMainInfo}>
+                                  <div className={styles.mirrorTopRow}>
+                                    <div className={styles.mirrorDocenteHeader}>
+                                      <span className={styles.mirrorAvatarMini}>👨‍🏫</span>
+                                      <span className={styles.mirrorColleagueName}>
+                                        {currentDocente.docenteNombre}
+                                      </span>
+                                      <span className={styles.titularBadge}>📍 Mi Sala</span>
+                                    </div>
+                                    {sesion.estadoTiempo === 'en_curso' ? (
+                                      <span className={`${styles.mirrorTimePill} ${styles.mirrorTimePillEnCurso}`}>
+                                        <span className={styles.pulseLiveDot} />
+                                        Clase en desarrollo
+                                      </span>
+                                    ) : sesion.estadoTiempo === 'proxima' ? (
+                                      <span className={`${styles.mirrorTimePill} ${styles.mirrorTimePillProxima}`}>
+                                        Listo para ingreso
+                                      </span>
+                                    ) : (
+                                      <span className={`${styles.mirrorTimePill} ${styles.mirrorTimePillFinalizada}`}>
+                                        Turno concluido
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Ambiente Móvil */}
+                                  <div className={styles.mirrorRoomBadgeWrapper} style={{ marginTop: '0.4rem', alignSelf: 'flex-start', maxWidth: '100%' }}>
+                                    <div className={styles.mirrorRoomBadge} title={sesion.ambienteNombre || undefined}>
+                                      <span className={styles.mirrorRoomIcon}>🚪</span>
+                                      <span className={styles.mirrorRoomNameText}>
+                                        {sesion.ambienteNombre || 'Ambiente por confirmar'}
+                                      </span>
+                                    </div>
+                                    {sesion.ambienteCodigo && (
+                                      <span className={styles.mirrorRoomCode}>
+                                        Pabellón: {sesion.ambienteCodigo}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Caso Clínico Móvil */}
+                                  {sesion.escenarioNombre && (
+                                    <div className={styles.mirrorCase}>
+                                      <span className={styles.mirrorCaseIcon}>🩺</span>
+                                      <div className={styles.mirrorCaseText}>
+                                        <span className={styles.mirrorCaseLabel}>Caso Clínico:</span>
+                                        <span className={styles.mirrorCaseTitle}>{sesion.escenarioNombre}</span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Paciente Simulado Móvil */}
+                                  {(sesion.psTiene || sesion.pacienteSimuladoNombre) && (
+                                    <div
+                                      className={`${styles.mirrorPsBadge} ${
+                                        sesion.psEstado === 'en_sede'
+                                          ? styles.mirrorPsBadgeEnSede
+                                          : sesion.psEstado === 'salio'
+                                          ? styles.mirrorPsBadgeSalio
+                                          : styles.mirrorPsBadgePendiente
+                                      }`}
+                                    >
+                                      <div className={styles.mirrorPsLeft}>
+                                        <span className={styles.mirrorPsIcon}>🎭</span>
+                                        <span className={styles.mirrorPsName}>
+                                          <strong>PS:</strong> {sesion.psNombre || sesion.pacienteSimuladoNombre}
+                                        </span>
+                                      </div>
+                                      <div className={styles.mirrorPsStatus}>
+                                        {sesion.psEstado === 'en_sede' ? (
+                                          <span className={styles.mirrorPsEnSedeTag}>
+                                            <span className={styles.psRadarDotLive} />
+                                            En Sede {sesion.psHoraIngreso ? `(${sesion.psHoraIngreso})` : ''}
+                                          </span>
+                                        ) : sesion.psEstado === 'salio' ? (
+                                          <span className={styles.mirrorPsSalioTag}>
+                                            Salida registrada
+                                          </span>
+                                        ) : (
+                                          <span className={styles.mirrorPsPendingTag}>
+                                            🟡 Por ingresar
+                                          </span>
                                         )}
                                       </div>
-
-                                      {sesion.psHoraIngreso ? (
-                                        <span className={styles.psRadarCheckinBadge}>
-                                          🟢 Marcó {sesion.psHoraIngreso} {sesion.psAmbiente ? `(${sesion.psAmbiente})` : ''}
-                                        </span>
-                                      ) : (
-                                        <span className={styles.psRadarPendingBadge}>
-                                          ⏳ Aún no marca en Kiosco
-                                        </span>
-                                      )}
                                     </div>
-
-                                    <div className={styles.psRadarBody}>
-                                      <span className={styles.psRadarIcon}>🎭</span>
-                                      <div className={styles.psRadarInfo}>
-                                        <span className={styles.psRadarRole}>Paciente Simulado:</span>
-                                        <span className={styles.psRadarName}>
-                                          {sesion.psNombre || sesion.pacienteSimuladoNombre}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             </div>
 

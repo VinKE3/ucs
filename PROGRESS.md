@@ -3,6 +3,28 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 126: Modo Híbrido de Compartir por WhatsApp (Captura Visual HD / Mensaje de Texto / Descarga PNG) en `/consulta` (`page.tsx`, `consulta.module.css`)**:
+      - **Objetivo & Petición**:
+        - Implementar una prueba del modo híbrido al presionar el botón `📲 Compartir` en las tarjetas de clases:
+        - Permitir compartir todo el bloque en conjunto como una **captura de imagen visual** (con diseño, colores, sala titular y docentes espejo), manteniendo como alternativa el método tradicional de **mensaje de texto formateado**.
+      - **Solución Implementada**:
+        1. **Menú Desplegable Popover Flotante (`.sharePopoverWrapper`, `.sharePopoverMenu`)**:
+           - Al pulsar `📲 Compartir`, se despliega un popover estilizado con 3 opciones claras:
+             - 🖼️ **Captura Visual (Imagen)**:
+               - En Móvil (Android/iOS): Invoca `navigator.share` nativo adjuntando el archivo `.png` para enviarlo directamente a WhatsApp.
+               - En Desktop (PC/Mac): Genera la imagen a doble resolución (`pixelRatio: 2`), la copia de inmediato al portapapeles con la API `ClipboardItem` y abre WhatsApp Web para dar `Ctrl + V`. Toast orientador al usuario.
+             - 💬 **Mensaje de Texto**:
+               - Envía el resumen ejecutivo estructurado con emojis y enlaces en WhatsApp (método original).
+             - 📥 **Descargar Imagen (.png)**:
+               - Descarga directa del bloque renderizado en alta definición para archivado o proyección.
+        2. **Captura Inteligente y Filtro de Interfaz (`data-capture-ignore="true"`)**:
+           - La librería cliente `html-to-image` ignora el botón y el menú desplegable durante la captura, asegurando que la imagen generada sea 100% limpia como una ficha oficial.
+        3. **Manejo de Clic Fuera y Cierre Fluido**:
+           - `useEffect` con listener global que cierra el popover si el usuario hace clic fuera o presiona cancelar.
+      - **Verificación Técnica**:
+        - Compilación TypeScript (`npx tsc --noEmit`): **0 errores**.
+        - Suite de regresión (`test_asistencias_tab_isolation.ts`): **100% aprobado**.
+
     - **Hito 125: Conversión de la Tarjeta del Docente Principal a Formato Tabular en `/consulta` (`page.tsx`, `consulta.module.css`)**:
       - **Petición del Usuario**:
         - Realizar una prueba visual en el portal público `/consulta` transformando la card del docente principal en una tabla análoga a la tabla de Docentes Espejo en paralelo.

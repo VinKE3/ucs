@@ -659,6 +659,166 @@
   transform: translateY(-1px);
 }
 
+/* ==========================================================================
+   POPOVER HÍBRIDO DE COMPARTIR SESIÓN (CAPTURA / TEXTO)
+   ========================================================================== */
+.sharePopoverWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.shareDropdownChevron {
+  font-size: 0.65rem;
+  margin-left: 0.15rem;
+  transition: transform 0.2s ease;
+}
+
+.sharePopoverMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 295px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  box-shadow: 0 10px 25px -3px rgba(6, 21, 45, 0.18), 0 4px 6px -2px rgba(6, 21, 45, 0.05);
+  padding: 0.65rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  animation: popoverFadeIn 0.18s ease-out;
+}
+
+:global([data-theme="dark"]) .sharePopoverMenu {
+  background: #0d1d36;
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 12px 28px -2px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sharePopoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.45rem 0.4rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sharePopoverCloseBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.sharePopoverCloseBtn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+}
+
+.sharePopoverOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.6rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.sharePopoverOption:hover:not(:disabled) {
+  background: rgba(37, 211, 102, 0.1);
+  border-color: rgba(37, 211, 102, 0.3);
+}
+
+.sharePopoverOption:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.shareOptionIcon {
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+.shareOptionText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.shareOptionTitle {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+:global([data-theme="light"]) .shareOptionTitle {
+  color: #06152d;
+}
+
+.shareOptionDesc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.sharePopoverOptionSubtle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  margin-top: 0.15rem;
+}
+
+.sharePopoverOptionSubtle:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: #38bdf8;
+  color: #0284c7;
+}
+
+.shareOptionIconMini {
+  font-size: 0.85rem;
+}
+
+.shareOptionTitleMini {
+  font-size: 0.73rem;
+}
+
 /* Botón de compartir en el footer */
 .docenteFooterShareWspBtn {
   background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);

@@ -250,6 +250,10 @@ export default function ConsultaPublicaPage() {
   const [selectedDocenteId, setSelectedDocenteId] = useState<string | null>(null);
   const [selectedCursoNombre, setSelectedCursoNombre] = useState<string | null>(null);
 
+  // Menú híbrido de compartir (Captura de imagen / Mensaje de texto)
+  const [activeShareSesionId, setActiveShareSesionId] = useState<string | number | null>(null);
+  const [isCapturingImage, setIsCapturingImage] = useState(false);
+
   // Perfil recordado en versión móvil (Punto 3: Acceso Instantáneo)
   const [savedPerfil, setSavedPerfil] = useState<{ identificador: string; docenteNombre: string } | null>(null);
   const [perfilSavedToast, setPerfilSavedToast] = useState(false);
@@ -459,6 +463,147 @@ export default function ConsultaPublicaPage() {
     );
     setTimeout(() => setWspToast(null), 3500);
   }, [fecha, getEspejosValidos]);
+
+  // Cerrar el popover de compartir híbrido al hacer clic fuera
+  useEffect(() => {
+    if (!activeShareSesionId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest(`.${styles.sharePopoverWrapper}`)) {
+        setActiveShareSesionId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeShareSesionId]);
+
+  // Manejador para compartir captura visual del bloque
+  const handleCompartirCaptura = useCallback(async (docente: DocenteItem, sesion: SesionConsulta) => {
+    const cardElement = document.getElementById(`sesion-card-${sesion.id}`);
+    if (!cardElement) return;
+
+    setActiveShareSesionId(null);
+    setIsCapturingImage(true);
+    setWspToast('📸 Generando captura visual de alta definición...');
+
+    // Esperar un frame para que el popover se oculte antes de tomar la foto
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    try {
+      const { toBlob } = await import('html-to-image');
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+      const blob = await toBlob(cardElement, {
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: isDark ? '#0d1d36' : '#ffffff',
+        filter: (node) => {
+          if (node instanceof HTMLElement && node.dataset.captureIgnore === 'true') {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      if (!blob) {
+        throw new Error('No se pudo generar la imagen del bloque');
+      }
+
+      const fileName = `UCS_Clase_${(sesion.cursoNombre || sesion.titulo || 'Simulacion').replace(/\s+/g, '_')}_${sesion.horaInicio.replace(':', '')}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      // 1. En Móviles con soporte nativo de compartir archivos (Android / iOS):
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Clase UCS - ${sesion.cursoNombre || sesion.titulo}`,
+          text: `🏥 *UCS Simulación* • Clase ${sesion.horaInicio} - ${sesion.horaFin} (${sesion.ambienteNombre || 'Sede'})`,
+        });
+        setWspToast('✅ ¡Captura compartida con éxito!');
+        setTimeout(() => setWspToast(null), 3500);
+        return;
+      }
+
+      // 2. En Desktop / Laptop: Copiar imagen al portapapeles y abrir WhatsApp Web
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        try {
+          const item = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([item]);
+
+          window.open('https://web.whatsapp.com', '_blank');
+          setWspToast('📋 ¡Captura copiada! Presiona Ctrl + V en WhatsApp para enviarla.');
+          setTimeout(() => setWspToast(null), 6000);
+          return;
+        } catch (clipErr) {
+          console.warn('El portapapeles no admitió copia directa de imagen:', clipErr);
+        }
+      }
+
+      // 3. Fallback: Descarga automática de la imagen para adjuntarla
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      window.open('https://web.whatsapp.com', '_blank');
+      setWspToast('📥 ¡Captura descargada! Puedes adjuntarla en WhatsApp Web.');
+      setTimeout(() => setWspToast(null), 5000);
+    } catch (err) {
+      console.error('Error al generar la captura:', err);
+      setWspToast('⚠️ No se pudo generar la captura. Abriendo en modo texto...');
+      handleCompartirWspSesion(docente, sesion);
+    } finally {
+      setIsCapturingImage(false);
+    }
+  }, [handleCompartirWspSesion]);
+
+  // Manejador para descargar directamente el PNG de la tarjeta
+  const handleDescargarCaptura = useCallback(async (sesion: SesionConsulta) => {
+    const cardElement = document.getElementById(`sesion-card-${sesion.id}`);
+    if (!cardElement) return;
+
+    setActiveShareSesionId(null);
+    setIsCapturingImage(true);
+    setWspToast('📥 Generando archivo PNG...');
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    try {
+      const { toPng } = await import('html-to-image');
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+      const dataUrl = await toPng(cardElement, {
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: isDark ? '#0d1d36' : '#ffffff',
+        filter: (node) => {
+          if (node instanceof HTMLElement && node.dataset.captureIgnore === 'true') {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      const fileName = `UCS_Clase_${(sesion.cursoNombre || sesion.titulo || 'Simulacion').replace(/\s+/g, '_')}_${sesion.horaInicio.replace(':', '')}.png`;
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = fileName;
+      a.click();
+
+      setWspToast('✅ ¡Captura PNG descargada con éxito!');
+      setTimeout(() => setWspToast(null), 3500);
+    } catch (err) {
+      console.error('Error al descargar PNG:', err);
+      setWspToast('⚠️ Error al descargar el archivo PNG.');
+      setTimeout(() => setWspToast(null), 3500);
+    } finally {
+      setIsCapturingImage(false);
+    }
+  }, []);
 
   // Referencia al input de búsqueda para enfoque automático
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -1305,15 +1450,85 @@ export default function ConsultaPublicaPage() {
                                     <span className={styles.sedeBadge}>📍 {sesion.sedeNombre}</span>
                                   )}
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCompartirWspSesion(currentDocente, sesion)}
-                                    className={styles.shareWspClassBtn}
-                                    title="Compartir datos de esta clase por WhatsApp"
-                                  >
-                                    <span>📲</span>
-                                    <span>Compartir</span>
-                                  </button>
+                                  <div className={styles.sharePopoverWrapper} data-capture-ignore="true">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveShareSesionId(activeShareSesionId === sesion.id ? null : sesion.id)}
+                                      className={styles.shareWspClassBtn}
+                                      title="Compartir datos de esta clase"
+                                      aria-expanded={activeShareSesionId === sesion.id}
+                                    >
+                                      <span>📲</span>
+                                      <span>Compartir</span>
+                                      <span className={styles.shareDropdownChevron}>▾</span>
+                                    </button>
+
+                                    {activeShareSesionId === sesion.id && (
+                                      <div className={styles.sharePopoverMenu} role="dialog" aria-label="Opciones para compartir">
+                                        <div className={styles.sharePopoverHeader}>
+                                          <span>📤 Compartir Clase</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveShareSesionId(null)}
+                                            className={styles.sharePopoverCloseBtn}
+                                            title="Cerrar opciones"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+
+                                        {/* Opción 1: Captura de Imagen */}
+                                        <button
+                                          type="button"
+                                          disabled={isCapturingImage}
+                                          onClick={() => handleCompartirCaptura(currentDocente, sesion)}
+                                          className={styles.sharePopoverOption}
+                                        >
+                                          <span className={styles.shareOptionIcon}>🖼️</span>
+                                          <div className={styles.shareOptionText}>
+                                            <span className={styles.shareOptionTitle}>
+                                              {isCapturingImage ? 'Generando captura...' : 'Captura Visual (Imagen)'}
+                                            </span>
+                                            <span className={styles.shareOptionDesc}>
+                                              Foto completa con diseño, salas y docentes espejo
+                                            </span>
+                                          </div>
+                                        </button>
+
+                                        {/* Opción 2: Mensaje de Texto */}
+                                        <button
+                                          type="button"
+                                          disabled={isCapturingImage}
+                                          onClick={() => {
+                                            setActiveShareSesionId(null);
+                                            handleCompartirWspSesion(currentDocente, sesion);
+                                          }}
+                                          className={styles.sharePopoverOption}
+                                        >
+                                          <span className={styles.shareOptionIcon}>💬</span>
+                                          <div className={styles.shareOptionText}>
+                                            <span className={styles.shareOptionTitle}>Mensaje de Texto</span>
+                                            <span className={styles.shareOptionDesc}>
+                                              Resumen en texto listo para WhatsApp con enlaces
+                                            </span>
+                                          </div>
+                                        </button>
+
+                                        {/* Opción 3: Descargar PNG */}
+                                        <button
+                                          type="button"
+                                          disabled={isCapturingImage}
+                                          onClick={() => handleDescargarCaptura(sesion)}
+                                          className={styles.sharePopoverOptionSubtle}
+                                        >
+                                          <span className={styles.shareOptionIconMini}>📥</span>
+                                          <span className={styles.shareOptionTitleMini}>
+                                            Descargar captura en imagen (.png)
+                                          </span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
 

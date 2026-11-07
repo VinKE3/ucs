@@ -293,7 +293,29 @@ export default function ConsultaPublicaPage() {
   // Notificación flotante de WhatsApp
   const [wspToast, setWspToast] = useState<string | null>(null);
 
-  // Compartir horario completo del docente por WhatsApp
+  // Helper para deduplicar y limpiar la lista de docentes espejo
+  const getEspejosValidos = useCallback((espejosList: EspejoDocente[] | undefined, docenteNombrePrincipal: string) => {
+    if (!espejosList || espejosList.length === 0) return [];
+    const vistos = new Set<string>();
+    const res: EspejoDocente[] = [];
+    const nombrePrincipalNorm = (docenteNombrePrincipal || '').trim().toLowerCase();
+
+    for (const esp of espejosList) {
+      const nom = (esp.docenteNombre || '').trim();
+      if (!nom || nom.toLowerCase() === 'sin docente') continue;
+      if (nom.toLowerCase() === nombrePrincipalNorm) continue;
+
+      // Clave de unicidad: docente + ambiente
+      const key = `${nom.toLowerCase()}__${(esp.ambienteNombre || '').toLowerCase()}`;
+      if (!vistos.has(key)) {
+        vistos.add(key);
+        res.push(esp);
+      }
+    }
+    return res;
+  }, []);
+
+  // Compartir horario completo del docente por WhatsApp (incluyendo docentes espejo por clase)
   const handleCompartirWspHorario = useCallback((docente: DocenteItem) => {
     const fechaObj = new Date(fecha + 'T12:00:00');
     const fechaFormat = isNaN(fechaObj.getTime())
@@ -308,7 +330,7 @@ export default function ConsultaPublicaPage() {
       `📊 *Carga:* ${docente.totalClases} ${docente.totalClases === 1 ? 'clase' : 'clases'} (${docente.totalHorasStr})`,
       docente.carreras.length > 0 ? `🎓 *Carrera:* ${docente.carreras.join(' • ')}` : '',
       `─────────────────────────`,
-      `🗓️ *DETALLE DE CLASES:*`,
+      `🗓️ *DETALLE DE CLASES Y DOCENTES ESPEJO:*`,
     ].filter(Boolean);
 
     docente.sesiones.forEach((s, idx) => {
@@ -324,6 +346,16 @@ export default function ConsultaPublicaPage() {
       if (s.psNombre || s.pacienteSimuladoNombre) {
         const psStatus = s.psEstado === 'en_sede' ? `(En sede ${s.psHoraIngreso || ''})` : s.psEstado === 'salio' ? '(Salida registrada)' : '(Por ingresar)';
         lineas.push(`   🎭 *Actor/PS:* ${s.psNombre || s.pacienteSimuladoNombre} ${psStatus}`);
+      }
+
+      // Docentes espejo de esta clase en paralelo
+      const espejosValidos = getEspejosValidos(s.espejos, docente.docenteNombre);
+      if (espejosValidos.length > 0) {
+        lineas.push(`   👥 *Docentes Espejo (${espejosValidos.length}):*`);
+        espejosValidos.forEach((esp) => {
+          const psText = esp.psNombre || esp.pacienteSimuladoNombre ? ` • 🎭 ${esp.psNombre || esp.pacienteSimuladoNombre}` : '';
+          lineas.push(`      • *${esp.docenteNombre}* ➔ 🚪 ${esp.ambienteNombre}${esp.ambienteCodigo ? ` (${esp.ambienteCodigo})` : ''}${psText}`);
+        });
       }
     });
 
@@ -342,30 +374,74 @@ export default function ConsultaPublicaPage() {
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullMsg)}`;
     window.open(url, '_blank');
 
-    setWspToast('¡Horario completo copiado al portapapeles y abriendo WhatsApp!');
+    setWspToast('¡Horario completo con docentes espejo copiado al portapapeles y abriendo WhatsApp!');
     setTimeout(() => setWspToast(null), 3500);
-  }, [fecha]);
+  }, [fecha, getEspejosValidos]);
 
-  // Compartir una clase específica por WhatsApp
+  // Compartir una clase específica por WhatsApp con sus docentes espejo
   const handleCompartirWspSesion = useCallback((docente: DocenteItem, sesion: SesionConsulta) => {
+    const fechaObj = new Date(fecha + 'T12:00:00');
+    const fechaFormat = isNaN(fechaObj.getTime())
+      ? fecha
+      : fechaObj.toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const fechaCap = fechaFormat.charAt(0).toUpperCase() + fechaFormat.slice(1);
+
     const lineas: string[] = [
-      `🏥 *UCS SIMULACIÓN - CLASE PROGRAMADA*`,
-      `👨‍🏫 *Docente:* ${docente.docenteNombre}`,
-      `📅 *Fecha:* ${fecha}`,
-      `🕒 *Horario:* ${sesion.horaInicio} - ${sesion.horaFin}${sesion.estadoTiempo === 'en_curso' ? ' (EN CURSO AHORA)' : ''}`,
+      `🏥 *UCS SIMULACIÓN - CLASE Y DOCENTES ESPEJO*`,
+      `👨‍🏫 *Docente Titular:* ${docente.docenteNombre}`,
+      `📅 *Fecha:* ${fechaCap}`,
+      `🕒 *Horario:* ${sesion.horaInicio} - ${sesion.horaFin}${sesion.estadoTiempo === 'en_curso' ? ' (🔴 EN CURSO AHORA)' : ''}`,
       `📚 *Curso:* ${sesion.cursoNombre || sesion.titulo}`,
-      `🚪 *Ambiente:* ${sesion.ambienteNombre || 'Por confirmar'}${sesion.ambienteCodigo ? ` (${sesion.ambienteCodigo})` : ''}${sesion.sedeNombre ? ` • ${sesion.sedeNombre}` : ''}`,
+      `🚪 *Ambiente Asignado:* ${sesion.ambienteNombre || 'Por confirmar'}${sesion.ambienteCodigo ? ` (${sesion.ambienteCodigo})` : ''}${sesion.sedeNombre ? ` • ${sesion.sedeNombre}` : ''}`,
     ];
 
     if (sesion.escenarioNombre) {
-      lineas.push(`🩺 *Caso:* ${sesion.escenarioNombre}`);
+      lineas.push(`🩺 *Caso Clínico:* ${sesion.escenarioNombre}`);
     }
     if (sesion.psNombre || sesion.pacienteSimuladoNombre) {
-      lineas.push(`🎭 *Actor/PS:* ${sesion.psNombre || sesion.pacienteSimuladoNombre}`);
+      const psNom = sesion.psNombre || sesion.pacienteSimuladoNombre;
+      const psStatus =
+        sesion.psEstado === 'en_sede'
+          ? `(En sede${sesion.psHoraIngreso ? ` ${sesion.psHoraIngreso}` : ''})`
+          : sesion.psEstado === 'salio'
+          ? '(Salida registrada)'
+          : '(Por ingresar)';
+      lineas.push(`🎭 *Actor/PS:* ${psNom} ${psStatus}`);
+    }
+
+    // Docentes espejo en simultáneo
+    const espejosValidos = getEspejosValidos(sesion.espejos, docente.docenteNombre);
+    if (espejosValidos.length > 0) {
+      lineas.push(
+        `\n─────────────────────────`,
+        `👥 *DOCENTES ESPEJO EN PARALELO (${espejosValidos.length}):*`,
+        `_(Dictando el mismo curso y horario en salas simultáneas)_`
+      );
+
+      espejosValidos.forEach((esp, idx) => {
+        lineas.push(
+          `\n*${idx + 1}.* 👨‍🏫 *${esp.docenteNombre}*`,
+          `   🚪 *Sala:* ${esp.ambienteNombre}${esp.ambienteCodigo ? ` (${esp.ambienteCodigo})` : ''}${esp.sedeNombre ? ` • ${esp.sedeNombre}` : ''}`
+        );
+        if (esp.escenarioNombre) {
+          lineas.push(`   🩺 *Caso:* ${esp.escenarioNombre}`);
+        }
+        if (esp.psNombre || esp.pacienteSimuladoNombre) {
+          const psNom = esp.psNombre || esp.pacienteSimuladoNombre;
+          const psEstadoStr =
+            esp.psEstado === 'en_sede'
+              ? `(En sede${esp.psHoraIngreso ? ` ${esp.psHoraIngreso}` : ''})`
+              : esp.psEstado === 'salio'
+              ? '(Salida registrada)'
+              : '(Por ingresar)';
+          lineas.push(`   🎭 *Actor/PS:* ${psNom} ${psEstadoStr}`);
+        }
+      });
     }
 
     lineas.push(
-      `\n🔗 *Ver en vivo:* https://ucs-iota.vercel.app/consulta`
+      `\n─────────────────────────`,
+      `🔗 *Ver tablero interactivo en vivo:* https://ucs-iota.vercel.app/consulta`
     );
 
     const msg = lineas.join('\n');
@@ -376,9 +452,13 @@ export default function ConsultaPublicaPage() {
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
 
-    setWspToast(`¡Clase ${sesion.horaInicio} copiada y abriendo WhatsApp!`);
+    setWspToast(
+      espejosValidos.length > 0
+        ? `¡Clase ${sesion.horaInicio} con ${espejosValidos.length} espejos copiada a WhatsApp!`
+        : `¡Clase ${sesion.horaInicio} copiada y abriendo WhatsApp!`
+    );
     setTimeout(() => setWspToast(null), 3500);
-  }, [fecha]);
+  }, [fecha, getEspejosValidos]);
 
   // Referencia al input de búsqueda para enfoque automático
   const searchInputRef = useRef<HTMLInputElement>(null);

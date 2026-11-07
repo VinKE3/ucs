@@ -3,10 +3,10 @@ import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
 import { drizzle as drizzleServerless } from 'drizzle-orm/neon-serverless';
 import * as schema from './schema';
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 if (!connectionString && process.env.NODE_ENV !== 'production') {
-  console.warn('⚠️  ADVERTENCIA: La variable de entorno DATABASE_URL no está configurada en .env.local');
+  console.warn('⚠️  ADVERTENCIA: Ni DATABASE_URL ni POSTGRES_URL están configuradas en .env.local');
 }
 
 // 1. Cliente HTTP sin estado (ultra-rápido, idóneo para lecturas y operaciones db.batch)

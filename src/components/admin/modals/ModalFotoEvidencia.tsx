@@ -36,7 +36,10 @@ export const ModalFotoEvidencia: React.FC<ModalFotoEvidenciaProps> = ({
 
   const isVercelBlob = Boolean(
     asistencia.fotoIngresoUrl &&
-    (asistencia.fotoIngresoUrl.startsWith('http://') || asistencia.fotoIngresoUrl.startsWith('https://'))
+    (asistencia.fotoIngresoUrl.includes('blob.vercel-storage.com') ||
+      asistencia.fotoIngresoUrl.startsWith('http://') ||
+      asistencia.fotoIngresoUrl.startsWith('https://') ||
+      asistencia.fotoIngresoUrl.startsWith('/api/foto'))
   );
 
   const formatFechaHora = (timestampStr?: string | null) => {

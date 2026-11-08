@@ -10,9 +10,11 @@ export interface GuardarFotoOptions {
 
 /**
  * Guarda la fotografía de evidencia de marcación de Kiosco.
- * - Si BLOB_READ_WRITE_TOKEN está configurado, la sube a Vercel Blob Storage en la nube.
- * - Si no está configurado (ej: desarrollo local inicial o demo), la guarda en public/uploads/asistencias/
- *   garantizando que la demo funcione al 100% de inmediato sin errores.
+ * - Si BLOB_READ_WRITE_TOKEN está configurado, la sube a Vercel Blob Storage en la nube:
+ *   - Admite Stores Públicos (retorna URL directa de CDN).
+ *   - Admite Stores Privados (retorna URL a través del endpoint seguro /api/foto?url=...).
+ * - Si no está configurado o si la red falla, la guarda en public/uploads/asistencias/
+ *   como respaldo automático garantizando cero caídas.
  */
 export async function guardarFotoAsistencia(options: GuardarFotoOptions): Promise<string | null> {
   const { fotoBase64, usuarioId, asistenciaId } = options;
@@ -33,18 +35,40 @@ export async function guardarFotoAsistencia(options: GuardarFotoOptions): Promis
       try {
         const { put } = await import('@vercel/blob');
         const blobPath = `asistencias/${fechaHoy}/${fileName}`;
-        const blobResult = await put(blobPath, buffer, {
-          access: 'public',
-          contentType: 'image/webp',
-          token: blobToken,
-        });
+
+        let blobResult;
+        try {
+          // Intento inicial: Acceso público directo (estándar para fotos)
+          blobResult = await put(blobPath, buffer, {
+            access: 'public',
+            contentType: 'image/webp',
+            token: blobToken,
+          });
+        } catch (pubErr: any) {
+          // Si el almacén de Vercel fue creado como Privado, subir con access: 'private'
+          if (String(pubErr?.message || '').toLowerCase().includes('private store')) {
+            blobResult = await put(blobPath, buffer, {
+              access: 'private',
+              contentType: 'image/webp',
+              token: blobToken,
+            });
+          } else {
+            throw pubErr;
+          }
+        }
+
+        // Si la URL resultante es de un store privado, servirla a través de nuestro endpoint /api/foto
+        if (blobResult.url.includes('.private.blob.vercel-storage.com')) {
+          return `/api/foto?url=${encodeURIComponent(blobResult.url)}`;
+        }
+
         return blobResult.url;
       } catch (blobErr) {
         console.warn('⚠️ Falló subida a Vercel Blob, recurriendo a almacenamiento local de respaldo:', blobErr);
       }
     }
 
-    // 3. Ruta B: Almacenamiento Local de Respaldo / Demo Inmediata en /public/uploads/asistencias/
+    // 3. Ruta B: Almacenamiento Local de Respaldo / Contingencia en /public/uploads/asistencias/
     const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads', 'asistencias');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
@@ -58,4 +82,3 @@ export async function guardarFotoAsistencia(options: GuardarFotoOptions): Promis
     return null;
   }
 }
-

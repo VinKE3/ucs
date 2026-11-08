@@ -26,6 +26,10 @@
            - Implementado `createPortal(..., document.body)` para teletransportar el modal a la raíz del documento.
            - Fondo difuminado a pantalla completa (`backdrop-filter: blur(8px)`, `background: rgba(0, 0, 0, 0.75)`, `zIndex: 9999`) que cubre el 100% de la ventana al hacer clic en `📷 Foto Ingreso` en Historial de Asistencias.
            - Modal centrado en el medio de la pantalla con estilos estándar (`styles.modalBackdrop`, `styles.modal`, `styles.modalHeader`, etc.) y visor nítido de la fotografía.
+        6. **Soporte Híbrido para Stores Públicos y Privados de Vercel Blob (`fotoStorage.ts`, `api/foto/route.ts`)**:
+           - Detección y subida automática: Si el Blob Store de Vercel fue configurado como Privado (`private store`), sube como `access: 'private'` y sirve la imagen a través del nuevo endpoint seguro `/api/foto?url=...` con streaming autenticado y cabeceras de caché CDN.
+           - Si el Store es público, devuelve la URL directa de CDN.
+           - En caso de contingencia o falta de token, mantiene el fallback local en `/public/uploads/`.
       - **Verificación Técnica**:
         - Migración Drizzle/Neon ejecutada con éxito.
         - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.

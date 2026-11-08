@@ -83,88 +83,43 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
   if (!isOpen) return null;
 
   return (
-    <div
-      className={styles.modalOverlay}
-      style={{
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        backgroundColor: 'rgba(15, 23, 42, 0.75)',
-        backdropFilter: 'blur(4px)',
-      }}
-      onClick={onClose}
-    >
+    <div className={styles.modalBackdrop} onClick={onClose}>
       <div
-        className={styles.modalContent}
-        style={{
-          maxWidth: '540px',
-          width: '100%',
-          borderRadius: '16px',
-          border: '1.5px solid rgba(56, 189, 248, 0.35)',
-          background: '#0f172a',
-          boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.7)',
-          padding: '1.5rem',
-        }}
+        className={styles.modal}
+        style={{ maxWidth: '540px', width: '100%' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(148, 163, 184, 0.15)',
-            paddingBottom: '0.85rem',
-            marginBottom: '1.25rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <span style={{ fontSize: '1.4rem' }}>⚙️</span>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc' }}>
-                Configuración Global de Kiosco
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
-                Ajustes de biometría visual y seguridad para todas las sedes
-              </p>
-            </div>
+        <div className={styles.modalHeader}>
+          <div>
+            <h2 className={styles.modalTitle} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>⚙️</span>
+              <span>Configuración Global de Kiosco</span>
+            </h2>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Ajustes de biometría visual y seguridad para todas las sedes
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#94a3b8',
-              fontSize: '1.3rem',
-              cursor: 'pointer',
-              lineHeight: 1,
-              padding: '0.3rem',
-            }}
-            title="Cerrar ventana"
-          >
+          <button type="button" onClick={onClose} className={styles.closeBtn} title="Cerrar">
             ✕
           </button>
         </div>
 
+        {/* Content Body */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '2.5rem 0', color: '#94a3b8' }}>
-            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: '1.8rem' }}>
-              🌀
-            </span>
+          <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'inline-block', fontSize: '1.8rem' }}>🌀</span>
             <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>Cargando configuración actual...</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.25rem' }}>
             {/* SWITCH 1: Biometría Visual / Cámara */}
             <div
               style={{
-                background: 'rgba(30, 41, 59, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.15)',
+                background: 'var(--bg-input, rgba(0, 0, 0, 0.03))',
+                border: '1px solid var(--border-color)',
                 borderRadius: '12px',
-                padding: '1.1rem',
+                padding: '1rem',
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
@@ -172,26 +127,26 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
               }}
             >
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-                  <span style={{ fontSize: '1.1rem' }}>📸</span>
-                  <strong style={{ fontSize: '0.95rem', color: '#f8fafc' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
+                  <span style={{ fontSize: '1.05rem' }}>📸</span>
+                  <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>
                     Registro con Cámara Web (Biometría Visual)
                   </strong>
                 </div>
-                <p style={{ margin: '0 0 0.5rem', fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 0.45rem', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   Al activarse, el Kiosco solicitará la cámara web integrada para capturar una fotografía testigo en
                   Vercel Blob al registrar ingreso (Técnicos y Pacientes Simulados).
                 </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div>
                   <span
                     style={{
                       fontSize: '0.72rem',
                       fontWeight: 700,
                       padding: '0.15rem 0.5rem',
                       borderRadius: '6px',
-                      backgroundColor: biometriaActiva ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.15)',
-                      color: biometriaActiva ? '#34d399' : '#94a3b8',
-                      border: biometriaActiva ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(148, 163, 184, 0.25)',
+                      backgroundColor: biometriaActiva ? 'rgba(16, 185, 129, 0.12)' : 'rgba(100, 116, 139, 0.12)',
+                      color: biometriaActiva ? '#10b981' : 'var(--text-muted)',
+                      border: biometriaActiva ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-color)',
                     }}
                   >
                     {biometriaActiva ? '● Activado (Con cámara)' : '○ Desactivado (Sin cámara)'}
@@ -204,11 +159,11 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                 style={{
                   position: 'relative',
                   display: 'inline-block',
-                  width: '52px',
-                  height: '28px',
+                  width: '48px',
+                  height: '26px',
                   cursor: 'pointer',
                   flexShrink: 0,
-                  marginTop: '0.2rem',
+                  marginTop: '0.15rem',
                 }}
               >
                 <input
@@ -225,10 +180,10 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    backgroundColor: biometriaActiva ? '#0284c7' : '#334155',
+                    backgroundColor: biometriaActiva ? '#ff5a00' : 'var(--border-color, #cbd5e1)',
                     transition: '0.25s',
-                    borderRadius: '28px',
-                    boxShadow: biometriaActiva ? '0 0 10px rgba(2, 132, 199, 0.5)' : 'none',
+                    borderRadius: '26px',
+                    boxShadow: biometriaActiva ? '0 2px 8px rgba(255, 90, 0, 0.35)' : 'none',
                   }}
                 >
                   <span
@@ -237,25 +192,26 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                       content: '""',
                       height: '20px',
                       width: '20px',
-                      left: biometriaActiva ? '26px' : '4px',
-                      bottom: '4px',
+                      left: biometriaActiva ? '24px' : '3px',
+                      bottom: '3px',
                       backgroundColor: '#ffffff',
                       transition: '0.25s',
                       borderRadius: '50%',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                     }}
                   />
                 </span>
               </label>
             </div>
 
-            {/* SWITCH 2: Modo Estricto vs Fail-Safe */}
+            {/* SWITCH 2: Modo Estricto vs Flexible */}
             {biometriaActiva && (
               <div
                 style={{
-                  background: 'rgba(30, 41, 59, 0.4)',
-                  border: '1px dashed rgba(148, 163, 184, 0.2)',
+                  background: 'var(--bg-input, rgba(0, 0, 0, 0.02))',
+                  border: '1px dashed var(--border-color)',
                   borderRadius: '12px',
-                  padding: '1rem',
+                  padding: '0.95rem 1rem',
                   display: 'flex',
                   alignItems: 'flex-start',
                   justifyContent: 'space-between',
@@ -263,13 +219,13 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
                     <span style={{ fontSize: '1rem' }}>🛡️</span>
-                    <strong style={{ fontSize: '0.88rem', color: '#f8fafc' }}>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
                       Modo Estricto (Foto Obligatoria)
                     </strong>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.35 }}>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
                     {modoFotoEstricto
                       ? 'Estricto: No permite marcar ingreso si la cámara no capturó la foto.'
                       : 'Flexible (Recomendado): Si la cámara falla o no hay permiso, permite marcar asistencia para no bloquear al colaborador.'}
@@ -280,10 +236,11 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                   style={{
                     position: 'relative',
                     display: 'inline-block',
-                    width: '46px',
+                    width: '44px',
                     height: '24px',
                     cursor: 'pointer',
                     flexShrink: 0,
+                    marginTop: '0.15rem',
                   }}
                 >
                   <input
@@ -299,9 +256,10 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      backgroundColor: modoFotoEstricto ? '#10b981' : '#475569',
+                      backgroundColor: modoFotoEstricto ? '#10b981' : 'var(--border-color, #cbd5e1)',
                       transition: '0.25s',
                       borderRadius: '24px',
+                      boxShadow: modoFotoEstricto ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
                     }}
                   >
                     <span
@@ -310,11 +268,12 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                         content: '""',
                         height: '18px',
                         width: '18px',
-                        left: modoFotoEstricto ? '24px' : '3px',
+                        left: modoFotoEstricto ? '23px' : '3px',
                         bottom: '3px',
                         backgroundColor: '#ffffff',
                         transition: '0.25s',
                         borderRadius: '50%',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                       }}
                     />
                   </span>
@@ -324,67 +283,26 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
           </div>
         )}
 
-        {/* Footer Actions */}
-        <div
-          style={{
-            marginTop: '1.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '0.75rem',
-            borderTop: '1px solid rgba(148, 163, 184, 0.15)',
-            paddingTop: '1rem',
-          }}
-        >
+        {/* Modal Footer */}
+        <div className={styles.modalFooter}>
           <button
             type="button"
             onClick={onClose}
+            className={styles.cancelBtn}
             disabled={saving}
-            style={{
-              padding: '0.55rem 1.1rem',
-              backgroundColor: 'rgba(51, 65, 85, 0.8)',
-              color: '#f8fafc',
-              border: '1px solid rgba(148, 163, 184, 0.2)',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
           >
             Cancelar
           </button>
-
           <button
             type="button"
             onClick={handleGuardar}
+            className={styles.actionBtn}
             disabled={saving || loading}
-            style={{
-              padding: '0.55rem 1.35rem',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              cursor: saving || loading ? 'wait' : 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
-            }}
           >
-            {saving ? (
-              <span>Guardando...</span>
-            ) : (
-              <>
-                <span>💾</span>
-                <span>Guardar Cambios</span>
-              </>
-            )}
+            {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>
         </div>
       </div>
     </div>
   );
 };
-

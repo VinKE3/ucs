@@ -22,6 +22,9 @@
            - En dispositivos móviles y tablets de kiosco, se prioriza automáticamente la cámara frontal (`facingMode: 'user'`), con fallback universal a cualquier cámara si el dispositivo no soporta dicha restricción.
            - Al culminar la marcación, cancelar o resetear por inactividad, los tracks de video se liberan de inmediato para apagar el LED de la webcam y ahorrar energía.
            - Corrección tipográfica en el mensaje de ayuda de URL (`{currentHost}`).
+        3. **Estandarización Visual del Modal de Configuración Global (ModalConfiguracionKiosco.tsx)**:
+           - Reemplazo de contenedores inline por los estilos estándar del sistema (styles.modalBackdrop, styles.modal, styles.modalHeader, styles.modalTitle, styles.closeBtn, styles.modalFooter, styles.cancelBtn, styles.actionBtn).
+           - Difuminado a pantalla completa (ackdrop-filter: blur(8px)), centrado perfecto y diseño armónico con las variables CSS del dashboard (ar(--bg-card), ar(--border-color), ar(--text-primary), #ff5a00).
       - **Verificación Técnica**:
         - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
 

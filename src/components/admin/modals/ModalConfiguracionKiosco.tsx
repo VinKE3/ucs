@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
-import { showToast, showError } from '@/lib/alerts';
+import { showToast, showError, confirmModal } from '@/lib/alerts';
 
 interface ModalConfiguracionKioscoProps {
   isOpen: boolean;
@@ -19,8 +19,10 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
   const [mounted, setMounted] = useState<boolean>(false);
   const [biometriaActiva, setBiometriaActiva] = useState<boolean>(true);
   const [modoFotoEstricto, setModoFotoEstricto] = useState<boolean>(false);
+  const [diasRetencionFotos, setDiasRetencionFotos] = useState<number>(4);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [purging, setPurging] = useState<boolean>(false);
 
   useEffect(() => {
     setMounted(true);
@@ -39,6 +41,9 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
         if (isMounted && data.config) {
           setBiometriaActiva(data.config.biometriaActiva !== false);
           setModoFotoEstricto(Boolean(data.config.modoFotoEstricto));
+          if (typeof data.config.diasRetencionFotos === 'number') {
+            setDiasRetencionFotos(data.config.diasRetencionFotos);
+          }
         }
       } catch (err: any) {
         console.error('Error cargando configuración:', err);
@@ -63,6 +68,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
         body: JSON.stringify({
           biometriaActiva,
           modoFotoEstricto,
+          diasRetencionFotos: Number(diasRetencionFotos),
         }),
       });
 
@@ -83,6 +89,42 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
       showError(err.message || 'Error al guardar cambios');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePurgarAhora = async () => {
+    const confirmar = await confirmModal({
+      title: '¿Purgar fotos expiradas ahora?',
+      text: `Se eliminarán inmediatamente de Vercel Blob y del servidor todas las fotos con más de ${diasRetencionFotos} días de antigüedad. ¿Deseas continuar?`,
+      confirmText: 'Sí, purgar ahora',
+      cancelText: 'Cancelar',
+      icon: 'warning',
+      isDanger: true,
+    });
+    if (!confirmar) return;
+
+    setPurging(true);
+    try {
+      const res = await fetch('/api/kiosco/configuracion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          purgarAhora: true,
+          diasRetencionFotos: Number(diasRetencionFotos),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al purgar fotos');
+      }
+
+      showToast(data.mensaje || 'Purga de fotografías completada exitosamente', 'success');
+      if (onConfigChanged) onConfigChanged();
+    } catch (err: any) {
+      showError(err.message || 'Error al ejecutar purga manual');
+    } finally {
+      setPurging(false);
     }
   };
 
@@ -107,7 +149,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
     >
       <div
         className={styles.modal}
-        style={{ maxWidth: '540px', width: '100%' }}
+        style={{ maxWidth: '560px', width: '100%', maxHeight: '92vh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -301,6 +343,150 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                 </label>
               </div>
             )}
+
+            {/* SECCIÓN 3: Vigencia y Auto-Purga en la Nube (Vercel Blob) */}
+            <div
+              style={{
+                background: 'var(--bg-input, rgba(0, 0, 0, 0.03))',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <span style={{ fontSize: '1.05rem' }}>🗓️</span>
+                    <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                      Vigencia de Fotos y Auto-Purga
+                    </strong>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                      color: '#0284c7',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                    }}
+                  >
+                    ☁️ Vercel Blob
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Las fotos de auditoría (ingreso y salida) se almacenan en Vercel Blob. Al cumplirse este período,
+                  el cron job nocturno las purga automáticamente para optimizar almacenamiento.
+                </p>
+              </div>
+
+              {/* Selector de Días de Retención */}
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.45rem' }}>
+                  Días de retención configurados:
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {[
+                    { label: '1 día', val: 1 },
+                    { label: '4 días (Default)', val: 4 },
+                    { label: '7 días', val: 7 },
+                    { label: '15 días', val: 15 },
+                    { label: '30 días', val: 30 },
+                  ].map((preset) => {
+                    const isSelected = diasRetencionFotos === preset.val;
+                    return (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => setDiasRetencionFotos(preset.val)}
+                        style={{
+                          padding: '0.35rem 0.65rem',
+                          borderRadius: '8px',
+                          fontSize: '0.78rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          border: isSelected ? '1.5px solid #ff5a00' : '1px solid var(--border-color)',
+                          backgroundColor: isSelected ? 'rgba(255, 90, 0, 0.12)' : 'var(--bg-card, transparent)',
+                          color: isSelected ? '#ff5a00' : 'var(--text-secondary)',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginLeft: 'auto' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={diasRetencionFotos}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val) && val >= 1 && val <= 365) setDiasRetencionFotos(val);
+                      }}
+                      style={{
+                        width: '56px',
+                        padding: '0.25rem 0.4rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card, #ffffff)',
+                        color: 'var(--text-primary)',
+                      }}
+                    />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>días</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón de Purga Inmediata */}
+              <div
+                style={{
+                  marginTop: '0.2rem',
+                  paddingTop: '0.65rem',
+                  borderTop: '1px dashed var(--border-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  Liberar almacenamiento y limpiar fotos vencidas:
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePurgarAhora}
+                  disabled={purging || saving || loading}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    borderRadius: '7px',
+                    cursor: purging ? 'not-allowed' : 'pointer',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Elimina fotos de asistencias con más días de antigüedad que los configurados"
+                >
+                  <span>{purging ? '⏳' : '🧹'}</span>
+                  <span>{purging ? 'Purgando fotos...' : 'Purgar fotos expiradas ahora'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

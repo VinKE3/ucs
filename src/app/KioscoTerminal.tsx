@@ -728,9 +728,9 @@ export default function KioscoTerminal() {
     setMarcando(true);
     setSearchError(null);
 
-    // Capturar fotograma de cámara si corresponde a biometría visual en ingreso
+    // Capturar fotograma de cámara si corresponde a biometría visual (en ingreso o salida)
     let fotoBase64: string | undefined = undefined;
-    if (accion === 'ingreso' && requiereFotoIngreso && videoRef.current && videoRef.current.videoWidth > 0) {
+    if (requiereFotoBiometrica && videoRef.current && videoRef.current.videoWidth > 0) {
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 320;
@@ -916,17 +916,18 @@ export default function KioscoTerminal() {
     }
   };
 
-  const requiereFotoIngreso = Boolean(
+  const requiereFotoBiometrica = Boolean(
     biometriaHabilitada &&
     (terminalInfo ? terminalInfo.camaraActiva !== false : true) &&
     usuarioActual &&
-    !asistenciaActiva &&
     (usuarioActual.tipoPersonal === 'paciente_simulado' || usuarioActual.tipoPersonal === 'tecnico')
   );
 
+  const requiereFotoIngreso = requiereFotoBiometrica && !asistenciaActiva;
+
   // Activación automática (si el permiso ya fue concedido) o manual de la cámara integrada
   const initCamera = useCallback(async (isManualTrigger: boolean = false) => {
-    if (!requiereFotoIngreso) {
+    if (!requiereFotoBiometrica) {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop());
         mediaStreamRef.current = null;
@@ -1000,12 +1001,12 @@ export default function KioscoTerminal() {
     } finally {
       setCameraLoading(false);
     }
-  }, [requiereFotoIngreso]);
+  }, [requiereFotoBiometrica]);
 
-  // Si el colaborador requiere foto de ingreso, intentamos encender la cámara automáticamente
+  // Si el colaborador requiere foto biométrica (ingreso o salida), intentamos encender la cámara automáticamente
   // (si el navegador ya tiene el permiso guardado, se activará en vivo al instante sin clics)
   useEffect(() => {
-    if (requiereFotoIngreso) {
+    if (requiereFotoBiometrica) {
       initCamera(false);
     } else {
       if (mediaStreamRef.current) {
@@ -1022,10 +1023,10 @@ export default function KioscoTerminal() {
         mediaStreamRef.current = null;
       }
     };
-  }, [requiereFotoIngreso, initCamera]);
+  }, [requiereFotoBiometrica, initCamera]);
 
   const renderCameraVerificationWidget = () => {
-    if (!requiereFotoIngreso) return null;
+    if (!requiereFotoBiometrica) return null;
     const currentHost = typeof window !== 'undefined' ? window.location.host : 'este sitio';
 
     return (
@@ -1142,7 +1143,9 @@ export default function KioscoTerminal() {
 
           <p style={{ margin: '0.2rem 0 0', fontSize: '0.74rem', color: cameraActive ? '#94a3b8' : '#cbd5e1', lineHeight: 1.35 }}>
             {cameraActive
-              ? '✅ Cámara lista. Al pulsar registrar ingreso se capturará una fotografía testigo de baja resolución.'
+              ? (asistenciaActiva
+                  ? '✅ Cámara lista. Al pulsar registrar salida se capturará una fotografía testigo de auditoría.'
+                  : '✅ Cámara lista. Al pulsar registrar ingreso se capturará una fotografía testigo de baja resolución.')
               : (cameraError || 'Haz clic en el botón para activar la cámara web y autorizar el permiso en tu navegador.')}
           </p>
 
@@ -1927,6 +1930,8 @@ export default function KioscoTerminal() {
                             </div>
                           </div>
                         )}
+
+                        {renderCameraVerificationWidget()}
 
                         <button
                           onClick={() => handleMarcar('salida')}

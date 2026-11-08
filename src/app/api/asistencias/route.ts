@@ -52,6 +52,9 @@ export async function GET(request: Request) {
         // Evidencia Fotográfica (Vercel Blob)
         fotoIngresoUrl: asistencias.fotoIngresoUrl,
         fotoIngresoTimestamp: asistencias.fotoIngresoTimestamp,
+        fotoSalidaUrl: asistencias.fotoSalidaUrl,
+        fotoSalidaTimestamp: asistencias.fotoSalidaTimestamp,
+        fotosPurgadas: asistencias.fotosPurgadas,
         // Usuario
         usuarioId: usuarios.id,
         dni: usuarios.dni,

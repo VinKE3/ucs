@@ -137,6 +137,9 @@ export const asistencias = pgTable('asistencias', {
   // Evidencia Fotográfica y Biometría Visual de Seguridad (Kiosco)
   fotoIngresoUrl: text('foto_ingreso_url'),
   fotoIngresoTimestamp: timestamp('foto_ingreso_timestamp', { withTimezone: true }),
+  fotoSalidaUrl: text('foto_salida_url'),
+  fotoSalidaTimestamp: timestamp('foto_salida_timestamp', { withTimezone: true }),
+  fotosPurgadas: boolean('fotos_purgadas').default(false),
 
   // Auditoría en caso de modificación o anulación
   modificadoPorId: integer('modificado_por_id').references(() => usuarios.id),

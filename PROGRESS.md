@@ -3,6 +3,44 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 131: Biometría Visual en Salida, Política de Retención y Auto-Purga en Vercel Blob (`schema.ts`, `fotoStorage.ts`, `marcar/route.ts`, `KioscoTerminal.tsx`, `ModalConfiguracionKiosco.tsx`, `ModalFotoEvidencia.tsx`, `AsistenciasTab.tsx`, `limpieza-fotos/route.ts`, `vercel.json`)**:
+      - **Petición del Usuario**:
+        1. Extender la captura biométrica de cámara web tanto para el ingreso como para la marcación de salida en Kiosco.
+        2. Configurar la vigencia de las fotografías de auditoría con un valor por defecto de 4 días (configurable desde el modal de Configuración de Kiosco: 1, 4, 7, 15, 30 días o personalizado).
+        3. Auto-purga automática de fotografías expiradas en Vercel Blob y almacenamiento local mediante un cron job nocturno.
+        4. Botón de purga manual inmediata en configuración para liberar almacenamiento al instante.
+        5. Visualización dual en el modal de evidencias fotográficas (pestañas para Foto Ingreso y Foto Salida) y estado de fotos depuradas en el Historial de Asistencias.
+      - **Solución Arquitectónica Implementada**:
+        1. **Modelado en Base de Datos & Migración Drizzle/Neon (`schema.ts`, `migrate_foto_salida_purga.ts`)**:
+           - Columnas añadidas a `asistencias`:
+             - `foto_salida_url TEXT`
+             - `foto_salida_timestamp TIMESTAMP WITH TIME ZONE`
+             - `fotos_purgadas BOOLEAN DEFAULT false`
+           - Migración ejecutada con éxito en Neon PostgreSQL.
+        2. **Almacenamiento y Motor de Purga en Vercel Blob (`fotoStorage.ts`)**:
+           - `guardarFotoAsistencia` extendida para soportar `tipoMarcacion: 'ingreso' | 'salida'`.
+           - `purgarFotosExpiradas(diasOverride?)`:
+             - Lee la vigencia configurada en `configuracion_sistema` (default 4 días).
+             - Consulta asistencias con fotos anteriores a la fecha de corte.
+             - Extrae las URLs reales de los blobs y las elimina físicamente usando `del(url, { token })` de `@vercel/blob` y `fs.unlinkSync` en almacenamiento local.
+             - Limpia las URLs de la base de datos y marca `fotos_purgadas = true`.
+        3. **Cron Job Nocturno Automatizado (`api/cron/limpieza-fotos/route.ts`, `vercel.json`)**:
+           - Endpoint protegido por `CRON_SECRET` invocado a las 00:15 am hora Lima (`15 5 * * *`).
+        4. **Backend Kiosco (`api/kiosco/marcar/route.ts`, `api/kiosco/configuracion/route.ts`)**:
+           - En marcación de salida, captura y almacena `fotoSalidaUrl` y `fotoSalidaTimestamp`.
+           - La API de configuración gestiona `diasRetencionFotos` y procesa la purga manual inmediata `purgarAhora: true`.
+        5. **Frontend Kiosco (`KioscoTerminal.tsx`)**:
+           - Unificación en `requiereFotoBiometrica`: la cámara web se activa y muestra el visor en vivo tanto para registrar ingreso como para registrar salida.
+           - Captura de fotograma WebP optimizado en ambos movimientos.
+        6. **Configuración Global de Kiosco (`ModalConfiguracionKiosco.tsx`)**:
+           - Selector estilizado de días de vigencia con botones directos (1d, 4d default, 7d, 15d, 30d) e input numérico libre.
+           - Botón "🧹 Purgar fotos expiradas ahora" con diálogo SweetAlert2 de confirmación y feedback inmediato.
+        7. **Visor de Evidencias y Tabla Admin (`ModalFotoEvidencia.tsx`, `AsistenciasTab.tsx`, `types/admin.ts`, `api/asistencias/route.ts`)**:
+           - `ModalFotoEvidencia.tsx` cuenta con selector de pestañas `[ 🟢 Foto Ingreso ]` y `[ 🛑 Foto Salida ]`, con timestamp, terminal utilizada, visor HD y aviso informativo si las fotos fueron depuradas por política de retención.
+           - En `AsistenciasTab.tsx`, badges interactivos `📷 Fotos In / Out`, `📷 Foto Ingreso` o `📷 Foto Salida`, y etiqueta neutra `🕒 Fotos depuradas`.
+      - **Verificación Técnica**:
+        - Compilación TypeScript (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 130: Control Granular de Biometría Visual por Terminal Kiosco para Pruebas Piloto (`schema.ts`, `migrate_terminal_camara.ts`, `soporte.ts`, `api/admin/terminales/route.ts`, `api/kiosco/terminal/verificar/route.ts`, `KioscoTerminal.tsx`, `ModalGestionTerminales.tsx`)**:
       - **Petición del Usuario**:
         - En la lista de dispositivos de "Gestión de Terminales Kiosco", reemplazar el botón de texto "Link Rápido" por un switch interactivo para activar o desactivar la cámara en esa terminal en particular.

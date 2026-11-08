@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/cerrar-turnos-omitidos",
       "schedule": "5 5 * * *"
+    },
+    {
+      "path": "/api/cron/limpieza-fotos",
+      "schedule": "15 5 * * *"
     }
   ]
 }

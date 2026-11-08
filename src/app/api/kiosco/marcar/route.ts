@@ -626,6 +626,38 @@ export async function POST(request: NextRequest) {
           .where(eq(sesionesProgramadas.asistenciaId, asistenciaTarget.id)),
       ]);
 
+      // Guardar evidencia fotográfica de salida si se capturó fotograma de cámara
+      let asistenciaFinalRetorno = asistenciaActualizada;
+      let fotoSalidaUrlRegistrada: string | null = null;
+      if (asistenciaTarget?.id && fotoBase64) {
+        try {
+          const { guardarFotoAsistencia } = await import('@/lib/fotoStorage');
+          const fotoUrl = await guardarFotoAsistencia({
+            fotoBase64,
+            usuarioId: user.id,
+            asistenciaId: asistenciaTarget.id,
+            tipoPersonal: user.tipoPersonal,
+            tipoMarcacion: 'salida',
+          });
+          if (fotoUrl) {
+            fotoSalidaUrlRegistrada = fotoUrl;
+            const [updatedWithFoto] = await db
+              .update(asistencias)
+              .set({
+                fotoSalidaUrl: fotoUrl,
+                fotoSalidaTimestamp: now,
+              })
+              .where(eq(asistencias.id, asistenciaTarget.id))
+              .returning();
+            if (updatedWithFoto) {
+              asistenciaFinalRetorno = [updatedWithFoto];
+            }
+          }
+        } catch (fotoErr) {
+          console.warn('⚠️ No se pudo procesar la foto de salida en Kiosco:', fotoErr);
+        }
+      }
+
       const horas = Math.floor(minutosTotales / 60);
       const minutos = minutosTotales % 60;
       const tiempoTexto = horas > 0 ? `${horas}h ${minutos}m` : `${minutos} minutos`;
@@ -713,12 +745,16 @@ export async function POST(request: NextRequest) {
         montoSesionEstimado: null,
         montoMesEstimado: null,
         diasCompensatoriosSaldo: saldoCompensatorios,
+        fotoIngresoUrl: asistenciaTarget.fotoIngresoUrl || null,
+        fotoIngresoTimestamp: asistenciaTarget.fotoIngresoTimestamp ? new Date(asistenciaTarget.fotoIngresoTimestamp).toISOString() : null,
+        fotoSalidaUrl: fotoSalidaUrlRegistrada || null,
+        fotoSalidaTimestamp: fotoSalidaUrlRegistrada ? now.toISOString() : null,
       };
 
       return NextResponse.json({
         ok: true,
         tipo: 'salida',
-        asistencia: asistenciaActualizada,
+        asistencia: asistenciaFinalRetorno,
         minutosTotales,
         ticketSalida,
         mensaje: `Salida registrada exitosamente. Tiempo total de sesión: ${tiempoTexto}${feedbackSalida}`,

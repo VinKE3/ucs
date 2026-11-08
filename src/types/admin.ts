@@ -72,6 +72,9 @@ export interface TicketSalidaData {
   terminalSalidaNombre?: string | null;
   fotoIngresoUrl?: string | null;
   fotoIngresoTimestamp?: string | null;
+  fotoSalidaUrl?: string | null;
+  fotoSalidaTimestamp?: string | null;
+  fotosPurgadas?: boolean | null;
   cursoNombre: string | null;
   horaIngreso: string;
   horaSalida: string;
@@ -143,6 +146,9 @@ export interface AsistenciaAdminItem {
   terminalSalidaNombre?: string | null;
   fotoIngresoUrl?: string | null;
   fotoIngresoTimestamp?: string | null;
+  fotoSalidaUrl?: string | null;
+  fotoSalidaTimestamp?: string | null;
+  fotosPurgadas?: boolean | null;
   id: number;
   fecha: string;
   horaIngreso: string;

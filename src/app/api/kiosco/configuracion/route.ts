@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { configuracionSistema } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { purgarFotosExpiradas } from '@/lib/fotoStorage';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ export async function GET() {
         inArray(configuracionSistema.clave, [
           'kiosco_biometria_activa',
           'kiosco_modo_foto_estricto',
+          'kiosco_dias_retencion_fotos',
         ])
       );
 
@@ -23,15 +25,19 @@ export async function GET() {
       configMap[r.clave] = r.valor;
     }
 
-    // Por defecto la biometría está habilitada (true)
+    // Por defecto la biometría está habilitada (true) y la retención es de 4 días
     const biometriaActiva = configMap['kiosco_biometria_activa'] !== 'false';
     const modoFotoEstricto = configMap['kiosco_modo_foto_estricto'] === 'true';
+    const diasRetencionFotos = configMap['kiosco_dias_retencion_fotos']
+      ? Math.max(1, parseInt(configMap['kiosco_dias_retencion_fotos'], 10))
+      : 4;
 
     return NextResponse.json({
       success: true,
       config: {
         biometriaActiva,
         modoFotoEstricto,
+        diasRetencionFotos,
       },
     });
   } catch (error: any) {
@@ -48,7 +54,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { biometriaActiva, modoFotoEstricto } = body;
+    const { biometriaActiva, modoFotoEstricto, diasRetencionFotos, purgarAhora } = body;
+
+    // Si se solicitó la purga manual inmediata
+    if (purgarAhora === true) {
+      const dias = typeof diasRetencionFotos === 'number' ? diasRetencionFotos : undefined;
+      const resultadoPurga = await purgarFotosExpiradas(dias);
+      return NextResponse.json({
+        success: true,
+        mensaje: `Se eliminaron ${resultadoPurga.eliminadas} fotos expiradas (> ${resultadoPurga.diasVigencia} días) de ${resultadoPurga.asistenciasProcesadas} registros.`,
+        resultado: resultadoPurga,
+      });
+    }
 
     const updates = [];
 
@@ -92,19 +109,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof diasRetencionFotos === 'number' && diasRetencionFotos >= 1 && diasRetencionFotos <= 365) {
+      updates.push(
+        db
+          .insert(configuracionSistema)
+          .values({
+            clave: 'kiosco_dias_retencion_fotos',
+            valor: String(Math.floor(diasRetencionFotos)),
+            descripcion: 'Días de vigencia y retención de fotografías de auditoría en Vercel Blob antes de la auto-purga',
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: configuracionSistema.clave,
+            set: {
+              valor: String(Math.floor(diasRetencionFotos)),
+              updatedAt: new Date(),
+            },
+          })
+      );
+    }
+
     await Promise.all(updates);
 
     return NextResponse.json({
       success: true,
       mensaje: 'Configuración de Kiosco actualizada exitosamente',
       config: {
-        biometriaActiva: typeof biometriaActiva === 'boolean' ? biometriaActiva : undefined,
-        modoFotoEstricto: typeof modoFotoEstricto === 'boolean' ? modoFotoEstricto : undefined,
+        biometriaActiva,
+        modoFotoEstricto,
+        diasRetencionFotos: typeof diasRetencionFotos === 'number' ? diasRetencionFotos : undefined,
       },
     });
   } catch (error: any) {
     console.error('Error al guardar configuración de kiosco:', error);
-    return NextResponse.json({ error: 'Error interno al guardar configuración' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Error al guardar configuración' }, { status: 500 });
   }
 }
-

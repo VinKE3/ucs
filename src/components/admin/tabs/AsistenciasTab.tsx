@@ -1744,7 +1744,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.15rem' }}>
                           <span>DNI: {asist.dni}</span> • {getTipoBadge(asist.tipoPersonal)}
-                          {asist.fotoIngresoUrl && (
+                          {(asist.fotoIngresoUrl || asist.fotoSalidaUrl) ? (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1758,18 +1758,45 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
                                 padding: '0.15rem 0.45rem',
                                 fontSize: '0.68rem',
                                 fontWeight: 600,
-                                color: '#10b981',
-                                background: 'rgba(16, 185, 129, 0.12)',
-                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                color: asist.fotoIngresoUrl && asist.fotoSalidaUrl ? '#38bdf8' : (asist.fotoIngresoUrl ? '#10b981' : '#ff5a00'),
+                                background: asist.fotoIngresoUrl && asist.fotoSalidaUrl ? 'rgba(56, 189, 248, 0.12)' : (asist.fotoIngresoUrl ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 90, 0, 0.12)'),
+                                border: asist.fotoIngresoUrl && asist.fotoSalidaUrl ? '1px solid rgba(56, 189, 248, 0.35)' : (asist.fotoIngresoUrl ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(255, 90, 0, 0.35)'),
                                 borderRadius: '6px',
                                 cursor: 'pointer',
                               }}
-                              title="Ver fotografía de evidencia de ingreso capturada en Kiosco"
+                              title={
+                                asist.fotoIngresoUrl && asist.fotoSalidaUrl
+                                  ? 'Ver fotos biométricas de ingreso y salida capturadas en Kiosco'
+                                  : (asist.fotoIngresoUrl ? 'Ver foto de ingreso en Kiosco' : 'Ver foto de salida en Kiosco')
+                              }
                             >
                               <span>📷</span>
-                              <span>Foto Ingreso</span>
+                              <span>
+                                {asist.fotoIngresoUrl && asist.fotoSalidaUrl
+                                  ? 'Fotos In / Out'
+                                  : (asist.fotoIngresoUrl ? 'Foto Ingreso' : 'Foto Salida')}
+                              </span>
                             </button>
-                          )}
+                          ) : asist.fotosPurgadas ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem',
+                                padding: '0.12rem 0.4rem',
+                                fontSize: '0.66rem',
+                                fontWeight: 500,
+                                color: '#94a3b8',
+                                background: 'rgba(148, 163, 184, 0.1)',
+                                border: '1px solid rgba(148, 163, 184, 0.25)',
+                                borderRadius: '6px',
+                              }}
+                              title="Fotografías depuradas automáticamente de Vercel Blob por política de retención"
+                            >
+                              <span>🕒</span>
+                              <span>Fotos depuradas</span>
+                            </span>
+                          ) : null}
                         </div>
                       </td>
 

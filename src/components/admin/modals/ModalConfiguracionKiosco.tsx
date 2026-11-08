@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import { showToast, showError } from '@/lib/alerts';
 
@@ -15,10 +16,15 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
   onClose,
   onConfigChanged,
 }) => {
+  const [mounted, setMounted] = useState<boolean>(false);
   const [biometriaActiva, setBiometriaActiva] = useState<boolean>(true);
   const [modoFotoEstricto, setModoFotoEstricto] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -80,10 +86,25 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className={styles.modalBackdrop} onClick={onClose}>
+  return createPortal(
+    <div
+      className={styles.modalBackdrop}
+      style={{
+        zIndex: 9999,
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.25rem',
+      }}
+      onClick={onClose}
+    >
       <div
         className={styles.modal}
         style={{ maxWidth: '540px', width: '100%' }}
@@ -303,6 +324,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

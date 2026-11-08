@@ -22,9 +22,10 @@
            - En dispositivos móviles y tablets de kiosco, se prioriza automáticamente la cámara frontal (`facingMode: 'user'`), con fallback universal a cualquier cámara si el dispositivo no soporta dicha restricción.
            - Al culminar la marcación, cancelar o resetear por inactividad, los tracks de video se liberan de inmediato para apagar el LED de la webcam y ahorrar energía.
            - Corrección tipográfica en el mensaje de ayuda de URL (`{currentHost}`).
-        3. **Estandarización Visual del Modal de Configuración Global (ModalConfiguracionKiosco.tsx)**:
-           - Reemplazo de contenedores inline por los estilos estándar del sistema (styles.modalBackdrop, styles.modal, styles.modalHeader, styles.modalTitle, styles.closeBtn, styles.modalFooter, styles.cancelBtn, styles.actionBtn).
-           - Difuminado a pantalla completa (ackdrop-filter: blur(8px)), centrado perfecto y diseño armónico con las variables CSS del dashboard (ar(--bg-card), ar(--border-color), ar(--text-primary), #ff5a00).
+        3. **Estandarización Visual y Renderizado con Portal (`ModalConfiguracionKiosco.tsx`)**:
+           - Integración de `createPortal(..., document.body)` para teletransportar el modal a la raíz absoluta del DOM, superando la limitación de apilamiento CSS provocada por `backdrop-filter` del contenedor `.cardPanel`.
+           - Fondo difuminado y oscurecido a pantalla completa (`backdrop-filter: blur(8px)`, `background: rgba(0, 0, 0, 0.75)`, `inset: 0`, `zIndex: 9999`) que cubre el 100% del viewport (incluyendo navbar, KPIs y tabs), idéntico al comportamiento de "Crear Nueva Sede".
+           - Modal centrado en pantalla, diseño armónico con variables CSS del dashboard y pie con botones estándar.
       - **Verificación Técnica**:
         - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
 

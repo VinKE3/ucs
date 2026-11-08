@@ -16,8 +16,11 @@
            - Se actualizó el encabezado de seguridad a:
              `camera=(self), microphone=(), geolocation=()`
            - Esto autoriza explícitamente al origen del propio sistema (`self`, tanto en localhost como en producción en Vercel) a solicitar y utilizar la cámara web, manteniendo la protección frente a iframes externos no autorizados.
-        2. **Soporte Multi-dispositivo y Front-Camera (`KioscoTerminal.tsx`)**:
+        2. **Activación Automática Zero-Clicks y Soporte Front-Camera (`KioscoTerminal.tsx`)**:
+           - Una vez concedido el permiso en el navegador (PC, tablet o smartphone), la cámara se activa automáticamente al identificar al colaborador (Paciente Simulado o Técnico) sin requerir ningún clic manual adicional.
+           - Si el dispositivo o navegador aún no tiene el permiso otorgado, se mantiene el botón interactivo `[📸 Activar Cámara Web]` como paso de primera autorización.
            - En dispositivos móviles y tablets de kiosco, se prioriza automáticamente la cámara frontal (`facingMode: 'user'`), con fallback universal a cualquier cámara si el dispositivo no soporta dicha restricción.
+           - Al culminar la marcación, cancelar o resetear por inactividad, los tracks de video se liberan de inmediato para apagar el LED de la webcam y ahorrar energía.
            - Corrección tipográfica en el mensaje de ayuda de URL (`{currentHost}`).
       - **Verificación Técnica**:
         - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.

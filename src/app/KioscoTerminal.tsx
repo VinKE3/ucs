@@ -922,8 +922,8 @@ export default function KioscoTerminal() {
     (usuarioActual.tipoPersonal === 'paciente_simulado' || usuarioActual.tipoPersonal === 'tecnico')
   );
 
-  // Activación manual y bajo demanda de la cámara integrada del Kiosco (Con User-Gesture)
-  const initCamera = useCallback(async () => {
+  // Activación automática (si el permiso ya fue concedido) o manual de la cámara integrada
+  const initCamera = useCallback(async (isManualTrigger: boolean = false) => {
     if (!requiereFotoIngreso) {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -936,7 +936,9 @@ export default function KioscoTerminal() {
     }
 
     setCameraLoading(true);
-    setCameraError(null);
+    if (isManualTrigger) {
+      setCameraError(null);
+    }
 
     try {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
@@ -950,7 +952,6 @@ export default function KioscoTerminal() {
         mediaStreamRef.current = null;
       }
 
-      // Solicitud directa con gesto de usuario (User Activation)
       // En dispositivos móviles se prefiere la cámara frontal ('user'), con fallback universal
       let stream: MediaStream;
       try {
@@ -974,7 +975,6 @@ export default function KioscoTerminal() {
       setCameraActive(true);
       setCameraError(null);
     } catch (err: any) {
-      console.warn('⚠️ No se pudo inicializar la cámara en Kiosco:', err);
       setCameraActive(false);
       const errName = err?.name || '';
       const currentHost = typeof window !== 'undefined' ? window.location.host : 'el sitio';
@@ -982,26 +982,45 @@ export default function KioscoTerminal() {
       if (errName === 'NotReadableError' || errName === 'TrackStartError' || errName === 'AbortError') {
         setCameraError('⚠️ La cámara está ocupada por otra app (cierra la app "Cámara" de Windows, Zoom o Teams y pulsa Activar).');
       } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-        setCameraError(`⚠️ Permiso no concedido. Haz clic en el ícono a la izquierda de ${currentHost} en la barra de URL y activa "Cámara".`);
+        if (isManualTrigger) {
+          setCameraError(`⚠️ Permiso no concedido. Haz clic en el ícono a la izquierda de ${currentHost} en la barra de URL y activa "Cámara".`);
+        } else {
+          // En intento automático inicial silencioso, permitimos que se muestre el botón sin error ruidoso
+          setCameraError(null);
+        }
       } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
         setCameraError('⚠️ No se detectó ninguna cámara web conectada al equipo.');
       } else {
-        setCameraError(`⚠️ ${err.message || 'Cámara no disponible'} (${errName || 'Error'})`);
+        if (isManualTrigger) {
+          setCameraError(`⚠️ ${err.message || 'Cámara no disponible'} (${errName || 'Error'})`);
+        }
       }
     } finally {
       setCameraLoading(false);
     }
   }, [requiereFotoIngreso]);
 
-  // Solo limpiamos streams al desmontar o cancelar; NO invocamos initCamera de fondo
+  // Si el colaborador requiere foto de ingreso, intentamos encender la cámara automáticamente
+  // (si el navegador ya tiene el permiso guardado, se activará en vivo al instante sin clics)
   useEffect(() => {
+    if (requiereFotoIngreso) {
+      initCamera(false);
+    } else {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+      setCameraActive(false);
+      setCameraError(null);
+    }
+
     return () => {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop());
         mediaStreamRef.current = null;
       }
     };
-  }, []);
+  }, [requiereFotoIngreso, initCamera]);
 
   const renderCameraVerificationWidget = () => {
     if (!requiereFotoIngreso) return null;
@@ -1133,7 +1152,7 @@ export default function KioscoTerminal() {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  initCamera();
+                  initCamera(true);
                 }}
                 style={{
                   padding: '0.45rem 1rem',

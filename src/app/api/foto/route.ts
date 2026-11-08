@@ -44,3 +44,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Error al obtener imagen' }, { status: 500 });
   }
 }
+

@@ -22,6 +22,10 @@
         4. **Diseño Visual en Gestión de Terminales (`ModalGestionTerminales.tsx`)**:
            - Sustituido el botón texto por el switch interactivo `📸 Cámara ON` / `📷 Cámara OFF` con estados naranja/neutro y tooltips claros.
            - Se conservó la utilidad de recuperación rápida como un botón icono compacto `🔗`.
+        5. **Estandarización y Portal en Modal Evidencia Fotográfica (`ModalFotoEvidencia.tsx`)**:
+           - Implementado `createPortal(..., document.body)` para teletransportar el modal a la raíz del documento.
+           - Fondo difuminado a pantalla completa (`backdrop-filter: blur(8px)`, `background: rgba(0, 0, 0, 0.75)`, `zIndex: 9999`) que cubre el 100% de la ventana al hacer clic en `📷 Foto Ingreso` en Historial de Asistencias.
+           - Modal centrado en el medio de la pantalla con estilos estándar (`styles.modalBackdrop`, `styles.modal`, `styles.modalHeader`, etc.) y visor nítido de la fotografía.
       - **Verificación Técnica**:
         - Migración Drizzle/Neon ejecutada con éxito.
         - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.

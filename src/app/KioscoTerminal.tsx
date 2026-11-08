@@ -24,6 +24,7 @@ interface TerminalData {
   sedeId: number | null;
   sedeNombre: string | null;
   sedeCodigo: string | null;
+  camaraActiva?: boolean;
 }
 
 interface AmbienteItem {
@@ -917,6 +918,7 @@ export default function KioscoTerminal() {
 
   const requiereFotoIngreso = Boolean(
     biometriaHabilitada &&
+    (terminalInfo ? terminalInfo.camaraActiva !== false : true) &&
     usuarioActual &&
     !asistenciaActiva &&
     (usuarioActual.tipoPersonal === 'paciente_simulado' || usuarioActual.tipoPersonal === 'tecnico')

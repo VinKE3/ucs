@@ -3,6 +3,29 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 130: Control Granular de Biometría Visual por Terminal Kiosco para Pruebas Piloto (`schema.ts`, `migrate_terminal_camara.ts`, `soporte.ts`, `api/admin/terminales/route.ts`, `api/kiosco/terminal/verificar/route.ts`, `KioscoTerminal.tsx`, `ModalGestionTerminales.tsx`)**:
+      - **Petición del Usuario**:
+        - En la lista de dispositivos de "Gestión de Terminales Kiosco", reemplazar el botón de texto "Link Rápido" por un switch interactivo para activar o desactivar la cámara en esa terminal en particular.
+        - Por defecto, las terminales vienen con la cámara activada (`true`).
+        - Permitir encender la biometría únicamente en terminales seleccionadas para realizar pruebas piloto antes de desplegar a todos los campus.
+      - **Solución Arquitectónica Implementada**:
+        1. **Modelado en Base de Datos & Migración (`schema.ts`, `migrate_terminal_camara.ts`)**:
+           - Se agregó la columna `camara_activa BOOLEAN DEFAULT true NOT NULL` a la tabla `terminales_kiosco`.
+           - Migración ejecutada exitosamente en Neon PostgreSQL de producción.
+        2. **API Administrativa & Validación Zod (`soporte.ts`, `api/admin/terminales/route.ts`)**:
+           - Actualizado `actualizarTerminalKioscoSchema` con `camaraActiva: z.boolean().optional()`.
+           - En `GET /api/admin/terminales` se devuelve `camaraActiva` de cada terminal.
+           - En `PATCH /api/admin/terminales` se actualiza atómicamente `camaraActiva` con feedback en tiempo real.
+        3. **Entrega de Configuración a Terminales (`api/kiosco/terminal/verificar/route.ts`, `KioscoTerminal.tsx`)**:
+           - La API de verificación entrega `camaraActiva` en el payload de la terminal.
+           - Lógica jerárquica: `requiereFoto = biometriaGlobal && terminal.camaraActiva`. Si una terminal tiene la cámara desactivada, marca de forma directa sin solicitar cámara ni mostrar el widget biométrico.
+        4. **Diseño Visual en Gestión de Terminales (`ModalGestionTerminales.tsx`)**:
+           - Sustituido el botón texto por el switch interactivo `📸 Cámara ON` / `📷 Cámara OFF` con estados naranja/neutro y tooltips claros.
+           - Se conservó la utilidad de recuperación rápida como un botón icono compacto `🔗`.
+      - **Verificación Técnica**:
+        - Migración Drizzle/Neon ejecutada con éxito.
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 129: Corrección de Encabezado HTTP `Permissions-Policy` y Desbloqueo Definitivo de Cámara Web (`next.config.ts`, `KioscoTerminal.tsx`)**:
       - **Problema Detectado**:
         - En Kiosco (`/kiosco`), tanto en `localhost:3000` como en Vercel (`ucs-iota.vercel.app`) y desde celulares, el navegador bloqueaba de inmediato el acceso a la cámara arrojando `NotAllowedError: Permission denied` sin mostrar nunca el diálogo o popup nativo de permisos.

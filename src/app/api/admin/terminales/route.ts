@@ -24,6 +24,7 @@ export async function GET() {
         dispositivoInfo: terminalesKiosco.dispositivoInfo,
         ipRegistro: terminalesKiosco.ipRegistro,
         activo: terminalesKiosco.activo,
+        camaraActiva: terminalesKiosco.camaraActiva,
         ultimoUso: terminalesKiosco.ultimoUso,
         createdAt: terminalesKiosco.createdAt,
         sedeNombre: sedes.nombre,
@@ -55,11 +56,15 @@ export async function PATCH(request: Request) {
     if (!parsed.success) {
       return parsed.response;
     }
-    const { id, activo } = parsed.data;
+    const { id, activo, camaraActiva } = parsed.data;
+
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (typeof activo === 'boolean') updateData.activo = activo;
+    if (typeof camaraActiva === 'boolean') updateData.camaraActiva = camaraActiva;
 
     const [updated] = await db
       .update(terminalesKiosco)
-      .set({ activo, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(terminalesKiosco.id, id))
       .returning();
 

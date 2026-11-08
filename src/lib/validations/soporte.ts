@@ -37,7 +37,8 @@ export const modificarIncidenciaSchema = z.object({
 
 export const actualizarTerminalKioscoSchema = z.object({
   id: idSchema,
-  activo: z.boolean(),
+  activo: z.boolean().optional(),
+  camaraActiva: z.boolean().optional(),
 });
 
 export const crearCodigoOtpTerminalSchema = z.object({

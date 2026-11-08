@@ -16,6 +16,7 @@ interface TerminalItem {
   dispositivoInfo: string | null;
   ipRegistro: string | null;
   activo: boolean;
+  camaraActiva?: boolean;
   ultimoUso: string | null;
   createdAt: string;
   creadorNombre: string | null;
@@ -46,6 +47,7 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
   const [terminales, setTerminales] = useState<TerminalItem[]>([]);
   const [loadingTerminales, setLoadingTerminales] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [togglingCamaraId, setTogglingCamaraId] = useState<number | null>(null);
 
   // Estados de Códigos OTP
   const [codigos, setCodigos] = useState<CodigoAutorizacionTerminalItem[]>([]);
@@ -124,6 +126,35 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
       showToast('Error de red al actualizar terminal', 'error');
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleToggleCamara = async (term: TerminalItem) => {
+    const nuevoEstado = term.camaraActiva === false;
+    setTogglingCamaraId(term.id);
+    try {
+      const res = await fetch('/api/admin/terminales', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: term.id, camaraActiva: nuevoEstado }),
+      });
+      if (res.ok) {
+        setTerminales((prev) =>
+          prev.map((t) => (t.id === term.id ? { ...t, camaraActiva: nuevoEstado } : t))
+        );
+        showToast(
+          nuevoEstado
+            ? `📸 Cámara activada para "${term.nombre}"`
+            : `⚡ Cámara desactivada para "${term.nombre}" (sin foto)`,
+          'success'
+        );
+      } else {
+        showToast('Error al modificar cámara de la terminal', 'error');
+      }
+    } catch {
+      showToast('Error de red al actualizar terminal', 'error');
+    } finally {
+      setTogglingCamaraId(null);
     }
   };
 
@@ -514,33 +545,65 @@ export const ModalGestionTerminales: React.FC<ModalGestionTerminalesProps> = ({
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        {/* Switch de Cámara de la terminal */}
+                        <button
+                          type="button"
+                          disabled={togglingCamaraId === term.id}
+                          onClick={() => handleToggleCamara(term)}
+                          className={styles.secondaryActionBtn}
+                          style={{
+                            fontSize: '0.76rem',
+                            padding: '0.38rem 0.65rem',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            cursor: togglingCamaraId === term.id ? 'wait' : 'pointer',
+                            borderColor: term.camaraActiva !== false ? 'rgba(255, 90, 0, 0.45)' : 'var(--border-color)',
+                            backgroundColor: term.camaraActiva !== false ? 'rgba(255, 90, 0, 0.12)' : 'var(--bg-input, rgba(0, 0, 0, 0.04))',
+                            color: term.camaraActiva !== false ? '#ea580c' : 'var(--text-muted)',
+                            boxShadow: term.camaraActiva !== false ? '0 1px 4px rgba(255, 90, 0, 0.15)' : 'none',
+                          }}
+                          title={
+                            term.camaraActiva !== false
+                              ? 'Cámara Web activada en este dispositivo. Clic para desactivar.'
+                              : 'Cámara Web desactivada en este dispositivo (marca directo sin foto). Clic para activar.'
+                          }
+                        >
+                          <span>{term.camaraActiva !== false ? '📸 Cámara ON' : '📷 Cámara OFF'}</span>
+                        </button>
+
+                        {/* Botón icono Link Rápido de recuperación */}
                         <button
                           type="button"
                           onClick={() => handleCopiarLinkRecuperacion(term)}
                           className={styles.secondaryActionBtn}
-                          style={{ fontSize: '0.775rem', padding: '0.4rem 0.7rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.35)' }}
+                          style={{ fontSize: '0.8rem', padding: '0.38rem 0.55rem', color: '#0284c7', borderColor: 'rgba(2, 132, 199, 0.35)' }}
                           title="Copiar enlace de recuperación rápida si alguien borró el historial o cookies"
                         >
-                          🔗 Link Rápido
+                          🔗
                         </button>
 
+                        {/* Activar / Desactivar terminal */}
                         <button
                           type="button"
                           disabled={togglingId === term.id}
                           onClick={() => handleToggleActivo(term)}
                           className={styles.secondaryActionBtn}
-                          style={{ fontSize: '0.775rem', padding: '0.4rem 0.75rem' }}
+                          style={{ fontSize: '0.775rem', padding: '0.38rem 0.65rem' }}
                           title={term.activo ? 'Desactivar temporalmente' : 'Reactivar'}
                         >
                           {term.activo ? '⏸️ Desactivar' : '▶️ Activar'}
                         </button>
 
+                        {/* Revocar permanentemente */}
                         <button
                           type="button"
                           onClick={() => handleEliminarTerminal(term)}
                           className={styles.secondaryActionBtn}
-                          style={{ fontSize: '0.775rem', padding: '0.4rem 0.65rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                          style={{ fontSize: '0.775rem', padding: '0.38rem 0.55rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
                           title="Revocar permanentemente"
                         >
                           🗑️

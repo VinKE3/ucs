@@ -397,6 +397,7 @@ export const terminalesKiosco = pgTable('terminales_kiosco', {
   ipRegistro: varchar('ip_registro', { length: 50 }),
   deviceFingerprint: varchar('device_fingerprint', { length: 128 }), // Huella digital criptográfica de hardware/SO
   autoRecuperable: boolean('auto_recuperable').default(true).notNull(), // Permite auto-restaurar si se borran cookies/historial
+  camaraActiva: boolean('camara_activa').default(true).notNull(), // Habilita o deshabilita biometria visual por terminal
   activo: boolean('activo').default(true).notNull(),
   ultimoUso: timestamp('ultimo_uso'),
   creadoPor: integer('creado_por').references(() => usuarios.id, { onDelete: 'set null' }),

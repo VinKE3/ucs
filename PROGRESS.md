@@ -3,6 +3,25 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 129: Corrección de Encabezado HTTP `Permissions-Policy` y Desbloqueo Definitivo de Cámara Web (`next.config.ts`, `KioscoTerminal.tsx`)**:
+      - **Problema Detectado**:
+        - En Kiosco (`/kiosco`), tanto en `localhost:3000` como en Vercel (`ucs-iota.vercel.app`) y desde celulares, el navegador bloqueaba de inmediato el acceso a la cámara arrojando `NotAllowedError: Permission denied` sin mostrar nunca el diálogo o popup nativo de permisos.
+        - Pruebas externas en `es.webcamtests.com` sí funcionaban con normalidad en la misma máquina.
+      - **Causa Raíz Identificada**:
+        - En `next.config.ts`, el encabezado de seguridad `Permissions-Policy` estaba configurado como:
+          `camera=(), microphone=(), geolocation=()`
+        - La directiva `camera=()` con paréntesis vacíos es una instrucción formal HTTP que prohíbe de manera estricta y absoluta el uso de la cámara a nivel de todo el documento y todos los frames, anulando cualquier permiso que el usuario configure manualmente en el navegador. Por especificación W3C, ante esta directiva el navegador rechaza de inmediato cualquier llamado a `getUserMedia` sin solicitar autorización al usuario.
+      - **Solución Implementada**:
+        1. **Autorización en Cabecera HTTP (`next.config.ts`)**:
+           - Se actualizó el encabezado de seguridad a:
+             `camera=(self), microphone=(), geolocation=()`
+           - Esto autoriza explícitamente al origen del propio sistema (`self`, tanto en localhost como en producción en Vercel) a solicitar y utilizar la cámara web, manteniendo la protección frente a iframes externos no autorizados.
+        2. **Soporte Multi-dispositivo y Front-Camera (`KioscoTerminal.tsx`)**:
+           - En dispositivos móviles y tablets de kiosco, se prioriza automáticamente la cámara frontal (`facingMode: 'user'`), con fallback universal a cualquier cámara si el dispositivo no soporta dicha restricción.
+           - Corrección tipográfica en el mensaje de ayuda de URL (`{currentHost}`).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 128: Biometría Visual y Evidencia Fotográfica en Kiosco con Vercel Blob y Fallback Local Resiliente (`KioscoTerminal.tsx`, `fotoStorage.ts`, `marcar/route.ts`, `asistencias/route.ts`, `AsistenciasTab.tsx`, `ModalFotoEvidencia.tsx`, `migrate_foto_asistencias.ts`, `schema.ts`, `test_foto_asistencia.ts`, `SedesTab.tsx`, `ModalConfiguracionKiosco.tsx`, `api/kiosco/configuracion`)**:
       - **Petición del Usuario**:
         - Implementar una demo para capturar una foto con la cámara integrada de la PC al momento de registrar ingreso en el Kiosco (`/kiosco`), dirigida a Pacientes Simulados (PS) y Técnicos.

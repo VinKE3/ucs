@@ -951,11 +951,19 @@ export default function KioscoTerminal() {
       }
 
       // Solicitud directa con gesto de usuario (User Activation)
-      // Garantiza que Chrome en HTTPS muestre el diálogo de permisos nativo
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      // En dispositivos móviles se prefiere la cámara frontal ('user'), con fallback universal
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
 
       mediaStreamRef.current = stream;
       if (videoRef.current) {
@@ -1159,7 +1167,7 @@ export default function KioscoTerminal() {
                   padding: '0.35rem 0.55rem',
                   lineHeight: 1.35,
                 }}>
-                  💡 <strong>¿No viste el cartel?</strong> Haz clic en el ícono a la izquierda de <code>${currentHost}</code> en la barra de URL y enciende el interruptor de <strong>Cámara</strong>.
+                  💡 <strong>¿No viste el cartel?</strong> Haz clic en el ícono a la izquierda de <code>{currentHost}</code> en la barra de URL y enciende el interruptor de <strong>Cámara</strong>.
                 </div>
               )}
             </div>

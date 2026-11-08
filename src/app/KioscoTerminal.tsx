@@ -922,7 +922,7 @@ export default function KioscoTerminal() {
     (usuarioActual.tipoPersonal === 'paciente_simulado' || usuarioActual.tipoPersonal === 'tecnico')
   );
 
-  // Ciclo de vida y activación de la cámara integrada del Kiosco
+  // Activación manual y bajo demanda de la cámara integrada del Kiosco (Con User-Gesture)
   const initCamera = useCallback(async () => {
     if (!requiereFotoIngreso) {
       if (mediaStreamRef.current) {
@@ -936,21 +936,22 @@ export default function KioscoTerminal() {
     }
 
     setCameraLoading(true);
+    setCameraError(null);
+
     try {
-      setCameraError(null);
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         setCameraError('Dispositivo sin compatibilidad para captura de cámara');
         return;
       }
 
-      // Detener cualquier stream anterior antes de solicitar uno nuevo
+      // Detener cualquier stream previo
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop());
         mediaStreamRef.current = null;
       }
 
-      // Iniciar con la restricción más pura y compatible (video: true)
-      // Esto fuerza a Chromium a abrir el diálogo de permisos de forma instantánea
+      // Solicitud directa con gesto de usuario (User Activation)
+      // Garantiza que Chrome en HTTPS muestre el diálogo de permisos nativo
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: false,
@@ -959,18 +960,21 @@ export default function KioscoTerminal() {
       mediaStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.muted = true;
         videoRef.current.play().catch(() => {});
       }
       setCameraActive(true);
       setCameraError(null);
     } catch (err: any) {
-      console.warn('⚠️ No se pudo inicializar la cámara integrada en Kiosco:', err);
+      console.warn('⚠️ No se pudo inicializar la cámara en Kiosco:', err);
       setCameraActive(false);
       const errName = err?.name || '';
+      const currentHost = typeof window !== 'undefined' ? window.location.host : 'el sitio';
+
       if (errName === 'NotReadableError' || errName === 'TrackStartError' || errName === 'AbortError') {
-        setCameraError('⚠️ La cámara está ocupada por otra app (cierra la aplicación "Cámara" de Windows, Zoom o Teams y pulsa Reintentar).');
+        setCameraError('⚠️ La cámara está ocupada por otra app (cierra la app "Cámara" de Windows, Zoom o Teams y pulsa Activar).');
       } else if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-        setCameraError('⚠️ Permiso bloqueado en Chrome. Haz clic en el ícono de ajustes/candado junto a localhost:3000 y activa "Cámara".');
+        setCameraError(`⚠️ Permiso no concedido. Haz clic en el ícono a la izquierda de ${currentHost} en la barra de URL y activa "Cámara".`);
       } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
         setCameraError('⚠️ No se detectó ninguna cámara web conectada al equipo.');
       } else {
@@ -981,30 +985,31 @@ export default function KioscoTerminal() {
     }
   }, [requiereFotoIngreso]);
 
+  // Solo limpiamos streams al desmontar o cancelar; NO invocamos initCamera de fondo
   useEffect(() => {
-    initCamera();
-
     return () => {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((t) => t.stop());
         mediaStreamRef.current = null;
       }
     };
-  }, [initCamera]);
+  }, []);
 
   const renderCameraVerificationWidget = () => {
     if (!requiereFotoIngreso) return null;
+    const currentHost = typeof window !== 'undefined' ? window.location.host : 'este sitio';
+
     return (
       <div
         style={{
           marginBottom: '1rem',
-          padding: '0.75rem 1rem',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
+          padding: '0.85rem 1rem',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
           border: '1.5px solid rgba(56, 189, 248, 0.35)',
           borderRadius: '14px',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.9rem',
+          gap: '1rem',
           boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
         }}
       >
@@ -1051,7 +1056,7 @@ export default function KioscoTerminal() {
             }}
           />
           {!cameraActive && (
-            <span style={{ fontSize: '1.4rem', color: '#64748b' }}>📷</span>
+            <span style={{ fontSize: '1.5rem', color: '#64748b' }}>📷</span>
           )}
           {cameraActive && (
             <div
@@ -1101,14 +1106,15 @@ export default function KioscoTerminal() {
                   border: '1px solid rgba(234, 179, 8, 0.35)',
                 }}
               >
-                {cameraLoading ? 'Conectando...' : 'Standby'}
+                {cameraLoading ? 'Conectando...' : 'Requiere activación'}
               </span>
             )}
           </div>
-          <p style={{ margin: '0.2rem 0 0', fontSize: '0.74rem', color: cameraActive ? '#94a3b8' : '#fca5a5', lineHeight: 1.35 }}>
+
+          <p style={{ margin: '0.2rem 0 0', fontSize: '0.74rem', color: cameraActive ? '#94a3b8' : '#cbd5e1', lineHeight: 1.35 }}>
             {cameraActive
-              ? 'Mire a la cámara. Al marcar ingreso se capturará una fotografía testigo de baja resolución para prevenir suplantación.'
-              : (cameraError || 'Iniciando cámara integrada del dispositivo...')}
+              ? '✅ Cámara lista. Al pulsar registrar ingreso se capturará una fotografía testigo de baja resolución.'
+              : (cameraError || 'Haz clic en el botón para activar la cámara web y autorizar el permiso en tu navegador.')}
           </p>
 
           {!cameraActive && (
@@ -1122,35 +1128,40 @@ export default function KioscoTerminal() {
                   initCamera();
                 }}
                 style={{
-                  padding: '0.3rem 0.75rem',
-                  fontSize: '0.74rem',
-                  fontWeight: 600,
-                  color: cameraLoading ? '#94a3b8' : '#38bdf8',
-                  background: cameraLoading ? 'rgba(51, 65, 85, 0.4)' : 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.35)',
-                  borderRadius: '6px',
+                  padding: '0.45rem 1rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  background: cameraLoading
+                    ? 'rgba(51, 65, 85, 0.6)'
+                    : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  borderRadius: '8px',
                   cursor: cameraLoading ? 'wait' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '0.4rem',
+                  gap: '0.45rem',
                   width: 'fit-content',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
                 }}
               >
-                <span>{cameraLoading ? '🌀' : '🔄'}</span>
-                <span>{cameraLoading ? 'Conectando cámara...' : 'Reintentar activación de cámara'}</span>
+                <span>{cameraLoading ? '🌀' : '📸'}</span>
+                <span>{cameraLoading ? 'Solicitando permiso...' : 'Activar Cámara Web'}</span>
               </button>
 
-              <div style={{
-                fontSize: '0.71rem',
-                color: '#94a3b8',
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.15)',
-                borderRadius: '6px',
-                padding: '0.35rem 0.55rem',
-                lineHeight: 1.35,
-              }}>
-                💡 <strong>Si no aparece el cartel de permiso:</strong> haz clic en el ícono de ajustes (o candado) a la izquierda de <code>localhost:3000</code> en la barra de URL de Chrome y enciende el interruptor de <strong>Cámara</strong>.
-              </div>
+              {cameraError && (
+                <div style={{
+                  fontSize: '0.71rem',
+                  color: '#fca5a5',
+                  background: 'rgba(153, 27, 27, 0.25)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '6px',
+                  padding: '0.35rem 0.55rem',
+                  lineHeight: 1.35,
+                }}>
+                  💡 <strong>¿No viste el cartel?</strong> Haz clic en el ícono a la izquierda de <code>${currentHost}</code> en la barra de URL y enciende el interruptor de <strong>Cámara</strong>.
+                </div>
+              )}
             </div>
           )}
         </div>

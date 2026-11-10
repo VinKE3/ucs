@@ -3,6 +3,31 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 134: Selector Reactivo de Casos Clínicos y Escenarios Dependiente del Curso en Programación Gantt (`ProgramacionTab.tsx`)**:
+      - **Petición del Usuario**:
+        - Al seleccionar uno de los cursos en el Tab de Programación de SimClic, desplegar automáticamente la lista de los casos clínicos que corresponden a dicho curso (usando la Opción 1: casos programados en la fecha/semana consultada con selector desplegable clásico `<select>`).
+      - **Solución Arquitectónica Implementada**:
+        1. **Selector Reactivo Condicional (`<select>`)**:
+           - Cuando `filtroCurso === 'todos'`, el selector permanece oculto para mantener la barra de herramientas compacta y limpia.
+           - En cuanto se selecciona un curso específico, aparece al costado el selector estilizado:
+             `🩺 Todos los Casos (X) ▾`
+           - Si el curso no tiene plantillas de casos asignadas para esa fecha, se muestra deshabilitado con el mensaje claro `🩺 Sin casos clínicos hoy`.
+        2. **Cálculo Reactivo en Memoria (`casosDelCursoList`)**:
+           - Mapea de forma memoizada las sesiones activas del día que coinciden con el curso seleccionado.
+           - Extrae nombres de casos (`escenarioNombre`), códigos (`escenarioCodigo`) y contabiliza salas activas:
+             `🩺 [Nombre Caso] [Código] (X salas)`.
+        3. **Filtrado Bidireccional y Auto-Compactación (Sinergia con Hito 132)**:
+           - Al elegir un caso clínico, `sesionesFiltradas` aísla exclusivamente los bloques que dictan ese caso.
+           - Se integra con `hayFiltroBusquedaActivo`: los pisos y salas que no dictan ese caso clínico se auto-compactan, mostrando únicamente las salas activas para ese escenario.
+        4. **Resiliencia y Reset Defensivo**:
+           - Al cambiar de curso, `filtroCaso` se reinicia a `'todos'`.
+           - Si se cambia de fecha y el caso previamente elegido ya no existe en la nueva jornada, un `useEffect` defensivo restablece `filtroCaso` a `'todos'`.
+           - El botón "✕ Limpiar Filtros" restablece también el selector de casos.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`npx tsc --noEmit`): **0 errores**.
+        - Suite de tildes (`test_accent_search.ts`): **100% aprobado**.
+        - Suite de aislamiento (`test_asistencias_tab_isolation.ts`): **100% aprobado**.
+
     - **Hito 133: Normalización y Búsqueda Insensible a Tildes y Diacríticos (`stringUtils.ts`, `ProgramacionTab.tsx`, `AsistenciasTab.tsx`, `PersonalTab.tsx`, `PlanillaTab.tsx`, `CursosTab.tsx`, `test_accent_search.ts`)**:
       - **Petición del Usuario**:
         - Al filtrar por nombre o apellidos, no tomar en cuenta las tildes (por ejemplo, al escribir "rubi", debe encontrar "Rubí" sin exigir la tilde en la "í").

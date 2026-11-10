@@ -187,6 +187,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
   const [search, setSearch] = useState<string>('');
   const [filtroDocente, setFiltroDocente] = useState<string>('todos');
   const [filtroCurso, setFiltroCurso] = useState<string>('todos');
+  const [filtroCaso, setFiltroCaso] = useState<string>('todos');
   const [filtroPs, setFiltroPs] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'libres' | 'sin_marcar' | 'con_asistencia' | 'con_ps' | 'canceladas'>('todos');
   const [vistaModo, setVistaModo] = useState<'gantt' | 'libres' | 'logistica' | 'radar_actores'>('gantt');
@@ -685,6 +686,50 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return slots;
   }, []);
 
+  // Casos clínicos disponibles en la fecha seleccionada para el curso filtrado (Opción 1)
+  const casosDelCursoList = useMemo(() => {
+    if (filtroCurso === 'todos') return [];
+    const qCur = normalizarTextoBusqueda(filtroCurso);
+    const casosMap = new Map<string, { nombre: string; codigo?: string; totalSesiones: number }>();
+
+    for (const s of sesiones) {
+      if (isSesionVirtual(s)) continue;
+      const esCancelada = s.estadoUcs === 'cancelada' || (s as any).estadoSimclic === 'Cancelled';
+      if (esCancelada && filtroEstado !== 'canceladas') continue;
+
+      if (normalizarTextoBusqueda(s.cursoNombreSimclic).includes(qCur)) {
+        const casoNombre = (s.escenarioNombre || s.escenarioCodigo || '').trim();
+        if (!casoNombre) continue;
+
+        const key = normalizarTextoBusqueda(casoNombre);
+        const existing = casosMap.get(key);
+        if (existing) {
+          existing.totalSesiones++;
+        } else {
+          casosMap.set(key, {
+            nombre: s.escenarioNombre?.trim() || casoNombre,
+            codigo: s.escenarioCodigo?.trim() || undefined,
+            totalSesiones: 1,
+          });
+        }
+      }
+    }
+
+    return Array.from(casosMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [sesiones, filtroCurso, filtroEstado]);
+
+  // Al cambiar de curso, resetear el filtro de caso clínico
+  useEffect(() => {
+    setFiltroCaso('todos');
+  }, [filtroCurso]);
+
+  // Si el caso clínico seleccionado ya no está en la lista (ej: al cambiar de fecha), resetear a 'todos'
+  useEffect(() => {
+    if (filtroCaso !== 'todos' && !casosDelCursoList.some((c) => c.nombre === filtroCaso)) {
+      setFiltroCaso('todos');
+    }
+  }, [casosDelCursoList, filtroCaso]);
+
   // Filtrado reactivo de sesiones
   const sesionesFiltradas = useMemo(() => {
     return sesiones.filter((ses) => {
@@ -714,6 +759,17 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         const qCur = normalizarTextoBusqueda(filtroCurso);
         if (!normalizarTextoBusqueda(ses.cursoNombreSimclic).includes(qCur)) {
           return false;
+        }
+
+        // 2.1. Filtro dependiente por Caso Clínico / Escenario
+        if (filtroCaso !== 'todos') {
+          const qCaso = normalizarTextoBusqueda(filtroCaso);
+          const casoSesion = normalizarTextoBusqueda(
+            [ses.escenarioNombre, ses.escenarioCodigo].filter(Boolean).join(' ')
+          );
+          if (!casoSesion.includes(qCaso)) {
+            return false;
+          }
         }
       }
 
@@ -767,7 +823,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
       return true;
     });
-  }, [sesiones, filtroDocente, filtroCurso, filtroPs, filtroEstado, search]);
+  }, [sesiones, filtroDocente, filtroCurso, filtroCaso, filtroPs, filtroEstado, search]);
 
   // Mapa de sesiones por sala con cruce inteligente por ID, código Simclic y normalización de número
   const sesionesPorAmbienteMap = useMemo(() => {
@@ -819,16 +875,17 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return map;
   }, [ambientes, sesionesFiltradas]);
 
-  // ¿Hay algún filtro de búsqueda activo? (Buscador libre, Docente, Curso o Paciente Simulado)
+  // ¿Hay algún filtro de búsqueda activo? (Buscador libre, Docente, Curso, Caso Clínico o Paciente Simulado)
   const hayFiltroBusquedaActivo = useMemo(() => {
     return Boolean(
       search.trim() ||
       filtroDocente !== 'todos' ||
       filtroCurso !== 'todos' ||
+      filtroCaso !== 'todos' ||
       filtroPs !== 'todos' ||
       filtroEstado === 'con_ps'
     );
-  }, [search, filtroDocente, filtroCurso, filtroPs, filtroEstado]);
+  }, [search, filtroDocente, filtroCurso, filtroCaso, filtroPs, filtroEstado]);
 
   // Lista de salas filtradas (si se selecciona 'libres', si hay búsqueda activa de docente/curso/PS, o el toggle 'soloConActividadHoy')
   const ambientesFiltrados = useMemo(() => {
@@ -1520,6 +1577,35 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
           ))}
         </select>
 
+        {/* SELECTOR REACTIVO POR CASO CLÍNICO (Dependiente del Curso Seleccionado - Opción 1) */}
+        {filtroCurso !== 'todos' && (
+          <select
+            value={filtroCaso}
+            onChange={(e) => setFiltroCaso(e.target.value)}
+            className={styles.select}
+            style={{
+              fontSize: '0.82rem',
+              borderColor: filtroCaso !== 'todos' ? 'var(--ucs-orange)' : 'var(--border-color)',
+              background: filtroCaso !== 'todos' ? 'rgba(255, 90, 0, 0.08)' : undefined,
+              fontWeight: filtroCaso !== 'todos' ? 700 : undefined,
+              maxWidth: '260px',
+            }}
+            disabled={casosDelCursoList.length === 0}
+            title={casosDelCursoList.length === 0 ? 'Este curso no tiene casos clínicos programados hoy' : 'Filtrar por Caso Clínico / Escenario de este curso'}
+          >
+            <option value="todos">
+              {casosDelCursoList.length === 0
+                ? '🩺 Sin casos clínicos hoy'
+                : `🩺 Todos los Casos (${casosDelCursoList.length})`}
+            </option>
+            {casosDelCursoList.map((c, i) => (
+              <option key={i} value={c.nombre}>
+                🩺 {c.nombre} {c.codigo ? `[${c.codigo}]` : ''} ({c.totalSesiones} sala{c.totalSesiones > 1 ? 's' : ''})
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* SELECTOR POR PACIENTE SIMULADO */}
         <select
           value={filtroPs}
@@ -1537,13 +1623,14 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         </select>
 
         {/* BOTÓN LIMPIAR FILTROS */}
-        {(search || filtroDocente !== 'todos' || filtroCurso !== 'todos' || filtroPs !== 'todos' || filtroEstado !== 'todos') && (
+        {(search || filtroDocente !== 'todos' || filtroCurso !== 'todos' || filtroCaso !== 'todos' || filtroPs !== 'todos' || filtroEstado !== 'todos') && (
           <button
             type="button"
             onClick={() => {
               setSearch('');
               setFiltroDocente('todos');
               setFiltroCurso('todos');
+              setFiltroCaso('todos');
               setFiltroPs('todos');
               setFiltroEstado('todos');
             }}

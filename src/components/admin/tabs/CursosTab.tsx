@@ -6,6 +6,7 @@ import styles from '@/app/admin/admin.module.css';
 import type { CursoAdminItem, CarreraAdminItem } from '@/types/admin';
 import type { SessionPayload } from '@/lib/auth';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
+import { normalizarTextoBusqueda } from '@/lib/stringUtils';
 
 interface CursosTabProps {
   session?: SessionPayload | null;
@@ -65,13 +66,12 @@ export const CursosTab: React.FC<CursosTabProps> = (props) => {
   const cursosFiltrados = useMemo(() => {
     return cursosList
       .filter((c) => {
-        const matchesSearch =
-          !searchCurso.trim() ||
-          c.nombre.toLowerCase().includes(searchCurso.toLowerCase()) ||
-          (c.codigo && c.codigo.toLowerCase().includes(searchCurso.toLowerCase())) ||
-          (c.prefijo && c.prefijo.toLowerCase().includes(searchCurso.toLowerCase())) ||
-          (c.carreraNombre && c.carreraNombre.toLowerCase().includes(searchCurso.toLowerCase())) ||
-          (c.carreraCodigo && c.carreraCodigo.toLowerCase().includes(searchCurso.toLowerCase()));
+        const q = normalizarTextoBusqueda(searchCurso);
+        const tokens = q.split(/\s+/).filter(Boolean);
+        const cursoTexto = normalizarTextoBusqueda(
+          `${c.nombre} ${c.codigo || ''} ${c.prefijo || ''} ${c.carreraNombre || ''} ${c.carreraCodigo || ''}`
+        );
+        const matchesSearch = !q || (tokens.length > 0 && tokens.every((t) => cursoTexto.includes(t)));
 
         const matchesCarrera =
           selectedCarreraId === 'todas' || c.carreraId === selectedCarreraId;

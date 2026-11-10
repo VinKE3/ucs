@@ -14,6 +14,7 @@ import { exportarExcelPlanillaConGraficos } from '@/lib/excelPlanillaExporter';
 import { showAlert, showError, showToast } from '@/lib/alerts';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
 import { calcularHorasEfectivasSesion } from '@/lib/planillaPsCalculos';
+import { normalizarTextoBusqueda } from '@/lib/stringUtils';
 
 export interface PlanillaTabProps {
   asistenciasList?: AsistenciaAdminItem[];
@@ -409,11 +410,10 @@ export const PlanillaTab: React.FC<PlanillaTabProps> = (props) => {
   const actoresFiltrados = useMemo(() => {
     return actoresPlanilla.filter((a) => {
       if (busqueda.trim()) {
-        const query = busqueda.toLowerCase();
-        const coincide =
-          a.nombres.toLowerCase().includes(query) ||
-          a.apellidos.toLowerCase().includes(query) ||
-          a.dni.includes(query);
+        const query = normalizarTextoBusqueda(busqueda);
+        const tokens = query.split(/\s+/).filter(Boolean);
+        const actorTexto = normalizarTextoBusqueda(`${a.nombres} ${a.apellidos} ${a.dni}`);
+        const coincide = tokens.length > 0 && tokens.every((t) => actorTexto.includes(t));
         if (!coincide) return false;
       }
       if (filtroEstado !== 'todos' && a.estadoPlanilla !== filtroEstado) {

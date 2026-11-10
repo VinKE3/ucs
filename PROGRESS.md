@@ -3,6 +3,45 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 133: Normalización y Búsqueda Insensible a Tildes y Diacríticos (`stringUtils.ts`, `ProgramacionTab.tsx`, `AsistenciasTab.tsx`, `PersonalTab.tsx`, `PlanillaTab.tsx`, `CursosTab.tsx`, `test_accent_search.ts`)**:
+      - **Petición del Usuario**:
+        - Al filtrar por nombre o apellidos, no tomar en cuenta las tildes (por ejemplo, al escribir "rubi", debe encontrar "Rubí" sin exigir la tilde en la "í").
+      - **Solución Arquitectónica Implementada**:
+        1. **Módulo Central de Normalización de Texto (`src/lib/stringUtils.ts`)**:
+           - Función `normalizarTextoBusqueda`: Transforma a minúsculas, descompone con `normalize('NFD')` y remueve los diacríticos combinados (`/[\u0300-\u036f]/g`), unificando vocales con tildes (`á`, `é`, `í`, `ó`, `ú`), diéresis (`ü`) y caracteres especiales (`ñ`).
+           - Función `coincideBusquedaAcentos`: Compara tokens de búsqueda independientes contra el texto objetivo.
+        2. **Gantt y Línea de Tiempo (`ProgramacionTab.tsx`)**:
+           - `sesionesFiltradas`: Búsqueda omnicanal multi-token y filtros de Docente, Curso y Paciente Simulado normalizados. Buscar "rubi", "alvarez", "simulacion" o "nino" encuentra de inmediato "Rubí Flores", "Álvarez", "Simulación Quirúrgica", etc.
+           - `ambientesFiltrados`: Búsqueda de salas normalizada (ej: escribir "imagenes" encuentra "Sala de Imágenes").
+        3. **Propagación Integral en Módulos Administrativos**:
+           - **Asistencias (`AsistenciasTab.tsx`)**: Búsqueda en historial de marcaciones insensible a tildes para nombres, apellidos, cursos y ambientes.
+           - **Personal (`PersonalTab.tsx`)**: Búsqueda en directorio de personal y actores de simulación insensible a tildes.
+           - **Planilla (`PlanillaTab.tsx`)**: Búsqueda de colaboradores en liquidación y honorarios insensible a tildes.
+           - **Catálogo de Cursos (`CursosTab.tsx`)**: Búsqueda de cursos y carreras insensible a tildes.
+        4. **Suite de Pruebas Unitarias Automatizadas (`src/scripts/test_accent_search.ts`)**:
+           - Validación de 9 casos de prueba con nombres, apellidos, cursos, salas y caracteres complejos ("Rubí", "Carlos Álvarez", "Simulación Quirúrgica", "Sala de Imágenes", "Niño Jesús", "Fernanda Muñoz") aprobados al **100%**.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
+    - **Hito 132: Auto-Compactación Reactiva de Ambientes en Línea de Tiempo Gantt según Filtros de Búsqueda (`ProgramacionTab.tsx`)**:
+      - **Petición del Usuario**:
+        - Al filtrar por docente, curso o paciente simulado (PS), ya sea escribiendo en el buscador libre o seleccionando desde los selectores desplegables, ocultar automáticamente los ambientes y pisos vacíos para mostrar únicamente las salas que concuerdan con la búsqueda.
+        - Evitar el desplazamiento vertical innecesario (scrollear hasta el fondo) cuando la clase buscada está en un piso superior o salas lejanas (ej. segundo piso o Sala de Imágenes).
+      - **Solución Arquitectónica Implementada**:
+        1. **Detección Unificada de Filtros Activos (`hayFiltroBusquedaActivo`)**:
+           - Evalúa de forma memoizada si existe texto en el buscador libre (`search.trim()`), o si se ha seleccionado un Docente (`filtroDocente !== 'todos'`), un Curso (`filtroCurso !== 'todos'`), un Paciente Simulado (`filtroPs !== 'todos'`), o el filtro rápido `con_ps`.
+        2. **Filtrado Inteligente de Ambientes (`ambientesFiltrados`)**:
+           - Al activarse cualquier filtro de búsqueda, conserva exclusivamente los ambientes con sesiones coincidentes (`(sesionesPorAmbienteMap.get(a.id) || []).length > 0`) o cuyo nombre o código de sala coincida directamente con el texto buscado.
+           - Cuando no hay filtros activos, restaura el catálogo completo de ambientes físicos de la sede (o respeta el switch manual de `soloConActividadHoy`).
+        3. **Agrupación y Despliegue de Pisos sin Ruido Visual (`gruposPiso`)**:
+           - La agrupación por pisos solo incluye los niveles que contienen ambientes coincidentes; los pisos sin clases para ese filtro desaparecen de la vista.
+           - Si un piso estaba previamente colapsado por el usuario, se expande automáticamente durante la búsqueda activa (`isColapsado = !hayFiltroBusquedaActivo && Boolean(pisosColapsados[grupo.piso])`) garantizando que los resultados sean visibles de inmediato.
+        4. **Contador Reactivo y Feedback Visual**:
+           - La cabecera fija de ambientes actualiza su etiqueta a `(X coincidentes)` resaltada en color celeste (`#38bdf8`).
+           - Si no existen coincidencias, renderiza un estado vacío limpio con icono de búsqueda y sugerencia clara.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 131: Biometría Visual en Salida, Política de Retención y Auto-Purga en Vercel Blob (`schema.ts`, `fotoStorage.ts`, `marcar/route.ts`, `KioscoTerminal.tsx`, `ModalConfiguracionKiosco.tsx`, `ModalFotoEvidencia.tsx`, `AsistenciasTab.tsx`, `limpieza-fotos/route.ts`, `vercel.json`)**:
       - **Petición del Usuario**:
         1. Extender la captura biométrica de cámara web tanto para el ingreso como para la marcación de salida en Kiosco.

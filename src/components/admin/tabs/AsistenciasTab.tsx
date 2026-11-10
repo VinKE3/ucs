@@ -9,6 +9,7 @@ import { ModalAuditoriaProgramacion } from '@/components/admin/modals/ModalAudit
 import { ModalFotoEvidencia } from '@/components/admin/modals/ModalFotoEvidencia';
 import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
+import { normalizarTextoBusqueda } from '@/lib/stringUtils';
 
 import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion, coincidenSedesSimclic } from '@/lib/simclicAudit';
 export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion, coincidenSedesSimclic };
@@ -190,16 +191,16 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
       list = list.filter((a) => String(a.cursoId) === String(asistFiltroCurso));
     }
     if (asistSearch && asistSearch.trim()) {
-      const q = asistSearch.trim().toLowerCase();
+      const q = normalizarTextoBusqueda(asistSearch);
       const tokens = q.split(/\s+/).filter(Boolean);
       list = list.filter((a) => {
-        const nomCompleto = `${a.nombres || ''} ${a.apellidos || ''}`.toLowerCase();
+        const nomCompleto = normalizarTextoBusqueda(`${a.nombres || ''} ${a.apellidos || ''}`);
         const dni = a.dni || '';
-        const curso = (a.cursoNombre || '').toLowerCase();
-        const amb = (a.ambienteNombre || '').toLowerCase();
-        const sede = (a.sedeNombre || '').toLowerCase();
+        const curso = normalizarTextoBusqueda(a.cursoNombre);
+        const amb = normalizarTextoBusqueda(a.ambienteNombre);
+        const sede = normalizarTextoBusqueda(a.sedeNombre);
 
-        // 1. Coincidencia directa completa
+        // 1. Coincidencia directa completa (insensible a tildes/mayúsculas)
         if (
           nomCompleto.includes(q) ||
           dni.includes(q) ||
@@ -210,7 +211,7 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
           return true;
         }
 
-        // 2. Coincidencia multi-token (ej: "miguel quispe" encuentra a "Miguel Angel Quispe Estrella")
+        // 2. Coincidencia multi-token (ej: "rubi flores" encuentra a "Rubí Flores")
         if (tokens.length > 1) {
           return tokens.every(
             (t) =>

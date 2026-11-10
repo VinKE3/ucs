@@ -14,6 +14,7 @@ import { showAlert, showError, showToast } from '@/lib/alerts';
 import { ModalCronogramaTecnico } from '@/components/admin/modals/ModalCronogramaTecnico';
 import { exportarExcelCastingConGraficos } from '@/lib/excelCastingExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
+import { normalizarTextoBusqueda } from '@/lib/stringUtils';
 
 interface PersonalTabProps {
   usuariosList?: UsuarioItem[];
@@ -162,13 +163,10 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
         matchesTipo = u.tipoPersonal === filterPersonalTipo;
       }
 
-      const q = searchPersonal.trim().toLowerCase();
-      const matchesSearch =
-        !q ||
-        u.nombres.toLowerCase().includes(q) ||
-        u.apellidos.toLowerCase().includes(q) ||
-        u.dni.includes(q) ||
-        (u.correo && u.correo.toLowerCase().includes(q));
+      const q = normalizarTextoBusqueda(searchPersonal);
+      const tokens = q.split(/\s+/).filter(Boolean);
+      const userTexto = normalizarTextoBusqueda(`${u.nombres} ${u.apellidos} ${u.dni} ${u.correo || ''}`);
+      const matchesSearch = !q || (tokens.length > 0 && tokens.every((t) => userTexto.includes(t)));
 
       // Filtros avanzados de Casting (aplica para Pacientes Simulados)
       if (u.tipoPersonal === 'paciente_simulado') {

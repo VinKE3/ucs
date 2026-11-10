@@ -17,6 +17,7 @@ import { RadarLlegadaActores } from '@/components/admin/tabs/RadarLlegadaActores
 import { analizarLogisticaIntraDia, isAmbienteVirtual, isSesionVirtual } from '@/lib/logisticaSimulacion';
 import { showToast, showAlert, showError } from '@/lib/alerts';
 import { exportarExcelProgramacionConGraficos } from '@/lib/excelProgramacionExporter';
+import { normalizarTextoBusqueda } from '@/lib/stringUtils';
 
 interface ProgramacionTabProps {
   sedesList: SedeAdminItem[];
@@ -698,25 +699,32 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
         if (esCancelada) return false;
       }
 
-      // 1. Filtro por Docente
+      // 1. Filtro por Docente (insensible a mayúsculas y tildes)
       if (filtroDocente !== 'todos') {
-        if (!ses.docenteNombreSimclic || !ses.docenteNombreSimclic.toLowerCase().includes(filtroDocente.toLowerCase())) {
+        const qDoc = normalizarTextoBusqueda(filtroDocente);
+        const matchPrincipal = normalizarTextoBusqueda(ses.docenteNombreSimclic).includes(qDoc);
+        const matchOtros = (ses.docentes || []).some((d) => normalizarTextoBusqueda(d.nombre).includes(qDoc));
+        if (!matchPrincipal && !matchOtros) {
           return false;
         }
       }
 
-      // 2. Filtro por Curso
+      // 2. Filtro por Curso (insensible a mayúsculas y tildes)
       if (filtroCurso !== 'todos') {
-        if (!ses.cursoNombreSimclic || !ses.cursoNombreSimclic.toLowerCase().includes(filtroCurso.toLowerCase())) {
+        const qCur = normalizarTextoBusqueda(filtroCurso);
+        if (!normalizarTextoBusqueda(ses.cursoNombreSimclic).includes(qCur)) {
           return false;
         }
       }
 
-      // 3. Filtro por Paciente Simulado
+      // 3. Filtro por Paciente Simulado (insensible a mayúsculas y tildes)
       if (filtroPs === 'con_ps') {
-        if (!ses.pacienteSimuladoNombre) return false;
+        if (!ses.pacienteSimuladoNombre && (!ses.pacientesSimulados || ses.pacientesSimulados.length === 0)) return false;
       } else if (filtroPs !== 'todos') {
-        if (!ses.pacienteSimuladoNombre || !ses.pacienteSimuladoNombre.toLowerCase().includes(filtroPs.toLowerCase())) {
+        const qPs = normalizarTextoBusqueda(filtroPs);
+        const matchPrincipal = normalizarTextoBusqueda(ses.pacienteSimuladoNombre).includes(qPs);
+        const matchOtros = (ses.pacientesSimulados || []).some((p) => normalizarTextoBusqueda(p.nombre).includes(qPs));
+        if (!matchPrincipal && !matchOtros) {
           return false;
         }
       }
@@ -727,20 +735,34 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       } else if (filtroEstado === 'con_asistencia') {
         if (!ses.docentePresente && !ses.psPresente) return false;
       } else if (filtroEstado === 'con_ps') {
-        if (!ses.pacienteSimuladoNombre) return false;
+        if (!ses.pacienteSimuladoNombre && (!ses.pacientesSimulados || ses.pacientesSimulados.length === 0)) return false;
       }
 
-      // 5. Búsqueda libre
+      // 5. Búsqueda libre multi-token e insensible a tildes/mayúsculas (ej: "rubi" encuentra "Rubí", "alvarez" encuentra "Álvarez")
       if (search.trim()) {
-        const q = search.toLowerCase();
-        const mId = ses.simclicId?.toLowerCase().includes(q);
-        const mTit = ses.titulo?.toLowerCase().includes(q);
-        const mDoc = ses.docenteNombreSimclic?.toLowerCase().includes(q);
-        const mCur = ses.cursoNombreSimclic?.toLowerCase().includes(q);
-        const mAmb = ses.ambienteNombreSimclic?.toLowerCase().includes(q);
-        const mPs = ses.pacienteSimuladoNombre?.toLowerCase().includes(q);
-        const mEsc = ses.escenarioNombre?.toLowerCase().includes(q) || ses.escenarioCodigo?.toLowerCase().includes(q);
-        if (!mId && !mTit && !mDoc && !mCur && !mAmb && !mPs && !mEsc) return false;
+        const tokens = normalizarTextoBusqueda(search).split(/\s+/).filter(Boolean);
+        const docentesStr = (ses.docentes || []).map((d) => d.nombre).join(' ');
+        const psStr = (ses.pacientesSimulados || []).map((p) => p.nombre).join(' ');
+
+        const sesTextoAcumulado = normalizarTextoBusqueda(
+          [
+            ses.simclicId,
+            ses.titulo,
+            ses.docenteNombreSimclic,
+            docentesStr,
+            ses.cursoNombreSimclic,
+            ses.ambienteNombreSimclic,
+            ses.ambienteCodigoSimclic,
+            ses.pacienteSimuladoNombre,
+            psStr,
+            ses.escenarioNombre,
+            ses.escenarioCodigo,
+          ].filter(Boolean).join(' ')
+        );
+
+        if (!tokens.every((t) => sesTextoAcumulado.includes(t))) {
+          return false;
+        }
       }
 
       return true;
@@ -797,18 +819,54 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     return map;
   }, [ambientes, sesionesFiltradas]);
 
-  // Lista de salas filtradas (si se selecciona 'libres', o el toggle 'soloConActividadHoy')
+  // ¿Hay algún filtro de búsqueda activo? (Buscador libre, Docente, Curso o Paciente Simulado)
+  const hayFiltroBusquedaActivo = useMemo(() => {
+    return Boolean(
+      search.trim() ||
+      filtroDocente !== 'todos' ||
+      filtroCurso !== 'todos' ||
+      filtroPs !== 'todos' ||
+      filtroEstado === 'con_ps'
+    );
+  }, [search, filtroDocente, filtroCurso, filtroPs, filtroEstado]);
+
+  // Lista de salas filtradas (si se selecciona 'libres', si hay búsqueda activa de docente/curso/PS, o el toggle 'soloConActividadHoy')
   const ambientesFiltrados = useMemo(() => {
     let result = ambientes.filter((a) => !isAmbienteVirtual(a.nombre, a.codigo));
+
     if (filtroEstado === 'libres' && esHoy) {
       const idsLibres = new Set((metricas?.salasLibresAhora || []).map((s) => s.id));
       result = result.filter((a) => idsLibres.has(a.id));
     }
-    if (soloConActividadHoy) {
+
+    const qNorm = normalizarTextoBusqueda(search);
+    const tokens = qNorm.split(/\s+/).filter(Boolean);
+
+    // Auto-compactación reactiva: Si se filtra por Docente, Curso, PS o texto en buscador,
+    // mostrar ÚNICAMENTE los ambientes con clases coincidentes (o coincidencia directa por nombre/código de sala)
+    if (hayFiltroBusquedaActivo) {
+      result = result.filter((a) => {
+        const tieneSesionesCoincidentes = (sesionesPorAmbienteMap.get(a.id) || []).length > 0;
+        const ambTexto = normalizarTextoBusqueda(`${a.nombre} ${a.codigo || ''}`);
+        const coincidePorNombreSala = tokens.length > 0 && tokens.every((t) => ambTexto.includes(t));
+        return tieneSesionesCoincidentes || coincidePorNombreSala;
+      });
+    } else if (soloConActividadHoy) {
+      // Toggle manual: Ocultar salas que no tienen ninguna clase programada en el día
       result = result.filter((a) => (sesionesPorAmbienteMap.get(a.id) || []).length > 0);
     }
+
     return result;
-  }, [ambientes, filtroEstado, esHoy, metricas, soloConActividadHoy, sesionesPorAmbienteMap]);
+  }, [
+    ambientes,
+    filtroEstado,
+    esHoy,
+    metricas,
+    soloConActividadHoy,
+    sesionesPorAmbienteMap,
+    hayFiltroBusquedaActivo,
+    search,
+  ]);
 
   // Agrupación y ordenamiento idéntico a SimClic por piso (Primer Piso / Segundo Piso)
   const gruposPiso = useMemo(() => {
@@ -1685,8 +1743,16 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                   }}
                 >
                   <span>🏥 AMBIENTES / SALAS</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    ({ambientesFiltrados.length})
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      color: hayFiltroBusquedaActivo ? '#38bdf8' : 'var(--text-muted)',
+                      fontWeight: hayFiltroBusquedaActivo ? 700 : 600,
+                    }}
+                  >
+                    {hayFiltroBusquedaActivo
+                      ? `(${ambientesFiltrados.length} coincidente${ambientesFiltrados.length === 1 ? '' : 's'})`
+                      : `(${ambientesFiltrados.length})`}
                   </span>
                 </div>
 
@@ -1743,12 +1809,18 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
 
               {/* FILAS DE CADA SALA AGRUPADAS POR PISO (PRIMER PISO, SEGUNDO PISO, ETC.) */}
               {ambientesFiltrados.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  No se encontraron salas con los filtros seleccionados.
+                <div style={{ padding: '3.5rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                    No se encontraron salas ni clases con los filtros aplicados
+                  </div>
+                  <div style={{ fontSize: '0.8rem' }}>
+                    Intenta ajustando el término de búsqueda o limpiando los filtros seleccionados.
+                  </div>
                 </div>
               ) : (
                 gruposPiso.map((grupo) => {
-                  const isColapsado = Boolean(pisosColapsados[grupo.piso]);
+                  const isColapsado = !hayFiltroBusquedaActivo && Boolean(pisosColapsados[grupo.piso]);
 
                   return (
                     <React.Fragment key={grupo.piso}>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './central-soporte.module.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { getPeruDateString } from '@/lib/peruTime';
 
 interface IncidenciaItem {
   id: number;
@@ -188,21 +189,33 @@ export default function CentralSoportePage() {
         ? `/api/incidencias/poll?v=${cacheVersion}`
         : '/api/incidencias/poll';
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
 
       if (data.success) {
-        if (data.changed && data.activeList) {
-          setIncidenciasActivas(data.activeList);
-          setCacheVersion(data.version);
+        if (data.changed) {
+          if (data.activeList) {
+            setIncidenciasActivas(data.activeList);
 
-          // Verificar si hay nuevas pendientes para auto-cambiar de tab en móvil
-          const pendientesActuales = data.activeList.filter((i: IncidenciaItem) => i.estado === 'pendiente').length;
-          if (pendientesActuales > lastPendienteCountRef.current) {
-            // En móvil, si entra una nueva alerta, llevar automáticamente a la pestaña de pendientes
-            setMobileTab('pendientes');
+            // Verificar si hay nuevas pendientes para auto-cambiar de tab en móvil
+            const pendientesActuales = data.activeList.filter((i: IncidenciaItem) => i.estado === 'pendiente').length;
+            if (pendientesActuales > lastPendienteCountRef.current) {
+              // En móvil, si entra una nueva alerta, llevar automáticamente a la pestaña de pendientes
+              setMobileTab('pendientes');
+            }
+            lastPendienteCountRef.current = pendientesActuales;
           }
-          lastPendienteCountRef.current = pendientesActuales;
+
+          if (data.resueltasHoyList) {
+            const hoyLima = getPeruDateString();
+            const soloHoy = data.resueltasHoyList.filter((i: IncidenciaItem) => {
+              const dStr = i.resueltoAt || i.createdAt;
+              return dStr ? getPeruDateString(new Date(dStr)) === hoyLima : false;
+            });
+            setResueltasRecientes(soloHoy);
+          }
+
+          setCacheVersion(data.version);
         } else if (!data.changed) {
           // No hubo cambios, respuesta en 1ms con 0 egress
           setCacheVersion(data.version);
@@ -213,30 +226,45 @@ export default function CentralSoportePage() {
     }
   }, [cacheVersion]);
 
-  useEffect(() => {
-    pollIncidencias();
-    const interval = setInterval(pollIncidencias, 3500); // Sondeo cada 3.5 segundos
-    return () => clearInterval(interval);
-  }, [pollIncidencias]);
-
-
   // Cargar histórico de resueltas hoy
-  const fetchResueltasHoy = async () => {
+  const fetchResueltasHoy = useCallback(async () => {
     try {
-      const res = await fetch('/api/incidencias?all=true');
+      const res = await fetch('/api/incidencias?resueltasHoy=true', { cache: 'no-store' });
       const data = await res.json();
-      if (data.success && data.incidencias) {
-        const resueltas = data.incidencias.filter((i: IncidenciaItem) => i.estado === 'resuelto').slice(0, 6);
-        setResueltasRecientes(resueltas);
+      if (data.success && Array.isArray(data.incidencias)) {
+        const hoyLima = getPeruDateString();
+        const soloHoy = data.incidencias.filter((i: IncidenciaItem) => {
+          const dStr = i.resueltoAt || i.createdAt;
+          return i.estado === 'resuelto' && dStr && getPeruDateString(new Date(dStr)) === hoyLima;
+        });
+        setResueltasRecientes(soloHoy);
       }
     } catch (e) {
-      console.error('Error cargando resueltas:', e);
+      console.error('Error cargando resueltas hoy:', e);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    pollIncidencias();
     fetchResueltasHoy();
-  }, []);
+    const interval = setInterval(pollIncidencias, 3500); // Sondeo cada 3.5 segundos
+
+    // Re-sondeo inmediato al volver al foco de la pestaña
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        pollIncidencias();
+        fetchResueltasHoy();
+      }
+    };
+    window.addEventListener('visibilitychange', onVisibilityOrFocus);
+    window.addEventListener('focus', onVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+    };
+  }, [pollIncidencias, fetchResueltasHoy]);
 
   // 4. Acción: "Vamos en Camino"
   const handleVoyEnCamino = async (inc: IncidenciaItem) => {
@@ -271,13 +299,28 @@ export default function CentralSoportePage() {
     }
   };
 
-  // 5. Acción: "Resolver Incidencia"
+  // 5. Acción: "Resolver Incidencia" (Reactivación inmediata 0ms + propagación en vivo)
   const handleConfirmarResolucion = async (motivo: string) => {
     if (!incidenciaAResolver) return;
     const targetId = incidenciaAResolver.id;
+    const incOriginal = incidenciaAResolver;
 
-    // Optimistic update
+    const nowIso = new Date().toISOString();
+    const incResuelta: IncidenciaItem = {
+      ...incOriginal,
+      estado: 'resuelto',
+      motivoResolucion: motivo,
+      notaResolucion: notaPersonalizada ? notaPersonalizada.trim() : null,
+      tecnicoNombre: tecnicoNombre || 'Equipo de Soporte',
+      resueltoAt: nowIso,
+    };
+
+    // Actualización optimista instantánea (0ms):
+    // 1. Quitar de "En Camino"
     setIncidenciasActivas((prev) => prev.filter((i) => i.id !== targetId));
+    // 2. Insertar inmediatamente en la cima de "Resueltas Hoy"
+    setResueltasRecientes((prev) => [incResuelta, ...prev.filter((i) => i.id !== targetId)]);
+
     setIncidenciaAResolver(null);
     setNotaPersonalizada('');
 
@@ -295,14 +338,15 @@ export default function CentralSoportePage() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        fetchResueltasHoy();
-      } else {
+      if (!data.success) {
+        console.warn('Fallo al resolver en servidor, sincronizando estado...');
         pollIncidencias();
+        fetchResueltasHoy();
       }
     } catch (err) {
       console.error('Error al resolver incidencia:', err);
       pollIncidencias();
+      fetchResueltasHoy();
     }
   };
 
@@ -614,8 +658,14 @@ export default function CentralSoportePage() {
             </div>
           ) : (
             resueltasRecientes.map((inc) => {
-              const d = new Date(inc.createdAt);
-              const hora = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+              const fechaHora = inc.resueltoAt || inc.createdAt;
+              const d = new Date(fechaHora);
+              const hora = d.toLocaleTimeString('es-PE', {
+                timeZone: 'America/Lima',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              });
 
               return (
                 <div key={inc.id} className={styles.resolvedCard}>

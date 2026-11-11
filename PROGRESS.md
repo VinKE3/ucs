@@ -3,6 +3,48 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 136: Reactividad en Tiempo Real y Sondeo Zero-Egress en Tab Alertas SOS & Salas (`AlertasSosTab.tsx`)**:
+      - **Petición del Usuario**:
+        - En el tab de administrador **"Alertas SOS & Salas"** (`src/components/admin/tabs/AlertasSosTab.tsx`), al resolver o crear una tarea/incidencia desde la Central de Soporte o una terminal, las métricas, gráficos e historial no se actualizaban solos. El usuario preguntó por qué ocurría esto y solicitó que sea reactivo.
+      - **Causa Raíz Identificada**:
+        1. `AlertasSosTab.tsx` ejecutaba `fetchData()` únicamente una sola vez durante el montaje inicial del componente (`useEffect(..., [])`).
+        2. No estaba suscrito al canal ultra-rápido de sondeo en memoria (`/api/incidencias/poll`), por lo que no se enteraba cuando otra pestaña o terminal resolvía o creaba una alerta.
+        3. No disponía de detectores de visibilidad (`visibilitychange` / `focus`), requiriendo recargar toda la página manualmente (`F5`) o cambiar de filtros para ver datos nuevos.
+        4. Toda recarga llamaba a `setLoading(true)`, lo que provocaba un spinner a pantalla completa en lugar de una sincronización silenciosa y fluida en segundo plano.
+      - **Solución Arquitectónica Implementada**:
+        1. **Sondeo Zero-Egress en Memoria RAM (Intervalo 3.5s)**:
+           - Se conectó `AlertasSosTab.tsx` al endpoint `/api/incidencias/poll?v=${cacheVersionRef.current}` que opera directamente en la memoria RAM del servidor Node.js sin tocar la base de datos Neon (0 egress).
+           - Cuando otra ventana o usuario resuelve una alerta, la versión de caché cambia (`data.changed === true`) y dispara un refresco silencioso automático.
+        2. **Refresco Silencioso en Segundo Plano (`silent: true`)**:
+           - La función `fetchData` ahora admite el parámetro `silent: boolean = false`.
+           - En las actualizaciones en segundo plano, omite `setLoading(true)`, evitando parpadeos de spinner o saltos visuales en los gráficos (Donut, Horas Punta, Frecuencia de Salas y Tabla de Historial).
+        3. **Re-sincronización Instantánea por Foco (`visibilitychange` / `focus`)**:
+           - Se añadieron event listeners para que en el milisegundo exacto en que el administrador vuelve a la pestaña del navegador, consulte la versión en memoria y refresque de inmediato si hubo actividad mientras la pestaña estuvo en segundo plano.
+        4. **Protección contra Stale Closures mediante Referencias React (`useRef`)**:
+           - Se incorporaron `fechaDesdeRef`, `fechaHastaRef`, `filtroSedeRef` e `isFetchingRef` para garantizar que las sincronizaciones automáticas respeten los filtros de fecha y sede actualmente seleccionados sin provocar re-renders innecesarios ni solicitudes duplicadas en vuelo.
+        5. **Distintivo Visual '🟢 En vivo'**:
+           - Se incorporó una insignia de pulso verde "En vivo" junto al título del panel para brindar certeza visual inmediata al administrador de que la vista se mantiene sincronizada en tiempo real.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
+    - **Hito 135: Reactividad Integral y Filtrado Estricto de 'Resueltas Hoy' en Central de Soporte (`central-soporte/page.tsx`, `incidenciasMemoryCache.ts`, `api/incidencias/route.ts`)**:
+      - **Petición del Usuario**:
+        1. En la Central de Soporte (`/central-soporte`), la columna "Resueltas Hoy" mostraba incidencias resueltas de todas las fechas pasadas y no exclusivamente las de hoy.
+        2. La columna de "Resueltas Hoy" no era reactiva: al marcar un problema como resuelto pasaba de "Pendientes" a "En Camino", pero no se trasladaba automáticamente a "Resueltas Hoy".
+      - **Solución Arquitectónica Implementada**:
+        1. **Filtrado Estricto por Fecha Oficial Lima (`America/Lima`)**:
+           - En `src/lib/incidenciasMemoryCache.ts`, `src/app/api/incidencias/route.ts` y `src/app/central-soporte/page.tsx`, se integró `getPeruDateString` para garantizar que solo se consideren incidencias cuyo timestamp de resolución (`resueltoAt || createdAt`) pertenezca al día de hoy en hora peruana.
+           - Incidencias resueltas de jornadas anteriores quedan completamente descartadas de la columna y del contador `✅ Resueltas Hoy (N)`.
+           - La hora renderizada en la tarjeta corresponde a la hora exacta de resolución en Lima (`HH:mm a. m./p. m.`).
+        2. **Transición Reactiva Inmediata (0ms Optimistic Update)**:
+           - En `handleConfirmarResolucion`, al confirmar el motivo en el modal, la incidencia se retira de inmediato de `incidenciasActivas` (Columna 2) y se añade al tope de `resueltasRecientes` (Columna 3).
+           - El usuario percibe la transición al instante sin esperas de red.
+        3. **Sincronización Multidispositivo en Memoria RAM (`/api/incidencias/poll`)**:
+           - El estado de la caché en memoria RAM (`IncidenciasCacheState`) ahora almacena tanto `activeList` como `resueltasHoyList`.
+           - En cada sondeo (poll cada 3.5s o al reenfocar la ventana), todas las terminales, celulares de técnicos y pantallas de la central reciben la lista actualizada de resueltas hoy sin consultar la base de datos Neon (zero-egress).
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 134: Selector Reactivo de Casos Clínicos y Escenarios Dependiente del Curso en Programación Gantt (`ProgramacionTab.tsx`)**:
       - **Petición del Usuario**:
         - Al seleccionar uno de los cursos en el Tab de Programación de SimClic, desplegar automáticamente la lista de los casos clínicos que corresponden a dicho curso (usando la Opción 1: casos programados en la fecha/semana consultada con selector desplegable clásico `<select>`).

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import styles from '@/app/admin/admin.module.css';
 import { showError, showToast, confirmDelete } from '@/lib/alerts';
@@ -81,48 +81,123 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     orden: 1,
   });
 
-  // Carga de datos con parámetros
-  const fetchData = async (overrideDesde?: string, overrideHasta?: string, overrideSede?: number | 'todas') => {
-    try {
-      setLoading(true);
-      const d = overrideDesde !== undefined ? overrideDesde : fechaDesde;
-      const h = overrideHasta !== undefined ? overrideHasta : fechaHasta;
-      const s = overrideSede !== undefined ? overrideSede : filtroSede;
-
-      const params = new URLSearchParams();
-      if (d) params.append('desde', d);
-      if (h) params.append('hasta', h);
-      if (s !== 'todas') params.append('sedeId', s.toString());
-
-      const [resConfig, resMetricas] = await Promise.all([
-        fetch('/api/admin/soporte/config'),
-        fetch(`/api/admin/soporte/metricas?${params.toString()}`),
-      ]);
-
-      const dataConfig = await resConfig.json();
-      const dataMetricas = await resMetricas.json();
-
-      if (dataConfig.success) {
-        setConfig(dataConfig.config || {});
-        setCategoriasList(dataConfig.categorias || []);
-        setTerminalesList(dataConfig.terminales || []);
-      }
-
-      if (dataMetricas.success) {
-        setMetricas(dataMetricas.metricas);
-        setIncidenciasList(dataMetricas.incidencias || []);
-      }
-    } catch (err) {
-      console.error('Error al cargar datos de soporte:', err);
-      showError('Error', 'No se pudieron cargar los datos de alertas de sala.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Referencias para sincronización reactiva en tiempo real sin desfasar filtros
+  const fechaDesdeRef = useRef(fechaDesde);
+  const fechaHastaRef = useRef(fechaHasta);
+  const filtroSedeRef = useRef(filtroSede);
+  const cacheVersionRef = useRef<number | undefined>(undefined);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
+    fechaDesdeRef.current = fechaDesde;
+  }, [fechaDesde]);
+
+  useEffect(() => {
+    fechaHastaRef.current = fechaHasta;
+  }, [fechaHasta]);
+
+  useEffect(() => {
+    filtroSedeRef.current = filtroSede;
+  }, [filtroSede]);
+
+  // Carga de datos con parámetros (con soporte para refresco silencioso en background)
+  const fetchData = useCallback(
+    async (
+      overrideDesde?: string,
+      overrideHasta?: string,
+      overrideSede?: number | 'todas',
+      silent: boolean = false
+    ) => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      try {
+        if (!silent) setLoading(true);
+        const d = overrideDesde !== undefined ? overrideDesde : fechaDesdeRef.current;
+        const h = overrideHasta !== undefined ? overrideHasta : fechaHastaRef.current;
+        const s = overrideSede !== undefined ? overrideSede : filtroSedeRef.current;
+
+        const params = new URLSearchParams();
+        if (d) params.append('desde', d);
+        if (h) params.append('hasta', h);
+        if (s !== 'todas') params.append('sedeId', s.toString());
+
+        const [resConfig, resMetricas] = await Promise.all([
+          fetch('/api/admin/soporte/config', { cache: 'no-store' }),
+          fetch(`/api/admin/soporte/metricas?${params.toString()}`, { cache: 'no-store' }),
+        ]);
+
+        const dataConfig = await resConfig.json();
+        const dataMetricas = await resMetricas.json();
+
+        if (dataConfig.success) {
+          setConfig(dataConfig.config || {});
+          setCategoriasList(dataConfig.categorias || []);
+          setTerminalesList(dataConfig.terminales || []);
+        }
+
+        if (dataMetricas.success) {
+          setMetricas(dataMetricas.metricas);
+          setIncidenciasList(dataMetricas.incidencias || []);
+        }
+      } catch (err) {
+        console.error('Error al cargar datos de soporte:', err);
+        if (!silent) {
+          showError('Error', 'No se pudieron cargar los datos de alertas de sala.');
+        }
+      } finally {
+        isFetchingRef.current = false;
+        if (!silent) setLoading(false);
+      }
+    },
+    []
+  );
+
+  // 🔄 Sincronización reactiva en tiempo real (Zero-Egress via memoria RAM)
+  useEffect(() => {
+    // 1. Carga inicial
     fetchData();
-  }, []);
+
+    // 2. Sondeo ultra-ligero cada 3.5 segundos contra la caché en memoria RAM
+    const checkPoll = async () => {
+      try {
+        const url = cacheVersionRef.current
+          ? `/api/incidencias/poll?v=${cacheVersionRef.current}`
+          : '/api/incidencias/poll';
+
+        const res = await fetch(url, { cache: 'no-store' });
+        const data = await res.json();
+
+        if (data.success) {
+          if (data.changed) {
+            cacheVersionRef.current = data.version;
+            // Refrescar métricas e historial de forma silenciosa (sin pantalla de carga)
+            fetchData(undefined, undefined, undefined, true);
+          } else {
+            cacheVersionRef.current = data.version;
+          }
+        }
+      } catch {
+        // Silenciar errores transitorios en sondeo secundario
+      }
+    };
+
+    const interval = setInterval(checkPoll, 3500);
+
+    // 3. Re-sincronización instantánea al volver a enfocar la ventana o pestaña
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkPoll();
+      }
+    };
+    window.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onVisibilityChange);
+    };
+  }, [fetchData]);
 
   // Manejo de atajos rápidos de fecha
   const handleSeleccionarPeriodo = (tipo: 'hoy' | 'ayer' | 'semana' | 'mes' | 'todos') => {
@@ -484,6 +559,32 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
               }}
             >
               Control Central
+            </span>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                padding: '0.2rem 0.55rem',
+                borderRadius: '12px',
+                fontWeight: 700,
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title="Sincronizado en tiempo real con Central de Soporte"
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }}
+              />
+              En vivo
             </span>
           </div>
           <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>

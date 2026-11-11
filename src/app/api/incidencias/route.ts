@@ -7,6 +7,7 @@ import {
   updateIncidentInMemory,
   getActiveIncidentForAmbiente,
   syncActiveIncidenciasFromDb,
+  getResueltasHoyFromCacheOrDb,
   IncidenciaEnMemoria,
 } from '@/lib/incidenciasMemoryCache';
 
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const ambienteIdStr = searchParams.get('ambienteId');
     const all = searchParams.get('all') === 'true';
+    const resueltasHoy = searchParams.get('resueltasHoy') === 'true';
 
     // Caso 1: Consulta para la PC del aula (¿esta sala tiene una alerta en curso?)
     if (ambienteIdStr) {
@@ -35,6 +37,22 @@ export async function GET(req: NextRequest) {
         success: true,
         activa: active,
       });
+    }
+
+    // Caso 2: Consulta de incidencias resueltas HOY en Lima para Central de Soporte
+    if (resueltasHoy) {
+      const resueltas = await getResueltasHoyFromCacheOrDb();
+      return NextResponse.json(
+        {
+          success: true,
+          incidencias: resueltas,
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          },
+        }
+      );
     }
 
     // Caso 2: Reporte histórico completo

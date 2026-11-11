@@ -1025,3 +1025,196 @@
     padding: 0.3rem 0.6rem;
   }
 }
+
+/* ==========================================================================
+   PILAR 2: RESILIENCIA DE RED WI-FI Y CRONÓMETROS SLA EN VIVO
+   ========================================================================== */
+
+.networkStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.networkStatusReconnecting {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.35);
+  animation: pulseReconnecting 1.5s infinite;
+}
+
+.networkStatusOffline {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.networkDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+@keyframes pulseReconnecting {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.95); }
+}
+
+/* BANNER DE DESCONEXIÓN O ALERTA DE RED */
+.offlineBanner {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95));
+  border: 1px solid #fca5a5;
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.35);
+  animation: slideDownBanner 0.3s ease;
+  flex-wrap: wrap;
+}
+
+.offlineBannerWarning {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.95), rgba(180, 83, 9, 0.95));
+  border-color: #fcd34d;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.offlineBannerContent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.offlineIcon {
+  font-size: 1.5rem;
+}
+
+.offlineTextTitle {
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.offlineTextDesc {
+  font-size: 0.82rem;
+  margin: 0.2rem 0 0;
+  opacity: 0.9;
+}
+
+.btnRetrySync {
+  background: #ffffff;
+  color: #b91c1c;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.btnRetrySync:hover {
+  background: #f1f5f9;
+  transform: translateY(-1px);
+}
+
+@keyframes slideDownBanner {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* BADGES DE SLA Y TIMESTAMPS RELATIVOS */
+.stopwatchBadgeWarning {
+  background: rgba(245, 158, 11, 0.25) !important;
+  color: #fcd34d !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+.stopwatchBadgeCritical {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  animation: pulseCriticalSla 1.2s infinite;
+  font-weight: 900;
+}
+
+@keyframes pulseCriticalSla {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+  50% { transform: scale(1.05); box-shadow: 0 0 18px rgba(239, 68, 68, 0.9); }
+}
+
+.incidentCardCritical {
+  border-color: #ef4444 !important;
+  animation: pulseAlarmCritical 1.2s infinite !important;
+}
+
+@keyframes pulseAlarmCritical {
+  0%, 100% { box-shadow: 0 0 18px rgba(239, 68, 68, 0.35); }
+  50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.7); }
+}
+
+.enCaminoTimeBadge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-family: monospace;
+}
+
+/* TEMA CLARO */
+:global([data-theme="light"]) .networkStatusBadge {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+:global([data-theme="light"]) .networkStatusReconnecting {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+:global([data-theme="light"]) .networkStatusOffline {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+:global([data-theme="light"]) .stopwatchBadgeWarning {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+:global([data-theme="light"]) .stopwatchBadgeCritical {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+
+:global([data-theme="light"]) .enCaminoTimeBadge {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fde68a;
+}

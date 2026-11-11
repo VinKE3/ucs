@@ -34,6 +34,12 @@ export default function CentralSoportePage() {
   const [resueltasRecientes, setResueltasRecientes] = useState<IncidenciaItem[]>([]);
   const cacheVersionRef = useRef<string | undefined>(undefined);
 
+  // Pilar 2: Resiliencia de Red Wi-Fi y Timestamps en tiempo real
+  const [networkStatus, setNetworkStatus] = useState<'connected' | 'reconnecting' | 'offline'>('connected');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const failedAttemptsRef = useRef(0);
+  const [nowMs, setNowMs] = useState(Date.now());
+
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [horaLocal, setHoraLocal] = useState('');
   const [mobileTab, setMobileTab] = useState<'pendientes' | 'en_camino' | 'resueltas'>('pendientes');
@@ -65,10 +71,11 @@ export default function CentralSoportePage() {
     }
   }, []);
 
-  // 1. Reloj en vivo
+  // 1. Reloj en vivo y pulsador de segundo para cronómetros SLA relativos
   useEffect(() => {
     const update = () => {
       const now = new Date();
+      setNowMs(now.getTime());
       setHoraLocal(now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     };
     update();
@@ -182,17 +189,76 @@ export default function CentralSoportePage() {
     };
   }, [incidenciasActivas]);
 
-  // 3. Sondeo Zero-Egress en Memoria RAM (/api/incidencias/poll)
+  // 2.4 Cálculos de Tiempo Relativo y SLA Clínico en Vivo
+  const getStopwatchInfo = useCallback((createdAtIso: string, currentMs: number) => {
+    const start = new Date(createdAtIso).getTime();
+    const diffSec = Math.max(0, Math.floor((currentMs - start) / 1000));
+
+    if (diffSec < 60) {
+      return {
+        text: `⏱️ Hace ${diffSec}s`,
+        badgeClass: styles.stopwatchBadge,
+        isCritical: false,
+      };
+    }
+
+    const mins = Math.floor(diffSec / 60);
+    const secs = diffSec % 60;
+
+    if (mins < 3) {
+      return {
+        text: `⏱️ Hace ${mins}m ${secs < 10 ? '0' : ''}${secs}s`,
+        badgeClass: `${styles.stopwatchBadge} ${styles.stopwatchBadgeWarning}`,
+        isCritical: false,
+      };
+    }
+
+    // >= 3 minutos sin atender -> Alerta de demora crítica en simulación clínica
+    return {
+      text: `🚨 Demorado (${mins}m)`,
+      badgeClass: `${styles.stopwatchBadge} ${styles.stopwatchBadgeCritical}`,
+      isCritical: true,
+    };
+  }, []);
+
+  const getEnCaminoElapsedTime = useCallback((atendidoAtIso: string | null, createdAtIso: string, currentMs: number) => {
+    const start = new Date(atendidoAtIso || createdAtIso).getTime();
+    const diffSec = Math.max(0, Math.floor((currentMs - start) / 1000));
+    if (diffSec < 60) return `${diffSec}s en ruta`;
+    const mins = Math.floor(diffSec / 60);
+    const secs = diffSec % 60;
+    return `${mins}m ${secs < 10 ? '0' : ''}${secs}s en ruta`;
+  }, []);
+
+  // 3. Sondeo Zero-Overhead con Tolerancia a Fallos de Red Wi-Fi
   const pollIncidencias = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setNetworkStatus('offline');
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     try {
       const url = cacheVersionRef.current
         ? `/api/incidencias/poll?v=${encodeURIComponent(cacheVersionRef.current)}`
         : '/api/incidencias/poll';
 
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = await res.json();
 
       if (data.success) {
+        setNetworkStatus('connected');
+        setLastSyncTime(new Date());
+        failedAttemptsRef.current = 0;
+
         if (data.changed) {
           if (data.activeList) {
             setIncidenciasActivas(data.activeList);
@@ -220,8 +286,16 @@ export default function CentralSoportePage() {
           cacheVersionRef.current = data.version;
         }
       }
-    } catch (e) {
-      console.error('Error en poll de central-soporte:', e);
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      failedAttemptsRef.current += 1;
+      console.warn('Alerta de conexión en sondeo de central-soporte:', e);
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setNetworkStatus('offline');
+      } else if (failedAttemptsRef.current >= 2) {
+        setNetworkStatus('reconnecting');
+      }
     }
   }, []);
 
@@ -255,13 +329,30 @@ export default function CentralSoportePage() {
         fetchResueltasHoy();
       }
     };
+
+    // Detección de reconexión Wi-Fi nativa del navegador
+    const handleOnline = () => {
+      setNetworkStatus('connected');
+      failedAttemptsRef.current = 0;
+      pollIncidencias();
+      fetchResueltasHoy();
+    };
+
+    const handleOffline = () => {
+      setNetworkStatus('offline');
+    };
+
     window.addEventListener('visibilitychange', onVisibilityOrFocus);
     window.addEventListener('focus', onVisibilityOrFocus);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('visibilitychange', onVisibilityOrFocus);
       window.removeEventListener('focus', onVisibilityOrFocus);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [pollIncidencias, fetchResueltasHoy]);
 
@@ -401,6 +492,33 @@ export default function CentralSoportePage() {
           </div>
 
           <div className={styles.headerControls}>
+            {/* Indicador de Red / Conexión Wi-Fi */}
+            <div
+              className={`${styles.networkStatusBadge} ${
+                networkStatus === 'reconnecting'
+                  ? styles.networkStatusReconnecting
+                  : networkStatus === 'offline'
+                  ? styles.networkStatusOffline
+                  : ''
+              }`}
+              title={
+                networkStatus === 'connected'
+                  ? `Conectado y sincronizado en tiempo real.${lastSyncTime ? ` Último ping: ${lastSyncTime.toLocaleTimeString('es-PE')}` : ''}`
+                  : networkStatus === 'reconnecting'
+                  ? 'Verificando señal Wi-Fi...'
+                  : 'Sin conexión a Internet'
+              }
+            >
+              <span className={styles.networkDot} />
+              <span>
+                {networkStatus === 'connected'
+                  ? 'En línea'
+                  : networkStatus === 'reconnecting'
+                  ? 'Reconectando...'
+                  : 'Sin conexión'}
+              </span>
+            </div>
+
             <div className={styles.clockBadge}>{horaLocal}</div>
 
             <button
@@ -427,6 +545,45 @@ export default function CentralSoportePage() {
             <ThemeToggle />
           </div>
         </header>
+
+        {/* BANNER DE ADVERTENCIA CUANDO SE PIERDE CONEXIÓN WI-FI */}
+        {networkStatus !== 'connected' && (
+          <div
+            className={`${styles.offlineBanner} ${
+              networkStatus === 'reconnecting' ? styles.offlineBannerWarning : ''
+            }`}
+            role="alert"
+          >
+            <div className={styles.offlineBannerContent}>
+              <span className={styles.offlineIcon}>
+                {networkStatus === 'offline' ? '📡' : '⚠️'}
+              </span>
+              <div>
+                <p className={styles.offlineTextTitle}>
+                  {networkStatus === 'offline'
+                    ? 'Sin conexión a la red de la clínica'
+                    : 'Señal Wi-Fi inestable o reconectando'}
+                </p>
+                <p className={styles.offlineTextDesc}>
+                  {networkStatus === 'offline'
+                    ? 'Verifica que tu celular esté conectado al Wi-Fi de la sede o datos móviles para recibir nuevas alertas SOS.'
+                    : 'Reintentando sincronizar con la central de soporte automáticamente...'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={styles.btnRetrySync}
+              onClick={() => {
+                pollIncidencias();
+                fetchResueltasHoy();
+              }}
+            >
+              🔄 Reintentar Ahora
+            </button>
+          </div>
+        )}
 
         {/* SELECTOR SEGMENTADO PARA SMARTPHONES / MÓVILES */}
         <nav className={styles.mobileTabBar} aria-label="Filtro de columnas móvil">
@@ -486,11 +643,15 @@ export default function CentralSoportePage() {
             </div>
           ) : (
             pendientes.map((inc) => {
-              const start = new Date(inc.createdAt).getTime();
-              const mins = Math.max(0, Math.floor((Date.now() - start) / 60000));
+              const sw = getStopwatchInfo(inc.createdAt, nowMs);
 
               return (
-                <div key={inc.id} className={`${styles.incidentCard} ${styles.incidentCardPendiente}`}>
+                <div
+                  key={inc.id}
+                  className={`${styles.incidentCard} ${styles.incidentCardPendiente} ${
+                    sw.isCritical ? styles.incidentCardCritical : ''
+                  }`}
+                >
                   <div className={styles.incidentCardHeader}>
                     <div>
                       <div className={styles.roomTag}>
@@ -501,8 +662,8 @@ export default function CentralSoportePage() {
                       </div>
                     </div>
 
-                    <div className={styles.stopwatchBadge}>
-                      ⏱️ Hace {mins} min{mins !== 1 ? 's' : ''}
+                    <div className={sw.badgeClass}>
+                      {sw.text}
                     </div>
                   </div>
 
@@ -573,22 +734,30 @@ export default function CentralSoportePage() {
               <div>No hay técnicos en desplazamiento ahora.</div>
             </div>
           ) : (
-            enCamino.map((inc) => (
-              <div key={inc.id} className={`${styles.incidentCard} ${styles.incidentCardEnCamino}`}>
-                <div className={styles.incidentCardHeader}>
-                  <div>
-                    <div className={styles.roomTag}>
-                      <span>📍</span> {inc.ambienteNombre}
-                    </div>
-                    <div className={styles.sedeSmall}>
-                      {inc.sedeNombre} • {inc.terminalNombre || 'Terminal'}
-                    </div>
-                  </div>
+            enCamino.map((inc) => {
+              const elapsedStr = getEnCaminoElapsedTime(inc.atendidoAt, inc.createdAt, nowMs);
 
-                  <div className={styles.techAssignedTag}>
-                    <span>👤</span> {inc.tecnicoNombre || 'Equipo de Soporte'}
+              return (
+                <div key={inc.id} className={`${styles.incidentCard} ${styles.incidentCardEnCamino}`}>
+                  <div className={styles.incidentCardHeader}>
+                    <div>
+                      <div className={styles.roomTag}>
+                        <span>📍</span> {inc.ambienteNombre}
+                      </div>
+                      <div className={styles.sedeSmall}>
+                        {inc.sedeNombre} • {inc.terminalNombre || 'Terminal'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                      <div className={styles.techAssignedTag}>
+                        <span>👤</span> {inc.tecnicoNombre || 'Equipo de Soporte'}
+                      </div>
+                      <span className={styles.enCaminoTimeBadge}>
+                        ⏱️ {elapsedStr}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
                 <div className={`${styles.categoryTag} ${styles.categoryTagEnCamino}`}>
                   <span>{inc.categoria}</span>
@@ -628,7 +797,8 @@ export default function CentralSoportePage() {
                   </button>
                 </div>
               </div>
-            ))
+            );
+          })
           )}
         </section>
 

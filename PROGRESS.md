@@ -3,6 +3,32 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 138: Resiliencia de Red Wi-Fi en Móviles y Cronómetros SLA Relativos en Vivo (`central-soporte/page.tsx`, `central-soporte.module.css`)**:
+      - **Petición del Usuario**:
+        - Implementar las mejoras del Pilar 2 para la prueba de campo en los 8 consultorios de simulación clínica:
+          1. Resiliencia ante desconexiones o saltos de Wi-Fi en los celulares personales de los técnicos de soporte.
+          2. Timestamps y cronómetros relativos en vivo ("Hace X seg / min") con alerta visual de SLA demorado (>3 min).
+      - **Solución Arquitectónica Implementada**:
+        1. **Monitor de Red y Detección de Desconexión / Roaming Wi-Fi**:
+           - Se incorporó un semáforo visual de estado de conectividad en el Navbar:
+             - `🟢 En línea`: Ping activo y sincronizado en tiempo real.
+             - `🟡 Reconectando...`: Si falla un sondeo o la señal de la clínica es débil (pulso animado).
+             - `🔴 Sin conexión`: Si el navegador reporta `!navigator.onLine` o hay fallos reiterados.
+           - Se añadió un **Banner de Alerta Flotante** cuando se pierde la conexión Wi-Fi, informando al técnico que no podrá recibir alertas hasta reconectar, e incluyendo un botón de acción rápida `[ 🔄 Reintentar Ahora ]`.
+           - Se integraron escuchadores nativos `window.addEventListener('online')` y `('offline')` con `AbortController` (timeout de 6s) para que el navegador re-sincronice en el milisegundo exacto en que el celular recupera señal.
+        2. **Cronómetros SLA Reactivos en Tiempo Real (Reloj Ticker 1s)**:
+           - Se vinculó el ticker de segundo (`nowMs`) al estado reactivo global para evitar cálculos estáticos dependientes de re-renders.
+           - **En Pendientes**:
+             - `< 60 seg`: `⏱️ Hace 15s` (contador en segundos en vivo).
+             - `1 - 3 min`: `⏱️ Hace 1m 45s` (aviso preventivo en ámbar).
+             - `>= 3 min`: `🚨 Demorado (Xm)` con badge rojo brillante parpadeante y tarjeta en modo de urgencia clínica (`incidentCardCritical`), destacando el incumplimiento de SLA.
+           - **En Camino / En Atención**:
+             - Muestra en tiempo real el tiempo transcurrido desde que el técnico partió al consultorio: `⏱️ 1m 20s en ruta`.
+        3. **Soporte Completo de Temas (Dark / Light)**:
+           - Estilos adaptados con variables y tokens visuales para ambos modos sin afectar la legibilidad bajo la luz de los consultorios.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 137: Arquitectura 'Single Source of Truth' con Fingerprint de Postgres para Compatibilidad Total con Serverless (Vercel) y Sincronización Global (`incidenciasMemoryCache.ts`, `poll/route.ts`, `central-soporte/page.tsx`, `AlertasSosTab.tsx`)**:
       - **Petición del Usuario**:
         - En Vercel (`ucs-iota.vercel.app/central-soporte`), el sistema presentaba fluctuaciones erráticas: la columna "Resueltas Hoy" saltaba de 5 a 3 incidencias en cuestión de 4 segundos, y las incidencias en camino desaparecían sin transicionar.

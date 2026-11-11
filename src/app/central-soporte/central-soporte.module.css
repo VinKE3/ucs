@@ -1218,3 +1218,136 @@
   background: #fef3c7;
   border-color: #fde68a;
 }
+
+/* ==========================================================================
+   PILAR 3: COORDINACIÓN DE EQUIPO Y PREVENCIÓN DE CHOQUES
+   ========================================================================== */
+
+/* Tarjeta cuando la atención fue tomada por MÍ */
+.incidentCardMiAtencion {
+  border: 2px solid #10b981 !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(30, 41, 59, 0.95)) !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Tarjeta cuando la atención fue tomada por OTRO técnico */
+.incidentCardOtroTecnico {
+  border: 2px solid #f59e0b !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(30, 41, 59, 0.85)) !important;
+  opacity: 0.92;
+}
+
+/* Badge especial: "🎯 Mi Asignación" */
+.techBadgeMine {
+  background: #10b981;
+  color: #ffffff;
+  padding: 0.25rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  letter-spacing: -0.01em;
+}
+
+/* Botón de Resolver cuando es MI atención */
+.btnResolverMine {
+  flex: 1;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+}
+
+.btnResolverMine:hover {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+/* Banner Toast Flotante In-App para avisos entre compañeros */
+.toastBanner {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  background: #0f172a;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #f1f5f9;
+  padding: 0.85rem 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  animation: slideUpToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 90vw;
+}
+
+.toastBannerWarning {
+  border-color: rgba(245, 158, 11, 0.6);
+  background: #1e1b18;
+  color: #fef3c7;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(245, 158, 11, 0.3);
+}
+
+.btnToastClose {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btnToastClose:hover {
+  color: #ffffff;
+}
+
+@keyframes slideUpToast {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Tema Claro */
+:global([data-theme="light"]) .incidentCardMiAtencion {
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%) !important;
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2) !important;
+}
+
+:global([data-theme="light"]) .incidentCardOtroTecnico {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%) !important;
+  border: 2px solid #f59e0b !important;
+}
+
+:global([data-theme="light"]) .toastBanner {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+:global([data-theme="light"]) .toastBannerWarning {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}

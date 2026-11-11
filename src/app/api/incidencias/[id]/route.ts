@@ -69,6 +69,28 @@ export async function PATCH(
     let nuevoTecnicoId = tecnicoId ? Number(tecnicoId) : existing.tecnicoId;
 
     if (effectiveAccion === 'en_camino') {
+      // Protección contra colisiones: si otro técnico ya tomó la alerta milisegundos antes
+      if (existing.estado === 'en_camino') {
+        return NextResponse.json(
+          {
+            success: false,
+            yaTomada: true,
+            tecnicoAsignado: existing.tecnicoNombre,
+            mensaje: `Esta alerta ya fue tomada por ${existing.tecnicoNombre || 'otro técnico'}.`,
+          },
+          { status: 409 }
+        );
+      }
+      if (existing.estado === 'resuelto') {
+        return NextResponse.json(
+          {
+            success: false,
+            yaResuelta: true,
+            mensaje: 'Esta alerta ya fue marcada como resuelta.',
+          },
+          { status: 409 }
+        );
+      }
       nuevoEstado = 'en_camino';
       nuevoAtendidoAt = now;
     } else if (effectiveAccion === 'resolver') {

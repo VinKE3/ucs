@@ -3,6 +3,31 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 139: Coordinación de Equipo, Prevención Atómica de Colisiones y Notificaciones In-App entre Técnicos (`central-soporte/page.tsx`, `central-soporte.module.css`, `api/incidencias/[id]/route.ts`, `api/incidencias/route.ts`)**:
+      - **Petición del Usuario**:
+        - Implementar las mejoras del Pilar 3 (Coordinación de Equipo y Prevención de Choques entre Técnicos), excluyendo el botón de "sumarme como apoyo".
+        - Evitar que dos técnicos acudan al mismo consultorio y asegurar que cada técnico distinga con total claridad sus atenciones de las de sus compañeros.
+      - **Solución Arquitectónica Implementada**:
+        1. **Prevención Atómica de Concurrencia en Backend (HTTP 409 Conflict)**:
+           - En `/api/incidencias/[id]` y `/api/incidencias` (métodos `PATCH`), se incorporó validación atómica: si un técnico pulsa "Vamos en camino" milisegundos después de que otro compañero ya tomó la alerta (`existing.estado === 'en_camino'`), el backend bloquea la sobrescritura y retorna `409 Conflict` con los datos del técnico ganador (`{ yaTomada: true, tecnicoAsignado: '...' }`).
+           - Se previene que un técnico que llegó segundo sobrescriba la titularidad del primero en Postgres.
+        2. **Diferenciación Visual Inmediata: Mi Asignación vs. Otro Técnico**:
+           - **Mi Asignación**:
+             - Tarjeta con borde esmeralda brillante y aura luminosa (`incidentCardMiAtencion`).
+             - Badge superior: `🎯 Mi Asignación`.
+             - Botón primario: `✅ Marcar Resuelto (Mi atención)`.
+           - **Atendido por Otro Compañero**:
+             - Tarjeta atenuada con borde ámbar (`incidentCardOtroTecnico`).
+             - Badge: `👤 [Nombre del Técnico Asignado]`.
+             - Botón secundario descriptivo: `✅ Resolver por [Nombre del Técnico]`.
+        3. **Notificaciones In-App Flotantes (Toasts)**:
+           - Al detectar en el sondeo en tiempo real que una alerta pendiente fue tomada por un colega, se despliega un toast flotante en la pantalla de los demás técnicos:
+             `🏃 [Nombre de Técnico] va en camino a [Ambiente]`.
+           - Si ocurre una colisión (dos técnicos pulsando al mismo tiempo), el que pulsó tarde recibe un toast de advertencia:
+             `⚠️ ¡Atención! Esta alerta ya fue tomada por [Técnico].` y su interfaz se sincroniza al instante sin desplazarlo innecesariamente.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 138: Resiliencia de Red Wi-Fi en Móviles y Cronómetros SLA Relativos en Vivo (`central-soporte/page.tsx`, `central-soporte.module.css`)**:
       - **Petición del Usuario**:
         - Implementar las mejoras del Pilar 2 para la prueba de campo en los 8 consultorios de simulación clínica:

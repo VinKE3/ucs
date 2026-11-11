@@ -46,10 +46,30 @@ export default function CentralSoportePage() {
 
   // Identificación del técnico de soporte
   const [tecnicoNombre, setTecnicoNombre] = useState<string>('Equipo de Soporte');
+  const tecnicoNombreRef = useRef(tecnicoNombre);
+  const incidenciasActivasRef = useRef<IncidenciaItem[]>([]);
   const [showDniModal, setShowDniModal] = useState(false);
   const [dniInput, setDniInput] = useState('');
   const [dniError, setDniError] = useState<string | null>(null);
   const [validatingDni, setValidatingDni] = useState(false);
+
+  // Pilar 3: Notificaciones Toast In-App entre técnicos
+  const [toastInfo, setToastInfo] = useState<{ text: string; isWarning?: boolean } | null>(null);
+
+  const showToast = useCallback((text: string, isWarning: boolean = false) => {
+    setToastInfo({ text, isWarning });
+    setTimeout(() => {
+      setToastInfo((curr) => (curr?.text === text ? null : curr));
+    }, 5500);
+  }, []);
+
+  useEffect(() => {
+    tecnicoNombreRef.current = tecnicoNombre;
+  }, [tecnicoNombre]);
+
+  useEffect(() => {
+    incidenciasActivasRef.current = incidenciasActivas;
+  }, [incidenciasActivas]);
 
   // Modal para resolver incidencia
   const [incidenciaAResolver, setIncidenciaAResolver] = useState<IncidenciaItem | null>(null);
@@ -261,6 +281,23 @@ export default function CentralSoportePage() {
 
         if (data.changed) {
           if (data.activeList) {
+            // Pilar 3: Notificar si otro compañero tomó una alerta que estaba pendiente
+            const miNombreNorm = (tecnicoNombreRef.current || '').trim().toLowerCase();
+            const prevPendientes = incidenciasActivasRef.current.filter((i) => i.estado === 'pendiente');
+
+            data.activeList.forEach((nuevo: IncidenciaItem) => {
+              if (nuevo.estado === 'en_camino' && nuevo.tecnicoNombre) {
+                const asignadoNorm = nuevo.tecnicoNombre.trim().toLowerCase();
+                const esMio = miNombreNorm !== '' && miNombreNorm !== 'equipo de soporte' && asignadoNorm === miNombreNorm;
+                if (!esMio) {
+                  const estabaPendiente = prevPendientes.some((p) => p.id === nuevo.id);
+                  if (estabaPendiente) {
+                    showToast(`🏃 ${nuevo.tecnicoNombre} va en camino a ${nuevo.ambienteNombre}`);
+                  }
+                }
+              }
+            });
+
             setIncidenciasActivas(data.activeList);
 
             // Verificar si hay nuevas pendientes para auto-cambiar de tab en móvil
@@ -356,13 +393,16 @@ export default function CentralSoportePage() {
     };
   }, [pollIncidencias, fetchResueltasHoy]);
 
-  // 4. Acción: "Vamos en Camino"
+  // 4. Acción: "Vamos en Camino" (Pilar 3: Prevención de Choques y Concurrencia)
   const handleVoyEnCamino = async (inc: IncidenciaItem) => {
+    const nowIso = new Date().toISOString();
+    const miNombre = tecnicoNombre || 'Equipo de Soporte';
+
     // Actualizar localmente de inmediato para feedback instantáneo (0ms)
     setIncidenciasActivas((prev) =>
       prev.map((i) =>
         i.id === inc.id
-          ? { ...i, estado: 'en_camino', tecnicoNombre: tecnicoNombre || 'Equipo de Soporte' }
+          ? { ...i, estado: 'en_camino', tecnicoNombre: miNombre, atendidoAt: nowIso }
           : i
       )
     );
@@ -374,11 +414,19 @@ export default function CentralSoportePage() {
         body: JSON.stringify({
           accion: 'en_camino',
           estado: 'en_camino',
-          tecnicoNombre: tecnicoNombre || 'Equipo de Soporte',
+          tecnicoNombre: miNombre,
         }),
       });
 
       const data = await res.json();
+
+      // Detección de colisión: otro técnico pulsó milisegundos antes
+      if (res.status === 409 && data.yaTomada) {
+        showToast(`⚠️ ${data.mensaje}`, true);
+        pollIncidencias();
+        return;
+      }
+
       if (!data.success) {
         console.warn('Reintentando sincronización de incidencias activas...');
         pollIncidencias();
@@ -736,9 +784,20 @@ export default function CentralSoportePage() {
           ) : (
             enCamino.map((inc) => {
               const elapsedStr = getEnCaminoElapsedTime(inc.atendidoAt, inc.createdAt, nowMs);
+              const miNombreNorm = (tecnicoNombre || '').trim().toLowerCase();
+              const asignadoNorm = (inc.tecnicoNombre || '').trim().toLowerCase();
+              const esMiAtencion =
+                miNombreNorm !== '' &&
+                miNombreNorm !== 'equipo de soporte' &&
+                asignadoNorm === miNombreNorm;
 
               return (
-                <div key={inc.id} className={`${styles.incidentCard} ${styles.incidentCardEnCamino}`}>
+                <div
+                  key={inc.id}
+                  className={`${styles.incidentCard} ${styles.incidentCardEnCamino} ${
+                    esMiAtencion ? styles.incidentCardMiAtencion : styles.incidentCardOtroTecnico
+                  }`}
+                >
                   <div className={styles.incidentCardHeader}>
                     <div>
                       <div className={styles.roomTag}>
@@ -750,55 +809,63 @@ export default function CentralSoportePage() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                      <div className={styles.techAssignedTag}>
-                        <span>👤</span> {inc.tecnicoNombre || 'Equipo de Soporte'}
-                      </div>
+                      {esMiAtencion ? (
+                        <div className={styles.techBadgeMine}>
+                          <span>🎯</span> Mi Asignación
+                        </div>
+                      ) : (
+                        <div className={styles.techAssignedTag}>
+                          <span>👤</span> {inc.tecnicoNombre || 'Equipo de Soporte'}
+                        </div>
+                      )}
                       <span className={styles.enCaminoTimeBadge}>
                         ⏱️ {elapsedStr}
                       </span>
                     </div>
                   </div>
 
-                <div className={`${styles.categoryTag} ${styles.categoryTagEnCamino}`}>
-                  <span>{inc.categoria}</span>
-                </div>
-
-                <div className={styles.contextRow}>
-                  <div className={styles.teacherName}>
-                    👨‍⚕️ {inc.docenteNombre || 'Docente en aula'}
+                  <div className={`${styles.categoryTag} ${styles.categoryTagEnCamino}`}>
+                    <span>{inc.categoria}</span>
                   </div>
-                  {inc.cursoNombre && (
-                    <div className={styles.courseName}>📚 {inc.cursoNombre}</div>
-                  )}
-                  {inc.casoNombre && (
-                    <div className={styles.caseBadge}>
-                      <span>🩺 Caso:</span> {inc.casoNombre}
-                    </div>
-                  )}
-                  {inc.pacienteSimuladoNombre && (
-                    <div className={styles.psBadge}>
-                      <span>🎭 PS:</span> {inc.pacienteSimuladoNombre}
-                    </div>
-                  )}
-                  {inc.descripcion && (
-                    <div className={styles.incidentDesc}>
-                      "{inc.descripcion}"
-                    </div>
-                  )}
-                </div>
 
-                <div className={styles.actionBtnRow}>
-                  <button
-                    type="button"
-                    className={styles.btnResolver}
-                    onClick={() => setIncidenciaAResolver(inc)}
-                  >
-                    ✅ Marcar Resuelto
-                  </button>
+                  <div className={styles.contextRow}>
+                    <div className={styles.teacherName}>
+                      👨‍⚕️ {inc.docenteNombre || 'Docente en aula'}
+                    </div>
+                    {inc.cursoNombre && (
+                      <div className={styles.courseName}>📚 {inc.cursoNombre}</div>
+                    )}
+                    {inc.casoNombre && (
+                      <div className={styles.caseBadge}>
+                        <span>🩺 Caso:</span> {inc.casoNombre}
+                      </div>
+                    )}
+                    {inc.pacienteSimuladoNombre && (
+                      <div className={styles.psBadge}>
+                        <span>🎭 PS:</span> {inc.pacienteSimuladoNombre}
+                      </div>
+                    )}
+                    {inc.descripcion && (
+                      <div className={styles.incidentDesc}>
+                        "{inc.descripcion}"
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={styles.actionBtnRow}>
+                    <button
+                      type="button"
+                      className={esMiAtencion ? styles.btnResolverMine : styles.btnResolver}
+                      onClick={() => setIncidenciaAResolver(inc)}
+                    >
+                      {esMiAtencion
+                        ? '✅ Marcar Resuelto (Mi atención)'
+                        : `✅ Resolver por ${inc.tecnicoNombre || 'Soporte'}`}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })
           )}
         </section>
 
@@ -1024,6 +1091,23 @@ export default function CentralSoportePage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+      {/* BANNER TOAST FLOTANTE IN-APP (Pilar 3: Coordinación de Compañeros) */}
+      {toastInfo && (
+        <div
+          className={`${styles.toastBanner} ${toastInfo.isWarning ? styles.toastBannerWarning : ''}`}
+          role="status"
+        >
+          <span>{toastInfo.text}</span>
+          <button
+            type="button"
+            onClick={() => setToastInfo(null)}
+            className={styles.btnToastClose}
+            aria-label="Cerrar notificación"
+          >
+            ✕
+          </button>
         </div>
       )}
     </main>

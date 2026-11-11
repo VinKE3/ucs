@@ -32,7 +32,7 @@ interface IncidenciaItem {
 export default function CentralSoportePage() {
   const [incidenciasActivas, setIncidenciasActivas] = useState<IncidenciaItem[]>([]);
   const [resueltasRecientes, setResueltasRecientes] = useState<IncidenciaItem[]>([]);
-  const [cacheVersion, setCacheVersion] = useState<number | undefined>(undefined);
+  const cacheVersionRef = useRef<string | undefined>(undefined);
 
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [horaLocal, setHoraLocal] = useState('');
@@ -185,8 +185,8 @@ export default function CentralSoportePage() {
   // 3. Sondeo Zero-Egress en Memoria RAM (/api/incidencias/poll)
   const pollIncidencias = useCallback(async () => {
     try {
-      const url = cacheVersion
-        ? `/api/incidencias/poll?v=${cacheVersion}`
+      const url = cacheVersionRef.current
+        ? `/api/incidencias/poll?v=${encodeURIComponent(cacheVersionRef.current)}`
         : '/api/incidencias/poll';
 
       const res = await fetch(url, { cache: 'no-store' });
@@ -215,16 +215,15 @@ export default function CentralSoportePage() {
             setResueltasRecientes(soloHoy);
           }
 
-          setCacheVersion(data.version);
+          cacheVersionRef.current = data.version;
         } else if (!data.changed) {
-          // No hubo cambios, respuesta en 1ms con 0 egress
-          setCacheVersion(data.version);
+          cacheVersionRef.current = data.version;
         }
       }
     } catch (e) {
       console.error('Error en poll de central-soporte:', e);
     }
-  }, [cacheVersion]);
+  }, []);
 
   // Cargar histórico de resueltas hoy
   const fetchResueltasHoy = useCallback(async () => {

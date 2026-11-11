@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const clientVersion = searchParams.get('v') ? parseInt(searchParams.get('v')!, 10) : undefined;
+    const clientVersion = searchParams.get('v') || undefined;
 
     const pollResult = await checkIncidenciasPoll(clientVersion);
 

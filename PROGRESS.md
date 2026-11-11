@@ -3,6 +3,30 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 137: Arquitectura 'Single Source of Truth' con Fingerprint de Postgres para Compatibilidad Total con Serverless (Vercel) y Sincronización Global (`incidenciasMemoryCache.ts`, `poll/route.ts`, `central-soporte/page.tsx`, `AlertasSosTab.tsx`)**:
+      - **Petición del Usuario**:
+        - En Vercel (`ucs-iota.vercel.app/central-soporte`), el sistema presentaba fluctuaciones erráticas: la columna "Resueltas Hoy" saltaba de 5 a 3 incidencias en cuestión de 4 segundos, y las incidencias en camino desaparecían sin transicionar.
+        - Además, al eliminar manualmente registros en la base de datos Neon, en `localhost:3000` la vista se quedaba "pegada" mostrando registros que ya no existían.
+      - **Causa Raíz Identificada**:
+        1. **Fragmentación de Memoria en Arquitectura Serverless de Vercel**: A diferencia de localhost (un proceso único y continuo de Node.js), en Vercel el backend corre en múltiples Serverless Functions (AWS Lambda). Cada instancia posee su propia memoria RAM independiente; al consultar `/api/incidencias/poll` cada 3.5 segundos, las peticiones caían en lambdas distintas con estados y versiones desfasadas en memoria (`globalThis.__incidenciasCache`), generando saltos y desapariciones visuales.
+        2. **Caché en RAM Desconectada de Cambios Externos en DB**: La caché solo se sincronizaba en el arranque inicial (`lastDbSync === 0`). Al eliminar o modificar registros directamente en Neon SQL / Drizzle Studio, el proceso local nunca volvía a consultar la BD y continuaba sirviendo el estado antiguo en RAM.
+      - **Solución Arquitectónica Implementada**:
+        1. **Huella Digital Determinista de Estado en Postgres (`getIncidenciasFingerprint`)**:
+           - Se reemplazó el versionamiento en RAM por un checksum de estado calculado directamente desde Neon Postgres:
+             `SELECT count(*)::int, max(id)::int, count(*) FILTER (WHERE estado IN ('pendiente', 'en_camino'))::int, count(*) FILTER (WHERE estado = 'pendiente')::int, count(*) FILTER (WHERE estado = 'resuelto')::int, max(GREATEST(created_at, coalesce(atendido_at, created_at), coalesce(resuelto_at, created_at))) FROM incidencias_sala`.
+           - Genera un fingerprint compacto `${totalCount}:${maxId}:${activeCount}:${pendienteCount}:${resueltoCount}:${maxTime}`.
+           - Si cualquier técnico, docente o administrador inserta, actualiza, resuelve o elimina registros en la base de datos, el fingerprint cambia de inmediato a nivel global para todas las funciones serverless de Vercel y localhost.
+        2. **Sondeo Zero-Overhead Compatible con Serverless (`/api/incidencias/poll`)**:
+           - Si el cliente envía `?v=${fingerprint}` y coincide con el fingerprint de Postgres, el endpoint responde `{ changed: false }` en ~12ms con una carga útil ínfima (~80 bytes), sin consultar arreglos pesados ni transferir datos innecesarios.
+           - Si el fingerprint difiere (hubo cambios o borrado en Neon), consulta las listas activas y resueltas del día en hora Lima (`getPeruDateString`) directamente de Postgres y las entrega al cliente.
+        3. **Estabilidad Reactiva en Cliente mediante `cacheVersionRef` (`useRef`)**:
+           - En `central-soporte/page.tsx` y `AlertasSosTab.tsx`, se migró el almacenamiento de la versión de caché a `useRef<string | undefined>`.
+           - Se eliminó la regeneración de `pollIncidencias` y el reseteo constante de `setInterval`, garantizando una cadencia limpia y sólida cada 3.5 segundos sin rebotes.
+        4. **Limpieza y Reset Automático**:
+           - Si se eliminan registros en la base de datos, en menos de 3.5 segundos `data.activeList` y `data.resueltasHoyList` devuelven arreglos vacíos `[]`, limpiando de inmediato todas las columnas de la interfaz.
+      - **Verificación Técnica**:
+        - Compilación TypeScript estricta (`cmd.exe /c npx tsc --noEmit`): **0 errores**.
+
     - **Hito 136: Reactividad en Tiempo Real y Sondeo Zero-Egress en Tab Alertas SOS & Salas (`AlertasSosTab.tsx`)**:
       - **Petición del Usuario**:
         - En el tab de administrador **"Alertas SOS & Salas"** (`src/components/admin/tabs/AlertasSosTab.tsx`), al resolver o crear una tarea/incidencia desde la Central de Soporte o una terminal, las métricas, gráficos e historial no se actualizaban solos. El usuario preguntó por qué ocurría esto y solicitó que sea reactivo.

@@ -85,7 +85,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
   const fechaDesdeRef = useRef(fechaDesde);
   const fechaHastaRef = useRef(fechaHasta);
   const filtroSedeRef = useRef(filtroSede);
-  const cacheVersionRef = useRef<number | undefined>(undefined);
+  const cacheVersionRef = useRef<string | undefined>(undefined);
   const isFetchingRef = useRef(false);
 
   useEffect(() => {
@@ -161,7 +161,7 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     const checkPoll = async () => {
       try {
         const url = cacheVersionRef.current
-          ? `/api/incidencias/poll?v=${cacheVersionRef.current}`
+          ? `/api/incidencias/poll?v=${encodeURIComponent(cacheVersionRef.current)}`
           : '/api/incidencias/poll';
 
         const res = await fetch(url, { cache: 'no-store' });

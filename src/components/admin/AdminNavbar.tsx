@@ -31,6 +31,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
   cursosCount,
 }) => {
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const esAdmin = ['super_admin', 'admin', 'administrativo'].includes(session.rolSistema) || session.dni === '00000001';
   return (
     <>
       {/* HEADER NAVBAR SUPERIOR */}
@@ -158,7 +159,7 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
           <ThemeToggle showLabels />
         </div>
 
-        {/* ACCESO RÁPIDO A KIOSCO */}
+        {/* ACCESOS RÁPIDOS EN EL DRAWER */}
         <div className={styles.drawerNavList}>
           <Link
             href="/"
@@ -171,30 +172,38 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({
               <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Terminal de marcación por DNI</div>
             </div>
           </Link>
-        </div>
 
-        {/* RESUMEN DE MÉTRICAS RÁPIDAS EN EL DRAWER */}
-        <div className={styles.drawerStatsMini}>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{stats.sedes}</span>
-            <span className={styles.drawerStatMiniLabel}>Sedes</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{stats.ambientes}</span>
-            <span className={styles.drawerStatMiniLabel}>Salas</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{usuariosCount}</span>
-            <span className={styles.drawerStatMiniLabel}>Personal</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum}>{cursosCount}</span>
-            <span className={styles.drawerStatMiniLabel}>Cursos</span>
-          </div>
-          <div className={styles.drawerStatMiniItem}>
-            <span className={styles.drawerStatMiniNum} style={{ color: '#00e699' }}>{stats.enCurso}</span>
-            <span className={styles.drawerStatMiniLabel}>En Turno</span>
-          </div>
+          {/* ACCESOS DIRECTOS ADMINISTRATIVOS */}
+          {esAdmin && (
+            <>
+              <Link
+                href="/consulta"
+                className={styles.drawerConsultaBtn}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span className={styles.drawerKioscoIcon}>🔍</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Consultar Aulas</div>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Ocupación de salas y docentes de hoy</div>
+                </div>
+              </Link>
+
+              <Link
+                href="/enrolar-personal"
+                className={styles.drawerEnroladorBtn}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span className={styles.drawerKioscoIcon}>📱</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>Enrolador</span>
+                    <span style={{ fontSize: '0.65rem', background: '#10b981', color: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>BETA</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Enrolamiento facial móvil (PS y técnicos)</div>
+                </div>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* BOTÓN CERRAR SESIÓN */}

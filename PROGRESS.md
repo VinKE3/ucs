@@ -51,6 +51,12 @@
            - **Búsqueda y Autocompletado**: Al ingresar los 8 dígitos del DNI, muestra el nombre, rol (PS / Técnico) y estado biométrico previo.
            - **Persistencia Directa**: Extrae el descriptor de 128 floats y lo guarda en Postgres con SweetAlert2 y botón continuo `➕ Enrolar Siguiente Colaborador`.
            - **Inocuidad para Turnos en Curso**: Enrolar a un PS que ya marcó ingreso por la mañana con DNI no afecta su asistencia activa; su turno continúa abierto y podrá registrar su **Salida** por la tarde usando reconocimiento facial.
+        9. **Navegación Móvil Personalizada en Admin Drawer (AdminNavbar.tsx, dmin.module.css)**:
+           - **Remoción de Estadísticas**: Se eliminó la tarjeta estática de métricas (3 Sedes, 60 Salas, 265 Personal, 65 Cursos, 19 En Turno) en el drawer lateral para móviles.
+           - **Accesos Directos Exclusivos para Administradores**: Protegidos con esAdmin (['super_admin', 'admin', 'administrativo'].includes(session.rolSistema)):
+             - 🔍 Consultar Aulas: Acceso directo a /consulta (espejo docente y ocupación de ambientes en vivo).
+             - 📱 Enrolador (con badge BETA): Acceso directo a /enrolar-personal (herramienta de registro facial en smartphones).
+           - **UX Móvil**: Ambos botones cierran el drawer al hacer tap y se estilizan en armonía con el diseño institucional. El footer con Cerrar Sesión se fija al fondo mediante margin-top: auto.
       - **Verificación Técnica**:
         - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
         - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.

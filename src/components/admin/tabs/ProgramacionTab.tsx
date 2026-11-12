@@ -386,13 +386,12 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
     ];
 
     const rows = sesionesFiltradas.map((s) => {
+      const tienePsSes = Boolean(s.pacienteSimuladoNombre || (s.pacientesSimulados && s.pacientesSimulados.length > 0) || (s.totalPsCount && s.totalPsCount > 0));
       const estadoKiosco = s.estadoUcs === 'cancelada' || (s as any).estadoSimclic === 'Cancelled'
         ? 'Cancelada en SimClic'
-        : s.docentePresente
-        ? 'En Sala (Marco)'
-        : s.estadoEnVivo === 'sin_marcar'
-        ? 'Sin Marcacion'
-        : 'Programada';
+        : tienePsSes
+        ? (s.psPresente ? 'PS en Sede (Marco)' : s.estadoEnVivo === 'sin_marcar' ? 'PS Sin Marcacion' : 'Programada')
+        : 'Taller / Sin PS';
 
       const reubicada = Boolean(s.ambienteOriginalNombre || s.estadoUcs === 'reubicada') ? 'Si' : 'No';
 
@@ -789,7 +788,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
       if (filtroEstado === 'sin_marcar') {
         if (ses.estadoEnVivo !== 'sin_marcar') return false;
       } else if (filtroEstado === 'con_asistencia') {
-        if (!ses.docentePresente && !ses.psPresente) return false;
+        if (!ses.psPresente) return false;
       } else if (filtroEstado === 'con_ps') {
         if (!ses.pacienteSimuladoNombre && (!ses.pacientesSimulados || ses.pacientesSimulados.length === 0)) return false;
       }
@@ -1668,8 +1667,9 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
             onClick={() => setFiltroEstado('sin_marcar')}
             className={`${styles.simclicPillBtn} ${filtroEstado === 'sin_marcar' ? styles.simclicPillBtnActive : ''}`}
             style={{ color: '#ef4444' }}
+            title="Ver sesiones en curso con Paciente Simulado que aún no registra marcación en Kiosco"
           >
-            🚨 En Curso Sin Marcación ({metricas?.ausentismosCount || 0})
+            🚨 PS Sin Marcación ({metricas?.ausentismosCount || 0})
           </button>
           <button
             type="button"
@@ -2074,9 +2074,16 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                   const esCancelada = ses.estadoUcs === 'cancelada' || (ses as any).estadoSimclic === 'Cancelled';
                                   const colorBg = esCancelada ? '#ef4444' : (ses.carreraColor || '#ffa200');
 
+                                  const tienePs = Boolean(
+                                    ses.pacienteSimuladoNombre ||
+                                    (ses.pacientesSimulados && ses.pacientesSimulados.length > 0) ||
+                                    (ses.totalPsCount && ses.totalPsCount > 0)
+                                  );
+
                                   const esEnCurso = !esCancelada && esHoy && nowMinutes >= ses.startMins && nowMinutes < ses.endMins;
-                                  const esSinMarcar = esEnCurso && !ses.docentePresente;
-                                  const esEnSala = esEnCurso && ses.docentePresente;
+                                  const esSinMarcar = esEnCurso && tienePs && !ses.psPresente;
+                                  const esEnSala = esEnCurso && tienePs && ses.psPresente;
+                                  const esEnCursoSinPs = esEnCurso && !tienePs;
 
                                   const borderStyle = esCancelada
                                     ? '2px dashed #f87171'
@@ -2084,6 +2091,8 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                     ? '2px solid #ef4444'
                                     : esEnSala
                                     ? '2px solid #10b981'
+                                    : esEnCursoSinPs
+                                    ? '2px solid rgba(56, 189, 248, 0.85)'
                                     : '1px solid rgba(255, 255, 255, 0.3)';
 
                                   const boxShadowStyle = esCancelada
@@ -2092,18 +2101,22 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                     ? '0 0 0 2px rgba(239, 68, 68, 0.5), 0 4px 14px rgba(239, 68, 68, 0.55)'
                                     : esEnSala
                                     ? '0 0 0 2px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(16, 185, 129, 0.5)'
+                                    : esEnCursoSinPs
+                                    ? '0 0 0 1px rgba(56, 189, 248, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3)'
                                     : '0 3px 8px rgba(0, 0, 0, 0.25)';
 
                                   const totalDocentes = ses.totalDocentesCount || 1;
                                   const totalPs = ses.totalPsCount || (ses.pacienteSimuladoNombre ? 1 : 0);
 
                                   const tooltipDocentes = ses.docentes && ses.docentes.length > 0
-                                    ? ses.docentes.map((d) => `${d.nombre} (${d.rol || 'docente'})${d.presente ? ' [EN SALA]' : ''}`).join(', ')
+                                    ? ses.docentes.map((d) => `${d.nombre} (${d.rol || 'docente'})`).join(', ')
                                     : (ses.docenteNombreSimclic || 'Sin asignar');
 
-                                  const tooltipPs = ses.pacientesSimulados && ses.pacientesSimulados.length > 0
-                                    ? ses.pacientesSimulados.map((p) => `${p.nombre}${p.rol ? ` (${p.rol})` : ''}${p.presente ? ' [EN SALA]' : ''}`).join(', ')
-                                    : (ses.pacienteSimuladoNombre || 'Sin PS');
+                                  const tooltipPs = tienePs
+                                    ? (ses.pacientesSimulados && ses.pacientesSimulados.length > 0
+                                        ? ses.pacientesSimulados.map((p) => `${p.nombre}${p.rol ? ` (${p.rol})` : ''}${p.presente ? ' [EN SEDE]' : ' [PENDIENTE]'}`).join(', ')
+                                        : `${ses.pacienteSimuladoNombre}${ses.psPresente ? ' [EN SEDE]' : ' [PENDIENTE]'}`)
+                                    : 'Simulación con Maniquí / Fantoma (Sin PS)';
 
                                   return (
                                     <div
@@ -2131,7 +2144,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                         justifyContent: 'center',
                                         boxShadow: boxShadowStyle,
                                         transition: 'all 0.15s ease',
-                                        zIndex: esCancelada ? 5 : esSinMarcar || esEnSala ? 18 : 10,
+                                        zIndex: esCancelada ? 5 : esSinMarcar || esEnSala || esEnCursoSinPs ? 18 : 10,
                                         opacity: esCancelada ? 0.75 : 1,
                                       }}
                                       title={`[${ses.simclicId}] ${ses.titulo}${esCancelada ? ' (CANCELADA EN SIMCLIC)' : ''}\nHorario: ${ses.horaInicio} - ${ses.horaFin}\nDocentes (${totalDocentes}): ${tooltipDocentes}\nActores PS (${totalPs}): ${tooltipPs}`}
@@ -2143,7 +2156,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                       onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'none';
                                         e.currentTarget.style.boxShadow = boxShadowStyle;
-                                        e.currentTarget.style.zIndex = esSinMarcar || esEnSala ? '18' : '10';
+                                        e.currentTarget.style.zIndex = esSinMarcar || esEnSala || esEnCursoSinPs ? '18' : '10';
                                       }}
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
@@ -2169,7 +2182,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                               style={{
                                                 background: '#ef4444',
                                                 color: '#ffffff',
-                                                padding: '0.05rem 0.3rem',
+                                                padding: '0.05rem 0.35rem',
                                                 borderRadius: '3px',
                                                 fontSize: '0.58rem',
                                                 fontWeight: 800,
@@ -2177,7 +2190,7 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                                 letterSpacing: '0.02em',
                                               }}
                                             >
-                                              🚨 SIN MARCAR
+                                              🚨 PS SIN MARCAR
                                             </span>
                                           )}
                                           {esEnSala && (
@@ -2185,14 +2198,30 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                               style={{
                                                 background: '#10b981',
                                                 color: '#ffffff',
-                                                padding: '0.05rem 0.3rem',
+                                                padding: '0.05rem 0.35rem',
                                                 borderRadius: '3px',
                                                 fontSize: '0.58rem',
                                                 fontWeight: 800,
                                                 whiteSpace: 'nowrap',
                                               }}
                                             >
-                                              🟢 EN SALA
+                                              🟢 PS EN SALA
+                                            </span>
+                                          )}
+                                          {esEnCursoSinPs && (
+                                            <span
+                                              style={{
+                                                background: 'rgba(56, 189, 248, 0.25)',
+                                                border: '1px solid rgba(56, 189, 248, 0.6)',
+                                                color: '#ffffff',
+                                                padding: '0.05rem 0.35rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.58rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap',
+                                              }}
+                                            >
+                                              ⏱️ EN CURSO
                                             </span>
                                           )}
                                           <span style={{ fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: esCancelada ? 'line-through' : 'none' }}>
@@ -2241,26 +2270,49 @@ export const ProgramacionTab: React.FC<ProgramacionTabProps> = ({
                                           {totalPs > 1 ? (
                                             <span
                                               style={{
-                                                background: 'rgba(192, 132, 252, 0.35)',
-                                                border: '1px solid rgba(255, 255, 255, 0.3)',
+                                                background: ses.psPresente ? 'rgba(16, 185, 129, 0.35)' : 'rgba(192, 132, 252, 0.35)',
+                                                border: ses.psPresente ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.3)',
                                                 padding: '0.05rem 0.3rem',
                                                 borderRadius: '4px',
                                                 fontSize: '0.62rem',
                                                 fontWeight: 700,
                                               }}
-                                              title={`Elenco de ${totalPs} Pacientes Simulados`}
+                                              title={`Elenco de ${totalPs} Pacientes Simulados${ses.psPresente ? ' (Presente en sede)' : ''}`}
                                             >
-                                              🎭 {totalPs} PS
+                                              🎭 {totalPs} PS {ses.psPresente ? '✓' : ''}
                                             </span>
-                                          ) : ses.pacienteSimuladoNombre ? (
-                                            <span style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '0.05rem 0.3rem', borderRadius: '4px', fontSize: '0.62rem' }}>
-                                              🎭 PS
+                                          ) : tienePs ? (
+                                            <span
+                                              style={{
+                                                background: ses.psPresente ? 'rgba(16, 185, 129, 0.35)' : 'rgba(0, 0, 0, 0.3)',
+                                                border: ses.psPresente ? '1px solid #10b981' : 'none',
+                                                padding: '0.05rem 0.3rem',
+                                                borderRadius: '4px',
+                                                fontSize: '0.62rem',
+                                                fontWeight: ses.psPresente ? 700 : 400,
+                                              }}
+                                              title={ses.psPresente ? 'Paciente Simulado presente en sede' : 'Paciente Simulado programado'}
+                                            >
+                                              🎭 PS {ses.psPresente ? '✓' : ''}
                                             </span>
-                                          ) : null}
+                                          ) : (
+                                            <span
+                                              style={{
+                                                background: 'rgba(255, 255, 255, 0.12)',
+                                                padding: '0.05rem 0.25rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.58rem',
+                                                opacity: 0.85,
+                                              }}
+                                              title="Sesión de simulación con simulador/maniquí (sin paciente simulado)"
+                                            >
+                                              🤖 Maniquí
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
 
-                                      {ses.estadoEnVivo === 'sin_marcar' && (
+                                      {esSinMarcar && (
                                         <div style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.75rem' }}>
                                           🚨
                                         </div>

@@ -3,6 +3,29 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 140: Cronograma Gantt y Píldoras Centrados en Pacientes Simulados (PS) con Cero Falsas Alarmas en Talleres (`ProgramacionTab.tsx`, `api/programacion/route.ts`, `ModalDetalleSesionSimclic.tsx`)**:
+      - **Petición del Usuario**:
+        - Adaptar el Gantt timeline y las alertas en vivo ya que el sistema de marcación en Kiosco está enfocado operativamente en **Pacientes Simulados (PS) y Técnicos**, no en docentes.
+        - Definir y manejar el comportamiento de las sesiones que NO requieren Paciente Simulado (maniquíes / simuladores / fantomas).
+        - Renombrar la píldora operativa roja a `🚨 PS Sin Marcación (X)`.
+      - **Solución Arquitectónica Implementada**:
+        1. **Lógica de Estado en Vivo Centrada en PS (`route.ts`)**:
+           - `estadoEnVivo === 'sin_marcar'` ahora se evalúa **únicamente** para clases que tienen Paciente Simulado programado (`tienePs`) y donde ningún actor ha registrado marcación trascurridos más de 10 min de clase.
+           - Clases sin PS (`!tienePs`): Permanecen en estado programado/en curso neutro sin generar falsos ausentismos (`ausentismosCount` refleja estrictamente actores faltantes).
+        2. **Visualización y Semáforo Gantt (`ProgramacionTab.tsx`)**:
+           - **Con PS Sin Marcación**: Se destaca en rojo vibrante pulsante (`linear-gradient(135deg, rgba(220, 38, 38, 0.95), ...)`), borde `2px solid #ef4444`, z-index elevado y badge superior `🚨 PS SIN MARCAR`.
+           - **Con PS Presente**: Borde verde esmeralda `2px solid #10b981`, badge `🟢 PS EN SALA` y checkmark `🎭 PS ✓` o `🎭 2 PS ✓` en el pie.
+           - **Sin PS (Simulador/Maniquí/Taller)**: Conserva el **color corporativo de su carrera** (celeste, verde, azul, naranja) con borde activo cian `2px solid rgba(56, 189, 248, 0.85)` y badge `⏱️ EN CURSO` (sin alarmas rojas). En el pie muestra `🤖 Maniquí`.
+        3. **Píldoras y Filtros Operativos**:
+           - Actualizada la píldora a: `🚨 PS Sin Marcación (${metricas?.ausentismosCount || 0})`.
+           - Filtro `con_asistencia`: Evalúa estrictamente la presencia de actores PS (`ses.psPresente`).
+           - Exportación CSV enriquecida reflejando el estado de los actores PS.
+        4. **Modal de Detalle (`ModalDetalleSesionSimclic.tsx`)**:
+           - El bloque de docentes ahora muestra `👨‍🏫 Docente Programado` (eliminando falsas etiquetas de "Sin marcación").
+           - El bloque de actores PS muestra `🔴 PS Sin Marcación` cuando la clase está en curso y el actor no ha fichado.
+      - **Verificación Técnica**:
+        - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 139: Coordinación de Equipo, Prevención Atómica de Colisiones y Notificaciones In-App entre Técnicos (`central-soporte/page.tsx`, `central-soporte.module.css`, `api/incidencias/[id]/route.ts`, `api/incidencias/route.ts`)**:
       - **Petición del Usuario**:
         - Implementar las mejoras del Pilar 3 (Coordinación de Equipo y Prevención de Choques entre Técnicos), excluyendo el botón de "sumarme como apoyo".

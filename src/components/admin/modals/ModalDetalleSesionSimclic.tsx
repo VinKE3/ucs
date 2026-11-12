@@ -411,13 +411,9 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
                       <span style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#10b981', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
                         🟢 En Sala (Marcó)
                       </span>
-                    ) : sesion.estadoEnVivo === 'sin_marcar' ? (
-                      <span style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', color: '#ef4444', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                        🔴 Sin Marcación
-                      </span>
                     ) : (
                       <span style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
-                        ⏳ Por Iniciar
+                        👨‍🏫 Docente Programado
                       </span>
                     )}
                   </div>
@@ -587,6 +583,10 @@ export const ModalDetalleSesionSimclic: React.FC<ModalDetalleSesionSimclicProps>
                       sesion.psPresente ? (
                         <span style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#10b981', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
                           🟢 Actor en Sala
+                        </span>
+                      ) : sesion.estadoEnVivo === 'sin_marcar' ? (
+                        <span style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)', color: '#ef4444', fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                          🔴 PS Sin Marcación
                         </span>
                       ) : (
                         <span style={{ background: 'rgba(192, 132, 252, 0.15)', color: '#c084fc', fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>

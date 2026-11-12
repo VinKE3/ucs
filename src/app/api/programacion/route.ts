@@ -245,39 +245,53 @@ export async function GET(request: NextRequest) {
       // Detección de sesión cancelada o eliminada
       const esCancelada = ses.estadoUcs === 'cancelada' || ses.estadoSimclic === 'Cancelled';
 
-      // Estado operativo en vivo
+      // Estado operativo en vivo (Centrado en Pacientes Simulados y Técnicos)
       let estadoEnVivo: 'en_sala' | 'por_llegar' | 'sin_marcar' | 'finalizada' | 'programada' | 'cancelada' =
         esCancelada ? 'cancelada' : 'programada';
       let alertaTexto = esCancelada ? '🚫 Cancelada en SimClic' : '';
+
+      const tienePs = totalPsCount > 0 || Boolean(ses.pacienteSimuladoNombre);
 
       if (esHoy && !esCancelada) {
         if (nowMinutes >= endMins) {
           estadoEnVivo = 'finalizada';
         } else if (nowMinutes >= startMins && nowMinutes < endMins) {
           // Sesión actualmente en curso
-          if (algunDocentePresente) {
-            estadoEnVivo = 'en_sala';
-            if (totalDocentesCount > 1 && docentesPresentesCount < totalDocentesCount) {
-              alertaTexto = `👤 ${docentesPresentesCount}/${totalDocentesCount} docentes en sala`;
+          if (tienePs) {
+            if (algunPsPresente) {
+              estadoEnVivo = 'en_sala';
+              if (totalPsCount > 1 && psPresentesCount < totalPsCount) {
+                alertaTexto = `🎭 ${psPresentesCount}/${totalPsCount} PS en sala`;
+              }
+            } else {
+              // Ya pasaron más de 10 min de inicio y ningún PS marcó en Kiosco
+              if (nowMinutes - startMins > 10) {
+                estadoEnVivo = 'sin_marcar';
+                alertaTexto = totalPsCount > 1
+                  ? `🚨 0/${totalPsCount} PS (${nowMinutes - startMins}m tarde)`
+                  : `🚨 PS sin marcación (${nowMinutes - startMins}m tarde)`;
+              } else {
+                estadoEnVivo = 'programada';
+              }
             }
           } else {
-            // Ya pasaron más de 10 min de inicio y ningún docente marcó
-            if (nowMinutes - startMins > 10) {
-              estadoEnVivo = 'sin_marcar';
-              alertaTexto = totalDocentesCount > 1
-                ? `🚨 0/${totalDocentesCount} docentes (${nowMinutes - startMins}m tarde)`
-                : `🚨 ${nowMinutes - startMins}m tarde sin marcación`;
-            } else {
-              estadoEnVivo = 'en_sala';
-            }
+            // Sesión sin Paciente Simulado (Talleres / Maniquíes / Fantomas):
+            // No requiere marcación de actor ni genera alarmas falsas de inasistencia
+            estadoEnVivo = 'programada';
+            alertaTexto = '';
           }
         } else if (startMins - nowMinutes <= 20 && startMins - nowMinutes > 0) {
-          // Faltan 20 minutos o menos
-          if (algunDocentePresente) {
-            estadoEnVivo = 'en_sala';
+          // Faltan 20 minutos o menos para el inicio
+          if (tienePs) {
+            if (algunPsPresente) {
+              estadoEnVivo = 'en_sala';
+              alertaTexto = '🎭 PS en sede';
+            } else {
+              estadoEnVivo = 'por_llegar';
+              alertaTexto = `⏳ Inicia en ${startMins - nowMinutes}m`;
+            }
           } else {
-            estadoEnVivo = 'por_llegar';
-            alertaTexto = `⏳ Inicia en ${startMins - nowMinutes}m`;
+            estadoEnVivo = 'programada';
           }
         }
       }

@@ -14,6 +14,7 @@ import {
   castingPerfiles,
   castingRangosEdad,
   castingEspecialidades,
+  incidenciasSala,
 } from '@/db/schema';
 import { eq, and, sql, desc, or, ilike, inArray, gte, lte } from 'drizzle-orm';
 import { syncSimclicSessions } from '@/lib/simclicSync';
@@ -194,7 +195,7 @@ export const GEMINI_TOOLS = [
   {
     name: 'consultar_programacion_dia',
     description:
-      'Consulta las sesiones académicas programadas para una fecha dada (o hoy). Permite filtrar por sede, docente, sala/ambiente o curso.',
+      'Consulta las sesiones académicas programadas para una fecha dada (o hoy). Permite filtrar por sede, docente, sala/ambiente, curso o caso clínico/escenario. Informa además el desglose de modalidad: cuántas sesiones requieren Paciente Simulado (Actor) y cuántas son talleres de destrezas con simuladores o maniquíes.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -222,6 +223,16 @@ export const GEMINI_TOOLS = [
           type: 'STRING',
           description:
             'Nombre o código del curso de simulación (ej: "Simulación Pediátrica").',
+        },
+        casoClinico: {
+          type: 'STRING',
+          description:
+            'Nombre o código del escenario o caso clínico (ej: "Shock Séptico", "Código Azul", "Parto Distócico", "Consulta Pediátrica").',
+        },
+        soloConPs: {
+          type: 'BOOLEAN',
+          description:
+            'Si es true, filtra únicamente las sesiones que tienen Paciente Simulado (Actor) asignado.',
         },
       },
     },
@@ -359,6 +370,36 @@ export const GEMINI_TOOLS = [
         },
       },
       required: ['nombreODni'],
+    },
+  },
+  {
+    name: 'consultar_incidencias_soporte_sos',
+    description:
+      'Consulta en tiempo real el historial y estado actual de incidencias técnicas, reportes de avería y botones de pánico SOS activados desde los consultorios y salas de simulación clínica. Permite auditar estados ("pendiente", "en_camino", "resuelto", "cancelado"), categorías de falla ("proyeccion", "audio", "red", "computadora", "simulador", "otro"), técnico de soporte asignado, marcas de tiempo, y cálculo de SLA en minutos y segundos (tiempo de llegada del técnico a la sala y tiempo de resolución final).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        fecha: {
+          type: 'STRING',
+          description:
+            'Fecha a auditar en formato YYYY-MM-DD. Si se omite, consulta el día de hoy.',
+        },
+        estado: {
+          type: 'STRING',
+          description:
+            'Filtrar por estado: "todos", "pendiente", "en_camino", "resuelto", "cancelado". Predeterminado: "todos".',
+        },
+        sede: {
+          type: 'STRING',
+          description:
+            'Filtrar por nombre de sede (ej: "Villa", "Ate", "Norte"). Opcional.',
+        },
+        ambiente: {
+          type: 'STRING',
+          description:
+            'Filtrar por nombre o código de sala/consultorio (ej: "Consultorio 02", "Alta Fidelidad 1"). Opcional.',
+        },
+      },
     },
   },
   {
@@ -542,6 +583,8 @@ export async function executeGeminiTool(
             docentesJson: sesionesProgramadas.docentesJson,
             pacientesSimuladosJson: sesionesProgramadas.pacientesSimuladosJson,
             pacienteSimuladoNombre: sesionesProgramadas.pacienteSimuladoNombre,
+            escenarioNombre: sesionesProgramadas.escenarioNombre,
+            escenarioCodigo: sesionesProgramadas.escenarioCodigo,
             ambienteNombre: ambientes.nombre,
             ambienteCodigo: ambientes.codigo,
             sedeNombre: sedes.nombre,
@@ -586,25 +629,61 @@ export async function executeGeminiTool(
             r.cursoNombre?.toLowerCase().includes(c)
           );
         }
+        if (args.casoClinico) {
+          const qCaso = args.casoClinico.toLowerCase();
+          filtered = filtered.filter(
+            (r) =>
+              r.escenarioNombre?.toLowerCase().includes(qCaso) ||
+              r.escenarioCodigo?.toLowerCase().includes(qCaso)
+          );
+        }
+        if (args.soloConPs) {
+          filtered = filtered.filter((r) =>
+            Boolean(
+              r.pacienteSimuladoNombre ||
+              (r.pacientesSimuladosJson && r.pacientesSimuladosJson.length > 0)
+            )
+          );
+        }
+
+        const totalConPs = filtered.filter((s) =>
+          Boolean(
+            s.pacienteSimuladoNombre ||
+            (s.pacientesSimuladosJson && s.pacientesSimuladosJson.length > 0)
+          )
+        ).length;
+        const totalSinPs = filtered.length - totalConPs;
 
         return {
           fecha,
           totalEncontradas: filtered.length,
-          sesiones: filtered.slice(0, 25).map((s) => ({
-            horario: `${s.horaInicio} - ${s.horaFin}`,
-            curso: s.cursoNombre || s.titulo,
-            docente: s.docenteNombre || 'Sin docente asignado',
-            sala: s.ambienteCodigo
-              ? `${s.ambienteCodigo} (${s.ambienteNombre})`
-              : s.ambienteNombre,
-            sede: s.sedeNombre,
-            estado: s.estadoUcs,
-            pacienteSimulado:
+          desgloseModalidad: {
+            sesionesConPacienteSimulado: totalConPs,
+            talleresConManiquiOSimulador: totalSinPs,
+          },
+          sesiones: filtered.slice(0, 30).map((s) => {
+            const tienePs = Boolean(
               s.pacienteSimuladoNombre ||
-              (s.pacientesSimuladosJson && s.pacientesSimuladosJson.length > 0
-                ? s.pacientesSimuladosJson.map((p) => p.nombre).join(', ')
-                : 'No requiere'),
-          })),
+              (s.pacientesSimuladosJson && s.pacientesSimuladosJson.length > 0)
+            );
+            return {
+              horario: `${s.horaInicio} - ${s.horaFin}`,
+              curso: s.cursoNombre || s.titulo,
+              casoClinico: s.escenarioNombre || s.escenarioCodigo || 'Sin caso clínico específico',
+              modalidad: tienePs ? '🎭 Con Paciente Simulado (Actor)' : '🤖 Taller con Maniquí / Simulador',
+              docente: s.docenteNombre || 'Sin docente asignado',
+              sala: s.ambienteCodigo
+                ? `${s.ambienteCodigo} (${s.ambienteNombre})`
+                : s.ambienteNombre,
+              sede: s.sedeNombre,
+              estado: s.estadoUcs,
+              pacienteSimulado: tienePs
+                ? (s.pacientesSimuladosJson && s.pacientesSimuladosJson.length > 0
+                    ? s.pacientesSimuladosJson.map((p: any) => p.nombre).join(', ')
+                    : s.pacienteSimuladoNombre)
+                : 'No requiere (Simulador/Maniquí)',
+            };
+          }),
         };
       }
 
@@ -1420,6 +1499,181 @@ export async function executeGeminiTool(
           alertasReubicadas,
         };
       }
+
+      case 'consultar_incidencias_soporte_sos': {
+        const fechaTarget = args.fecha || hoyPeru;
+
+        // Rango de fechas del día consultado en huso horario de Perú (UTC-5)
+        const startOfDay = new Date(`${fechaTarget}T00:00:00.000-05:00`);
+        const endOfDay = new Date(`${fechaTarget}T23:59:59.999-05:00`);
+
+        // Consultar incidencias registradas
+        const rows = await db
+          .select({
+            id: incidenciasSala.id,
+            sedeId: incidenciasSala.sedeId,
+            sedeNombre: sedes.nombre,
+            ambienteId: incidenciasSala.ambienteId,
+            ambienteNombre: ambientes.nombre,
+            ambienteCodigo: ambientes.codigo,
+            categoria: incidenciasSala.categoria,
+            descripcion: incidenciasSala.descripcion,
+            docenteNombre: incidenciasSala.docenteNombre,
+            cursoNombre: incidenciasSala.cursoNombre,
+            casoNombre: incidenciasSala.casoNombre,
+            pacienteSimuladoNombre: incidenciasSala.pacienteSimuladoNombre,
+            estado: incidenciasSala.estado,
+            tecnicoId: incidenciasSala.tecnicoId,
+            tecnicoNombre: incidenciasSala.tecnicoNombre,
+            motivoResolucion: incidenciasSala.motivoResolucion,
+            notaResolucion: incidenciasSala.notaResolucion,
+            createdAt: incidenciasSala.createdAt,
+            atendidoAt: incidenciasSala.atendidoAt,
+            resueltoAt: incidenciasSala.resueltoAt,
+          })
+          .from(incidenciasSala)
+          .leftJoin(ambientes, eq(incidenciasSala.ambienteId, ambientes.id))
+          .leftJoin(sedes, eq(incidenciasSala.sedeId, sedes.id))
+          .where(
+            and(
+              gte(incidenciasSala.createdAt, startOfDay),
+              lte(incidenciasSala.createdAt, endOfDay)
+            )
+          )
+          .orderBy(desc(incidenciasSala.createdAt));
+
+        let filtradas = rows;
+
+        if (args.estado && args.estado !== 'todos') {
+          const e = args.estado.toLowerCase().trim();
+          filtradas = filtradas.filter((r) => r.estado?.toLowerCase() === e);
+        }
+
+        if (args.sede) {
+          const s = args.sede.toLowerCase().trim();
+          filtradas = filtradas.filter((r) => r.sedeNombre?.toLowerCase().includes(s));
+        }
+
+        if (args.ambiente) {
+          const amb = args.ambiente.toLowerCase().trim();
+          filtradas = filtradas.filter(
+            (r) =>
+              r.ambienteNombre?.toLowerCase().includes(amb) ||
+              r.ambienteCodigo?.toLowerCase().includes(amb)
+          );
+        }
+
+        const tiemposRespuestaSegundos: number[] = [];
+        const tiemposResolucionSegundos: number[] = [];
+
+        const formatearSegs = (segs: number) => {
+          if (segs < 60) return `${segs} seg`;
+          const m = Math.floor(segs / 60);
+          const s = segs % 60;
+          return s > 0 ? `${m}m ${s}s` : `${m}m`;
+        };
+
+        const listaDetallada = filtradas.map((inc) => {
+          const createdMs = inc.createdAt ? new Date(inc.createdAt).getTime() : 0;
+          const atendidoMs = inc.atendidoAt ? new Date(inc.atendidoAt).getTime() : 0;
+          const resueltoMs = inc.resueltoAt ? new Date(inc.resueltoAt).getTime() : 0;
+
+          let tiempoLlegadaTecnico = 'Pendiente (no atendido aún)';
+          let tiempoResolucionTotal = 'No resuelto aún';
+          let supero3Minutos = false;
+
+          if (atendidoMs > 0 && createdMs > 0) {
+            const diffSegs = Math.max(0, Math.round((atendidoMs - createdMs) / 1000));
+            tiemposRespuestaSegundos.push(diffSegs);
+            tiempoLlegadaTecnico = formatearSegs(diffSegs);
+            if (diffSegs > 180) supero3Minutos = true;
+          } else if (inc.estado === 'pendiente' && createdMs > 0) {
+            const nowMs = Date.now();
+            const elapsed = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+            if (elapsed > 180) supero3Minutos = true;
+          }
+
+          if (resueltoMs > 0 && createdMs > 0) {
+            const diffSegs = Math.max(0, Math.round((resueltoMs - createdMs) / 1000));
+            tiemposResolucionSegundos.push(diffSegs);
+            tiempoResolucionTotal = formatearSegs(diffSegs);
+          }
+
+          return {
+            id: inc.id,
+            sala: inc.ambienteCodigo ? `[${inc.ambienteCodigo}] ${inc.ambienteNombre}` : inc.ambienteNombre || `Sala #${inc.ambienteId}`,
+            sede: inc.sedeNombre || 'Campus Villa',
+            categoria: inc.categoria,
+            descripcion: inc.descripcion || 'Llamado de soporte rápido en sala',
+            docente: inc.docenteNombre || 'Docente en aula',
+            curso: inc.cursoNombre || 'Simulación Clínica',
+            casoClinico: inc.casoNombre || 'Sin caso específico',
+            pacienteSimulado: inc.pacienteSimuladoNombre || 'Sin actor',
+            estado: inc.estado,
+            tecnicoAsignado: inc.tecnicoNombre || 'Equipo Técnico',
+            motivoResolucion: inc.motivoResolucion || 'Pendiente de diagnóstico',
+            notaResolucion: inc.notaResolucion || null,
+            horaReporte: inc.createdAt ? formatTimestampPeru(inc.createdAt) : '--:--',
+            horaAtencion: inc.atendidoAt ? formatTimestampPeru(inc.atendidoAt) : null,
+            horaResolucion: inc.resueltoAt ? formatTimestampPeru(inc.resueltoAt) : null,
+            slaLlegadaTecnico: tiempoLlegadaTecnico,
+            tiempoResolucion: tiempoResolucionTotal,
+            demoradoMasDe3Minutos: supero3Minutos,
+          };
+        });
+
+        const total = filtradas.length;
+        const pendientes = filtradas.filter((i) => i.estado === 'pendiente').length;
+        const enCamino = filtradas.filter((i) => i.estado === 'en_camino').length;
+        const resueltos = filtradas.filter((i) => i.estado === 'resuelto').length;
+        const cancelados = filtradas.filter((i) => i.estado === 'cancelado').length;
+
+        const promLlegadaSegs =
+          tiemposRespuestaSegundos.length > 0
+            ? Math.round(
+                tiemposRespuestaSegundos.reduce((a, b) => a + b, 0) /
+                  tiemposRespuestaSegundos.length
+              )
+            : null;
+
+        const promResolucionSegs =
+          tiemposResolucionSegundos.length > 0
+            ? Math.round(
+                tiemposResolucionSegundos.reduce((a, b) => a + b, 0) /
+                  tiemposResolucionSegundos.length
+              )
+            : null;
+
+        const cumplieronSla = listaDetallada.filter((i) => !i.demoradoMasDe3Minutos).length;
+
+        return {
+          fecha: fechaTarget,
+          totalIncidencias: total,
+          resumenPorEstado: {
+            pendientes,
+            enCamino,
+            resueltos,
+            cancelados,
+          },
+          kpisSla: {
+            tiempoPromedioLlegadaSla: promLlegadaSegs
+              ? formatearSegs(promLlegadaSegs)
+              : (total === 0 ? 'Sin incidencias reportadas' : 'En proceso'),
+            tiempoPromedioResolucionTotal: promResolucionSegs
+              ? formatearSegs(promResolucionSegs)
+              : (total === 0 ? 'Sin incidencias reportadas' : 'En proceso'),
+            tasaCumplimientoSlaMenorA3Minutos:
+              total > 0
+                ? `${Math.round((cumplieronSla / total) * 100)}%`
+                : '100% (Sin incidencias)',
+          },
+          incidencias: listaDetallada,
+          mensajeOperativo:
+            total === 0
+              ? `No se registraron incidentes técnicos ni alertas de auxilio SOS en las salas para el día ${fechaTarget}. Las simulaciones transcurrieron con normalidad.`
+              : `Se auditaron ${total} incidencias (${resueltos} resueltas, ${pendientes} pendientes, ${enCamino} en atención).`,
+        };
+      }
       case 'convocar_casting_pacientes_simulados': {
         const [yH, mH, dH] = hoyPeru.split('-').map(Number);
         const mananaTarget = new Date(Date.UTC(yH, mH - 1, dH + 1, 12, 0, 0));
@@ -2001,6 +2255,13 @@ Usuario actual conectado: ${usuario.nombres} ${usuario.apellidos} (DNI: ${usuari
   * SWAP MAYOR: Cuando una sala física termina un curso e inicia otro diferente (ej: de Pediatría a Cirugía). Requiere cambio integral de simuladores/maquetas.
   * RESET DE CASO: Mismo curso pero cambio de escenario clínico (requiere reposición de pads, insumos, sondas).
   * DESFASE DE ASISTENCIA: Casos donde el docente marcó pero el PS no ha llegado (o viceversa).
+- Central de Soporte Técnico y Botón de Pánico SOS:
+  * Los consultorios y salas de simulación disponen de un Botón de Pánico SOS para solicitar auxilio técnico en tiempo real ante problemas de hardware, proyección, audio, red o simuladores clínicos bloqueados.
+  * Flujo de atención: Pendiente -> En Camino (técnico acudiendo al consultorio) -> Resuelto (o Cancelado).
+  * Estándar SLA de Emergencia: El equipo técnico debe responder y acudir a la sala en un tiempo menor a 3 minutos (<180 segundos).
+- Modalidades de Simulación y Casos Clínicos:
+  * Modalidad con Actor (PS): Requiere la presencia física y caracterización de un Paciente Simulado para el escenario clínico.
+  * Modalidad con Maniquí / Taller: Entrenamiento de destrezas con simuladores o fantomas clínicos; no requiere actor y no genera falsas alarmas de inasistencia.
 
 🛠️ HERRAMIENTAS EN TIEMPO REAL:
 1. 'consultar_pacientes_simulados':
@@ -2008,11 +2269,12 @@ Usuario actual conectado: ${usuario.nombres} ${usuario.apellidos} (DNI: ${usuari
    - 'asistencias': Horas efectivas trabajadas y pre-liquidación en Soles (S/.) por mes.
 2. 'consultar_equipo_tecnicos': Cobertura de técnicos para hoy o cualquier fecha (turnos programados, en sala activos, descansos DSO, tardanzas y saldo de días compensatorios).
 3. 'consultar_alertas_logisticas': Detecta cambios de material en salas (swaps mayores, resets de caso, ventanas en minutos), sesiones reubicadas y desfases de asistencia (docente sin PS o PS sin docente).
-4. 'consultar_programacion_dia': Consulta la malla completa de sesiones SimClic (docentes, cursos, aulas, horarios) para hoy o fechas futuras.
+4. 'consultar_programacion_dia': Consulta la malla de sesiones SimClic (docentes, cursos, casos clínicos, aulas, horarios) informando si son con Actor o con Simulador/Maniquí.
 5. 'consultar_salas_disponibilidad': Ocupación de ambientes en vivo (libres vs ocupadas en el minuto actual).
 6. 'consultar_asistencias_hoy': Marcaciones en general del día (quién está en sala, tardanzas, salidas).
 7. 'consultar_estado_colaborador': Búsqueda puntual de una persona por nombre o DNI.
-8. 'sincronizar_simclic': Sincronización WebSocket en vivo con la plataforma SimClic si hay cambios recientes.
+8. 'consultar_incidencias_soporte_sos': Monitorea y audita en tiempo real las alertas SOS, botones de pánico y fallas técnicas en consultorios, con cálculo de SLA en minutos y técnico asignado.
+9. 'sincronizar_simclic': Sincronización WebSocket en vivo con la plataforma SimClic si hay cambios recientes.
 
 📋 REGLAS DE RESPUESTA Y FORMATO:
 - Responde SIEMPRE en español con tono profesional, ejecutivo y empático.

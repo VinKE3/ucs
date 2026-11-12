@@ -3,6 +3,22 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 141: Integración Completa de Incidencias SOS, SLA y Casos Clínicos en Gemini Copilot IA (`geminiService.ts`)**:
+      - **Petición del Usuario**:
+        - Integrar al Chatbot (Gemini Copilot) las capacidades del sistema de soporte técnico e incidencias de sala (Botón SOS), y preparar al asistente con inteligencia de negocio sobre casos clínicos y diferenciación de actores vs. maniquíes para la demostración ante la jefatura.
+      - **Solución Arquitectónica Implementada**:
+        1. **Nueva Herramienta `consultar_incidencias_soporte_sos` (`geminiService.ts`)**:
+           - Permite al chatbot auditar en tiempo real todas las incidencias técnicas y botones de pánico activados en consultorios.
+           - Cruza `incidenciasSala`, `ambientes` y `sedes` calculando KPIs de SLA de atención: tiempo de llegada del técnico a la sala (`tiempoPromedioLlegadaSla`), tiempo total de resolución (`tiempoPromedioResolucionTotal`), porcentaje de cumplimiento del estándar de 3 minutos (`tasaCumplimientoSlaMenorA3Minutos`), y causas diagnosticadas.
+        2. **Enriquecimiento de `consultar_programacion_dia` con Casos Clínicos y Modalidad**:
+           - Incorporado filtro reactivo por `casoClinico` (escenarios de aprendizaje: Shock Séptico, Código Azul, etc.) y `soloConPs`.
+           - Retorna el desglose exacto de modalidad: cuántas sesiones requieren Paciente Simulado (`sesionesConPacienteSimulado`) y cuántas son talleres autónomos de habilidades (`talleresConManiquiOSimulador`).
+        3. **Actualización de Conocimiento de Dominio en `systemInstruction`**:
+           - Documentado el estándar de SLA de auxilio SOS (<3 min), estados de atención (Pendiente -> En camino -> Resuelto), y la diferenciación pedagógica entre simulaciones con actor y talleres de destrezas con fantomas.
+      - **Verificación Técnica**:
+        - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.
+        - Verificación en vivo contra la base de datos Neon: ejecución de ambas herramientas validada exitosamente con payload estructurado.
+
     - **Hito 140: Cronograma Gantt y Píldoras Centrados en Pacientes Simulados (PS) con Cero Falsas Alarmas en Talleres (`ProgramacionTab.tsx`, `api/programacion/route.ts`, `ModalDetalleSesionSimclic.tsx`)**:
       - **Petición del Usuario**:
         - Adaptar el Gantt timeline y las alertas en vivo ya que el sistema de marcación en Kiosco está enfocado operativamente en **Pacientes Simulados (PS) y Técnicos**, no en docentes.

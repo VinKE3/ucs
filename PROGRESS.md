@@ -3,6 +3,59 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 142: Sistema de Reconocimiento Facial Edge AI en Kiosco con Persistencia en Postgres (`ModalEscaneoFacialBeta.tsx`, `faceBiometricService.ts`, `api/biometria/enrolar`, `api/biometria/descriptores`, `schema.ts`)**:
+      - **Petición del Usuario**:
+        - Implementar reconocimiento facial en el Kiosco terminal para Pacientes Simulados (PS) y Técnicos bajo la Opción 1 (Edge AI en cliente / 100% gratuito sin costes de APIs externas).
+        - Enrolamiento de rostros persistido en la base de datos de producción (Neon Postgres) mediante DNI.
+        - Flujo de marcación instantáneo: el usuario pulsa "Ingresar con Reconocimiento Facial", el visor lo identifica mediante visión artificial en ~1s, y pasa automáticamente a la pantalla de marcar asistencia sin teclear su DNI.
+        - Dejarlo en fase beta uncommitted para demostración interna a jefaturas.
+      - **Solución Arquitectónica Implementada**:
+        1. **Migración de Base de Datos en Neon Postgres (`src/db/schema.ts`)**:
+           - Añadidas columnas a la tabla `usuarios`: `descriptor_facial` (tipo `jsonb` con vector numérico de 128 flotantes), `enrolado_facial_at` (`timestamp`), y `foto_perfil_url` (`text`).
+           - Cumplimiento de la Ley 29733 (Protección de Datos Personales): se almacenan embeddings matemáticos no reversibles a la imagen original.
+        2. **Rutas de API Seguras (`src/app/api/biometria/`)**:
+           - `POST /api/biometria/enrolar`: Valida DNI y existencia en `usuarios`, persiste el vector de 128 floats y timestamp.
+           - `DELETE /api/biometria/enrolar?dni=...`: Limpia los datos biométricos de un colaborador.
+           - `GET /api/biometria/descriptores`: Recupera los perfiles biométricos activos para sincronización masiva con terminales Kiosco.
+        3. **Motor Biométrico en el Cliente (`src/lib/faceBiometricService.ts`)**:
+           - Carga asíncrona de `@vladmandic/face-api` (TinyFaceDetector, FaceLandmark68TinyNet, FaceRecognitionNet) mediante WebGL sin impacto en el bundle inicial de Next.js.
+           - Algoritmo de distancia euclidiana con umbral estricto (< 0.55) y cálculo porcentual de confianza biométrica (50% a 99%).
+           - Sincronización transparente con Neon Postgres (`syncEnrolledFacesFromDB`) y caché en memoria/localStorage para procesamiento en tiempo real sin saturar la red.
+        4. **Componente Visual Cyber-Médico HUD (`ModalEscaneoFacialBeta.tsx`)**:
+           - Visor de cámara en espejo con retícula biométrica ovalada, láser de escaneo animado y badge de estado.
+           - Pestaña de Enrolamiento con autocompletado inteligente de nombre al ingresar 8 dígitos de DNI.
+           - Notificaciones premium con **SweetAlert2** personalizadas para el entorno cyber-médico oscuro (éxito con tarjeta de identidad, confirmación de eliminación con advertencias, y manejo de errores sin `alert()` ni `confirm()` nativos).
+           - Al detectar coincidencia, cuenta regresiva de 2 segundos o botón directo para transición inmediata a la pantalla de marcación.
+           - **Sanitización de Privacidad e Infraestructura**: Removidas todas las referencias técnicas visibles al proveedor de base de datos ("Neon", "Postgres", "$0 Costo de Servidor", "Descriptores en Postgres"). La interfaz queda 100% limpia e institucional.
+        5. **Integración en Terminal Kiosco (`KioscoTerminal.tsx`)**:
+           - Botón "Ingresar con Reconocimiento Facial (Beta)" en la pantalla de bienvenida.
+           - Botón "Enrolar Rostro (Beta)" en la tarjeta de perfil del colaborador activo.
+           - Fallback transparente: el teclado táctil de DNI permanece 100% operativo como alternativa.
+           - **Seguridad en Kiosco**: Se retiró la lista pública de enrolados y el botón de borrado del terminal público. El kiosco queda reservado exclusivamente para escaneo y auto-enrolamiento con nota informativa de privacidad.
+        6. **Gobierno y Desenrolamiento en Admin Dashboard (`PersonalTab.tsx`, `api/usuarios/route.ts`)**:
+           - En el tab "Personal de Clínica", debajo del nombre de cada colaborador se muestra un badge interactivo de estado:
+             - `🟢 Rostro enrolado`: Si tiene descriptor biométrico en Postgres.
+             - `⚪ Sin enrolar`: Si aún no ha registrado su rostro.
+           - En la columna **Acciones** se agregó el botón `👁️ Biometría` para colaboradores enrolados.
+           - Al pulsar el badge o botón, un modal de SweetAlert2 presenta la foto miniatura, fecha de enrolamiento y el botón de acción administrativa `🗑️ Desvincular Rostro`, eliminando el descriptor de Neon Postgres con confirmación y sincronizando la vista en tiempo real.
+        7. **Control Global de Visibilidad ON/OFF (`ModalConfiguracionKiosco.tsx`, `api/kiosco/configuracion`, `api/kiosco/sedes`, `KioscoTerminal.tsx`)**:
+           - Nuevo switch en el modal de 'Configuración Global de Kiosco' para administradores: `👁️ Acceso con Reconocimiento Facial (BETA)`.
+           - Persistencia en `configuracion_sistema` bajo la clave `kiosco_reconocimiento_facial_activo`.
+           - Si está en **ON**: el botón `Ingresar con Reconocimiento Facial (BETA)` y el botón `Enrolar Rostro (Beta)` son visibles en el Kiosco.
+           - Si está en **OFF**: los botones se ocultan por completo en el Kiosco, forzando la marcación manual exclusiva por DNI.
+           - **Eliminación de Parpadeo (FOUC)**: Inicialización segura por defecto (`false`) y sincronización inmediata con `localStorage` (`kiosco_cfg_reconocimiento_facial`), garantizando que al refrescar la página no se aprecie ningún destello temporal si la opción está desactivada.
+        8. **Herramienta Móvil de Enrolamiento en Terreno (`src/app/enrolar-personal/page.tsx`)**:
+           - Diseñada específicamente para smartphone: permite a los administradores desplazarse con su celular (e.g. en el almuerzo o salas) y enrolar a los Pacientes Simulados y Técnicos en segundos.
+           - **Gate de Seguridad**: Requiere autenticación administrativa obligatoria (`/api/auth/me` o formulario de login para administradores).
+           - **Control de Cámaras**: Soporta intercambio fluido entre cámara trasera (`environment` para enfocar al colaborador cómodamente) y frontal (`user`).
+           - **Búsqueda y Autocompletado**: Al ingresar los 8 dígitos del DNI, muestra el nombre, rol (PS / Técnico) y estado biométrico previo.
+           - **Persistencia Directa**: Extrae el descriptor de 128 floats y lo guarda en Postgres con SweetAlert2 y botón continuo `➕ Enrolar Siguiente Colaborador`.
+           - **Inocuidad para Turnos en Curso**: Enrolar a un PS que ya marcó ingreso por la mañana con DNI no afecta su asistencia activa; su turno continúa abierto y podrá registrar su **Salida** por la tarde usando reconocimiento facial.
+      - **Verificación Técnica**:
+        - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
+        - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.
+        - Estado de Git: cambios en el working tree sin commits (listos para demo).
+
     - **Hito 141: Integración Completa de Incidencias SOS, SLA y Casos Clínicos en Gemini Copilot IA (`geminiService.ts`)**:
       - **Petición del Usuario**:
         - Integrar al Chatbot (Gemini Copilot) las capacidades del sistema de soporte técnico e incidencias de sala (Botón SOS), y preparar al asistente con inteligencia de negocio sobre casos clínicos y diferenciación de actores vs. maniquíes para la demostración ante la jefatura.

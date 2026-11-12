@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { sedes, ambientes, asistencias, usuarios, cursos, configuracionSistema } from '@/db/schema';
-import { eq, and, isNotNull } from 'drizzle-orm';
+import { eq, and, isNotNull, inArray } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,18 +99,29 @@ export async function GET() {
         }),
     }));
 
-    const [cfgBio] = await db
-      .select({ valor: configuracionSistema.valor })
+    const cfgRows = await db
+      .select({ clave: configuracionSistema.clave, valor: configuracionSistema.valor })
       .from(configuracionSistema)
-      .where(eq(configuracionSistema.clave, 'kiosco_biometria_activa'))
-      .limit(1);
+      .where(
+        inArray(configuracionSistema.clave, [
+          'kiosco_biometria_activa',
+          'kiosco_reconocimiento_facial_activo',
+        ])
+      );
 
-    const biometriaActiva = cfgBio ? cfgBio.valor !== 'false' : true;
+    const configMap: Record<string, string> = {};
+    for (const r of cfgRows) {
+      configMap[r.clave] = r.valor;
+    }
+
+    const biometriaActiva = configMap['kiosco_biometria_activa'] !== 'false';
+    const reconocimientoFacialActivo = configMap['kiosco_reconocimiento_facial_activo'] !== 'false';
 
     return NextResponse.json({
       sedes: sedesConAmbientes,
       config: {
         biometriaActiva,
+        reconocimientoFacialActivo,
       },
     });
   } catch (error) {

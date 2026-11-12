@@ -36,6 +36,9 @@ export async function GET() {
           horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
           activo: usuarios.activo,
           tienePassword: sql<boolean>`${usuarios.passwordHash} IS NOT NULL`,
+          tieneBiometriaFacial: sql<boolean>`${usuarios.descriptorFacial} IS NOT NULL`,
+          enroladoFacialAt: usuarios.enroladoFacialAt,
+          fotoPerfilUrl: usuarios.fotoPerfilUrl,
           createdAt: usuarios.createdAt,
           // Datos de turno activo en vivo
           turnoActivoId: asistencias.id,

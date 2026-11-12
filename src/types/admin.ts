@@ -27,6 +27,9 @@ export interface UsuarioItem {
   ambienteActualNombre?: string | null;
   ambienteActualCodigo?: string | null;
   castingPerfil?: CastingPerfilItem | null;
+  tieneBiometriaFacial?: boolean;
+  enroladoFacialAt?: Date | string | null;
+  fotoPerfilUrl?: string | null;
 }
 
 export interface ResumenColaboradorItem {

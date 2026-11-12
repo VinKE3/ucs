@@ -19,6 +19,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
   const [mounted, setMounted] = useState<boolean>(false);
   const [biometriaActiva, setBiometriaActiva] = useState<boolean>(true);
   const [modoFotoEstricto, setModoFotoEstricto] = useState<boolean>(false);
+  const [reconocimientoFacialActivo, setReconocimientoFacialActivo] = useState<boolean>(true);
   const [diasRetencionFotos, setDiasRetencionFotos] = useState<number>(4);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -41,6 +42,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
         if (isMounted && data.config) {
           setBiometriaActiva(data.config.biometriaActiva !== false);
           setModoFotoEstricto(Boolean(data.config.modoFotoEstricto));
+          setReconocimientoFacialActivo(data.config.reconocimientoFacialActivo !== false);
           if (typeof data.config.diasRetencionFotos === 'number') {
             setDiasRetencionFotos(data.config.diasRetencionFotos);
           }
@@ -69,6 +71,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
           biometriaActiva,
           modoFotoEstricto,
           diasRetencionFotos: Number(diasRetencionFotos),
+          reconocimientoFacialActivo,
         }),
       });
 
@@ -343,6 +346,108 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                 </label>
               </div>
             )}
+
+            {/* SWITCH 3: Reconocimiento Facial (Fase Beta) */}
+            <div
+              style={{
+                background: 'var(--bg-input, rgba(0, 0, 0, 0.03))',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                padding: '1rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
+                  <span style={{ fontSize: '1.05rem' }}>👁️</span>
+                  <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                    Acceso con Reconocimiento Facial (BETA)
+                  </strong>
+                  <span
+                    style={{
+                      background: 'rgba(0, 230, 153, 0.15)',
+                      color: '#00e699',
+                      fontWeight: 800,
+                      fontSize: '0.62rem',
+                      padding: '0.12rem 0.45rem',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    NUEVO
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 0.45rem', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Muestra el botón "Ingresar con Reconocimiento Facial" en el terminal Kiosco. Si está desactivado (OFF), el botón se oculta por completo y la marcación se realiza únicamente mediante DNI.
+                </p>
+                <div>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '6px',
+                      backgroundColor: reconocimientoFacialActivo ? 'rgba(0, 230, 153, 0.12)' : 'rgba(100, 116, 139, 0.12)',
+                      color: reconocimientoFacialActivo ? '#00e699' : 'var(--text-muted)',
+                      border: reconocimientoFacialActivo ? '1px solid rgba(0, 230, 153, 0.3)' : '1px solid var(--border-color)',
+                    }}
+                  >
+                    {reconocimientoFacialActivo ? '● Activado (Botón visible en Kiosco)' : '○ Desactivado (Botón oculto)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Botón Switch Toggle */}
+              <label
+                style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  width: '48px',
+                  height: '26px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  marginTop: '0.15rem',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={reconocimientoFacialActivo}
+                  onChange={(e) => setReconocimientoFacialActivo(e.target.checked)}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span
+                  style={{
+                    position: 'absolute',
+                    cursor: 'pointer',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: reconocimientoFacialActivo ? '#00e699' : 'var(--border-color, #cbd5e1)',
+                    transition: '0.25s',
+                    borderRadius: '26px',
+                    boxShadow: reconocimientoFacialActivo ? '0 2px 8px rgba(0, 230, 153, 0.35)' : 'none',
+                  }}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      content: '""',
+                      height: '20px',
+                      width: '20px',
+                      left: reconocimientoFacialActivo ? '24px' : '3px',
+                      bottom: '3px',
+                      backgroundColor: '#ffffff',
+                      transition: '0.25s',
+                      borderRadius: '50%',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    }}
+                  />
+                </span>
+              </label>
+            </div>
 
             {/* SECCIÓN 3: Vigencia y Auto-Purga en la Nube (Vercel Blob) */}
             <div

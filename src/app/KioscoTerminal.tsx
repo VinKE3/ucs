@@ -17,6 +17,7 @@ import {
   obtenerColaMarcacionesOffline,
   sincronizarColaOffline,
 } from '@/lib/kioskOfflineStorage';
+import { ModalEscaneoFacialBeta } from '@/components/kiosco/ModalEscaneoFacialBeta';
 
 interface TerminalData {
   id: number;
@@ -136,6 +137,7 @@ export default function KioscoTerminal() {
   const [showKeypad, setShowKeypad] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [offlineQueueCount, setOfflineQueueCount] = useState<number>(0);
+  const [modalFacialAbierto, setModalFacialAbierto] = useState(false);
   const [isModoOfflineActivo, setIsModoOfflineActivo] = useState<boolean>(false);
 
   // Filtros de ambiente en el kiosco
@@ -179,6 +181,13 @@ export default function KioscoTerminal() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState<boolean>(false);
   const [biometriaHabilitada, setBiometriaHabilitada] = useState<boolean>(true);
+  const [reconocimientoFacialHabilitado, setReconocimientoFacialHabilitado] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('kiosco_cfg_reconocimiento_facial');
+      if (cached !== null) return cached === 'true';
+    }
+    return false; // Seguro por defecto: no mostrar hasta que la API confirme que está activo
+  });
 
   // Modal para autorizar terminal
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -456,7 +465,15 @@ export default function KioscoTerminal() {
         .then((r) => r.json())
         .then((d) => {
           if (d.sedes) setSedesList(d.sedes);
-          if (d.config && typeof d.config.biometriaActiva === "boolean") setBiometriaHabilitada(d.config.biometriaActiva);
+          if (d.config) {
+            if (typeof d.config.biometriaActiva === "boolean") setBiometriaHabilitada(d.config.biometriaActiva);
+            if (typeof d.config.reconocimientoFacialActivo === "boolean") {
+              setReconocimientoFacialHabilitado(d.config.reconocimientoFacialActivo);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("kiosco_cfg_reconocimiento_facial", String(d.config.reconocimientoFacialActivo));
+              }
+            }
+          }
         })
         .catch(() => {});
     };
@@ -524,8 +541,16 @@ export default function KioscoTerminal() {
         if (resSedes.ok) {
           const data = await resSedes.json();
           setSedesList(data.sedes || []);
-          if (data.config && typeof data.config.biometriaActiva === 'boolean') {
-            setBiometriaHabilitada(data.config.biometriaActiva);
+          if (data.config) {
+            if (typeof data.config.biometriaActiva === 'boolean') {
+              setBiometriaHabilitada(data.config.biometriaActiva);
+            }
+            if (typeof data.config.reconocimientoFacialActivo === 'boolean') {
+              setReconocimientoFacialHabilitado(data.config.reconocimientoFacialActivo);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('kiosco_cfg_reconocimiento_facial', String(data.config.reconocimientoFacialActivo));
+              }
+            }
           }
           if (data.sedes && data.sedes.length > 0) {
             if (terminalInfo?.sedeId) {
@@ -1697,6 +1722,56 @@ export default function KioscoTerminal() {
                 {/* BUSCADOR DE DNI */}
                 {!usuarioActual && (
                   <div className={styles.searchSection}>
+                    {/* BOTÓN RECONOCIMIENTO FACIAL (FASE BETA) */}
+                    {reconocimientoFacialHabilitado && (
+                      <button
+                        type="button"
+                        onClick={() => setModalFacialAbierto(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.65rem',
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          marginBottom: '1rem',
+                          borderRadius: '12px',
+                          border: '1.5px solid rgba(0, 230, 153, 0.5)',
+                          background: 'linear-gradient(135deg, rgba(0, 230, 153, 0.12) 0%, rgba(56, 189, 248, 0.12) 100%)',
+                          color: '#00e699',
+                          fontWeight: 800,
+                          fontSize: '0.88rem',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 14px rgba(0, 230, 153, 0.12)',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#00e699';
+                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 230, 153, 0.25)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(0, 230, 153, 0.5)';
+                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 230, 153, 0.12)';
+                        }}
+                      >
+                        <span style={{ fontSize: '1.25rem' }}>👁️</span>
+                        <span>Ingresar con Reconocimiento Facial</span>
+                        <span
+                          style={{
+                            background: '#00e699',
+                            color: '#020617',
+                            fontSize: '0.62rem',
+                            fontWeight: 900,
+                            padding: '0.1rem 0.45rem',
+                            borderRadius: '20px',
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          BETA
+                        </span>
+                      </button>
+                    )}
+
                     <form onSubmit={handleBuscarDni} className={styles.searchForm}>
                       <div className={styles.inputOuterWrapper}>
                         <div className={styles.inputInnerWrapper}>
@@ -1865,7 +1940,31 @@ export default function KioscoTerminal() {
                         <span className={styles.userNameBig}>
                           {usuarioActual.nombres} {usuarioActual.apellidos}
                         </span>
-                        <span className={styles.userDniBadge}>DNI: {usuarioActual.dni}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                          <span className={styles.userDniBadge}>DNI: {usuarioActual.dni}</span>
+                          {reconocimientoFacialHabilitado && (
+                            <button
+                              type="button"
+                              onClick={() => setModalFacialAbierto(true)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(56, 189, 248, 0.4)',
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                color: '#38bdf8',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                              title="Vincular el rostro de este colaborador para acceder por reconocimiento facial"
+                            >
+                              <span>📷</span> Enrolar Rostro (Beta)
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div>
@@ -2723,6 +2822,17 @@ export default function KioscoTerminal() {
           </div>
         </div>
       )}
+      {/* MODAL RECONOCIMIENTO FACIAL (FASE BETA) */}
+      <ModalEscaneoFacialBeta
+        isOpen={modalFacialAbierto}
+        onClose={() => setModalFacialAbierto(false)}
+        onUserIdentified={(dni) => {
+          setDniInput(dni);
+          triggerAutoSearch(dni);
+        }}
+        currentUserName={usuarioActual ? `${usuarioActual.nombres} ${usuarioActual.apellidos}` : undefined}
+        currentUserDni={usuarioActual ? usuarioActual.dni : undefined}
+      />
     </div>
   );
 }

@@ -85,6 +85,11 @@ export const usuarios = pgTable('usuarios', {
   esHorarioRotativo: boolean('es_horario_rotativo').default(false).notNull(),
   horasJornadaObjetivo: numeric('horas_jornada_objetivo', { precision: 4, scale: 2 }).default('9.00').notNull(),
   
+  // Biometría Facial (Edge AI)
+  descriptorFacial: jsonb('descriptor_facial'), // Array de 128 números flotantes extraídos por red neuronal
+  enroladoFacialAt: timestamp('enrolado_facial_at'), // Momento del enrolamiento
+  fotoPerfilUrl: text('foto_perfil_url'), // Miniatura o foto de referencia opcional
+  
   activo: boolean('activo').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

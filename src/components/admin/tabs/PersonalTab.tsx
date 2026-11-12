@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import Swal from 'sweetalert2';
 import styles from '@/app/admin/admin.module.css';
 import type {
   UsuarioItem,
@@ -448,6 +449,119 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
     link.click();
     document.body.removeChild(link);
     showToast('Directorio exportado en CSV correctamente', 'success');
+  };
+
+  // Gestión y Desenrolamiento de Biometría Facial (Admin)
+  const handleGestionarBiometria = async (u: UsuarioItem) => {
+    if (!u.tieneBiometriaFacial) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin Biometría Registrada',
+        html: `
+          <div style="font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; text-align: center;">
+            <p style="margin-bottom: 0.5rem;"><strong>${u.nombres} ${u.apellidos}</strong> (DNI: ${u.dni}) aún no cuenta con biometría facial registrada.</p>
+            <p style="font-size: 0.82rem; color: #94a3b8;">
+              El colaborador puede registrar su rostro acercándose a cualquier terminal Kiosco de la UCS.
+            </p>
+          </div>
+        `,
+        background: '#091322',
+        color: '#f8fafc',
+        confirmButtonColor: '#38bdf8',
+        confirmButtonText: 'Entendido',
+      });
+      return;
+    }
+
+    const fechaStr = u.enroladoFacialAt
+      ? new Date(u.enroladoFacialAt).toLocaleString('es-PE', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'Fecha no registrada';
+
+    const result = await Swal.fire({
+      title: 'Biometría Facial Registrada',
+      html: `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; text-align: center;">
+          ${
+            u.fotoPerfilUrl
+              ? `<img src="${u.fotoPerfilUrl}" alt="Foto de perfil" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #00e699; box-shadow: 0 0 15px rgba(0, 230, 153, 0.3);" />`
+              : `<div style="font-size: 2.5rem;">👤</div>`
+          }
+          <div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #ffffff;">${u.nombres} ${u.apellidos}</div>
+            <div style="font-size: 0.82rem; color: #94a3b8; font-family: monospace;">DNI: ${u.dni}</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.5rem 0.85rem; font-size: 0.78rem; color: #34d399; width: 100%;">
+            ✓ Biometría registrada: <strong>${fechaStr}</strong>
+          </div>
+          <p style="font-size: 0.82rem; color: #cbd5e1; margin: 0.2rem 0;">
+            ¿Deseas <strong>desenrolar / desvincular</strong> los datos biométricos de este colaborador? Deberá volver a registrar su rostro en el kiosco para usar el escaneo facial.
+          </p>
+        </div>
+      `,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: '🗑️ Desvincular Rostro',
+      cancelButtonText: 'Cerrar',
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      background: '#091322',
+      color: '#f8fafc',
+      reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(`/api/biometria/enrolar?dni=${encodeURIComponent(u.dni)}`, {
+          method: 'DELETE',
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Error al eliminar enrolamiento biométrico');
+        }
+
+        // Actualizar estado local del colaborador en la lista
+        u.tieneBiometriaFacial = false;
+        u.enroladoFacialAt = null;
+        u.fotoPerfilUrl = null;
+
+        // Actualizar store global
+        if (store?.setUsuariosList && Array.isArray(store.usuariosList)) {
+          store.setUsuariosList(
+            store.usuariosList.map((usr) =>
+              usr.dni === u.dni
+                ? { ...usr, tieneBiometriaFacial: false, enroladoFacialAt: null, fotoPerfilUrl: null }
+                : usr
+            )
+          );
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Rostro Desvinculado!',
+          text: `Se eliminó la plantilla biométrica de ${u.nombres} ${u.apellidos} del sistema.`,
+          background: '#091322',
+          color: '#f8fafc',
+          confirmButtonColor: '#00e699',
+          timer: 2500,
+          timerProgressBar: true,
+        });
+      } catch (err: any) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Desenrolar',
+          text: err.message,
+          background: '#091322',
+          color: '#f8fafc',
+          confirmButtonColor: '#ef4444',
+        });
+      }
+    }
   };
 
   // Generador de enlace directo de WhatsApp con mensaje institucional predefinido
@@ -1065,6 +1179,53 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                           )}
                         </div>
 
+                        {/* DISTINTIVO DE BIOMETRÍA FACIAL (EDGE AI) */}
+                        <div style={{ marginTop: '0.15rem' }}>
+                          {u.tieneBiometriaFacial ? (
+                            <button
+                              type="button"
+                              onClick={() => handleGestionarBiometria(u)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                fontSize: '0.69rem',
+                                fontWeight: 700,
+                                padding: '0.12rem 0.45rem',
+                                borderRadius: '5px',
+                                color: '#10b981',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              title="Rostro enrolado. Click para ver detalles o desenrolar"
+                            >
+                              <span style={{ fontSize: '0.72rem' }}>🟢</span> Rostro enrolado
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleGestionarBiometria(u)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                fontSize: '0.67rem',
+                                color: 'var(--text-muted, #94a3b8)',
+                                background: 'rgba(148, 163, 184, 0.08)',
+                                padding: '0.1rem 0.4rem',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(148, 163, 184, 0.15)',
+                                cursor: 'pointer',
+                              }}
+                              title="Sin biometría facial registrada. Click para información"
+                            >
+                              <span style={{ fontSize: '0.6rem' }}>⚪</span> Sin enrolar
+                            </button>
+                          )}
+                        </div>
+
                       {/* DISTINTIVOS DE CASTING PARA PACIENTES SIMULADOS */}
                       {u.tipoPersonal === 'paciente_simulado' && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.25rem' }}>
@@ -1497,6 +1658,22 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
                       >
                         <span>✏️</span> Editar
                       </button>
+
+                      {u.tieneBiometriaFacial && (
+                        <button
+                          type="button"
+                          onClick={() => handleGestionarBiometria(u)}
+                          className={styles.iconBtn}
+                          style={{
+                            borderColor: 'rgba(16, 185, 129, 0.4)',
+                            color: '#10b981',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                          }}
+                          title="Gestionar biometría facial / Desenrolar"
+                        >
+                          <span>👁️</span> Biometría
+                        </button>
+                      )}
 
                       {u.dni !== '00000001' && (
                         <button

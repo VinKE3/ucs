@@ -17,6 +17,7 @@ export async function GET() {
           'kiosco_biometria_activa',
           'kiosco_modo_foto_estricto',
           'kiosco_dias_retencion_fotos',
+          'kiosco_reconocimiento_facial_activo',
         ])
       );
 
@@ -31,6 +32,7 @@ export async function GET() {
     const diasRetencionFotos = configMap['kiosco_dias_retencion_fotos']
       ? Math.max(1, parseInt(configMap['kiosco_dias_retencion_fotos'], 10))
       : 4;
+    const reconocimientoFacialActivo = configMap['kiosco_reconocimiento_facial_activo'] !== 'false';
 
     return NextResponse.json({
       success: true,
@@ -38,6 +40,7 @@ export async function GET() {
         biometriaActiva,
         modoFotoEstricto,
         diasRetencionFotos,
+        reconocimientoFacialActivo,
       },
     });
   } catch (error: any) {
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { biometriaActiva, modoFotoEstricto, diasRetencionFotos, purgarAhora } = body;
+    const { biometriaActiva, modoFotoEstricto, diasRetencionFotos, reconocimientoFacialActivo, purgarAhora } = body;
 
     // Si se solicitó la purga manual inmediata
     if (purgarAhora === true) {
@@ -129,6 +132,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof reconocimientoFacialActivo === 'boolean') {
+      updates.push(
+        db
+          .insert(configuracionSistema)
+          .values({
+            clave: 'kiosco_reconocimiento_facial_activo',
+            valor: String(reconocimientoFacialActivo),
+            descripcion: 'Habilita o deshabilita el botón de acceso por Reconocimiento Facial en el Kiosco',
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: configuracionSistema.clave,
+            set: {
+              valor: String(reconocimientoFacialActivo),
+              updatedAt: new Date(),
+            },
+          })
+      );
+    }
+
     await Promise.all(updates);
 
     return NextResponse.json({
@@ -138,6 +161,7 @@ export async function POST(request: NextRequest) {
         biometriaActiva,
         modoFotoEstricto,
         diasRetencionFotos: typeof diasRetencionFotos === 'number' ? diasRetencionFotos : undefined,
+        reconocimientoFacialActivo,
       },
     });
   } catch (error: any) {

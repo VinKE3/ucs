@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import {
   initFaceApi,
+  initSsdMobilenet,
   extractFaceDescriptor,
   saveEnrolledFaceToDB,
   syncEnrolledFacesFromDB,
@@ -85,10 +86,11 @@ export default function EnrolarPersonalPage() {
 
   // --- MOTOR BIOMÉTRICO Y CÁMARA ---
   const [modelLoading, setModelLoading] = useState(true);
-  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment'); // Por defecto cámara trasera en celular
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user'); // Por defecto cámara frontal (selfie) para pasar el celular al colaborador
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [liveFaceQuality, setLiveFaceQuality] = useState<FaceQualityResult | null>(null);
+  const [ssdReady, setSsdReady] = useState(false);
 
   // --- BÚSQUEDA Y ENROLAMIENTO MULTI-ÁNGULO ---
   const [dniInput, setDniInput] = useState('');
@@ -229,6 +231,12 @@ export default function EnrolarPersonalPage() {
       setModelLoading(false);
       if (ok) {
         startCamera(facingMode);
+        // Pre-cargar en segundo plano el modelo de alta precisión SSD MobileNet v1 para enrolamiento
+        initSsdMobilenet().then((ssdOk) => {
+          if (isMounted && ssdOk) {
+            setSsdReady(true);
+          }
+        });
       } else {
         setCameraError('No se pudieron descargar los modelos de visión artificial.');
       }
@@ -362,7 +370,8 @@ export default function EnrolarPersonalPage() {
     setCapturandoAngulo(true);
 
     try {
-      const { descriptor, box, error } = await extractFaceDescriptor(videoRef.current);
+      // Capturar usando SSD MobileNet v1 (5.4MB) para máxima fidelidad geométrica y resolución sub-píxel
+      const { descriptor, box, detectorUsed, error } = await extractFaceDescriptor(videoRef.current, { useSsd: true });
 
       if (error || !descriptor || !box) {
         const angConfig = ANGLES_CONFIG.find((a) => a.key === currentAngleKey);
@@ -736,8 +745,24 @@ export default function EnrolarPersonalPage() {
             <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ffffff' }}>
               Enrolador Móvil
             </div>
-            <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>
-              Admin: {adminUser.nombres.split(' ')[0]}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.7rem', color: '#38bdf8' }}>
+                Admin: {adminUser.nombres.split(' ')[0]}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  color: ssdReady ? '#00e699' : '#38bdf8',
+                  background: ssdReady ? 'rgba(0, 230, 153, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                  padding: '0.08rem 0.35rem',
+                  borderRadius: '6px',
+                  border: ssdReady ? '1px solid rgba(0, 230, 153, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                }}
+                title="SSD MobileNet v1 (5.4MB) provee máxima precisión en la captura de descriptores faciales"
+              >
+                {ssdReady ? '🎯 SSD MobileNet' : '⚡ TinyFace'}
+              </span>
             </div>
           </div>
         </div>
@@ -759,9 +784,9 @@ export default function EnrolarPersonalPage() {
               alignItems: 'center',
               gap: '0.35rem',
             }}
-            title="Cambiar entre cámara trasera y delantera"
+            title="Cambiar entre cámara delantera (selfie) y trasera"
           >
-            🔄 {facingMode === 'environment' ? 'Trasera' : 'Frontal'}
+            🔄 {facingMode === 'user' ? '🤳 Frontal' : '📷 Trasera'}
           </button>
           <button
             type="button"
@@ -1241,8 +1266,8 @@ export default function EnrolarPersonalPage() {
         >
           💡 <strong style={{ color: '#f8fafc' }}>Tips para el Enrolamiento</strong>:
           <ul style={{ margin: '0.4rem 0 0 1.1rem', padding: 0 }}>
-            <li>Usa la cámara trasera (🔄) para enfocar con comodidad al colaborador.</li>
-            <li>Alinea su rostro dentro de la elipse verde con buena iluminación.</li>
+            <li>Por defecto inicia en cámara frontal (🤳) para prestar el teléfono al colaborador y que se auto-enrole en modo selfie. Usa 🔄 si prefieres enfocarlo con la cámara trasera.</li>
+            <li>La captura utiliza <strong>SSD MobileNet v1</strong>, garantizando que el vector biométrico de 128 flotantes se guarde con máxima precisión para el Kiosco.</li>
             <li>Si el PS ya marcó su ingreso hoy, no se verá afectado; podrá usar su rostro al marcar la salida.</li>
           </ul>
         </div>

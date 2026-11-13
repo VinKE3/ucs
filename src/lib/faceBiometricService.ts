@@ -31,7 +31,9 @@ const CDN_SCRIPT = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dis
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
 
 let isModelsLoaded = false;
+let isSsdLoaded = false;
 let scriptLoadPromise: Promise<boolean> | null = null;
+let ssdLoadPromise: Promise<boolean> | null = null;
 let memoryCache: EnrolledFace[] | null = null;
 
 /**
@@ -108,34 +110,107 @@ export async function initFaceApi(): Promise<boolean> {
 }
 
 /**
- * Extrae el descriptor de 128 dimensiones de un fotograma en vivo
+ * Inicializa y descarga bajo demanda el modelo de alta precisión SSD MobileNet v1.
+ * Se utiliza primordialmente para el Enrolamiento de colaboradores (máxima resolución y landmarks exactos).
+ */
+export async function initSsdMobilenet(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  try {
+    const baseOk = await initFaceApi();
+    if (!baseOk || !window.faceapi) return false;
+
+    if (isSsdLoaded && window.faceapi.nets?.ssdMobilenetv1?.isLoaded) return true;
+    if (ssdLoadPromise) return ssdLoadPromise;
+
+    ssdLoadPromise = (async () => {
+      const faceapi = window.faceapi;
+      if (!faceapi.nets?.ssdMobilenetv1?.isLoaded) {
+        console.log('📦 Cargando modelo de alta precisión SSD MobileNet v1 para Enrolamiento...');
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+      }
+      isSsdLoaded = true;
+      console.log('🎯 Modelo SSD MobileNet v1 cargado exitosamente en memoria WebGL.');
+      return true;
+    })();
+
+    return await ssdLoadPromise;
+  } catch (err: any) {
+    console.warn('⚠️ No se pudo cargar SSD MobileNet v1, usando TinyFace como fallback seguro:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Indica si el modelo SSD MobileNet v1 está cargado y disponible
+ */
+export function isSsdModelLoaded(): boolean {
+  return isSsdLoaded && typeof window !== 'undefined' && !!window.faceapi?.nets?.ssdMobilenetv1?.isLoaded;
+}
+
+export interface ExtractFaceOptions {
+  useSsd?: boolean;
+  minConfidence?: number;
+}
+
+/**
+ * Extrae el descriptor de 128 dimensiones de un fotograma en vivo.
+ * Soporta modo híbrido:
+ * - TinyFaceDetector: por defecto para escaneo en tiempo real a 30+ FPS en el Kiosco.
+ * - SSD MobileNet v1 (con `useSsd: true`): para enrolamiento de máxima precisión y fidelidad geométrica.
  */
 export async function extractFaceDescriptor(
-  videoOrCanvas: HTMLVideoElement | HTMLCanvasElement
+  videoOrCanvas: HTMLVideoElement | HTMLCanvasElement,
+  options?: ExtractFaceOptions
 ): Promise<{
   descriptor: Float32Array | null;
   box: { x: number; y: number; width: number; height: number } | null;
+  detectorUsed?: 'ssd' | 'tiny';
   error?: string;
 }> {
   if (!window.faceapi || !isModelsLoaded) {
     const ok = await initFaceApi();
-    if (!ok) return { descriptor: null, box: null, error: 'Modelos no disponibles' };
+    if (!ok) return { descriptor: null, box: null, detectorUsed: 'tiny', error: 'Modelos no disponibles' };
   }
 
-  try {
-    const faceapi = window.faceapi;
-    const options = new faceapi.TinyFaceDetectorOptions({
-      inputSize: 224, // 160 o 224 para ultra-velocidad en tiempo real
-      scoreThreshold: 0.5,
-    });
+  const faceapi = window.faceapi;
+  let detectorUsed: 'ssd' | 'tiny' = 'tiny';
 
-    const detection = await faceapi
-      .detectSingleFace(videoOrCanvas, options)
-      .withFaceLandmarks(true)
-      .withFaceDescriptor();
+  try {
+    let detection: any = null;
+
+    // Si se requiere alta precisión (SSD MobileNet v1)
+    if (options?.useSsd) {
+      if (!isSsdLoaded) {
+        await initSsdMobilenet();
+      }
+
+      if (faceapi.nets?.ssdMobilenetv1?.isLoaded) {
+        detectorUsed = 'ssd';
+        const ssdOpts = new faceapi.SsdMobilenetv1Options({
+          minConfidence: options.minConfidence ?? 0.5,
+        });
+        detection = await faceapi
+          .detectSingleFace(videoOrCanvas, ssdOpts)
+          .withFaceLandmarks(true)
+          .withFaceDescriptor();
+      }
+    }
+
+    // Fallback seguro o modo continuo en tiempo real: TinyFaceDetector
+    if (!detection) {
+      detectorUsed = 'tiny';
+      const tinyOpts = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224, // 160 o 224 para ultra-velocidad en tiempo real
+        scoreThreshold: options?.minConfidence ?? 0.5,
+      });
+      detection = await faceapi
+        .detectSingleFace(videoOrCanvas, tinyOpts)
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+    }
 
     if (!detection) {
-      return { descriptor: null, box: null };
+      return { descriptor: null, box: null, detectorUsed };
     }
 
     return {
@@ -146,9 +221,10 @@ export async function extractFaceDescriptor(
         width: Math.round(detection.detection.box.width),
         height: Math.round(detection.detection.box.height),
       },
+      detectorUsed,
     };
   } catch (err: any) {
-    return { descriptor: null, box: null, error: err.message };
+    return { descriptor: null, box: null, detectorUsed, error: err.message };
   }
 }
 

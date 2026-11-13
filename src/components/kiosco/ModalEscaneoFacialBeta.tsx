@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import {
   initFaceApi,
+  initSsdMobilenet,
   extractFaceDescriptor,
   findMatchingUser,
   getEnrolledFaces,
@@ -323,7 +324,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     setStatusText('📸 Analizando biometría y vector de 128 flotantes...');
 
     try {
-      const { descriptor, box } = await extractFaceDescriptor(videoRef.current);
+      const { descriptor, box, detectorUsed } = await extractFaceDescriptor(videoRef.current, { useSsd: true });
       if (!descriptor || !box) {
         setEnrolError('No se detectó ningún rostro con claridad. Mira fijamente a la cámara con buena iluminación.');
         Swal.fire({
@@ -564,6 +565,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
             onClick={() => {
               setModo('enrolar');
               isLoopRunningRef.current = false;
+              initSsdMobilenet(); // Precalentar SSD MobileNet v1 para captura de alta precisión
             }}
             style={{
               flex: 1,

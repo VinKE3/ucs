@@ -75,6 +75,12 @@
             - **Blindaje del Matching en Kiosco (`ModalEscaneoFacialBeta.tsx`)**: Si la posición no es óptima, se bloquea el avance del consenso y se descarta el frame, garantizando que el Kiosco solo intente emparejar cuando la persona esté debidamente encuadrada.
             - **HUD Reactivo en Vivo**: Pill flotante con colores según el estado (esmeralda para óptimo, ámbar para distancia/descentrado, rojo para excesiva cercanía) y retícula ovalada que adapta su borde y resplandor dinámicamente.
             - **Validación de Calidad en Enrolador Móvil (`/enrolar-personal`)**: Impide capturar fotos desenfocadas o lejanas, garantizando vectores de 128 floats de máxima nitidez.
+        13. **Modelo de Visión Artificial Híbrido: SSD MobileNet v1 + TinyFace (`faceBiometricService.ts`, `enrolar-personal/page.tsx`, `ModalEscaneoFacialBeta.tsx`)**:
+            - **Arquitectura Híbrida Asimétrica**:
+              - **Enrolamiento de Alta Precisión (`SSD MobileNet v1`, ~5.4MB)**: Carga diferida bajo demanda (`initSsdMobilenet`). Al pulsar "Capturar Ángulo", procesa el cuadro con Single Shot Multibox Detector de Google Research para extraer facciones y landmarks con precisión sub-píxel, generando un vector de 128 floats de fidelidad de estudio.
+              - **Escaneo Ultrarrápido en Kiosco (`TinyFaceDetector`, ~190KB)**: Mantiene latencia ultra-baja (30+ FPS en tiempo real) en el bucle continuo del Kiosco, comparando contra los vectores de alta precisión sin sobrecalentar el navegador ni la GPU.
+            - **Optimización de Flujo en Terreno (Modo Selfie / Cámara Frontal por Defecto)**: Basado en las pruebas de campo reales de enrolamiento de colaboradores, `/enrolar-personal` inicia por defecto en cámara frontal (`user`) para que el administrador pueda entregar su smartphone al colaborador y que este se auto-enrole cómodamente en modo selfie, con alternador rápido a cámara trasera (`📷 Trasera`).
+            - **Badge de Estado de Modelo**: Indicador visual en la barra superior móvil (`🎯 SSD MobileNet` / `⚡ TinyFace`) que confirma la disponibilidad del modelo de alta precisión.
       - **Verificación Técnica**:
         - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
         - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.

@@ -93,6 +93,27 @@ export async function initFaceApi(): Promise<boolean> {
 
     const faceapi = window.faceapi;
 
+    // Inicializar y sincronizar el backend de cómputo de TensorFlow.js antes de cargar los modelos
+    if (faceapi.tf) {
+      try {
+        // 1. Intentar primero aceleración por GPU con WebGL
+        await faceapi.tf.setBackend('webgl');
+        await faceapi.tf.ready();
+        console.log('⚡ Backend WebGL (GPU) inicializado para visión artificial.');
+      } catch (errWebGL) {
+        console.warn('⚠️ WebGL no soportado o aceleración por hardware desactivada. Activando fallback a CPU:', errWebGL);
+        try {
+          // 2. Si falla WebGL, forzar backend CPU (100% universal, sin requerir binarios .wasm externos)
+          await faceapi.tf.setBackend('cpu');
+          await faceapi.tf.ready();
+          console.log('🛡️ Backend CPU activo como fallback universal.');
+        } catch (errCpu) {
+          console.warn('⚠️ Fallback final tf.ready():', errCpu);
+          await faceapi.tf.ready().catch(() => {});
+        }
+      }
+    }
+
     // Cargar modelos requeridos para detección, landmarks y embedding de 128 floats
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -101,7 +122,7 @@ export async function initFaceApi(): Promise<boolean> {
     ]);
 
     isModelsLoaded = true;
-    console.log('🧠 Modelos de Reconocimiento Facial cargados en memoria WebGL.');
+    console.log('🧠 Modelos de Reconocimiento Facial cargados en memoria.');
     return true;
   } catch (error) {
     console.error('Error al inicializar modelos de face-api:', error);

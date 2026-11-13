@@ -22,6 +22,7 @@ interface ModalEscaneoFacialBetaProps {
   currentUserId?: number;
   currentUserName?: string;
   currentUserDni?: string;
+  requireLiveness?: boolean;
 }
 
 export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
@@ -30,6 +31,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
   onUserIdentified,
   currentUserName,
   currentUserDni,
+  requireLiveness,
 }) => {
   const [modo, setModo] = useState<'escanear' | 'enrolar'>('escanear');
   const [modelLoading, setModelLoading] = useState(true);
@@ -40,6 +42,24 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
   const [matchedUser, setMatchedUser] = useState<{ nombre: string; dni: string; confidence: number } | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null);
+
+  // Prueba de Vida Anti-Spoofing (Detección de Parpadeo - EAR)
+  const isLivenessRequired = Boolean(
+    requireLiveness ??
+    (typeof window !== 'undefined' && localStorage.getItem('kiosco_cfg_liveness_parpadeo') === 'true')
+  );
+  const [livenessPassed, setLivenessPassed] = useState(false);
+  const [, setCurrentEar] = useState<number | null>(null);
+
+  const blinkTrackerRef = useRef<{
+    hasClosed: boolean;
+    closedAt: number;
+    blinkConfirmed: boolean;
+  }>({
+    hasClosed: false,
+    closedAt: 0,
+    blinkConfirmed: false,
+  });
 
   // Enrolamiento
   const [dniParaEnrolar, setDniParaEnrolar] = useState(currentUserDni || '');
@@ -188,14 +208,15 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     onClose();
   }, [stopCamera, onUserIdentified, onClose]);
 
-  // Bucle de detección facial en vivo con Filtro de Consenso Temporal y Guiado en Tiempo Real
+  // Bucle de detección facial en vivo con Filtro de Consenso Temporal, Guiado y Anti-Spoofing (Parpadeo)
   const runDetectionLoop = async () => {
     if (!isLoopRunningRef.current || !videoRef.current || modo !== 'escanear') return;
 
     if (videoRef.current.readyState === 4 && !videoRef.current.paused) {
       try {
-        const { descriptor, box } = await extractFaceDescriptor(videoRef.current);
+        const { descriptor, box, ear, isBlinking } = await extractFaceDescriptor(videoRef.current);
         setDetectedBox(box);
+        if (typeof ear === 'number') setCurrentEar(ear);
 
         const frameW = videoRef.current.videoWidth || 640;
         const frameH = videoRef.current.videoHeight || 480;
@@ -203,9 +224,11 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         setFaceQuality(quality);
 
         if (!descriptor || !box || quality.status === 'no_face') {
-          // Sin rostro en el visor: limpiar consenso
+          // Sin rostro en el visor: limpiar consenso y resetear estado de liveness
           consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+          blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
           setConsensusHits(0);
+          setLivenessPassed(false);
           setDetectedBox(null);
           setStatusText('Colócate frente a la cámara web...');
         } else if (!quality.isOptimal) {
@@ -215,6 +238,24 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
           setConsensusHits(0);
           setStatusText(quality.message);
         } else {
+          // Evaluar Liveness (Anti-Spoofing por Parpadeo) si está activo en la configuración
+          if (isLivenessRequired && ear !== null && ear !== undefined) {
+            const EAR_CLOSED = 0.20;
+            const EAR_OPEN = 0.26;
+
+            if (ear < EAR_CLOSED || isBlinking) {
+              blinkTrackerRef.current.hasClosed = true;
+              blinkTrackerRef.current.closedAt = Date.now();
+            } else if (blinkTrackerRef.current.hasClosed && ear >= EAR_OPEN) {
+              const elapsed = Date.now() - blinkTrackerRef.current.closedAt;
+              // Si el parpadeo ocurrió en un intervalo biológico natural (80ms a 1800ms)
+              if (elapsed >= 80 && elapsed <= 1800) {
+                blinkTrackerRef.current.blinkConfirmed = true;
+                setLivenessPassed(true);
+              }
+            }
+          }
+
           // Posición biométrica óptima: Proceder con matching y filtro de consenso
           const matchResult = findMatchingUser(descriptor);
           if (matchResult.matched && matchResult.user) {
@@ -230,17 +271,29 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               tracker.candidateUser = matchResult.user;
               tracker.hits = 1;
               tracker.confidences = [matchResult.confidence];
+              // Al cambiar de persona, resetear la prueba de vida para el nuevo candidato
+              blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
+              setLivenessPassed(false);
             }
 
             const currentHits = tracker.hits;
             setConsensusHits(currentHits);
 
+            const isLivenessOk = !isLivenessRequired || blinkTrackerRef.current.blinkConfirmed;
+            const primerNombre = matchResult.user.nombre.split(' ')[0];
+
             if (currentHits < REQUIRED_CONSENSUS_HITS) {
               // Estabilizando match (consenso en progreso)
-              const primerNombre = matchResult.user.nombre.split(' ')[0];
-              setStatusText(`🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS})`);
+              if (isLivenessRequired && !isLivenessOk) {
+                setStatusText(`🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS}) • 😉 Parpadea`);
+              } else {
+                setStatusText(`🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS})`);
+              }
+            } else if (!isLivenessOk) {
+              // Consenso alcanzado pero esperando parpadeo para evitar foto estática
+              setStatusText(`😉 ¡Hola ${primerNombre}! Por favor, parpadea frente al visor para confirmar...`);
             } else {
-              // Consenso confirmado: 3 fotogramas consecutivos avalan la identidad
+              // Consenso confirmado y prueba de vida superada
               const avgConfidence = Math.round(
                 tracker.confidences.reduce((a, b) => a + b, 0) / tracker.confidences.length
               );
@@ -250,7 +303,12 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 dni: matchResult.user.dni,
                 confidence: avgConfidence,
               });
-              setStatusText(`🎯 ¡Rostro Confirmado: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`);
+
+              setStatusText(
+                isLivenessRequired
+                  ? `🎯 ¡Prueba de Vida y Rostro Confirmados: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`
+                  : `🎯 ¡Rostro Confirmado: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`
+              );
 
               // Detener bucle y arrancar cuenta regresiva de 2 segundos para marcar
               isLoopRunningRef.current = false;
@@ -295,7 +353,9 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
       countdownTimerRef.current = null;
     }
     consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+    blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
     setConsensusHits(0);
+    setLivenessPassed(false);
     setFaceQuality(null);
     setAutoRedirectCountdown(null);
     setMatchedUser(null);
@@ -498,6 +558,21 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 >
                   FASE BETA
                 </span>
+                {isLivenessRequired && (
+                  <span
+                    style={{
+                      background: 'rgba(2, 132, 199, 0.2)',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      color: '#38bdf8',
+                      fontWeight: 800,
+                      fontSize: '0.65rem',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '20px',
+                    }}
+                  >
+                    🛡️ ANTI-SPOOFING
+                  </span>
+                )}
               </div>
               <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
                 Identificación biométrica para registro de asistencia
@@ -687,6 +762,62 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               >
                 <span>{faceQuality.icon}</span>
                 <span>{faceQuality.message}</span>
+              </div>
+            )}
+
+            {/* BADGE DE MODO LIVENESS / ANTI-SPOOFING EN EL VISOR */}
+            {isLivenessRequired && !matchedUser && modo === 'escanear' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: livenessPassed ? 'rgba(6, 78, 59, 0.92)' : 'rgba(2, 132, 199, 0.35)',
+                  border: livenessPassed ? '1px solid #10b981' : '1px solid rgba(56, 189, 248, 0.6)',
+                  color: livenessPassed ? '#6ee7b7' : '#38bdf8',
+                  padding: '0.2rem 0.55rem',
+                  borderRadius: '12px',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  backdropFilter: 'blur(6px)',
+                  zIndex: 6,
+                }}
+                title={livenessPassed ? 'Prueba de vida confirmada por parpadeo' : 'Modo Anti-Spoofing: requiere parpadeo'}
+              >
+                <span>{livenessPassed ? '✓' : '🛡️'}</span>
+                <span>{livenessPassed ? 'Vida OK' : 'Anti-Spoofing'}</span>
+              </div>
+            )}
+
+            {/* CALLOUT DESTACADO: ESPERANDO PARPADEO PARA PRUEBA DE VIDA */}
+            {isLivenessRequired && consensusHits >= 3 && !livenessPassed && !matchedUser && modo === 'escanear' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '75px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(2, 132, 199, 0.95)',
+                  border: '1px solid #38bdf8',
+                  color: '#ffffff',
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '16px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  backdropFilter: 'blur(8px)',
+                  zIndex: 10,
+                  boxShadow: '0 0 20px rgba(56, 189, 248, 0.6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span style={{ fontSize: '1rem' }}>😉</span>
+                <span>¡Por favor, parpadea para confirmar!</span>
               </div>
             )}
 

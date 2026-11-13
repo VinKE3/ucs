@@ -106,6 +106,7 @@ export async function GET() {
         inArray(configuracionSistema.clave, [
           'kiosco_biometria_activa',
           'kiosco_reconocimiento_facial_activo',
+          'kiosco_liveness_parpadeo_activo',
         ])
       );
 
@@ -116,12 +117,14 @@ export async function GET() {
 
     const biometriaActiva = configMap['kiosco_biometria_activa'] !== 'false';
     const reconocimientoFacialActivo = configMap['kiosco_reconocimiento_facial_activo'] !== 'false';
+    const livenessParpadeoActivo = configMap['kiosco_liveness_parpadeo_activo'] === 'true';
 
     return NextResponse.json({
       sedes: sedesConAmbientes,
       config: {
         biometriaActiva,
         reconocimientoFacialActivo,
+        livenessParpadeoActivo,
       },
     });
   } catch (error) {

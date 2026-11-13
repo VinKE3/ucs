@@ -20,6 +20,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
   const [biometriaActiva, setBiometriaActiva] = useState<boolean>(true);
   const [modoFotoEstricto, setModoFotoEstricto] = useState<boolean>(false);
   const [reconocimientoFacialActivo, setReconocimientoFacialActivo] = useState<boolean>(true);
+  const [livenessParpadeoActivo, setLivenessParpadeoActivo] = useState<boolean>(false);
   const [diasRetencionFotos, setDiasRetencionFotos] = useState<number>(4);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -43,6 +44,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
           setBiometriaActiva(data.config.biometriaActiva !== false);
           setModoFotoEstricto(Boolean(data.config.modoFotoEstricto));
           setReconocimientoFacialActivo(data.config.reconocimientoFacialActivo !== false);
+          setLivenessParpadeoActivo(Boolean(data.config.livenessParpadeoActivo));
           if (typeof data.config.diasRetencionFotos === 'number') {
             setDiasRetencionFotos(data.config.diasRetencionFotos);
           }
@@ -72,6 +74,7 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
           modoFotoEstricto,
           diasRetencionFotos: Number(diasRetencionFotos),
           reconocimientoFacialActivo,
+          livenessParpadeoActivo,
         }),
       });
 
@@ -448,6 +451,110 @@ export const ModalConfiguracionKiosco: React.FC<ModalConfiguracionKioscoProps> =
                 </span>
               </label>
             </div>
+
+            {/* SWITCH 4: Prueba de Vida Anti-Suplantación (Detección de Parpadeo) */}
+            {reconocimientoFacialActivo && (
+              <div
+                style={{
+                  background: 'var(--bg-input, rgba(0, 0, 0, 0.02))',
+                  border: '1px dashed var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '0.95rem 1rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '1.05rem' }}>🛡️😉</span>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                      Prueba de Vida Anti-Spoofing (Parpadeo)
+                    </strong>
+                    <span
+                      style={{
+                        background: 'rgba(2, 132, 199, 0.15)',
+                        color: '#0284c7',
+                        fontWeight: 800,
+                        fontSize: '0.62rem',
+                        padding: '0.12rem 0.45rem',
+                        borderRadius: '10px',
+                      }}
+                    >
+                      SEGURIDAD
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 0.35rem', fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                    {livenessParpadeoActivo
+                      ? 'Estricto: Exige un parpadeo voluntario frente a la cámara antes de confirmar la identidad. Impide que se marque asistencia usando fotos o videos en celulares.'
+                      : 'Flexible (Recomendado): Valida con el consenso temporal de 3 fotogramas en ~0.6s sin forzar parpadeo. Ideal para agilidad en horas pico.'}
+                  </p>
+                  <div>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '6px',
+                        backgroundColor: livenessParpadeoActivo ? 'rgba(2, 132, 199, 0.12)' : 'rgba(100, 116, 139, 0.12)',
+                        color: livenessParpadeoActivo ? '#0284c7' : 'var(--text-muted)',
+                        border: livenessParpadeoActivo ? '1px solid rgba(2, 132, 199, 0.3)' : '1px solid var(--border-color)',
+                      }}
+                    >
+                      {livenessParpadeoActivo ? '● Activado (Exige parpadeo activo)' : '○ Desactivado (Marcación instantánea)'}
+                    </span>
+                  </div>
+                </div>
+
+                <label
+                  style={{
+                    position: 'relative',
+                    display: 'inline-block',
+                    width: '44px',
+                    height: '24px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    marginTop: '0.15rem',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={livenessParpadeoActivo}
+                    onChange={(e) => setLivenessParpadeoActivo(e.target.checked)}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: livenessParpadeoActivo ? '#0284c7' : 'var(--border-color, #cbd5e1)',
+                      transition: '0.25s',
+                      borderRadius: '24px',
+                      boxShadow: livenessParpadeoActivo ? '0 2px 8px rgba(2, 132, 199, 0.35)' : 'none',
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute',
+                        content: '""',
+                        height: '18px',
+                        width: '18px',
+                        left: livenessParpadeoActivo ? '23px' : '3px',
+                        bottom: '3px',
+                        backgroundColor: '#ffffff',
+                        transition: '0.25s',
+                        borderRadius: '50%',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      }}
+                    />
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* SECCIÓN 3: Vigencia y Auto-Purga en la Nube (Vercel Blob) */}
             <div

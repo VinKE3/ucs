@@ -18,6 +18,7 @@ export async function GET() {
           'kiosco_modo_foto_estricto',
           'kiosco_dias_retencion_fotos',
           'kiosco_reconocimiento_facial_activo',
+          'kiosco_liveness_parpadeo_activo',
         ])
       );
 
@@ -33,6 +34,7 @@ export async function GET() {
       ? Math.max(1, parseInt(configMap['kiosco_dias_retencion_fotos'], 10))
       : 4;
     const reconocimientoFacialActivo = configMap['kiosco_reconocimiento_facial_activo'] !== 'false';
+    const livenessParpadeoActivo = configMap['kiosco_liveness_parpadeo_activo'] === 'true';
 
     return NextResponse.json({
       success: true,
@@ -41,6 +43,7 @@ export async function GET() {
         modoFotoEstricto,
         diasRetencionFotos,
         reconocimientoFacialActivo,
+        livenessParpadeoActivo,
       },
     });
   } catch (error: any) {
@@ -57,7 +60,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { biometriaActiva, modoFotoEstricto, diasRetencionFotos, reconocimientoFacialActivo, purgarAhora } = body;
+    const {
+      biometriaActiva,
+      modoFotoEstricto,
+      diasRetencionFotos,
+      reconocimientoFacialActivo,
+      livenessParpadeoActivo,
+      purgarAhora,
+    } = body;
 
     // Si se solicitó la purga manual inmediata
     if (purgarAhora === true) {
@@ -152,6 +162,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof livenessParpadeoActivo === 'boolean') {
+      updates.push(
+        db
+          .insert(configuracionSistema)
+          .values({
+            clave: 'kiosco_liveness_parpadeo_activo',
+            valor: String(livenessParpadeoActivo),
+            descripcion: 'Exige detección de parpadeo (prueba de vida anti-spoofing) antes de validar el reconocimiento facial',
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: configuracionSistema.clave,
+            set: {
+              valor: String(livenessParpadeoActivo),
+              updatedAt: new Date(),
+            },
+          })
+      );
+    }
+
     await Promise.all(updates);
 
     return NextResponse.json({
@@ -162,6 +192,7 @@ export async function POST(request: NextRequest) {
         modoFotoEstricto,
         diasRetencionFotos: typeof diasRetencionFotos === 'number' ? diasRetencionFotos : undefined,
         reconocimientoFacialActivo,
+        livenessParpadeoActivo,
       },
     });
   } catch (error: any) {

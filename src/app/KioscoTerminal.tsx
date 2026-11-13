@@ -188,6 +188,13 @@ export default function KioscoTerminal() {
     }
     return false; // Seguro por defecto: no mostrar hasta que la API confirme que está activo
   });
+  const [livenessParpadeoHabilitado, setLivenessParpadeoHabilitado] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('kiosco_cfg_liveness_parpadeo');
+      if (cached !== null) return cached === 'true';
+    }
+    return false;
+  });
 
   // Modal para autorizar terminal
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -473,6 +480,12 @@ export default function KioscoTerminal() {
                 localStorage.setItem("kiosco_cfg_reconocimiento_facial", String(d.config.reconocimientoFacialActivo));
               }
             }
+            if (typeof d.config.livenessParpadeoActivo === "boolean") {
+              setLivenessParpadeoHabilitado(d.config.livenessParpadeoActivo);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("kiosco_cfg_liveness_parpadeo", String(d.config.livenessParpadeoActivo));
+              }
+            }
           }
         })
         .catch(() => {});
@@ -549,6 +562,12 @@ export default function KioscoTerminal() {
               setReconocimientoFacialHabilitado(data.config.reconocimientoFacialActivo);
               if (typeof window !== 'undefined') {
                 localStorage.setItem('kiosco_cfg_reconocimiento_facial', String(data.config.reconocimientoFacialActivo));
+              }
+            }
+            if (typeof data.config.livenessParpadeoActivo === 'boolean') {
+              setLivenessParpadeoHabilitado(data.config.livenessParpadeoActivo);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('kiosco_cfg_liveness_parpadeo', String(data.config.livenessParpadeoActivo));
               }
             }
           }
@@ -2832,6 +2851,7 @@ export default function KioscoTerminal() {
         }}
         currentUserName={usuarioActual ? `${usuarioActual.nombres} ${usuarioActual.apellidos}` : undefined}
         currentUserDni={usuarioActual ? usuarioActual.dni : undefined}
+        requireLiveness={livenessParpadeoHabilitado}
       />
     </div>
   );

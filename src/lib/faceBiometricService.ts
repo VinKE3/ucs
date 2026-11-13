@@ -147,6 +147,19 @@ export function isSsdModelLoaded(): boolean {
   return isSsdLoaded && typeof window !== 'undefined' && !!window.faceapi?.nets?.ssdMobilenetv1?.isLoaded;
 }
 
+/**
+ * Calcula el Eye Aspect Ratio (EAR) a partir de los 6 puntos anatómicos de un ojo.
+ * Valores típicos: Ojos abiertos: 0.26 - 0.38 | Ojos cerrados/parpadeo: < 0.20
+ */
+export function calculateEAR(eyePoints: { x: number; y: number }[]): number {
+  if (!eyePoints || eyePoints.length < 6) return 0.3;
+  const v1 = Math.hypot(eyePoints[1].x - eyePoints[5].x, eyePoints[1].y - eyePoints[5].y);
+  const v2 = Math.hypot(eyePoints[2].x - eyePoints[4].x, eyePoints[2].y - eyePoints[4].y);
+  const h = Math.hypot(eyePoints[0].x - eyePoints[3].x, eyePoints[0].y - eyePoints[3].y);
+  if (h === 0) return 0.3;
+  return (v1 + v2) / (2.0 * h);
+}
+
 export interface ExtractFaceOptions {
   useSsd?: boolean;
   minConfidence?: number;
@@ -157,6 +170,7 @@ export interface ExtractFaceOptions {
  * Soporta modo híbrido:
  * - TinyFaceDetector: por defecto para escaneo en tiempo real a 30+ FPS en el Kiosco.
  * - SSD MobileNet v1 (con `useSsd: true`): para enrolamiento de máxima precisión y fidelidad geométrica.
+ * Incluye cálculo en tiempo real de EAR (Eye Aspect Ratio) para prueba de vida pasiva/activa (anti-spoofing).
  */
 export async function extractFaceDescriptor(
   videoOrCanvas: HTMLVideoElement | HTMLCanvasElement,
@@ -165,6 +179,8 @@ export async function extractFaceDescriptor(
   descriptor: Float32Array | null;
   box: { x: number; y: number; width: number; height: number } | null;
   detectorUsed?: 'ssd' | 'tiny';
+  ear?: number | null;
+  isBlinking?: boolean;
   error?: string;
 }> {
   if (!window.faceapi || !isModelsLoaded) {
@@ -213,6 +229,19 @@ export async function extractFaceDescriptor(
       return { descriptor: null, box: null, detectorUsed };
     }
 
+    // Cálculo de Eye Aspect Ratio (EAR) para Liveness Detection / Anti-Spoofing
+    let ear: number | null = null;
+    let isBlinking = false;
+    if (detection.landmarks?.positions && detection.landmarks.positions.length >= 48) {
+      const positions = detection.landmarks.positions;
+      const leftEye = positions.slice(36, 42);
+      const rightEye = positions.slice(42, 48);
+      const leftEar = calculateEAR(leftEye);
+      const rightEar = calculateEAR(rightEye);
+      ear = Number(((leftEar + rightEar) / 2).toFixed(3));
+      isBlinking = ear < 0.20;
+    }
+
     return {
       descriptor: detection.descriptor,
       box: {
@@ -222,6 +251,8 @@ export async function extractFaceDescriptor(
         height: Math.round(detection.detection.box.height),
       },
       detectorUsed,
+      ear,
+      isBlinking,
     };
   } catch (err: any) {
     return { descriptor: null, box: null, detectorUsed, error: err.message };

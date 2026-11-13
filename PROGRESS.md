@@ -81,6 +81,14 @@
               - **Escaneo Ultrarrápido en Kiosco (`TinyFaceDetector`, ~190KB)**: Mantiene latencia ultra-baja (30+ FPS en tiempo real) en el bucle continuo del Kiosco, comparando contra los vectores de alta precisión sin sobrecalentar el navegador ni la GPU.
             - **Optimización de Flujo en Terreno (Modo Selfie / Cámara Frontal por Defecto)**: Basado en las pruebas de campo reales de enrolamiento de colaboradores, `/enrolar-personal` inicia por defecto en cámara frontal (`user`) para que el administrador pueda entregar su smartphone al colaborador y que este se auto-enrole cómodamente en modo selfie, con alternador rápido a cámara trasera (`📷 Trasera`).
             - **Badge de Estado de Modelo**: Indicador visual en la barra superior móvil (`🎯 SSD MobileNet` / `⚡ TinyFace`) que confirma la disponibilidad del modelo de alta precisión.
+        14. **Prueba de Vida Anti-Spoofing por Detección de Parpadeo con Switch Configurable (`faceBiometricService.ts`, `ModalEscaneoFacialBeta.tsx`, `ModalConfiguracionKiosco.tsx`, `KioscoTerminal.tsx`, `api/kiosco/configuracion`)**:
+            - **Cálculo de Eye Aspect Ratio (EAR)**: Implementada la formulación matemática de Soukupová & Čech sobre los 6 puntos anatómicos de cada ojo (landmarks 36–47), extrayendo el ratio de apertura palpebral en 0.001ms por fotograma sin sobrecargar la CPU.
+            - **Máquina de Estados de Parpadeo Natural**: Detecta la transición fisiológica completa (apertura `> 0.26` -> cierre `< 0.20` -> re-apertura `> 0.26`) en un intervalo biológico de 80ms a 1800ms. Impide suplantaciones mediante fotografías estáticas en papel o videos grabados en celulares.
+            - **Control Global ON/OFF con Switch para Administradores**:
+              - Switch en `ModalConfiguracionKiosco.tsx` persistido en `configuracion_sistema` bajo la clave `kiosco_liveness_parpadeo_activo`.
+              - **OFF (Por defecto / Modo Rápido)**: Reconocimiento instantáneo en ~0.6s con consenso temporal de 3 fotogramas para máxima fluidez en horas pico.
+              - **ON (Modo Auditoría / Alta Seguridad)**: Requiere explícitamente parpadeo activo antes de confirmar la identidad.
+            - **Cyber HUD Feedback en Visor**: Badge superior `🛡️ Anti-Spoofing` -> `✓ Vida OK`, y callout animado `😉 ¡Por favor, parpadea para confirmar!` cuando el consenso de 3 fotogramas ya identificó al colaborador pero aguarda la prueba de vida.
       - **Verificación Técnica**:
         - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
         - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.

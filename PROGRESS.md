@@ -65,6 +65,16 @@
             - **Ventana Deslizante de 3 Fotogramas Consecutivos**: Requerimiento estricto de que el mismo colaborador sea reconocido de forma consistente durante 3 fotogramas sucesivos (~600ms) antes de confirmar la identidad.
             - **Eliminación Total de Ruido**: Si una persona pasa por detrás o un fotograma produce una detección efímera, el acumulador de consenso se reinicia de inmediato, blindando el Kiosco contra marcaciones accidentales.
             - **HUD de Estabilidad Biométrica**: Micro-indicador visual de 3 barras ([■ ■ □]) en el visor con retícula reactiva (celeste durante la acumulación y verde fluorescente al confirmar el consenso), promediando el porcentaje de confianza.
+        12. **Feedback y Guiado Biométrico en Tiempo Real (`evaluateFaceQuality`, HUD reactivo en Kiosco y Enrolador Móvil)**:
+            - **Evaluación Geométrica y Dimensional (`faceBiometricService.ts`)**: Análisis por fotograma de la relación de aspecto del rostro respecto al cuadro (`boxRatio = box.height / frameHeight`) y desviación del centroide (`offsetNormX`, `offsetNormY`).
+            - **Clasificación de Estados en Tiempo Real**:
+              - `too_far` (`boxRatio < 0.28`): "📏 Acércate un poco más a la cámara" (descarta personas caminando en el fondo a 3 metros).
+              - `too_close` (`boxRatio > 0.82`): "📏 Aléjate un poco de la cámara" (evita distorsión por lente angular).
+              - `off_center` (`|offsetX| > 0.22` o `|offsetY| > 0.26`): "🎯 Centra tu rostro en el óvalo".
+              - `optimal`: "✨ Posición biométrica óptima".
+            - **Blindaje del Matching en Kiosco (`ModalEscaneoFacialBeta.tsx`)**: Si la posición no es óptima, se bloquea el avance del consenso y se descarta el frame, garantizando que el Kiosco solo intente emparejar cuando la persona esté debidamente encuadrada.
+            - **HUD Reactivo en Vivo**: Pill flotante con colores según el estado (esmeralda para óptimo, ámbar para distancia/descentrado, rojo para excesiva cercanía) y retícula ovalada que adapta su borde y resplandor dinámicamente.
+            - **Validación de Calidad en Enrolador Móvil (`/enrolar-personal`)**: Impide capturar fotos desenfocadas o lejanas, garantizando vectores de 128 floats de máxima nitidez.
       - **Verificación Técnica**:
         - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
         - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.

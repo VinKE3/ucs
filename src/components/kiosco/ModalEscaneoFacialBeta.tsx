@@ -9,7 +9,9 @@ import {
   getEnrolledFaces,
   syncEnrolledFacesFromDB,
   saveEnrolledFaceToDB,
+  evaluateFaceQuality,
   type EnrolledFace,
+  type FaceQualityResult,
 } from '@/lib/faceBiometricService';
 
 interface ModalEscaneoFacialBetaProps {
@@ -33,6 +35,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
   const [dbSyncing, setDbSyncing] = useState(false);
   const [statusText, setStatusText] = useState('Inicializando modelos de visión artificial...');
   const [detectedBox, setDetectedBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [faceQuality, setFaceQuality] = useState<FaceQualityResult | null>(null);
   const [matchedUser, setMatchedUser] = useState<{ nombre: string; dni: string; confidence: number } | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null);
@@ -184,7 +187,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     onClose();
   }, [stopCamera, onUserIdentified, onClose]);
 
-  // Bucle de detección facial en vivo con Filtro de Consenso Temporal
+  // Bucle de detección facial en vivo con Filtro de Consenso Temporal y Guiado en Tiempo Real
   const runDetectionLoop = async () => {
     if (!isLoopRunningRef.current || !videoRef.current || modo !== 'escanear') return;
 
@@ -193,7 +196,25 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         const { descriptor, box } = await extractFaceDescriptor(videoRef.current);
         setDetectedBox(box);
 
-        if (descriptor) {
+        const frameW = videoRef.current.videoWidth || 640;
+        const frameH = videoRef.current.videoHeight || 480;
+        const quality = evaluateFaceQuality(box, frameW, frameH);
+        setFaceQuality(quality);
+
+        if (!descriptor || !box || quality.status === 'no_face') {
+          // Sin rostro en el visor: limpiar consenso
+          consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+          setConsensusHits(0);
+          setDetectedBox(null);
+          setStatusText('Colócate frente a la cámara web...');
+        } else if (!quality.isOptimal) {
+          // Rostro detectado pero distancia o encuadre subóptimo (ej. transeúnte de fondo o muy cerca)
+          // Bloqueamos el avance del consenso para evitar falsos positivos
+          consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+          setConsensusHits(0);
+          setStatusText(quality.message);
+        } else {
+          // Posición biométrica óptima: Proceder con matching y filtro de consenso
           const matchResult = findMatchingUser(descriptor);
           if (matchResult.matched && matchResult.user) {
             const REQUIRED_CONSENSUS_HITS = 3;
@@ -249,18 +270,12 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               return;
             }
           } else {
-            // Rostro no reconocido: limpiar acumulador de consenso
+            // Rostro centrado pero no reconocido: limpiar acumulador de consenso
             consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
             setConsensusHits(0);
             setMatchedUser(null);
-            setStatusText('👁️ Rostro detectado (no enrolado en la base de datos)');
+            setStatusText('👁️ Rostro centrado (no enrolado en la base de datos)');
           }
-        } else {
-          // Sin rostro en el visor: limpiar consenso
-          consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
-          setConsensusHits(0);
-          setDetectedBox(null);
-          setStatusText('Colócate frente a la cámara web...');
         }
       } catch (err) {
         // Silenciar errores menores de frame
@@ -280,6 +295,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     }
     consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
     setConsensusHits(0);
+    setFaceQuality(null);
     setAutoRedirectCountdown(null);
     setMatchedUser(null);
     isLoopRunningRef.current = true;
@@ -307,13 +323,30 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     setStatusText('📸 Analizando biometría y vector de 128 flotantes...');
 
     try {
-      const { descriptor } = await extractFaceDescriptor(videoRef.current);
-      if (!descriptor) {
+      const { descriptor, box } = await extractFaceDescriptor(videoRef.current);
+      if (!descriptor || !box) {
         setEnrolError('No se detectó ningún rostro con claridad. Mira fijamente a la cámara con buena iluminación.');
         Swal.fire({
           icon: 'info',
           title: 'Rostro No Detectado',
           text: 'No se detectó ningún rostro con claridad en el visor. Mira de frente a la cámara con buena iluminación y sin accesorios que cubran el rostro.',
+          background: '#091322',
+          color: '#f8fafc',
+          confirmButtonColor: '#38bdf8',
+        });
+        setEnrolandoActivo(false);
+        return;
+      }
+
+      const frameW = videoRef.current.videoWidth || 640;
+      const frameH = videoRef.current.videoHeight || 480;
+      const quality = evaluateFaceQuality(box, frameW, frameH);
+      if (!quality.isOptimal) {
+        setEnrolError(quality.message);
+        Swal.fire({
+          icon: 'warning',
+          title: 'Posicionamiento Subóptimo',
+          text: `${quality.message}. Ajusta la posición de tu rostro frente a la cámara antes de enrolar.`,
           background: '#091322',
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
@@ -618,7 +651,44 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               </div>
             )}
 
-            {/* MÁSCARA HUD FACIAL (RETÍCULA OVALADA) */}
+            {/* PILL DE FEEDBACK DE CALIDAD Y POSICIONAMIENTO EN VIVO */}
+            {faceQuality && faceQuality.status !== 'no_face' && !matchedUser && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: faceQuality.isOptimal
+                    ? 'rgba(6, 78, 59, 0.9)'
+                    : faceQuality.status === 'too_close'
+                    ? 'rgba(127, 29, 29, 0.9)'
+                    : 'rgba(120, 53, 15, 0.9)',
+                  border: faceQuality.isOptimal
+                    ? '1px solid #10b981'
+                    : faceQuality.status === 'too_close'
+                    ? '1px solid #ef4444'
+                    : '1px solid #f59e0b',
+                  color: '#ffffff',
+                  padding: '0.22rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  backdropFilter: 'blur(6px)',
+                  zIndex: 5,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span>{faceQuality.icon}</span>
+                <span>{faceQuality.message}</span>
+              </div>
+            )}
+
+            {/* MÁSCARA HUD FACIAL (RETÍCULA OVALADA CON ADAPTACIÓN DE COLOR POR CALIDAD) */}
             <div
               style={{
                 position: 'absolute',
@@ -633,6 +703,12 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                     ? '#00e699'
                     : consensusHits > 0
                     ? '#38bdf8'
+                    : faceQuality?.status === 'optimal'
+                    ? '#00e699'
+                    : faceQuality?.status === 'too_far' || faceQuality?.status === 'off_center'
+                    ? '#f59e0b'
+                    : faceQuality?.status === 'too_close'
+                    ? '#ef4444'
                     : 'rgba(0, 230, 153, 0.4)'),
                 borderRadius: '50%',
                 pointerEvents: 'none',
@@ -640,6 +716,12 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   ? '0 0 25px rgba(0, 230, 153, 0.5)'
                   : consensusHits > 0
                   ? '0 0 15px rgba(56, 189, 248, 0.4)'
+                  : faceQuality?.status === 'optimal'
+                  ? '0 0 15px rgba(0, 230, 153, 0.35)'
+                  : faceQuality?.status === 'too_far' || faceQuality?.status === 'off_center'
+                  ? '0 0 15px rgba(245, 158, 11, 0.35)'
+                  : faceQuality?.status === 'too_close'
+                  ? '0 0 15px rgba(239, 68, 68, 0.35)'
                   : 'none',
                 transition: 'all 0.2s ease',
               }}

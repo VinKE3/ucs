@@ -8,6 +8,8 @@ import {
   saveEnrolledFaceToDB,
   syncEnrolledFacesFromDB,
   computeCentroid,
+  evaluateFaceQuality,
+  type FaceQualityResult,
 } from '@/lib/faceBiometricService';
 
 interface AdminUser {
@@ -86,6 +88,7 @@ export default function EnrolarPersonalPage() {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment'); // Por defecto cámara trasera en celular
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [liveFaceQuality, setLiveFaceQuality] = useState<FaceQualityResult | null>(null);
 
   // --- BÚSQUEDA Y ENROLAMIENTO MULTI-ÁNGULO ---
   const [dniInput, setDniInput] = useState('');
@@ -237,6 +240,44 @@ export default function EnrolarPersonalPage() {
     };
   }, [adminUser, startCamera, stopCamera, facingMode]);
 
+  // 4b. Monitor en tiempo real de encuadre y calidad para guiado visual en el visor móvil
+  useEffect(() => {
+    if (!cameraActive || modelLoading) {
+      setLiveFaceQuality(null);
+      return;
+    }
+    let isRunning = true;
+
+    const checkQualityLoop = async () => {
+      if (!isRunning || !videoRef.current || videoRef.current.readyState !== 4 || videoRef.current.paused) {
+        if (isRunning) setTimeout(checkQualityLoop, 350);
+        return;
+      }
+
+      try {
+        const { box } = await extractFaceDescriptor(videoRef.current);
+        if (isRunning) {
+          const frameW = videoRef.current.videoWidth || 640;
+          const frameH = videoRef.current.videoHeight || 480;
+          const quality = evaluateFaceQuality(box, frameW, frameH);
+          setLiveFaceQuality(quality);
+        }
+      } catch {
+        // Silenciar errores de ciclo
+      }
+
+      if (isRunning) {
+        setTimeout(checkQualityLoop, 300);
+      }
+    };
+
+    checkQualityLoop();
+
+    return () => {
+      isRunning = false;
+    };
+  }, [cameraActive, modelLoading]);
+
   // Cambiar entre cámara trasera y delantera
   const toggleCameraFacing = () => {
     const nextMode = facingMode === 'environment' ? 'user' : 'environment';
@@ -321,14 +362,32 @@ export default function EnrolarPersonalPage() {
     setCapturandoAngulo(true);
 
     try {
-      const { descriptor, error } = await extractFaceDescriptor(videoRef.current);
+      const { descriptor, box, error } = await extractFaceDescriptor(videoRef.current);
 
-      if (error || !descriptor) {
+      if (error || !descriptor || !box) {
         const angConfig = ANGLES_CONFIG.find((a) => a.key === currentAngleKey);
         Swal.fire({
           icon: 'info',
           title: 'Rostro no Detectado',
           text: `No se pudo detectar el rostro para el ángulo ${angConfig?.label || ''}. Asegúrate de que el colaborador esté encuadrado y con buena luz.`,
+          background: '#091322',
+          color: '#f8fafc',
+          confirmButtonColor: '#38bdf8',
+        });
+        setCapturandoAngulo(false);
+        return;
+      }
+
+      // Validar posicionamiento y calidad biométrica antes de registrar el ángulo
+      const frameW = videoRef.current.videoWidth || 640;
+      const frameH = videoRef.current.videoHeight || 480;
+      const quality = evaluateFaceQuality(box, frameW, frameH);
+
+      if (!quality.isOptimal) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Ajusta la Posición',
+          text: `${quality.message}. Centra adecuadamente el rostro del colaborador antes de capturar el ángulo.`,
           background: '#091322',
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
@@ -951,7 +1010,7 @@ export default function EnrolarPersonalPage() {
             </span>
           </div>
 
-          {/* MÁSCARA OVALADA HUD */}
+          {/* MÁSCARA OVALADA HUD ADAPTATIVA */}
           <div
             style={{
               position: 'absolute',
@@ -960,12 +1019,65 @@ export default function EnrolarPersonalPage() {
               transform: 'translate(-50%, -50%)',
               width: '190px',
               height: '240px',
-              border: '2px dashed #00e699',
+              border:
+                '2px dashed ' +
+                (liveFaceQuality?.status === 'optimal'
+                  ? '#00e699'
+                  : liveFaceQuality?.status === 'too_far' || liveFaceQuality?.status === 'off_center'
+                  ? '#f59e0b'
+                  : liveFaceQuality?.status === 'too_close'
+                  ? '#ef4444'
+                  : 'rgba(0, 230, 153, 0.4)'),
               borderRadius: '50%',
               pointerEvents: 'none',
-              boxShadow: '0 0 15px rgba(0, 230, 153, 0.35)',
+              boxShadow:
+                liveFaceQuality?.status === 'optimal'
+                  ? '0 0 20px rgba(0, 230, 153, 0.4)'
+                  : liveFaceQuality?.status === 'too_far' || liveFaceQuality?.status === 'off_center'
+                  ? '0 0 15px rgba(245, 158, 11, 0.35)'
+                  : liveFaceQuality?.status === 'too_close'
+                  ? '0 0 15px rgba(239, 68, 68, 0.35)'
+                  : 'none',
+              transition: 'all 0.2s ease',
             }}
           />
+
+          {/* PILL DE FEEDBACK DE CALIDAD Y POSICIONAMIENTO EN VIVO */}
+          {liveFaceQuality && liveFaceQuality.status !== 'no_face' && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '14px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: liveFaceQuality.isOptimal
+                  ? 'rgba(6, 78, 59, 0.9)'
+                  : liveFaceQuality.status === 'too_close'
+                  ? 'rgba(127, 29, 29, 0.9)'
+                  : 'rgba(120, 53, 15, 0.9)',
+                border: liveFaceQuality.isOptimal
+                  ? '1px solid #10b981'
+                  : liveFaceQuality.status === 'too_close'
+                  ? '1px solid #ef4444'
+                  : '1px solid #f59e0b',
+                color: '#ffffff',
+                padding: '0.25rem 0.8rem',
+                borderRadius: '20px',
+                fontSize: '0.74rem',
+                fontWeight: 800,
+                backdropFilter: 'blur(6px)',
+                zIndex: 6,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span>{liveFaceQuality.icon}</span>
+              <span>{liveFaceQuality.message}</span>
+            </div>
+          )}
 
           {/* FLASH VISUAL AL CAPTURAR */}
           <div

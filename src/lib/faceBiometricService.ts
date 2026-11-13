@@ -152,6 +152,102 @@ export async function extractFaceDescriptor(
   }
 }
 
+export type FaceQualityStatus = 'optimal' | 'too_far' | 'too_close' | 'off_center' | 'no_face';
+
+export interface FaceQualityResult {
+  status: FaceQualityStatus;
+  isOptimal: boolean;
+  message: string;
+  icon: string;
+  boxRatio: number;
+  offsetNormX: number;
+  offsetNormY: number;
+}
+
+/**
+ * Evalúa en tiempo real el encuadre, distancia y centrado del rostro dentro del visor.
+ * Evita procesar transeúntes de fondo a 3 metros (demasiado lejos) o capturas degradadas.
+ */
+export function evaluateFaceQuality(
+  box: { x: number; y: number; width: number; height: number } | null,
+  frameWidth: number,
+  frameHeight: number
+): FaceQualityResult {
+  if (!box || frameWidth <= 0 || frameHeight <= 0) {
+    return {
+      status: 'no_face',
+      isOptimal: false,
+      message: 'Colócate frente a la cámara web...',
+      icon: '👤',
+      boxRatio: 0,
+      offsetNormX: 0,
+      offsetNormY: 0,
+    };
+  }
+
+  // Proporción de la altura del rostro respecto a la altura total de la cámara
+  const boxRatio = box.height / frameHeight;
+
+  // Centroide del rostro relativo al centro del encuadre
+  const faceCenterX = box.x + box.width / 2;
+  const faceCenterY = box.y + box.height / 2;
+  const frameCenterX = frameWidth / 2;
+  const frameCenterY = frameHeight / 2;
+
+  const offsetNormX = (faceCenterX - frameCenterX) / frameWidth;
+  const offsetNormY = (faceCenterY - frameCenterY) / frameHeight;
+
+  // 1. Demasiado lejos (por ejemplo, personas caminando en el pasillo a 3 metros)
+  if (boxRatio < 0.28) {
+    return {
+      status: 'too_far',
+      isOptimal: false,
+      message: '📏 Acércate un poco más a la cámara',
+      icon: '🔍',
+      boxRatio: Number(boxRatio.toFixed(3)),
+      offsetNormX: Number(offsetNormX.toFixed(3)),
+      offsetNormY: Number(offsetNormY.toFixed(3)),
+    };
+  }
+
+  // 2. Demasiado cerca (se sale del margen de captura)
+  if (boxRatio > 0.82) {
+    return {
+      status: 'too_close',
+      isOptimal: false,
+      message: '📏 Aléjate un poco de la cámara',
+      icon: '🔙',
+      boxRatio: Number(boxRatio.toFixed(3)),
+      offsetNormX: Number(offsetNormX.toFixed(3)),
+      offsetNormY: Number(offsetNormY.toFixed(3)),
+    };
+  }
+
+  // 3. Fuera de centro (desviación lateral o vertical excesiva)
+  if (Math.abs(offsetNormX) > 0.22 || Math.abs(offsetNormY) > 0.26) {
+    return {
+      status: 'off_center',
+      isOptimal: false,
+      message: '🎯 Centra tu rostro en el óvalo',
+      icon: '🎯',
+      boxRatio: Number(boxRatio.toFixed(3)),
+      offsetNormX: Number(offsetNormX.toFixed(3)),
+      offsetNormY: Number(offsetNormY.toFixed(3)),
+    };
+  }
+
+  // 4. Posición biométrica óptima
+  return {
+    status: 'optimal',
+    isOptimal: true,
+    message: '✨ Posición biométrica óptima',
+    icon: '✨',
+    boxRatio: Number(boxRatio.toFixed(3)),
+    offsetNormX: Number(offsetNormX.toFixed(3)),
+    offsetNormY: Number(offsetNormY.toFixed(3)),
+  };
+}
+
 /**
  * Calcula la distancia euclidiana entre dos descriptores faciales
  */

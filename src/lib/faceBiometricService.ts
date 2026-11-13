@@ -19,9 +19,11 @@ export interface EnrolledFace {
   dni: string;
   nombre: string;
   tipoPersonal?: string;
-  descriptor: number[];
+  descriptor: any; // number[] | number[][] | { version: number; descriptors: number[][]; centroid?: number[]; angles?: string[] }
+  descriptors?: number[][];
   enrolledAt: string;
   fotoPreview?: string;
+  anglesCaptured?: string[];
 }
 
 const STORAGE_KEY = 'ucs_kiosk_enrolled_faces_beta';
@@ -164,7 +166,82 @@ export function euclideanDistance(desc1: number[] | Float32Array, desc2: number[
 }
 
 /**
- * Compara un descriptor en vivo contra los rostros enrolados
+ * Normaliza un vector numérico a norma L2 = 1.0
+ */
+export function normalizeVector(vec: number[]): number[] {
+  let sum = 0;
+  for (let i = 0; i < vec.length; i++) sum += vec[i] * vec[i];
+  const mag = Math.sqrt(sum);
+  if (mag === 0) return vec;
+  return vec.map((x) => x / mag);
+}
+
+/**
+ * Calcula el centroide normalizado a partir de múltiples descriptores faciales (ej. multi-ángulo)
+ */
+export function computeCentroid(descriptors: (number[] | Float32Array)[]): number[] {
+  if (!descriptors || descriptors.length === 0) return [];
+  if (descriptors.length === 1) return Array.from(descriptors[0]);
+
+  const dim = descriptors[0].length;
+  const centroid = new Array(dim).fill(0);
+  for (const d of descriptors) {
+    for (let i = 0; i < dim; i++) {
+      centroid[i] += d[i];
+    }
+  }
+  for (let i = 0; i < dim; i++) {
+    centroid[i] /= descriptors.length;
+  }
+  return normalizeVector(centroid);
+}
+
+/**
+ * Extrae de forma segura todos los vectores de 128 flotantes asociados a un perfil enrolado,
+ * soportando vectores planos v1 (legacy) y colecciones multi-ángulo v2.
+ */
+export function extractAllDescriptors(item: EnrolledFace): number[][] {
+  const result: number[][] = [];
+
+  // 1. Array explícito de descriptores
+  if (Array.isArray(item.descriptors) && item.descriptors.length > 0) {
+    for (const d of item.descriptors) {
+      if (Array.isArray(d) && d.length === 128) result.push(d);
+    }
+  }
+
+  // 2. Objeto con propiedad descriptors: { version: 2, descriptors: [...] }
+  if (typeof item.descriptor === 'object' && item.descriptor !== null) {
+    const obj = item.descriptor as any;
+    if (Array.isArray(obj.descriptors)) {
+      for (const d of obj.descriptors) {
+        if (Array.isArray(d) && d.length === 128) result.push(d);
+      }
+    }
+    // Si tiene centroide almacenado y no está ya incluido
+    if (Array.isArray(obj.centroid) && obj.centroid.length === 128) {
+      result.push(obj.centroid);
+    }
+  }
+
+  // 3. Array directo (array de arrays o array simple de 128)
+  if (Array.isArray(item.descriptor) && item.descriptor.length > 0) {
+    if (Array.isArray(item.descriptor[0])) {
+      for (const d of item.descriptor as unknown as number[][]) {
+        if (Array.isArray(d) && d.length === 128) result.push(d);
+      }
+    } else if (typeof item.descriptor[0] === 'number' && item.descriptor.length === 128) {
+      // Vector plano legacy v1 (128 floats)
+      result.push(item.descriptor as number[]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compara un descriptor en vivo contra los rostros enrolados.
+ * En perfiles multi-ángulo (v2), evalúa la distancia mínima frente a todos los ángulos registrados.
  * Umbral de reconocimiento: distancia < 0.55 (estándar internacional de face-api)
  */
 export function findMatchingUser(
@@ -184,11 +261,15 @@ export function findMatchingUser(
   let minDistance = 1.0;
 
   for (const item of enrolled) {
-    if (!item.descriptor || item.descriptor.length !== 128) continue;
-    const dist = euclideanDistance(currentDescriptor, item.descriptor);
-    if (dist < minDistance) {
-      minDistance = dist;
-      bestMatch = item;
+    const vectors = extractAllDescriptors(item);
+    if (vectors.length === 0) continue;
+
+    for (const vec of vectors) {
+      const dist = euclideanDistance(currentDescriptor, vec);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestMatch = item;
+      }
     }
   }
 

@@ -19,9 +19,36 @@ export async function POST(request: Request) {
 
     const trimmedDni = dni.trim();
 
-    if (!Array.isArray(descriptor) || descriptor.length !== 128) {
+    // Validar que el descriptor sea un vector de 128 floats, un array multi-ángulo o un objeto v2
+    let isValidDescriptor = false;
+    let totalVectors = 1;
+
+    if (Array.isArray(descriptor)) {
+      if (descriptor.length === 128 && typeof descriptor[0] === 'number') {
+        isValidDescriptor = true;
+        totalVectors = 1;
+      } else if (
+        descriptor.length > 0 &&
+        Array.isArray(descriptor[0]) &&
+        descriptor[0].length === 128
+      ) {
+        isValidDescriptor = true;
+        totalVectors = descriptor.length;
+      }
+    } else if (typeof descriptor === 'object' && descriptor !== null) {
+      if (Array.isArray(descriptor.descriptors) && descriptor.descriptors.length > 0) {
+        isValidDescriptor = true;
+        totalVectors = descriptor.descriptors.length;
+      }
+    }
+
+    if (!isValidDescriptor) {
       return NextResponse.json(
-        { success: false, error: 'El descriptor facial debe ser un vector biométrico de 128 dimensiones.' },
+        {
+          success: false,
+          error:
+            'El descriptor facial debe ser un vector biométrico de 128 dimensiones o un conjunto multi-ángulo válido.',
+        },
         { status: 400 }
       );
     }

@@ -57,6 +57,14 @@
              - 🔍 Consultar Aulas: Acceso directo a /consulta (espejo docente y ocupación de ambientes en vivo).
              - 📱 Enrolador (con badge BETA): Acceso directo a /enrolar-personal (herramienta de registro facial en smartphones).
            - **UX Móvil**: Ambos botones cierran el drawer al hacer tap y se estilizan en armonía con el diseño institucional. El footer con Cerrar Sesión se fija al fondo mediante margin-top: auto.
+        10. **Motor y Wizard de Enrolamiento Multi-Ángulo 3D (src/app/enrolar-personal/page.tsx, src/lib/faceBiometricService.ts, src/app/api/biometria/enrolar/route.ts)**:
+            - **Arquitectura de Vectores Múltiples**: Soporte en jsonb de Neon Postgres para descriptores v2 (multi_angle), persistiendo vectores por ángulo (frente, izquierda, derecha) y el centroide normalizado L2. 100% retrocompatible con plantillas v1.
+            - **Matching por Mínima Distancia**: findMatchingUser evalúa en vivo frente a todos los ángulos del colaborador enrolado, logrando tolerancia superior a giros de cabeza, accesorios o cambios de iluminación.
+            - **Wizard Guiado en Smartphone (/enrolar-personal)**: 3 tarjetas interactivas de ángulo con feedback visual en vivo, autocompletado en cascada, flash de captura y opción de persistir el set 3D completo (3 vectores) o parcial.
+        11. **Filtro de Consenso Temporal Anti-Falsos Positivos (src/components/kiosco/ModalEscaneoFacialBeta.tsx)**:
+            - **Ventana Deslizante de 3 Fotogramas Consecutivos**: Requerimiento estricto de que el mismo colaborador sea reconocido de forma consistente durante 3 fotogramas sucesivos (~600ms) antes de confirmar la identidad.
+            - **Eliminación Total de Ruido**: Si una persona pasa por detrás o un fotograma produce una detección efímera, el acumulador de consenso se reinicia de inmediato, blindando el Kiosco contra marcaciones accidentales.
+            - **HUD de Estabilidad Biométrica**: Micro-indicador visual de 3 barras ([■ ■ □]) en el visor con retícula reactiva (celeste durante la acumulación y verde fluorescente al confirmar el consenso), promediando el porcentaje de confianza.
       - **Verificación Técnica**:
         - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
         - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.

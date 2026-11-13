@@ -7,6 +7,7 @@ import {
   extractFaceDescriptor,
   saveEnrolledFaceToDB,
   syncEnrolledFacesFromDB,
+  computeCentroid,
 } from '@/lib/faceBiometricService';
 
 interface AdminUser {
@@ -30,6 +31,47 @@ interface ColaboradorLookup {
   fotoPerfilUrl?: string | null;
 }
 
+type AngleKey = 'frente' | 'izquierda' | 'derecha';
+
+interface AngleCapture {
+  descriptor: number[];
+  previewUrl: string;
+}
+
+const ANGLES_CONFIG: {
+  key: AngleKey;
+  label: string;
+  badge: string;
+  icon: string;
+  guideInstruction: string;
+  hint: string;
+}[] = [
+  {
+    key: 'frente',
+    label: 'Frente',
+    badge: '1/3',
+    icon: '🎯',
+    guideInstruction: 'Mira directo al centro de la cámara',
+    hint: 'Rostro neutro de frente',
+  },
+  {
+    key: 'izquierda',
+    label: 'Izquierda',
+    badge: '2/3',
+    icon: '👈',
+    guideInstruction: 'Gira levemente la cabeza a la izquierda (~20°)',
+    hint: 'Giro suave a la izquierda',
+  },
+  {
+    key: 'derecha',
+    label: 'Derecha',
+    badge: '3/3',
+    icon: '👉',
+    guideInstruction: 'Gira levemente la cabeza a la derecha (~20°)',
+    hint: 'Giro suave a la derecha',
+  },
+];
+
 export default function EnrolarPersonalPage() {
   // --- AUTENTICACIÓN ADMIN ---
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -45,12 +87,22 @@ export default function EnrolarPersonalPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // --- BÚSQUEDA Y ENROLAMIENTO ---
+  // --- BÚSQUEDA Y ENROLAMIENTO MULTI-ÁNGULO ---
   const [dniInput, setDniInput] = useState('');
   const [searchingDni, setSearchingDni] = useState(false);
   const [colaborador, setColaborador] = useState<ColaboradorLookup | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [enrolando, setEnrolando] = useState(false);
+
+  // Estado del Wizard Multi-Ángulo
+  const [currentAngleKey, setCurrentAngleKey] = useState<AngleKey>('frente');
+  const [capturedAngles, setCapturedAngles] = useState<Record<AngleKey, AngleCapture | null>>({
+    frente: null,
+    izquierda: null,
+    derecha: null,
+  });
+  const [capturandoAngulo, setCapturandoAngulo] = useState(false);
+  const [flashActive, setFlashActive] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -198,6 +250,10 @@ export default function EnrolarPersonalPage() {
     setDniInput(cleanDni);
     setLookupError(null);
 
+    // Resetear estados del wizard multi-ángulo al cambiar de DNI
+    setCapturedAngles({ frente: null, izquierda: null, derecha: null });
+    setCurrentAngleKey('frente');
+
     if (cleanDni.length === 8) {
       setSearchingDni(true);
       try {
@@ -236,8 +292,8 @@ export default function EnrolarPersonalPage() {
     }
   };
 
-  // 6. Capturar fotograma y enrolar en Neon Postgres
-  const handleCapturarYEnrolar = async () => {
+  // 6. Capturar un ángulo específico
+  const handleCaptureCurrentAngle = async () => {
     if (!colaborador) {
       Swal.fire({
         icon: 'warning',
@@ -262,26 +318,31 @@ export default function EnrolarPersonalPage() {
       return;
     }
 
-    setEnrolando(true);
+    setCapturandoAngulo(true);
 
     try {
       const { descriptor, error } = await extractFaceDescriptor(videoRef.current);
 
       if (error || !descriptor) {
+        const angConfig = ANGLES_CONFIG.find((a) => a.key === currentAngleKey);
         Swal.fire({
           icon: 'info',
           title: 'Rostro no Detectado',
-          text: 'Pide al colaborador que mire de frente hacia la cámara con buena iluminación.',
+          text: `No se pudo detectar el rostro para el ángulo ${angConfig?.label || ''}. Asegúrate de que el colaborador esté encuadrado y con buena luz.`,
           background: '#091322',
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
         });
-        setEnrolando(false);
+        setCapturandoAngulo(false);
         return;
       }
 
-      // Generar snapshot miniatura en base64 para perfil
-      let previewUrl: string | undefined = undefined;
+      // Disparar efecto flash visual
+      setFlashActive(true);
+      setTimeout(() => setFlashActive(false), 200);
+
+      // Snapshot preview
+      let previewUrl = '';
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 160;
@@ -293,35 +354,120 @@ export default function EnrolarPersonalPage() {
         }
       } catch {}
 
+      const updated = {
+        ...capturedAngles,
+        [currentAngleKey]: {
+          descriptor: Array.from(descriptor),
+          previewUrl,
+        },
+      };
+      setCapturedAngles(updated);
+
+      // Auto-avanzar al siguiente ángulo pendiente
+      if (currentAngleKey === 'frente' && !updated.izquierda) {
+        setCurrentAngleKey('izquierda');
+      } else if (currentAngleKey === 'izquierda' && !updated.derecha) {
+        setCurrentAngleKey('derecha');
+      } else if (currentAngleKey === 'frente' && !updated.derecha) {
+        setCurrentAngleKey('derecha');
+      }
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de Captura',
+        text: err.message,
+        background: '#091322',
+        color: '#f8fafc',
+        confirmButtonColor: '#ef4444',
+      });
+    } finally {
+      setCapturandoAngulo(false);
+    }
+  };
+
+  // 7. Guardar conjunto multi-ángulo en Neon Postgres
+  const handleGuardarBiometria = async () => {
+    if (!colaborador) return;
+
+    const capturedKeys = (Object.keys(capturedAngles) as AngleKey[]).filter(
+      (k) => capturedAngles[k] !== null
+    );
+
+    if (capturedKeys.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin Ángulos Capturados',
+        text: 'Captura al menos el ángulo frontal del colaborador antes de guardar.',
+        background: '#091322',
+        color: '#f8fafc',
+        confirmButtonColor: '#38bdf8',
+      });
+      return;
+    }
+
+    setEnrolando(true);
+
+    try {
+      const descriptorsList: number[][] = [];
+      const anglesList: string[] = [];
+      const mainPreview =
+        capturedAngles.frente?.previewUrl ||
+        capturedAngles.izquierda?.previewUrl ||
+        capturedAngles.derecha?.previewUrl;
+
+      for (const k of capturedKeys) {
+        const cap = capturedAngles[k];
+        if (cap) {
+          descriptorsList.push(cap.descriptor);
+          anglesList.push(k);
+        }
+      }
+
+      const centroid = computeCentroid(descriptorsList);
+
+      const multiDescriptorPayload = {
+        version: 2,
+        mode: descriptorsList.length > 1 ? 'multi_angle' : 'single_angle',
+        angles: anglesList,
+        descriptors: descriptorsList,
+        centroid: centroid,
+      };
+
       const res = await saveEnrolledFaceToDB({
         dni: colaborador.dni,
         nombre: `${colaborador.nombres} ${colaborador.apellidos}`.trim(),
         tipoPersonal: colaborador.tipoPersonal,
-        descriptor: Array.from(descriptor),
+        descriptor: multiDescriptorPayload,
         enrolledAt: new Date().toISOString(),
-        fotoPreview: previewUrl,
+        fotoPreview: mainPreview,
       });
 
       if (!res.success) {
-        throw new Error(res.error || 'Error al guardar en la base de datos');
+        throw new Error(res.error || 'Error al persistir en la base de datos');
       }
 
       // Sincronizar memoria local
       await syncEnrolledFacesFromDB();
 
-      // Éxito con SweetAlert2
       const nombreColab = `${colaborador.nombres} ${colaborador.apellidos}`;
+      const totalAngulos = descriptorsList.length;
+
       const swalResult = await Swal.fire({
         icon: 'success',
-        title: '¡Rostro Enrolado con Éxito!',
+        title: totalAngulos >= 3 ? '¡Biometría 3D Enrolada!' : '¡Rostro Enrolado con Éxito!',
         html: `
           <div style="font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; text-align: center;">
             <div style="background: rgba(0, 230, 153, 0.12); border: 1.5px solid #00e699; padding: 0.65rem 1rem; border-radius: 10px; color: #00e699; font-weight: 700; margin: 0.8rem 0; font-size: 1rem;">
               👤 ${nombreColab}
               <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 500; margin-top: 0.2rem;">DNI: ${colaborador.dni}</div>
             </div>
+            <div style="display: flex; justify-content: center; gap: 0.4rem; margin: 0.75rem 0;">
+              ${anglesList.map(a => `<span style="font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); padding: 0.2rem 0.55rem; border-radius: 6px; font-weight: 700;">✓ ${a.toUpperCase()}</span>`).join('')}
+            </div>
             <p style="font-size: 0.82rem; color: #94a3b8; margin: 0;">
-              Biometría registrada en el sistema. Ya puede marcar ingreso o salida mirando al Kiosco.
+              ${totalAngulos >= 3
+                ? 'Plantilla biométrica multi-ángulo 3D (Frente, Izquierda y Derecha) registrada. Tolerancia ultra-alta a giros en el Kiosco.'
+                : 'Biometría registrada en el sistema. Ya puede marcar ingreso o salida en el Kiosco.'}
             </p>
           </div>
         `,
@@ -332,9 +478,10 @@ export default function EnrolarPersonalPage() {
       });
 
       if (swalResult.isConfirmed) {
-        // Limpiar para el siguiente
         setDniInput('');
         setColaborador(null);
+        setCapturedAngles({ frente: null, izquierda: null, derecha: null });
+        setCurrentAngleKey('frente');
       }
     } catch (err: any) {
       Swal.fire({
@@ -348,6 +495,12 @@ export default function EnrolarPersonalPage() {
     } finally {
       setEnrolando(false);
     }
+  };
+
+  // Reiniciar capturas para el mismo colaborador
+  const handleResetAngles = () => {
+    setCapturedAngles({ frente: null, izquierda: null, derecha: null });
+    setCurrentAngleKey('frente');
   };
 
   // Cerrar sesión
@@ -486,6 +639,12 @@ export default function EnrolarPersonalPage() {
   }
 
   // --- PANTALLA 2: ENROLADOR MÓVIL EN VIVO (OPTIMIZADO PARA SMARTPHONE) ---
+  const currentAngleConfig =
+    ANGLES_CONFIG.find((a) => a.key === currentAngleKey) || ANGLES_CONFIG[0];
+  const capturedCount = (Object.keys(capturedAngles) as AngleKey[]).filter(
+    (k) => capturedAngles[k] !== null
+  ).length;
+
   return (
     <div
       style={{
@@ -658,6 +817,80 @@ export default function EnrolarPersonalPage() {
           )}
         </div>
 
+        {/* WIZARD SELECTOR DE ÁNGULOS (MULTI-ÁNGULO 3D) */}
+        <div style={{ marginBottom: '0.85rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              📐 Ángulo Biométrico ({currentAngleConfig.badge})
+            </span>
+            <span style={{ fontSize: '0.72rem', color: capturedCount === 3 ? '#00e699' : '#94a3b8', fontWeight: 700 }}>
+              {capturedCount}/3 ángulos capturados
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+            {ANGLES_CONFIG.map((ang) => {
+              const isCaptured = !!capturedAngles[ang.key];
+              const isActive = currentAngleKey === ang.key;
+              return (
+                <button
+                  key={ang.key}
+                  type="button"
+                  onClick={() => setCurrentAngleKey(ang.key)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    padding: '0.55rem 0.35rem',
+                    borderRadius: '12px',
+                    border: isActive
+                      ? '2px solid #00e699'
+                      : isCaptured
+                      ? '1.5px solid rgba(0, 230, 153, 0.45)'
+                      : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: isActive
+                      ? 'rgba(0, 230, 153, 0.14)'
+                      : isCaptured
+                      ? 'rgba(0, 230, 153, 0.06)'
+                      : 'rgba(255, 255, 255, 0.03)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {isCaptured && capturedAngles[ang.key]?.previewUrl ? (
+                    <img
+                      src={capturedAngles[ang.key]!.previewUrl}
+                      alt={ang.label}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        border: '2px solid #00e699',
+                      }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '1.25rem' }}>{ang.icon}</span>
+                  )}
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isActive ? '#00e699' : '#ffffff' }}>
+                    {ang.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      color: isCaptured ? '#00e699' : isActive ? '#38bdf8' : '#64748b',
+                    }}
+                  >
+                    {isCaptured ? '✓ Listo' : isActive ? '● Capturando' : '○ Pendiente'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* VISOR DE CÁMARA */}
         <div
           style={{
@@ -684,6 +917,40 @@ export default function EnrolarPersonalPage() {
             }}
           />
 
+          {/* BANNER FLOTANTE CON GUÍA DE ÁNGULO */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              right: '12px',
+              padding: '0.45rem 0.75rem',
+              borderRadius: '10px',
+              background: 'rgba(2, 6, 23, 0.85)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(0, 230, 153, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              zIndex: 5,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>{currentAngleConfig.icon}</span>
+              <div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#00e699' }}>
+                  {currentAngleConfig.label.toUpperCase()} ({currentAngleConfig.badge})
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
+                  {currentAngleConfig.guideInstruction}
+                </div>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.65rem', background: 'rgba(0, 230, 153, 0.15)', color: '#00e699', padding: '0.15rem 0.45rem', borderRadius: '4px', fontWeight: 800 }}>
+              {capturedAngles[currentAngleKey] ? '✓ CAPTURADO' : 'PENDIENTE'}
+            </span>
+          </div>
+
           {/* MÁSCARA OVALADA HUD */}
           <div
             style={{
@@ -697,6 +964,19 @@ export default function EnrolarPersonalPage() {
               borderRadius: '50%',
               pointerEvents: 'none',
               boxShadow: '0 0 15px rgba(0, 230, 153, 0.35)',
+            }}
+          />
+
+          {/* FLASH VISUAL AL CAPTURAR */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: '#ffffff',
+              opacity: flashActive ? 0.75 : 0,
+              pointerEvents: 'none',
+              transition: 'opacity 0.15s ease',
+              zIndex: 10,
             }}
           />
 
@@ -745,13 +1025,13 @@ export default function EnrolarPersonalPage() {
           )}
         </div>
 
-        {/* BOTÓN DE ACCIÓN: CAPTURAR Y ENROLAR */}
+        {/* BOTÓN PRIMARIO: CAPTURAR ÁNGULO ACTUAL */}
         <button
           type="button"
-          onClick={handleCapturarYEnrolar}
-          disabled={!colaborador || enrolando || modelLoading || !cameraActive}
+          onClick={handleCaptureCurrentAngle}
+          disabled={!colaborador || capturandoAngulo || enrolando || modelLoading || !cameraActive}
           style={{
-            padding: '1rem',
+            padding: '0.95rem 1rem',
             borderRadius: '16px',
             border: 'none',
             background: !colaborador
@@ -759,7 +1039,7 @@ export default function EnrolarPersonalPage() {
               : 'linear-gradient(135deg, #00e699 0%, #00b4d8 100%)',
             color: !colaborador ? '#64748b' : '#020617',
             fontWeight: 900,
-            fontSize: '1.05rem',
+            fontSize: '1rem',
             cursor: !colaborador ? 'not-allowed' : 'pointer',
             boxShadow: !colaborador ? 'none' : '0 6px 20px rgba(0, 230, 153, 0.35)',
             display: 'flex',
@@ -771,13 +1051,69 @@ export default function EnrolarPersonalPage() {
         >
           <span>📸</span>
           <span>
-            {enrolando
-              ? 'Analizando y Guardando...'
+            {capturandoAngulo
+              ? `Analizando ángulo ${currentAngleConfig.label}...`
               : colaborador
-              ? `Capturar y Enrolar a ${colaborador.nombres.split(' ')[0]}`
+              ? `Capturar Ángulo: ${currentAngleConfig.label} (${currentAngleConfig.badge})`
               : 'Ingresa un DNI para Enrolar'}
           </span>
         </button>
+
+        {/* BOTÓN SECUNDARIO: GUARDAR EN BASE DE DATOS */}
+        {capturedCount > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleGuardarBiometria}
+              disabled={enrolando}
+              style={{
+                padding: '0.85rem 1rem',
+                borderRadius: '14px',
+                border: '1.5px solid #00e699',
+                background:
+                  capturedCount === 3
+                    ? 'linear-gradient(135deg, #00e699 0%, #059669 100%)'
+                    : 'rgba(0, 230, 153, 0.15)',
+                color: capturedCount === 3 ? '#020617' : '#00e699',
+                fontWeight: 900,
+                fontSize: '0.95rem',
+                cursor: enrolando ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                boxShadow: capturedCount === 3 ? '0 4px 15px rgba(0, 230, 153, 0.3)' : 'none',
+              }}
+            >
+              <span>💾</span>
+              <span>
+                {enrolando
+                  ? 'Guardando biometría en base de datos...'
+                  : capturedCount === 3
+                  ? '🌟 Guardar Biometría 3D Completa (3 de 3 Ángulos)'
+                  : `Guardar Biometría con ${capturedCount} de 3 Ángulos`}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetAngles}
+              disabled={enrolando}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#64748b',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'center',
+                padding: '0.2rem',
+              }}
+            >
+              🔄 Reiniciar capturas para este colaborador
+            </button>
+          </div>
+        )}
 
         {/* INSTRUCCIONES PRÁCTICAS */}
         <div

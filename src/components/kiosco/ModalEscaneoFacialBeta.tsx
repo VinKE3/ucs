@@ -45,6 +45,20 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
   const [enrolandoActivo, setEnrolandoActivo] = useState(false);
   const [enrolError, setEnrolError] = useState<string | null>(null);
 
+  // Consenso Temporal (Filtro anti-falsos positivos: 3 fotogramas consecutivos)
+  const [consensusHits, setConsensusHits] = useState(0);
+  const consensusTrackerRef = useRef<{
+    candidateDni: string | null;
+    candidateUser: EnrolledFace | null;
+    hits: number;
+    confidences: number[];
+  }>({
+    candidateDni: null,
+    candidateUser: null,
+    hits: 0,
+    confidences: [],
+  });
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isLoopRunningRef = useRef(false);
@@ -170,7 +184,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     onClose();
   }, [stopCamera, onUserIdentified, onClose]);
 
-  // Bucle de detección facial en vivo (~4 veces por segundo para fluidez sin sobrecargar CPU)
+  // Bucle de detección facial en vivo con Filtro de Consenso Temporal
   const runDetectionLoop = async () => {
     if (!isLoopRunningRef.current || !videoRef.current || modo !== 'escanear') return;
 
@@ -182,34 +196,69 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         if (descriptor) {
           const matchResult = findMatchingUser(descriptor);
           if (matchResult.matched && matchResult.user) {
-            setMatchedUser({
-              nombre: matchResult.user.nombre,
-              dni: matchResult.user.dni,
-              confidence: matchResult.confidence,
-            });
-            setStatusText(`🎯 ¡Rostro Reconocido: ${matchResult.user.nombre}! (${matchResult.confidence}%)`);
-            // Detener el bucle y comenzar cuenta regresiva de 2 segundos para autocarga
-            isLoopRunningRef.current = false;
-            
-            const dniConfirm = matchResult.user.dni;
-            setAutoRedirectCountdown(2);
-            let count = 2;
-            countdownTimerRef.current = setInterval(() => {
-              count -= 1;
-              if (count <= 0) {
-                if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-                confirmarIngreso(dniConfirm);
-              } else {
-                setAutoRedirectCountdown(count);
-              }
-            }, 1000);
+            const REQUIRED_CONSENSUS_HITS = 3;
+            const tracker = consensusTrackerRef.current;
 
-            return;
+            // Verificar si es el mismo colaborador acumulando consenso consecutivo
+            if (tracker.candidateDni === matchResult.user.dni) {
+              tracker.hits += 1;
+              tracker.confidences.push(matchResult.confidence);
+            } else {
+              tracker.candidateDni = matchResult.user.dni;
+              tracker.candidateUser = matchResult.user;
+              tracker.hits = 1;
+              tracker.confidences = [matchResult.confidence];
+            }
+
+            const currentHits = tracker.hits;
+            setConsensusHits(currentHits);
+
+            if (currentHits < REQUIRED_CONSENSUS_HITS) {
+              // Estabilizando match (consenso en progreso)
+              const primerNombre = matchResult.user.nombre.split(' ')[0];
+              setStatusText(`🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS})`);
+            } else {
+              // Consenso confirmado: 3 fotogramas consecutivos avalan la identidad
+              const avgConfidence = Math.round(
+                tracker.confidences.reduce((a, b) => a + b, 0) / tracker.confidences.length
+              );
+
+              setMatchedUser({
+                nombre: matchResult.user.nombre,
+                dni: matchResult.user.dni,
+                confidence: avgConfidence,
+              });
+              setStatusText(`🎯 ¡Rostro Confirmado: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`);
+
+              // Detener bucle y arrancar cuenta regresiva de 2 segundos para marcar
+              isLoopRunningRef.current = false;
+
+              const dniConfirm = matchResult.user.dni;
+              setAutoRedirectCountdown(2);
+              let count = 2;
+              countdownTimerRef.current = setInterval(() => {
+                count -= 1;
+                if (count <= 0) {
+                  if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                  confirmarIngreso(dniConfirm);
+                } else {
+                  setAutoRedirectCountdown(count);
+                }
+              }, 1000);
+
+              return;
+            }
           } else {
+            // Rostro no reconocido: limpiar acumulador de consenso
+            consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+            setConsensusHits(0);
             setMatchedUser(null);
             setStatusText('👁️ Rostro detectado (no enrolado en la base de datos)');
           }
         } else {
+          // Sin rostro en el visor: limpiar consenso
+          consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+          setConsensusHits(0);
           setDetectedBox(null);
           setStatusText('Colócate frente a la cámara web...');
         }
@@ -219,7 +268,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     }
 
     if (isLoopRunningRef.current && modo === 'escanear') {
-      setTimeout(runDetectionLoop, 250);
+      setTimeout(runDetectionLoop, 200);
     }
   };
 
@@ -229,6 +278,8 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
     }
+    consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
+    setConsensusHits(0);
     setAutoRedirectCountdown(null);
     setMatchedUser(null);
     isLoopRunningRef.current = true;
@@ -576,10 +627,20 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 transform: 'translate(-50%, -50%)',
                 width: '180px',
                 height: '220px',
-                border: '2px dashed ' + (matchedUser ? '#00e699' : 'rgba(0, 230, 153, 0.4)'),
+                border:
+                  '2px dashed ' +
+                  (matchedUser
+                    ? '#00e699'
+                    : consensusHits > 0
+                    ? '#38bdf8'
+                    : 'rgba(0, 230, 153, 0.4)'),
                 borderRadius: '50%',
                 pointerEvents: 'none',
-                boxShadow: matchedUser ? '0 0 20px rgba(0, 230, 153, 0.4)' : 'none',
+                boxShadow: matchedUser
+                  ? '0 0 25px rgba(0, 230, 153, 0.5)'
+                  : consensusHits > 0
+                  ? '0 0 15px rgba(56, 189, 248, 0.4)'
+                  : 'none',
                 transition: 'all 0.2s ease',
               }}
             />
@@ -598,6 +659,60 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   pointerEvents: 'none',
                 }}
               />
+            )}
+
+            {/* INDICADOR DE CONSENSO TEMPORAL EN VIVO */}
+            {consensusHits > 0 && !matchedUser && modo === 'escanear' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '48px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(2, 6, 23, 0.9)',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  backdropFilter: 'blur(6px)',
+                  zIndex: 4,
+                }}
+              >
+                <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontWeight: 700 }}>
+                  Estabilidad:
+                </span>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  <div
+                    style={{
+                      width: '14px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: consensusHits >= 1 ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  />
+                  <div
+                    style={{
+                      width: '14px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: consensusHits >= 2 ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  />
+                  <div
+                    style={{
+                      width: '14px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: consensusHits >= 3 ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  />
+                </div>
+              </div>
             )}
 
             {/* BADGE DE ESTADO FLOTANTE */}

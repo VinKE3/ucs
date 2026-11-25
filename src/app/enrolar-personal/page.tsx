@@ -109,6 +109,7 @@ export default function EnrolarPersonalPage() {
   });
   const [capturandoAngulo, setCapturandoAngulo] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
+  const [consentimientoLey29733, setConsentimientoLey29733] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -522,6 +523,18 @@ export default function EnrolarPersonalPage() {
       return;
     }
 
+    if (!consentimientoLey29733) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Consentimiento Requerido (Ley 29733)',
+        text: 'Marca la casilla de autorización biométrica antes de guardar el perfil del colaborador.',
+        background: '#091322',
+        color: '#f8fafc',
+        confirmButtonColor: '#38bdf8',
+      });
+      return;
+    }
+
     setEnrolando(true);
 
     try {
@@ -585,6 +598,7 @@ export default function EnrolarPersonalPage() {
         descriptor: multiDescriptorPayload,
         enrolledAt: new Date().toISOString(),
         fotoPreview: mainPreview,
+        consentimientoAceptado: consentimientoLey29733,
       });
 
       if (!res.success) {
@@ -1275,7 +1289,33 @@ export default function EnrolarPersonalPage() {
 
         {/* BOTÓN SECUNDARIO: GUARDAR EN BASE DE DATOS */}
         {capturedCount > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.55rem',
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: '10px',
+                padding: '0.6rem 0.75rem',
+                fontSize: '0.74rem',
+                color: '#cbd5e1',
+                cursor: 'pointer',
+                lineHeight: 1.35,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={consentimientoLey29733}
+                onChange={(e) => setConsentimientoLey29733(e.target.checked)}
+                style={{ marginTop: '0.15rem', accentColor: '#00e699', width: 15, height: 15 }}
+              />
+              <span>
+                El colaborador autoriza el registro de su vector biométrico facial (no reversible) para control de asistencia (<strong>Ley 29733</strong>).
+              </span>
+            </label>
+
             <button
               type="button"
               onClick={handleGuardarBiometria}

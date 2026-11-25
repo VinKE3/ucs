@@ -3,6 +3,20 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 145: Audit Log Institucional, Trazabilidad Biométrica Ley N.° 29733 y Wizard Multi-Ángulo 3D en Kiosco (`schema.ts`, `auditLogger.ts`, `api/admin/audit-logs`, `ModalAuditLogs.tsx`, `SedesTab.tsx`, `ModalEscaneoFacialBeta.tsx`, `enrolar-personal/page.tsx`)**:
+      - **Opción A — Auditoría Institucional y Cumplimiento Ley N.° 29733**:
+        - **Esquema y Migración en Neon Postgres (`src/db/schema.ts`)**: Agregadas columnas `enrolado_por_id` y `consentimiento_biometrico_at` en `usuarios`, y creada tabla `audit_logs` con índices `(modulo, created_at)` y `(actor_id)`.
+        - **Logger Centralizado (`src/lib/auditLogger.ts`)**: `buildAuditLogEntry()` (puro y testeable) + `recordAuditLog()` no bloqueante con extracción automática de IP del cliente y trazabilidad por actor/módulo/entidad.
+        - **Instrumentación en APIs Sensibles**:
+          - `POST / DELETE /api/biometria/enrolar`: registra `BIOMETRIA_ENROLAR` / `BIOMETRIA_ELIMINAR`, guarda `enroladoPorId` y timestamp `consentimientoBiometricoAt`.
+          - `POST /api/kiosco/configuracion`: registra `CONFIG_ACTUALIZAR` y `FOTOS_PURGAR` (incluyendo conteo purgado).
+          - `POST / PATCH /api/asistencias`: registra `ASISTENCIA_MANUAL`, `ASISTENCIA_MODIFICAR` y `ASISTENCIA_ANULAR`.
+        - **Visor de Auditoría para Administradores (`GET /api/admin/audit-logs`, `ModalAuditLogs.tsx`, `SedesTab.tsx`)**: Acceso restringido a `super_admin` y `admin` desde el botón `🛡️ Auditoría` en `SedesTab`, con filtros por módulo, búsqueda en vivo, hora de Lima, IP y JSON de detalles expandible.
+        - **Consentimiento Informado Biométrico Explícito**: Checkbox obligatorio Ley N.° 29733 integrado tanto en `/enrolar-personal` (móvil) como en el modal de Kiosco (`ModalEscaneoFacialBeta.tsx`).
+      - **Opción B — Wizard Multi-Ángulo 3D dentro del Kiosco (`ModalEscaneoFacialBeta.tsx`)**:
+        - Reemplazada la captura simple en la pestaña "Enrolar mi Rostro" por el wizard guiado de 3 ángulos (`🎯 Frente 1/3`, `👈 Izquierda 2/3`, `👉 Derecha 3/3`) con vista previa en miniatura, efecto flash, validación geométrica y de iluminación adaptada por ángulo (`evaluateFaceQuality(..., { angle })`), control anti-duplicados sobre el centroide (`computeCentroid`), y persistencia en formato v2 (`multi_angle`).
+      - **Pruebas**: Añadida suite `src/lib/__tests__/auditLogger.test.ts`; verificados `npx tsc --noEmit`, `npm test` y `npm run build`.
+
     - **Hito 144: Blindaje de Seguridad de APIs, Caché Inmutable IA, PWA Manifest, Suite Vitest y GitHub Actions CI (`apiSecurity.ts`, `api/biometria/*`, `api/foto`, `api/simclic/sync`, `api/health`, `next.config.ts`, `public/manifest.webmanifest`, `vitest.config.ts`, `.github/workflows/ci.yml`)**:
       - **Seguridad y Autorización Centralizada (`src/lib/apiSecurity.ts`)**:
         - Implementados `requireAdminSession()`, `verifyKioskTerminalRequest()`, `requireAdminOrTerminalAuth()` y `hasValidCronSecret()`.

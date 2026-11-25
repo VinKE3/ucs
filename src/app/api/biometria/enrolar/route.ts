@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { usuarios } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAdminSession, requireAdminOrTerminalAuth } from '@/lib/apiSecurity';
+import { recordAuditLog } from '@/lib/auditLogger';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { dni, descriptor, fotoPreview } = body;
+    const { dni, descriptor, fotoPreview, consentimientoAceptado } = body;
 
     if (!dni || typeof dni !== 'string') {
       return NextResponse.json(
@@ -90,17 +91,43 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
+    const actorNombre = auth.session
+      ? `${auth.session.nombres} ${auth.session.apellidos}`.trim()
+      : `Terminal Kiosco #${auth.terminalId || '?'}`;
+    const actorRol = auth.session ? auth.session.rolSistema : 'kiosco';
 
-    // Actualizar descriptor facial en Neon Postgres
+    // Actualizar descriptor facial y trazabilidad (Ley 29733) en Neon Postgres
     await db
       .update(usuarios)
       .set({
         descriptorFacial: descriptor,
         enroladoFacialAt: now,
+        enroladoPorId: auth.session?.userId ?? null,
+        consentimientoBiometricoAt: consentimientoAceptado !== false ? now : null,
         fotoPerfilUrl: typeof fotoPreview === 'string' && fotoPreview.length > 0 ? fotoPreview : undefined,
         updatedAt: now,
       })
       .where(eq(usuarios.dni, trimmedDni));
+
+    await recordAuditLog({
+      actorId: auth.session?.userId ?? null,
+      actorNombre,
+      actorRol,
+      modulo: 'biometria',
+      accion: 'BIOMETRIA_ENROLAR',
+      entidadTipo: 'usuario',
+      entidadId: targetUser.dni,
+      resumen: `Enrolamiento facial (${totalVectors} ${totalVectors === 1 ? 'vector' : 'ángulos 3D'}) para ${targetUser.nombres} ${targetUser.apellidos} (DNI ${targetUser.dni})`,
+      detalles: {
+        usuarioId: targetUser.id,
+        dni: targetUser.dni,
+        tipoPersonal: targetUser.tipoPersonal,
+        totalVectors,
+        origen: auth.source,
+        consentimientoLey29733: consentimientoAceptado !== false,
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,
@@ -140,14 +167,37 @@ export async function DELETE(request: Request) {
       );
     }
 
+    const [target] = await db
+      .select({ id: usuarios.id, nombres: usuarios.nombres, apellidos: usuarios.apellidos })
+      .from(usuarios)
+      .where(eq(usuarios.dni, dni))
+      .limit(1);
+
     await db
       .update(usuarios)
       .set({
         descriptorFacial: null,
         enroladoFacialAt: null,
+        enroladoPorId: null,
+        consentimientoBiometricoAt: null,
         updatedAt: new Date(),
       })
       .where(eq(usuarios.dni, dni));
+
+    await recordAuditLog({
+      actorId: auth.session?.userId ?? null,
+      actorNombre: auth.session
+        ? `${auth.session.nombres} ${auth.session.apellidos}`.trim()
+        : 'Administrador',
+      actorRol: auth.session?.rolSistema || 'admin',
+      modulo: 'biometria',
+      accion: 'BIOMETRIA_ELIMINAR',
+      entidadTipo: 'usuario',
+      entidadId: dni,
+      resumen: `Desvinculación de biometría facial para ${target ? `${target.nombres} ${target.apellidos}` : `DNI ${dni}`} (DNI ${dni})`,
+      detalles: { usuarioId: target?.id ?? null, dni },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

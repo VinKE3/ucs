@@ -8,6 +8,7 @@ import {
   extractFaceDescriptor,
   findMatchingUser,
   findDuplicateEnrolledFace,
+  computeCentroid,
   getEnrolledFaces,
   syncEnrolledFacesFromDB,
   saveEnrolledFaceToDB,
@@ -15,6 +16,40 @@ import {
   type EnrolledFace,
   type FaceQualityResult,
 } from '@/lib/faceBiometricService';
+
+type AngleKey = 'frente' | 'izquierda' | 'derecha';
+
+interface AngleConfig {
+  key: AngleKey;
+  step: string;
+  label: string;
+  icon: string;
+  guide: string;
+}
+
+const ANGLES_3D: AngleConfig[] = [
+  {
+    key: 'frente',
+    step: '1/3',
+    label: 'Frente',
+    icon: '🎯',
+    guide: 'Mira directo a la cámara con expresión neutra',
+  },
+  {
+    key: 'izquierda',
+    step: '2/3',
+    label: 'Izquierda',
+    icon: '👈',
+    guide: 'Gira ligeramente tu rostro hacia la izquierda (~20°)',
+  },
+  {
+    key: 'derecha',
+    step: '3/3',
+    label: 'Derecha',
+    icon: '👉',
+    guide: 'Gira ligeramente tu rostro hacia la derecha (~20°)',
+  },
+];
 
 interface ModalEscaneoFacialBetaProps {
   isOpen: boolean;
@@ -64,13 +99,23 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     blinkConfirmed: false,
   });
 
-  // Enrolamiento
+  // Enrolamiento Multi-Ángulo 3D + Consentimiento Ley 29733
   const [dniParaEnrolar, setDniParaEnrolar] = useState(currentUserDni || '');
   const [nombreParaEnrolar, setNombreParaEnrolar] = useState(currentUserName || '');
   const [buscandoNombreDni, setBuscandoNombreDni] = useState(false);
   const [enrolados, setEnrolados] = useState<EnrolledFace[]>([]);
   const [enrolandoActivo, setEnrolandoActivo] = useState(false);
   const [enrolError, setEnrolError] = useState<string | null>(null);
+  const [currentAngleKey, setCurrentAngleKey] = useState<AngleKey>('frente');
+  const [capturedAngles, setCapturedAngles] = useState<
+    Partial<Record<AngleKey, { descriptor: number[]; preview: string }>>
+  >({});
+  const [capturandoAngulo, setCapturandoAngulo] = useState(false);
+  const [flashActive, setFlashActive] = useState(false);
+  const [consentimientoLey29733, setConsentimientoLey29733] = useState(false);
+
+  const capturedCount = Object.keys(capturedAngles).length;
+  const currentAngleConfig = ANGLES_3D.find((a) => a.key === currentAngleKey) || ANGLES_3D[0];
 
   // Consenso Temporal (Filtro anti-falsos positivos: 3 fotogramas consecutivos)
   const [consensusHits, setConsensusHits] = useState(0);
@@ -148,10 +193,15 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
       setCameraError(null);
       setEnrolError(null);
       setEnrolandoActivo(false);
+      setCurrentAngleKey('frente');
+      setCapturedAngles({});
+      setCapturandoAngulo(false);
+      setFlashActive(false);
+      setConsentimientoLey29733(false);
       setStatusText(
         targetMode === 'escanear'
           ? '👁️ Buscando rostro en el visor...'
-          : '📸 Encuadra tu rostro dentro del óvalo para enrolar'
+          : '🎯 Paso 1/3 (Frente): Mira directo a la cámara y captura tu rostro'
       );
     },
     [clearTimers]
@@ -472,7 +522,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
 
         if (targetMode === 'enrolar') {
           initSsdMobilenet();
-          setStatusText('📸 Encuadra tu rostro dentro del óvalo para enrolar');
+          setStatusText('🎯 Paso 1/3 (Frente): Mira directo a la cámara y captura tu rostro');
         } else if (camOk) {
           // Esperar un máximo breve a la sincronización fresca para no mostrar falsos "no enrolado"
           await Promise.race([syncPromise, new Promise((r) => setTimeout(r, 800))]);
@@ -508,6 +558,9 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     setDniParaEnrolar(cleanDni);
     setNombreParaEnrolar('');
     setEnrolError(null);
+    setCapturedAngles({});
+    setCurrentAngleKey('frente');
+    setConsentimientoLey29733(false);
 
     if (dniLookupTimerRef.current) {
       clearTimeout(dniLookupTimerRef.current);
@@ -539,14 +592,14 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     startScanMode();
   };
 
-  // Enrolar rostro actual y persistirlo en Neon Postgres
-  const handleEjecutarEnrolamiento = async () => {
-    if (!videoRef.current || !dniParaEnrolar.trim() || !nombreParaEnrolar.trim()) {
-      setEnrolError('Ingresa el DNI y el nombre del colaborador.');
+  // Capturar un ángulo del Wizard 3D (Frente, Izquierda o Derecha) con SSD MobileNet v1
+  const handleCapturarAngulo = async () => {
+    if (!videoRef.current || dniParaEnrolar.trim().length < 8 || !nombreParaEnrolar.trim()) {
+      setEnrolError('Ingresa un DNI/CE válido (8–12 dígitos) y verifica el nombre completo.');
       Swal.fire({
         icon: 'warning',
         title: 'Datos Incompletos',
-        text: 'Por favor ingresa el DNI y verifica el nombre del colaborador antes de enrolar.',
+        text: 'Ingresa tu DNI/CE y verifica tu nombre completo antes de capturar los ángulos faciales.',
         background: '#091322',
         color: '#f8fafc',
         confirmButtonColor: '#38bdf8',
@@ -555,46 +608,112 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     }
 
     setEnrolError(null);
-    setEnrolandoActivo(true);
-    setStatusText('📸 Analizando biometría de alta precisión (SSD MobileNet)...');
+    setCapturandoAngulo(true);
+    setStatusText(`📸 Analizando ángulo ${currentAngleConfig.label} con SSD MobileNet...`);
 
     try {
       const { descriptor, box, brightness } = await extractFaceDescriptor(videoRef.current, {
         useSsd: true,
       });
+
       if (!descriptor || !box) {
         setEnrolError(
-          'No se detectó ningún rostro con claridad. Mira fijamente a la cámara con buena iluminación.'
+          'No se detectó ningún rostro con claridad. Mantén buena iluminación y encuadra tu rostro en el óvalo.'
         );
-        Swal.fire({
-          icon: 'info',
-          title: 'Rostro No Detectado',
-          text: 'No se detectó ningún rostro con claridad en el visor. Mira de frente a la cámara con buena iluminación y sin accesorios que cubran el rostro.',
-          background: '#091322',
-          color: '#f8fafc',
-          confirmButtonColor: '#38bdf8',
-        });
+        setStatusText(`${currentAngleConfig.icon} ${currentAngleConfig.guide}`);
         return;
       }
 
       const frameW = videoRef.current.videoWidth || 640;
       const frameH = videoRef.current.videoHeight || 480;
-      const quality = evaluateFaceQuality(box, frameW, frameH, { brightness });
+      const quality = evaluateFaceQuality(box, frameW, frameH, {
+        angle: currentAngleKey,
+        brightness,
+      });
+      setFaceQuality(quality);
+
       if (!quality.isOptimal) {
         setEnrolError(quality.message);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Posicionamiento o Luz Subóptimos',
-          text: `${quality.message}. Ajusta tu posición frente a la cámara antes de enrolar.`,
-          background: '#091322',
-          color: '#f8fafc',
-          confirmButtonColor: '#38bdf8',
-        });
+        setStatusText(quality.message);
         return;
       }
 
+      // Flash visual de captura exitosa
+      setFlashActive(true);
+      setTimeout(() => setFlashActive(false), 180);
+
+      // Snapshot miniatura WebP para tarjeta de vista previa
+      let previewUrl = '';
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 160;
+        canvas.height = 120;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.translate(160, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(videoRef.current, 0, 0, 160, 120);
+          previewUrl = canvas.toDataURL('image/webp', 0.6);
+        }
+      } catch {}
+
+      const nextCaptured = {
+        ...capturedAngles,
+        [currentAngleKey]: {
+          descriptor: Array.from(descriptor),
+          preview: previewUrl,
+        },
+      };
+      setCapturedAngles(nextCaptured);
+
+      // Avanzar automáticamente al siguiente ángulo faltante
+      const nextMissing = ANGLES_3D.find((a) => !nextCaptured[a.key]);
+      if (nextMissing) {
+        setCurrentAngleKey(nextMissing.key);
+        setStatusText(
+          `✅ ${currentAngleConfig.label} capturado • Siguiente: ${nextMissing.icon} ${nextMissing.label} (${nextMissing.step})`
+        );
+      } else {
+        setStatusText('✨ ¡3 ángulos 3D capturados! Acepta el consentimiento y guarda tu biometría.');
+      }
+    } catch (err: any) {
+      setEnrolError(`Error al capturar ángulo: ${err.message}`);
+    } finally {
+      setCapturandoAngulo(false);
+    }
+  };
+
+  // Persistir plantilla biométrica Multi-Ángulo 3D (v2) en la base de datos con trazabilidad Ley 29733
+  const handleGuardarBiometria = async () => {
+    const cleanDni = dniParaEnrolar.trim();
+    const cleanNombre = nombreParaEnrolar.trim();
+
+    if (cleanDni.length < 8 || !cleanNombre) {
+      setEnrolError('Ingresa el DNI/CE y el nombre completo del colaborador.');
+      return;
+    }
+
+    const angleKeys = ANGLES_3D.map((a) => a.key).filter((k) => Boolean(capturedAngles[k]));
+    if (angleKeys.length === 0) {
+      setEnrolError('Captura al menos un ángulo facial (se recomiendan los 3 ángulos 3D).');
+      return;
+    }
+
+    if (!consentimientoLey29733) {
+      setEnrolError('Debes marcar el consentimiento informado biométrico (Ley N.° 29733) para guardar.');
+      return;
+    }
+
+    setEnrolError(null);
+    setEnrolandoActivo(true);
+    setStatusText('💾 Calculando plantilla 3D y guardando de forma cifrada...');
+
+    try {
+      const descriptorsList = angleKeys.map((k) => capturedAngles[k]!.descriptor);
+      const centroid = computeCentroid(descriptorsList);
+
       // Control anti-duplicados: verificar si este rostro ya pertenece a otro DNI
-      const duplicateCheck = findDuplicateEnrolledFace(descriptor, dniParaEnrolar.trim());
+      const duplicateCheck = findDuplicateEnrolledFace(centroid, cleanDni);
       if (duplicateCheck.isDuplicate && duplicateCheck.existingUser) {
         const confirmDup = await Swal.fire({
           icon: 'warning',
@@ -605,7 +724,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               <div style="margin: 0.65rem 0; padding: 0.6rem; border-radius: 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a; font-weight: 700;">
                 👤 ${duplicateCheck.existingUser.nombre} (DNI: ${duplicateCheck.existingUser.dni})
               </div>
-              Verifica que el DNI ingresado (<strong>${dniParaEnrolar.trim()}</strong>) sea el correcto antes de continuar.
+              Verifica que el documento ingresado (<strong>${cleanDni}</strong>) sea el correcto antes de continuar.
             </div>
           `,
           showCancelButton: true,
@@ -621,25 +740,25 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         }
       }
 
-      // Snapshot miniatura en base64 para preview
-      let previewUrl: string | undefined = undefined;
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = 120;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, 160, 120);
-          previewUrl = canvas.toDataURL('image/webp', 0.6);
-        }
-      } catch {}
+      const payloadDescriptor = {
+        version: 2,
+        mode: descriptorsList.length >= 2 ? 'multi_angle' : 'single_angle',
+        angles: angleKeys,
+        descriptors: descriptorsList,
+        centroid,
+      };
+
+      const previewUrl =
+        capturedAngles.frente?.preview || capturedAngles[angleKeys[0]]?.preview || undefined;
 
       const result = await saveEnrolledFaceToDB({
-        dni: dniParaEnrolar.trim(),
-        nombre: nombreParaEnrolar.trim(),
-        descriptor: Array.from(descriptor),
+        dni: cleanDni,
+        nombre: cleanNombre,
+        descriptor: payloadDescriptor,
         enrolledAt: new Date().toISOString(),
         fotoPreview: previewUrl,
+        anglesCaptured: angleKeys,
+        consentimientoAceptado: consentimientoLey29733,
       });
 
       if (!result.success) {
@@ -660,15 +779,15 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
 
       await Swal.fire({
         icon: 'success',
-        title: '¡Rostro Enrolado con Éxito!',
+        title: '¡Plantilla 3D Enrolada con Éxito!',
         html: `
           <div style="font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; text-align: center;">
             <p style="margin-bottom: 0.6rem;">
-              Tu plantilla biométrica facial fue registrada exitosamente en el sistema.
+              Tu plantilla biométrica (${angleKeys.length}/3 ángulos${angleKeys.length === 3 ? ' • 3D Completo' : ''}) fue registrada exitosamente.
             </p>
             <div style="background: rgba(0, 230, 153, 0.12); border: 1.5px solid #00e699; padding: 0.65rem 1rem; border-radius: 10px; color: #00e699; font-weight: 700; margin: 0.8rem 0; font-size: 1rem;">
-              👤 ${nombreParaEnrolar.trim()}
-              <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 500; margin-top: 0.2rem;">DNI: ${dniParaEnrolar.trim()}</div>
+              👤 ${cleanNombre}
+              <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 500; margin-top: 0.2rem;">Documento: ${cleanDni} • Consentimiento Ley 29733 registrado</div>
             </div>
             <p style="font-size: 0.82rem; color: #94a3b8; margin: 0;">
               Ahora puedes ingresar al Kiosco directamente mirando al visor de la cámara.
@@ -717,10 +836,11 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         style={{
           width: '100%',
           maxWidth: '640px',
+          maxHeight: '94vh',
+          overflowY: 'auto',
           background: 'linear-gradient(135deg, #091322 0%, #0d1e38 100%)',
           border: '1.5px solid rgba(0, 230, 153, 0.45)',
           borderRadius: '20px',
-          overflow: 'hidden',
           boxShadow: '0 25px 65px -15px rgba(0, 230, 153, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08)',
           display: 'flex',
           flexDirection: 'column',
@@ -860,14 +980,15 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               position: 'relative',
               width: '100%',
               maxWidth: '440px',
-              height: '300px',
+              height: modo === 'enrolar' ? '235px' : '300px',
               backgroundColor: '#020617',
               borderRadius: '16px',
               overflow: 'hidden',
-              border: '2px solid ' + (matchedUser ? '#00e699' : 'rgba(0, 230, 153, 0.3)'),
+              border: '2px solid ' + (matchedUser ? '#00e699' : modo === 'enrolar' ? 'rgba(56, 189, 248, 0.45)' : 'rgba(0, 230, 153, 0.3)'),
               boxShadow: matchedUser
                 ? '0 0 25px rgba(0, 230, 153, 0.5)'
                 : 'inset 0 0 20px rgba(0, 0, 0, 0.8)',
+              transition: 'height 0.2s ease',
             }}
           >
             <video
@@ -882,6 +1003,50 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 transform: 'scaleX(-1)',
               }}
             />
+
+            {/* FLASH VISUAL DE CAPTURA 3D */}
+            {flashActive && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  zIndex: 15,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+
+            {/* GUÍA DE ÁNGULO ACTIVO EN MODO ENROLAR 3D */}
+            {modo === 'enrolar' && !cameraError && !modelLoading && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(2, 132, 199, 0.92)',
+                  border: '1px solid #38bdf8',
+                  color: '#ffffff',
+                  padding: '0.24rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.73rem',
+                  fontWeight: 800,
+                  backdropFilter: 'blur(6px)',
+                  zIndex: 7,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.45)',
+                }}
+              >
+                <span>{currentAngleConfig.icon}</span>
+                <span>
+                  Paso {currentAngleConfig.step} ({currentAngleConfig.label}): {currentAngleConfig.guide}
+                </span>
+              </div>
+            )}
 
             {/* ERROR DE CÁMARA */}
             {cameraError && (
@@ -921,7 +1086,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
             )}
 
             {/* PILL DE FEEDBACK DE CALIDAD, POSICIONAMIENTO E ILUMINACIÓN */}
-            {faceQuality && faceQuality.status !== 'no_face' && !matchedUser && (
+            {modo === 'escanear' && faceQuality && faceQuality.status !== 'no_face' && !matchedUser && (
               <div
                 style={{
                   position: 'absolute',
@@ -1256,9 +1421,9 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
             </div>
           )}
 
-          {/* VISTA 2: FORMULARIO DE ENROLAMIENTO */}
+          {/* VISTA 2: WIZARD MULTI-ÁNGULO 3D + CONSENTIMIENTO LEY 29733 */}
           {modo === 'enrolar' && (
-            <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.5rem' }}>
                 <div>
                   <label style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
@@ -1304,57 +1469,218 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 </div>
               </div>
 
+              {/* TARJETAS DE 3 ÁNGULOS 3D (FRENTE / IZQUIERDA / DERECHA) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.45rem' }}>
+                {ANGLES_3D.map((ang) => {
+                  const cap = capturedAngles[ang.key];
+                  const isActive = currentAngleKey === ang.key;
+                  return (
+                    <button
+                      key={ang.key}
+                      type="button"
+                      onClick={() => {
+                        setCurrentAngleKey(ang.key);
+                        setEnrolError(null);
+                        setStatusText(`${ang.icon} Paso ${ang.step} (${ang.label}): ${ang.guide}`);
+                      }}
+                      style={{
+                        position: 'relative',
+                        padding: '0.45rem 0.35rem',
+                        borderRadius: '10px',
+                        border: cap
+                          ? '1.5px solid #10b981'
+                          : isActive
+                          ? '1.5px solid #38bdf8'
+                          : '1px solid rgba(255, 255, 255, 0.12)',
+                        background: cap
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : isActive
+                          ? 'rgba(56, 189, 248, 0.14)'
+                          : 'rgba(15, 23, 42, 0.6)',
+                        color: '#f8fafc',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {cap?.preview ? (
+                        <img
+                          src={cap.preview}
+                          alt={ang.label}
+                          style={{
+                            width: '44px',
+                            height: '34px',
+                            objectFit: 'cover',
+                            borderRadius: '6px',
+                            border: '1px solid #10b981',
+                          }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: '1.15rem', lineHeight: '34px' }}>{ang.icon}</span>
+                      )}
+                      <div style={{ fontSize: '0.7rem', fontWeight: 800, color: cap ? '#34d399' : isActive ? '#38bdf8' : '#cbd5e1' }}>
+                        {cap ? '✓ ' : ''}
+                        {ang.label}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>
+                        {cap ? 'Capturado' : `Paso ${ang.step}`}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
               {enrolError && (
                 <div
                   style={{
                     background: 'rgba(239, 68, 68, 0.15)',
                     border: '1px solid #ef4444',
                     color: '#fca5a5',
-                    padding: '0.5rem 0.75rem',
+                    padding: '0.45rem 0.7rem',
                     borderRadius: '8px',
-                    fontSize: '0.78rem',
+                    fontSize: '0.76rem',
                   }}
                 >
                   ⚠️ {enrolError}
                 </div>
               )}
 
+              {/* BOTÓN DE CAPTURA DEL ÁNGULO ACTUAL */}
               <button
                 type="button"
-                onClick={handleEjecutarEnrolamiento}
-                disabled={enrolandoActivo || modelLoading}
+                onClick={handleCapturarAngulo}
+                disabled={capturandoAngulo || enrolandoActivo || modelLoading}
                 style={{
                   width: '100%',
-                  padding: '0.7rem',
+                  padding: '0.62rem',
                   borderRadius: '10px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #38bdf8, #0284c7)',
+                  border: '1px solid rgba(56, 189, 248, 0.45)',
+                  background: capturedAngles[currentAngleKey]
+                    ? 'rgba(56, 189, 248, 0.16)'
+                    : 'linear-gradient(135deg, #38bdf8, #0284c7)',
                   color: '#ffffff',
                   fontWeight: 800,
-                  fontSize: '0.9rem',
-                  cursor: enrolandoActivo || modelLoading ? 'wait' : 'pointer',
-                  boxShadow: '0 4px 14px rgba(56, 189, 248, 0.3)',
+                  fontSize: '0.86rem',
+                  cursor: capturandoAngulo || enrolandoActivo || modelLoading ? 'wait' : 'pointer',
+                  boxShadow: capturedAngles[currentAngleKey]
+                    ? 'none'
+                    : '0 4px 14px rgba(56, 189, 248, 0.28)',
                 }}
               >
-                {enrolandoActivo ? '⏳ Guardando...' : '📸 Capturar y Guardar Rostro'}
+                {capturandoAngulo
+                  ? `⏳ Capturando ${currentAngleConfig.label}...`
+                  : capturedAngles[currentAngleKey]
+                  ? `🔄 Re-capturar ${currentAngleConfig.label} (${currentAngleConfig.step})`
+                  : `📸 Capturar ${currentAngleConfig.label} (${currentAngleConfig.step})`}
               </button>
 
-              {/* NOTA DE PRIVACIDAD Y SEGURIDAD UCS */}
-              <div
+              {/* CONSENTIMIENTO INFORMADO LEY N.° 29733 */}
+              <label
                 style={{
-                  background: 'rgba(56, 189, 248, 0.08)',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.55rem',
+                  background: consentimientoLey29733
+                    ? 'rgba(16, 185, 129, 0.1)'
+                    : 'rgba(56, 189, 248, 0.08)',
+                  border: consentimientoLey29733
+                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                    : '1px solid rgba(56, 189, 248, 0.22)',
                   borderRadius: '10px',
-                  padding: '0.75rem 0.9rem',
-                  fontSize: '0.78rem',
-                  color: '#94a3b8',
-                  lineHeight: 1.45,
-                  marginTop: '0.25rem',
+                  padding: '0.6rem 0.75rem',
+                  fontSize: '0.74rem',
+                  color: '#cbd5e1',
+                  lineHeight: 1.4,
+                  cursor: 'pointer',
                 }}
               >
-                🔒 <strong style={{ color: '#38bdf8' }}>Privacidad y Seguridad</strong>: Tus datos biométricos se
-                procesan y almacenan de forma segura y cifrada en el sistema. La gestión y desvinculación se
-                administra exclusivamente desde el Panel de Control.
+                <input
+                  type="checkbox"
+                  checked={consentimientoLey29733}
+                  onChange={(e) => {
+                    setConsentimientoLey29733(e.target.checked);
+                    if (e.target.checked) setEnrolError(null);
+                  }}
+                  style={{
+                    marginTop: '0.15rem',
+                    width: '15px',
+                    height: '15px',
+                    accentColor: '#00e699',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                />
+                <span>
+                  <strong style={{ color: consentimientoLey29733 ? '#34d399' : '#38bdf8' }}>
+                    Consentimiento Biométrico (Ley N.° 29733):
+                  </strong>{' '}
+                  Autorizo el registro de mi plantilla facial matemática exclusivamente para el control de asistencia en la UCS. Su desvinculación se gestiona desde el Panel de Control.
+                </span>
+              </label>
+
+              {/* BOTONES DE GUARDAR PLANTILLA 3D / REINICIAR */}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleGuardarBiometria}
+                  disabled={enrolandoActivo || capturandoAngulo || capturedCount === 0 || !consentimientoLey29733}
+                  style={{
+                    flex: 1,
+                    padding: '0.68rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background:
+                      capturedCount > 0 && consentimientoLey29733
+                        ? 'linear-gradient(135deg, #00e699, #059669)'
+                        : 'rgba(148, 163, 184, 0.2)',
+                    color: capturedCount > 0 && consentimientoLey29733 ? '#020617' : '#94a3b8',
+                    fontWeight: 900,
+                    fontSize: '0.88rem',
+                    cursor:
+                      enrolandoActivo || capturandoAngulo || capturedCount === 0 || !consentimientoLey29733
+                        ? 'not-allowed'
+                        : 'pointer',
+                    boxShadow:
+                      capturedCount > 0 && consentimientoLey29733
+                        ? '0 4px 14px rgba(0, 230, 153, 0.3)'
+                        : 'none',
+                  }}
+                >
+                  {enrolandoActivo
+                    ? '⏳ Guardando plantilla 3D...'
+                    : capturedCount === 3
+                    ? '💾 Guardar Plantilla 3D Completa (3/3)'
+                    : `💾 Guardar Plantilla (${capturedCount}/3 ángulos)`}
+                </button>
+
+                {capturedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCapturedAngles({});
+                      setCurrentAngleKey('frente');
+                      setEnrolError(null);
+                      setStatusText('🎯 Paso 1/3 (Frente): Mira directo a la cámara y captura tu rostro');
+                    }}
+                    disabled={enrolandoActivo || capturandoAngulo}
+                    style={{
+                      padding: '0.68rem 0.85rem',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(255, 255, 255, 0.16)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: '#cbd5e1',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                    }}
+                    title="Limpiar ángulos capturados y volver a empezar"
+                  >
+                    ↺
+                  </button>
+                )}
               </div>
             </div>
           )}

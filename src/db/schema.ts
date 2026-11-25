@@ -85,9 +85,11 @@ export const usuarios = pgTable('usuarios', {
   esHorarioRotativo: boolean('es_horario_rotativo').default(false).notNull(),
   horasJornadaObjetivo: numeric('horas_jornada_objetivo', { precision: 4, scale: 2 }).default('9.00').notNull(),
   
-  // Biometría Facial (Edge AI)
-  descriptorFacial: jsonb('descriptor_facial'), // Array de 128 números flotantes extraídos por red neuronal
+  // Biometría Facial (Edge AI) y Trazabilidad (Ley 29733)
+  descriptorFacial: jsonb('descriptor_facial'), // Vector(es) de 128 floats (v1 o multi-ángulo v2)
   enroladoFacialAt: timestamp('enrolado_facial_at'), // Momento del enrolamiento
+  enroladoPorId: integer('enrolado_por_id'), // ID del admin que enroló (null si auto-enrolado en Kiosco)
+  consentimientoBiometricoAt: timestamp('consentimiento_biometrico_at'), // Aceptación Ley 29733
   fotoPerfilUrl: text('foto_perfil_url'), // Miniatura o foto de referencia opcional
   
   activo: boolean('activo').default(true).notNull(),
@@ -743,6 +745,32 @@ export const configuracionSistema = pgTable('configuracion_sistema', {
 
 export type ConfiguracionSistema = typeof configuracionSistema.$inferSelect;
 export type NewConfiguracionSistema = typeof configuracionSistema.$inferInsert;
+
+// --- 16. TABLA: BITÁCORA INSTITUCIONAL DE AUDITORÍA (AUDIT LOGS) ---
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    id: serial('id').primaryKey(),
+    actorId: integer('actor_id').references(() => usuarios.id, { onDelete: 'set null' }),
+    actorNombre: varchar('actor_nombre', { length: 200 }).notNull(),
+    actorRol: varchar('actor_rol', { length: 50 }).notNull(), // 'super_admin' | 'admin' | 'administrativo' | 'kiosco'
+    modulo: varchar('modulo', { length: 60 }).notNull(), // 'biometria' | 'configuracion' | 'asistencias' | 'terminales'
+    accion: varchar('accion', { length: 80 }).notNull(), // 'BIOMETRIA_ENROLAR' | 'BIOMETRIA_ELIMINAR' | 'CONFIG_ACTUALIZAR' | 'FOTOS_PURGAR' | ...
+    entidadTipo: varchar('entidad_tipo', { length: 60 }),
+    entidadId: varchar('entidad_id', { length: 80 }),
+    resumen: text('resumen').notNull(),
+    detalles: jsonb('detalles'),
+    ipAddress: varchar('ip_address', { length: 80 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_audit_logs_modulo_created').on(table.modulo, table.createdAt),
+    index('idx_audit_logs_actor').on(table.actorId),
+  ]
+);
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
 
 
 

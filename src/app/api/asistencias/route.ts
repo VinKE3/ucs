@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth';
 import { getPeruTimeString } from '@/lib/peruTime';
 import { parseJsonBody, crearAsistenciaManualSchema, modificarAsistenciaSchema } from '@/lib/validations';
 import { coincidenSedesSimclic } from '@/lib/simclicAudit';
+import { recordAuditLog } from '@/lib/auditLogger';
 
 export const dynamic = 'force-dynamic';
 
@@ -377,6 +378,19 @@ export async function POST(request: Request) {
       return inserted;
     });
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'asistencias',
+      accion: 'ASISTENCIA_MANUAL',
+      entidadTipo: 'asistencia',
+      entidadId: nuevaAsistencia.id,
+      resumen: `Registro manual de asistencia #${nuevaAsistencia.id} (usuarioId=${usuarioId}, fecha=${fecha}) — Motivo: ${motivoJustificacion.trim()}`,
+      detalles: { usuarioId, sedeId, ambienteId, cursoId, fecha, estadoFinal },
+      request,
+    });
+
     return NextResponse.json({ ok: true, asistencia: nuevaAsistencia }, { status: 201 });
   } catch (error) {
     console.error('Error registrando asistencia manual:', error);
@@ -528,6 +542,19 @@ export async function PATCH(request: Request) {
         },
       }),
     ]);
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'asistencias',
+      accion: accion === 'anular' ? 'ASISTENCIA_ANULAR' : 'ASISTENCIA_MODIFICAR',
+      entidadTipo: 'asistencia',
+      entidadId: asistenciaActual.id,
+      resumen: `${accion === 'anular' ? 'Anuló' : 'Modificó manualmente'} asistencia #${asistenciaActual.id} — Motivo: ${motivo.trim()}`,
+      detalles: { accion, estadoAnterior: asistenciaActual.estado, nuevoEstado, motivo: motivo.trim() },
+      request,
+    });
 
     return NextResponse.json({
       ok: true,

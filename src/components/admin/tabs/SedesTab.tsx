@@ -14,6 +14,11 @@ const ModalGestionTerminales = dynamic(
   { ssr: false }
 );
 
+const ModalAuditLogs = dynamic(
+  () => import('@/components/admin/modals/ModalAuditLogs').then((m) => ({ default: m.ModalAuditLogs })),
+  { ssr: false }
+);
+
 interface SedesTabProps {
   sedesList?: SedeAdminItem[];
   session?: SessionPayload | null;
@@ -41,6 +46,7 @@ export const SedesTab: React.FC<SedesTabProps> = (props) => {
   const [showTerminalesModal, setShowTerminalesModal] = useState(false);
   const [terminalesModalTab, setTerminalesModalTab] = useState<'terminales' | 'codigos'>('terminales');
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
 
   const sedesFiltradas = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -150,6 +156,26 @@ export const SedesTab: React.FC<SedesTabProps> = (props) => {
               >
                 <span>⚙️</span>
                 <span>Configuración</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(true)}
+                className={styles.secondaryActionBtn}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.55rem 1rem',
+                  fontSize: '0.85rem',
+                  borderColor: 'rgba(16, 185, 129, 0.4)',
+                  color: '#34d399',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                }}
+                title="Historial de auditoría institucional: biometría, asistencias manuales y configuración"
+              >
+                <span>🛡️</span>
+                <span>Auditoría</span>
               </button>
             </>
           )}
@@ -375,6 +401,12 @@ export const SedesTab: React.FC<SedesTabProps> = (props) => {
       <ModalConfiguracionKiosco
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
+      />
+
+      {/* MODAL DE AUDITORÍA INSTITUCIONAL */}
+      <ModalAuditLogs
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
       />
     </section>
   );

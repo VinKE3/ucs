@@ -4,6 +4,7 @@ import { configuracionSistema } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
 import { purgarFotosExpiradas } from '@/lib/fotoStorage';
+import { recordAuditLog } from '@/lib/auditLogger';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,17 @@ export async function POST(request: NextRequest) {
     if (purgarAhora === true) {
       const dias = typeof diasRetencionFotos === 'number' ? diasRetencionFotos : undefined;
       const resultadoPurga = await purgarFotosExpiradas(dias);
+      await recordAuditLog({
+        actorId: session.userId,
+        actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+        actorRol: session.rolSistema,
+        modulo: 'configuracion',
+        accion: 'FOTOS_PURGAR',
+        entidadTipo: 'blob_storage',
+        resumen: `Purga manual de ${resultadoPurga.eliminadas} fotos expiradas (> ${resultadoPurga.diasVigencia} días)`,
+        detalles: resultadoPurga as unknown as Record<string, unknown>,
+        request,
+      });
       return NextResponse.json({
         success: true,
         mensaje: `Se eliminaron ${resultadoPurga.eliminadas} fotos expiradas (> ${resultadoPurga.diasVigencia} días) de ${resultadoPurga.asistenciasProcesadas} registros.`,
@@ -183,6 +195,25 @@ export async function POST(request: NextRequest) {
     }
 
     await Promise.all(updates);
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'configuracion',
+      accion: 'CONFIG_ACTUALIZAR',
+      entidadTipo: 'configuracion_sistema',
+      entidadId: 'kiosco_global',
+      resumen: `Actualizó configuración global de Kiosco (Facial: ${reconocimientoFacialActivo ? 'ON' : 'OFF'}, Anti-Spoofing: ${livenessParpadeoActivo ? 'ON' : 'OFF'}, Retención: ${diasRetencionFotos ?? '-'}d)`,
+      detalles: {
+        biometriaActiva,
+        modoFotoEstricto,
+        diasRetencionFotos,
+        reconocimientoFacialActivo,
+        livenessParpadeoActivo,
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

@@ -23,6 +23,7 @@ export interface EnrolledFace {
   enrolledAt: string;
   fotoPreview?: string;
   anglesCaptured?: string[];
+  consentimientoAceptado?: boolean;
 }
 
 const STORAGE_KEY = 'ucs_kiosk_enrolled_faces_beta';
@@ -878,6 +879,7 @@ export async function saveEnrolledFaceToDB(face: EnrolledFace): Promise<{
         dni: face.dni,
         descriptor: face.descriptor,
         fotoPreview: face.fotoPreview,
+        consentimientoAceptado: face.consentimientoAceptado !== false,
       }),
     });
 

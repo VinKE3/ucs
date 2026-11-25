@@ -2,7 +2,14 @@ import { db } from '@/db';
 import { auditLogs } from '@/db/schema';
 import { getClientIp } from '@/lib/rateLimit';
 
-export type AuditModule = 'biometria' | 'configuracion' | 'asistencias' | 'terminales';
+export type AuditModule =
+  | 'biometria'
+  | 'configuracion'
+  | 'asistencias'
+  | 'terminales'
+  | 'usuarios'
+  | 'sedes_salas'
+  | 'sistema';
 
 export interface AuditLogInput {
   actorId?: number | null;

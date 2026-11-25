@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { terminalesKiosco, sedes, usuarios } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { parseJsonBody, parseSearchParams, actualizarTerminalKioscoSchema, idParamSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,24 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Terminal no encontrada' }, { status: 404 });
     }
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'terminales',
+      accion: 'TERMINAL_ACTUALIZAR',
+      entidadTipo: 'terminal_kiosco',
+      entidadId: updated.id,
+      resumen: `Actualizó terminal "${updated.nombre}" (activo: ${updated.activo ? 'sí' : 'no'}, cámara: ${updated.camaraActiva ? 'sí' : 'no'})`,
+      detalles: {
+        terminalId: updated.id,
+        sedeId: updated.sedeId,
+        activo: updated.activo,
+        camaraActiva: updated.camaraActiva,
+      },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       message: `Terminal ${activo ? 'activada' : 'desactivada'} correctamente`,
@@ -105,6 +124,23 @@ export async function DELETE(request: Request) {
     if (!deleted) {
       return NextResponse.json({ error: 'Terminal no encontrada' }, { status: 404 });
     }
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'terminales',
+      accion: 'TERMINAL_REVOCAR',
+      entidadTipo: 'terminal_kiosco',
+      entidadId: deleted.id,
+      resumen: `Revocó y eliminó la terminal Kiosco "${deleted.nombre}"`,
+      detalles: {
+        terminalId: deleted.id,
+        sedeId: deleted.sedeId,
+        ipRegistro: deleted.ipRegistro,
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

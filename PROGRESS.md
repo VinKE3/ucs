@@ -3,6 +3,20 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 146: Observabilidad Institucional (Error Boundaries + Telemetría Crítica), Auditoría 100% de Mutaciones Admin y Exportación Excel de Auditoría (`error.tsx`, `global-error.tsx`, `not-found.tsx`, `errorTelemetry.ts`, `api/system/client-error`, `api/usuarios/*`, `api/admin/terminales/*`, `api/kiosco/terminal/autorizar`, `api/sedes`, `api/ambientes`, `api/admin/audit-logs`, `ModalAuditLogs.tsx`)**:
+      - **Bloque D — Error Boundaries Institucionales y Telemetría de Fallos**:
+        - Creados `src/app/error.tsx`, `src/app/global-error.tsx` y `src/app/not-found.tsx` con UI institucional de recuperación (botón de reintento, navegación segura y código `digest`).
+        - Creado `POST /api/system/client-error` protegido con `RateLimiter` (10 req / 5 min por IP) y `src/lib/errorTelemetry.ts` (`sanitizeClientErrorPayload` + `notifyErrorWebhookIfConfigured` opcional vía `ERROR_ALERT_WEBHOOK_URL`), registrando los crashes cliente directamente en `audit_logs` bajo el módulo `sistema`.
+      - **Bloque E — Cobertura Total del Audit Log y Exportación Excel (`.xlsx`)**:
+        - Ampliado `AuditModule` con `usuarios`, `sedes_salas` y `sistema`.
+        - Instrumentadas las mutaciones administrativas restantes:
+          - `api/usuarios` (`USUARIO_CREAR`, `USUARIO_ACTUALIZAR`, `USUARIO_ACTIVAR`/`INACTIVAR`, `USUARIO_ELIMINAR`) y `api/usuarios/reset-password` (`USUARIO_RESET_PASSWORD`).
+          - `api/admin/terminales` (`TERMINAL_ACTUALIZAR`, `TERMINAL_REVOCAR`), `api/admin/terminales/codigos` (`TERMINAL_OTP_CREAR`/`REVOCAR`/`ELIMINAR`) y `api/kiosco/terminal/autorizar` (`TERMINAL_AUTORIZAR_OTP` / `TERMINAL_AUTORIZAR_CREDENCIALES`).
+          - `api/sedes` (`SEDE_CREAR`/`ACTUALIZAR`/`ELIMINAR`) y `api/ambientes` (`SALA_CREAR`/`ACTUALIZAR`/`ELIMINAR`).
+        - `GET /api/admin/audit-logs` actualizado con filtros de fecha (`?fechaDesde=`, `?fechaHasta=` en hora Lima) y exportación corporativa en Excel (`?export=xlsx` vía `ExcelJS` hasta 3,000 registros).
+        - `ModalAuditLogs.tsx` actualizado con los 7 módulos (incluyendo `🚨 Sistema`), filtro de fechas y botón **📊 Exportar Excel**.
+      - **Pruebas y Verificación**: Añadida suite `src/lib/__tests__/errorTelemetry.test.ts`; verificados `npx tsc --noEmit`, `npm test` y `npm run build`.
+
     - **Hito 145: Audit Log Institucional, Trazabilidad Biométrica Ley N.° 29733 y Wizard Multi-Ángulo 3D en Kiosco (`schema.ts`, `auditLogger.ts`, `api/admin/audit-logs`, `ModalAuditLogs.tsx`, `SedesTab.tsx`, `ModalEscaneoFacialBeta.tsx`, `enrolar-personal/page.tsx`)**:
       - **Opción A — Auditoría Institucional y Cumplimiento Ley N.° 29733**:
         - **Esquema y Migración en Neon Postgres (`src/db/schema.ts`)**: Agregadas columnas `enrolado_por_id` y `consentimiento_biometrico_at` en `usuarios`, y creada tabla `audit_logs` con índices `(modulo, created_at)` y `(actor_id)`.

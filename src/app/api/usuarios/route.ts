@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { usuarios, asistencias, sedes, ambientes, castingPerfiles, castingRangosEdad } from '@/db/schema';
 import { desc, eq, and, ne, sql } from 'drizzle-orm';
 import { getSession, hashPassword } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { parseJsonBody, crearUsuarioSchema, actualizarUsuarioSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
@@ -220,6 +221,23 @@ export async function POST(request: Request) {
         horasJornadaObjetivo: usuarios.horasJornadaObjetivo,
       });
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'usuarios',
+      accion: 'USUARIO_CREAR',
+      entidadTipo: 'usuario',
+      entidadId: newUser.dni,
+      resumen: `Registró al colaborador ${newUser.nombres} ${newUser.apellidos} (DNI ${newUser.dni}, ${newUser.tipoPersonal})`,
+      detalles: {
+        usuarioId: newUser.id,
+        tipoPersonal: newUser.tipoPersonal,
+        rolSistema: newUser.rolSistema,
+      },
+      request,
+    });
+
     return NextResponse.json({ ok: true, usuario: newUser });
   } catch (error) {
     console.error('Error creando usuario:', error);
@@ -387,6 +405,33 @@ export async function PATCH(request: Request) {
       .where(eq(usuarios.id, Number(id)))
       .returning();
 
+    const changedFields = Object.keys(updateData).filter((k) => k !== 'updatedAt');
+    const isToggleActivo = changedFields.length === 1 && changedFields[0] === 'activo';
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'usuarios',
+      accion: isToggleActivo
+        ? updated.activo
+          ? 'USUARIO_ACTIVAR'
+          : 'USUARIO_INACTIVAR'
+        : 'USUARIO_ACTUALIZAR',
+      entidadTipo: 'usuario',
+      entidadId: updated.dni,
+      resumen: isToggleActivo
+        ? `${updated.activo ? 'Reactivó' : 'Inactivó'} al colaborador ${updated.nombres} ${updated.apellidos} (DNI ${updated.dni})`
+        : `Actualizó datos de ${updated.nombres} ${updated.apellidos} (DNI ${updated.dni})`,
+      detalles: {
+        usuarioId: updated.id,
+        camposModificados: changedFields,
+        rolSistemaAnterior: usuarioActual.rolSistema,
+        rolSistemaNuevo: updated.rolSistema,
+        activo: updated.activo,
+      },
+      request,
+    });
+
     return NextResponse.json({ ok: true, usuario: updated });
   } catch (error) {
     console.error('Error actualizando usuario:', error);
@@ -468,6 +513,23 @@ export async function DELETE(request: Request) {
     }
 
     await db.delete(usuarios).where(eq(usuarios.id, userIdNum));
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'usuarios',
+      accion: 'USUARIO_ELIMINAR',
+      entidadTipo: 'usuario',
+      entidadId: targetUser.dni,
+      resumen: `Eliminó al colaborador ${targetUser.nombres} ${targetUser.apellidos} (DNI ${targetUser.dni})`,
+      detalles: {
+        usuarioId: targetUser.id,
+        tipoPersonal: targetUser.tipoPersonal,
+        rolSistema: targetUser.rolSistema,
+      },
+      request,
+    });
 
     return NextResponse.json({ ok: true, mensaje: 'Usuario eliminado exitosamente' });
   } catch (error) {

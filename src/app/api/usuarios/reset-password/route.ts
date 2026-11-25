@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { usuarios } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSession, hashPassword } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { parseJsonBody, resetPasswordSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
@@ -39,6 +40,22 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       })
       .where(eq(usuarios.id, usuarioId));
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'usuarios',
+      accion: 'USUARIO_RESET_PASSWORD',
+      entidadTipo: 'usuario',
+      entidadId: targetUsers[0].dni,
+      resumen: `Restableció manualmente la contraseña de ${targetUsers[0].nombres} ${targetUsers[0].apellidos} (DNI ${targetUsers[0].dni})`,
+      detalles: {
+        usuarioId: targetUsers[0].id,
+        rolSistemaObjetivo: targetUsers[0].rolSistema,
+      },
+      request,
+    });
 
     return NextResponse.json({
       ok: true,

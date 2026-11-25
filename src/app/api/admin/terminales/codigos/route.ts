@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { codigosAutorizacionTerminal, sedes, usuarios, terminalesKiosco } from '@/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { parseJsonBody, crearCodigoOtpTerminalSchema, idSchema } from '@/lib/validations';
 import { z } from 'zod';
 
@@ -137,6 +138,24 @@ export async function POST(request: Request) {
       if (s) sedeNombre = s.nombre;
     }
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'terminales',
+      accion: 'TERMINAL_OTP_CREAR',
+      entidadTipo: 'codigo_otp',
+      entidadId: nuevoCodigo.codigo,
+      resumen: `Generó código OTP "${nuevoCodigo.codigo}"${sedeNombre ? ` para sede ${sedeNombre}` : ''} (${duracionValida} min)`,
+      detalles: {
+        codigoId: nuevoCodigo.id,
+        sedeId: nuevoCodigo.sedeId,
+        nombreSugerido: nuevoCodigo.nombreSugerido,
+        duracionMinutos: duracionValida,
+      },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       message: `Código temporal "${nuevoCodigo.codigo}" generado exitosamente.`,
@@ -177,6 +196,19 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Código no encontrado' }, { status: 404 });
     }
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'terminales',
+      accion: 'TERMINAL_OTP_REVOCAR',
+      entidadTipo: 'codigo_otp',
+      entidadId: updated.codigo,
+      resumen: `Revocó el código OTP "${updated.codigo}" antes de su expiración`,
+      detalles: { codigoId: updated.id, sedeId: updated.sedeId },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       message: `Código "${updated.codigo}" revocado exitosamente.`,
@@ -212,6 +244,19 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Código no encontrado' }, { status: 404 });
     }
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'terminales',
+      accion: 'TERMINAL_OTP_ELIMINAR',
+      entidadTipo: 'codigo_otp',
+      entidadId: deleted.codigo,
+      resumen: `Eliminó el registro de código OTP "${deleted.codigo}"`,
+      detalles: { codigoId: deleted.id, usado: deleted.usado },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       message: `Registro de código eliminado correctamente.`,
@@ -221,4 +266,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Error al eliminar código' }, { status: 500 });
   }
 }
-

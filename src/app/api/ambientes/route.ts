@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { ambientes, sedes, asistencias, usuarios, cursos } from '@/db/schema';
 import { eq, ne, and, ilike, or, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { isAmbienteVirtual } from '@/lib/logisticaSimulacion';
 import { invalidateCatalogCache } from '@/lib/catalogCache';
 import { parseJsonBody, parseSearchParams, crearAmbienteSchema, actualizarAmbienteSchema, idParamSchema } from '@/lib/validations';
@@ -202,6 +203,24 @@ export async function POST(request: Request) {
 
     invalidateCatalogCache();
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'sedes_salas',
+      accion: 'SALA_CREAR',
+      entidadTipo: 'ambiente',
+      entidadId: nuevoAmbiente.id,
+      resumen: `Creó la sala "${nuevoAmbiente.nombre}"${nuevoAmbiente.codigo ? ` (${nuevoAmbiente.codigo})` : ''}`,
+      detalles: {
+        ambienteId: nuevoAmbiente.id,
+        sedeId: nuevoAmbiente.sedeId,
+        tipo: nuevoAmbiente.tipo,
+        capacidad: nuevoAmbiente.capacidad,
+      },
+      request,
+    });
+
     return NextResponse.json({ ok: true, ambiente: nuevoAmbiente });
   } catch (error) {
     console.error('Error creando ambiente:', error);
@@ -316,6 +335,24 @@ export async function PATCH(request: Request) {
 
     invalidateCatalogCache();
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'sedes_salas',
+      accion: 'SALA_ACTUALIZAR',
+      entidadTipo: 'ambiente',
+      entidadId: ambienteActualizado.id,
+      resumen: `Actualizó la sala "${ambienteActualizado.nombre}" (activo: ${ambienteActualizado.activo ? 'sí' : 'no'})`,
+      detalles: {
+        ambienteId: ambienteActualizado.id,
+        sedeId: ambienteActualizado.sedeId,
+        tipo: ambienteActualizado.tipo,
+        activo: ambienteActualizado.activo,
+      },
+      request,
+    });
+
     return NextResponse.json({ ok: true, ambiente: ambienteActualizado });
   } catch (error) {
     console.error('Error actualizando ambiente:', error);
@@ -378,6 +415,23 @@ export async function DELETE(request: Request) {
     }
 
     invalidateCatalogCache();
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'sedes_salas',
+      accion: 'SALA_ELIMINAR',
+      entidadTipo: 'ambiente',
+      entidadId: ambienteEliminado.id,
+      resumen: `Eliminó la sala "${ambienteEliminado.nombre}"`,
+      detalles: {
+        ambienteId: ambienteEliminado.id,
+        sedeId: ambienteEliminado.sedeId,
+        codigo: ambienteEliminado.codigo,
+      },
+      request,
+    });
 
     return NextResponse.json({ ok: true, mensaje: 'Sala eliminada exitosamente' });
   } catch (error) {

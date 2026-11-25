@@ -234,3 +234,13 @@ export const simclicSyncRateLimiter = new MemoryRateLimiter({
   max: 2,
   message: 'Sincronización reciente en curso. Espere unos minutos antes de volver a sincronizar.',
 });
+
+/**
+ * 6. Rate Limiter para telemetría de errores críticos desde Error Boundaries:
+ * Máximo 10 reportes cada 5 minutos por IP para evitar saturación de audit_logs.
+ */
+export const clientErrorRateLimiter = new MemoryRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  message: 'Límite temporal de reportes de error alcanzado.',
+});

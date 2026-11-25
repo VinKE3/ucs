@@ -26,31 +26,44 @@ interface ModalAuditLogsProps {
 
 const MODULO_META: Record<string, { label: string; icon: string; color: string; bg: string }> = {
   biometria: { label: 'Biometría', icon: '👁️', color: '#059669', bg: 'rgba(16, 185, 129, 0.14)' },
-  configuracion: { label: 'Configuración', icon: '⚙️', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.14)' },
-  asistencias: { label: 'Asistencias', icon: '📋', color: '#d97706', bg: 'rgba(245, 158, 11, 0.14)' },
+  usuarios: { label: 'Usuarios', icon: '👤', color: '#2563eb', bg: 'rgba(37, 99, 235, 0.14)' },
   terminales: { label: 'Terminales', icon: '🖥️', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.14)' },
+  sedes_salas: { label: 'Sedes/Salas', icon: '🏛️', color: '#0d9488', bg: 'rgba(13, 148, 136, 0.14)' },
+  asistencias: { label: 'Asistencias', icon: '📋', color: '#d97706', bg: 'rgba(245, 158, 11, 0.14)' },
+  configuracion: { label: 'Config', icon: '⚙️', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.14)' },
+  sistema: { label: 'Sistema', icon: '🚨', color: '#dc2626', bg: 'rgba(220, 38, 38, 0.14)' },
 };
 
 export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose }) => {
   const [mounted, setMounted] = useState(false);
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [moduloFilter, setModuloFilter] = useState<string>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (moduloFilter !== 'todos') params.set('modulo', moduloFilter);
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    if (fechaDesde) params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params.set('fechaHasta', fechaHasta);
+    return params;
+  }, [moduloFilter, searchQuery, fechaDesde, fechaHasta]);
+
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (moduloFilter !== 'todos') params.set('modulo', moduloFilter);
-      if (searchQuery.trim()) params.set('q', searchQuery.trim());
+      const params = buildFilterParams();
       params.set('limit', '100');
 
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`, {
@@ -66,7 +79,38 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
     } finally {
       setLoading(false);
     }
-  }, [moduloFilter, searchQuery]);
+  }, [buildFilterParams]);
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const params = buildFilterParams();
+      params.set('export', 'xlsx');
+
+      const res = await fetch(`/api/admin/audit-logs?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        throw new Error('No se pudo generar el archivo Excel de auditoría.');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const todayStamp = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+      link.href = url;
+      link.download = `UCS_Auditoria_${todayStamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'Error exportando bitácora');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -106,9 +150,9 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
       <div
         className={styles.modalContent}
         style={{
-          maxWidth: '860px',
-          width: '95%',
-          maxHeight: '88vh',
+          maxWidth: '940px',
+          width: '96%',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
           padding: 0,
@@ -118,12 +162,13 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
         {/* HEADER */}
         <div
           style={{
-            padding: '1.15rem 1.4rem',
+            padding: '1.1rem 1.4rem',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
           <div>
@@ -131,46 +176,72 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
               🛡️ Bitácora Institucional de Auditoría
             </h3>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Trazabilidad inmutable de biometría (Ley 29733), configuración global y ajustes manuales
+              Trazabilidad inmutable de biometría (Ley 29733), usuarios, terminales, sedes, asistencias y errores críticos
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              cursor: 'pointer',
-              fontWeight: 700,
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={exporting || loading}
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(16, 185, 129, 0.45)',
+                background: 'rgba(16, 185, 129, 0.14)',
+                color: '#10b981',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: exporting || loading ? 'wait' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title="Descargar los registros filtrados en formato Excel (.xlsx)"
+            >
+              <span>📊</span>
+              <span>{exporting ? 'Generando...' : 'Exportar Excel'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* FILTROS */}
         <div
           style={{
-            padding: '0.85rem 1.4rem',
+            padding: '0.8rem 1.4rem',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.65rem',
+            flexDirection: 'column',
+            gap: '0.6rem',
             background: 'var(--bg-input, rgba(0,0,0,0.02))',
           }}
         >
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
             {[
               { id: 'todos', label: 'Todos' },
               { id: 'biometria', label: '👁️ Biometría' },
-              { id: 'configuracion', label: '⚙️ Configuración' },
+              { id: 'usuarios', label: '👤 Usuarios' },
+              { id: 'terminales', label: '🖥️ Terminales' },
+              { id: 'sedes_salas', label: '🏛️ Sedes/Salas' },
               { id: 'asistencias', label: '📋 Asistencias' },
+              { id: 'configuracion', label: '⚙️ Config' },
+              { id: 'sistema', label: '🚨 Sistema' },
             ].map((pill) => {
               const active = moduloFilter === pill.id;
               return (
@@ -179,9 +250,9 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
                   type="button"
                   onClick={() => setModuloFilter(pill.id)}
                   style={{
-                    padding: '0.35rem 0.75rem',
+                    padding: '0.32rem 0.68rem',
                     borderRadius: '20px',
-                    fontSize: '0.78rem',
+                    fontSize: '0.75rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     border: active ? '1px solid #0284c7' : '1px solid var(--border-color)',
@@ -195,22 +266,78 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
             })}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar actor, DNI o evento..."
+              placeholder="Buscar actor, DNI, acción o evento..."
               style={{
+                flex: '1 1 200px',
                 padding: '0.4rem 0.75rem',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)',
                 background: 'var(--bg-card)',
                 color: 'var(--text-primary)',
                 fontSize: '0.8rem',
-                minWidth: '210px',
               }}
             />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+              <span>Desde:</span>
+              <input
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                style={{
+                  padding: '0.36rem 0.5rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.76rem',
+                }}
+              />
+              <span>Hasta:</span>
+              <input
+                type="date"
+                value={fechaHasta}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                style={{
+                  padding: '0.36rem 0.5rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.76rem',
+                }}
+              />
+            </div>
+
+            {(fechaDesde || fechaHasta || searchQuery || moduloFilter !== 'todos') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setModuloFilter('todos');
+                  setSearchQuery('');
+                  setFechaDesde('');
+                  setFechaHasta('');
+                }}
+                style={{
+                  padding: '0.38rem 0.65rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'transparent',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Limpiar
+              </button>
+            )}
+
             <button
               type="button"
               onClick={fetchLogs}
@@ -225,6 +352,7 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
+              title="Actualizar registros"
             >
               {loading ? '⏳' : '🔄'}
             </button>
@@ -241,7 +369,7 @@ export const ModalAuditLogs: React.FC<ModalAuditLogsProps> = ({ isOpen, onClose 
 
           {!loading && !error && logs.length === 0 && (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-              No hay eventos registrados todavía para este filtro. Las acciones de biometría, configuración y ajustes manuales aparecerán aquí automáticamente.
+              No hay eventos registrados todavía para este filtro. Las acciones administrativas, biométricas y errores críticos aparecerán aquí automáticamente.
             </div>
           )}
 

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { usuarios, terminalesKiosco, sedes, codigosAutorizacionTerminal } from '@/db/schema';
 import { eq, or, sql } from 'drizzle-orm';
 import { verifyPassword } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { terminalAuthRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 import { parseJsonBody, kioscoAutorizarSchema } from '@/lib/validations';
 
@@ -24,9 +25,12 @@ export async function POST(request: Request) {
     const { metodo, codigoOtp, identificador, password, nombreTerminal, sedeId, deviceFingerprint } = parsed.data;
 
     let adminUsuarioId: number | null = null;
+    let adminActorNombre = 'Activación por OTP';
+    let adminActorRol = 'admin';
     let finalSedeId: number | null = null;
     let finalNombreTerminal: string = '';
     let otpRowId: number | null = null;
+    let otpCodigoUsado: string | null = null;
 
     // -------------------------------------------------------------
     // FLUJO A: AUTORIZACIÓN MEDIANTE CÓDIGO DE UN SOLO USO (OTP)
@@ -92,6 +96,7 @@ export async function POST(request: Request) {
 
       // El código es válido:
       otpRowId = otpRow.id;
+      otpCodigoUsado = otpRow.codigo;
       adminUsuarioId = otpRow.creadoPor;
 
       // La sede y el nombre se toman automáticamente de lo predefinido por el Admin al crear el código
@@ -185,6 +190,8 @@ export async function POST(request: Request) {
       }
 
       adminUsuarioId = adminUser.id;
+      adminActorNombre = `${adminUser.nombres} ${adminUser.apellidos}`.trim();
+      adminActorRol = adminUser.rolSistema;
       terminalAuthRateLimiter.reset(rateLimitKey);
     }
 
@@ -245,6 +252,25 @@ export async function POST(request: Request) {
         .limit(1);
       if (sedeObj) sedeNombre = sedeObj.nombre;
     }
+
+    await recordAuditLog({
+      actorId: adminUsuarioId,
+      actorNombre: adminActorNombre,
+      actorRol: adminActorRol,
+      modulo: 'terminales',
+      accion: otpRowId ? 'TERMINAL_AUTORIZAR_OTP' : 'TERMINAL_AUTORIZAR_CREDENCIALES',
+      entidadTipo: 'terminal_kiosco',
+      entidadId: nuevaTerminal.id,
+      resumen: `Autorizó dispositivo Kiosco "${nuevaTerminal.nombre}"${sedeNombre ? ` (${sedeNombre})` : ''} vía ${otpRowId ? `OTP ${otpCodigoUsado}` : 'credenciales admin'}`,
+      detalles: {
+        terminalId: nuevaTerminal.id,
+        sedeId: nuevaTerminal.sedeId,
+        sedeNombre,
+        metodo: otpRowId ? 'otp' : 'credenciales',
+        otpCodigo: otpCodigoUsado,
+      },
+      request,
+    });
 
     const response = NextResponse.json({
       success: true,

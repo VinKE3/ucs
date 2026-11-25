@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { sedes, ambientes, asistencias } from '@/db/schema';
 import { desc, eq, ne, and, sql } from 'drizzle-orm';
 import { getSession } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/auditLogger';
 import { invalidateCatalogCache } from '@/lib/catalogCache';
 import { parseJsonBody, parseSearchParams, crearSedeSchema, actualizarSedeSchema, idParamSchema } from '@/lib/validations';
 
@@ -113,6 +114,19 @@ export async function POST(request: Request) {
 
     invalidateCatalogCache();
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'sedes_salas',
+      accion: 'SEDE_CREAR',
+      entidadTipo: 'sede',
+      entidadId: nuevaSede.id,
+      resumen: `Creó la sede "${nuevaSede.nombre}"${nuevaSede.codigo ? ` (${nuevaSede.codigo})` : ''}`,
+      detalles: { sedeId: nuevaSede.id, codigo: nuevaSede.codigo, direccion: nuevaSede.direccion },
+      request,
+    });
+
     return NextResponse.json({ ok: true, sede: nuevaSede });
   } catch (error) {
     console.error('Error creando sede:', error);
@@ -221,6 +235,23 @@ export async function PATCH(request: Request) {
 
     invalidateCatalogCache();
 
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'sedes_salas',
+      accion: 'SEDE_ACTUALIZAR',
+      entidadTipo: 'sede',
+      entidadId: sedeActualizada.id,
+      resumen: `Actualizó la sede "${sedeActualizada.nombre}" (activo: ${sedeActualizada.activo ? 'sí' : 'no'})`,
+      detalles: {
+        sedeId: sedeActualizada.id,
+        codigo: sedeActualizada.codigo,
+        activo: sedeActualizada.activo,
+      },
+      request,
+    });
+
     return NextResponse.json({ ok: true, sede: sedeActualizada });
   } catch (error) {
     console.error('Error actualizando sede:', error);
@@ -265,6 +296,21 @@ export async function DELETE(request: Request) {
     if (!sedeEliminada) {
       return NextResponse.json({ error: 'Sede no encontrada' }, { status: 404 });
     }
+
+    invalidateCatalogCache();
+
+    await recordAuditLog({
+      actorId: session.userId,
+      actorNombre: `${session.nombres} ${session.apellidos}`.trim(),
+      actorRol: session.rolSistema,
+      modulo: 'sedes_salas',
+      accion: 'SEDE_ELIMINAR',
+      entidadTipo: 'sede',
+      entidadId: sedeEliminada.id,
+      resumen: `Eliminó la sede "${sedeEliminada.nombre}"`,
+      detalles: { sedeId: sedeEliminada.id, codigo: sedeEliminada.codigo },
+      request,
+    });
 
     return NextResponse.json({ ok: true, mensaje: 'Sede eliminada exitosamente' });
   } catch (error) {

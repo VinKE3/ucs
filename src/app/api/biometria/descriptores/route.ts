@@ -2,11 +2,18 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { usuarios } from '@/db/schema';
 import { eq, and, isNotNull } from 'drizzle-orm';
+import { requireAdminOrTerminalAuth } from '@/lib/apiSecurity';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // Seguridad: Proteger el padrón de vectores biométricos solo para Admin o Terminal Kiosco autorizada
+    const auth = await requireAdminOrTerminalAuth(request);
+    if (!auth.authorized && auth.response) {
+      return auth.response;
+    }
+
     const { searchParams } = new URL(request.url);
     const dniFilter = searchParams.get('dni')?.trim();
     const isLite = searchParams.get('lite') === 'true';

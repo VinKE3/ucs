@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "UCS - Sistema de Asistencias",
   description: "Registro de asistencias de docentes, técnicos y pacientes simulados en la clínica de simulación de la Universidad Científica del Sur",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "UCS Simulación",
+  },
 };
 
 export default function RootLayout({

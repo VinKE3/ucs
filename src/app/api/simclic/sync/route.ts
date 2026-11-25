@@ -3,7 +3,10 @@ import { syncSimclicSessions } from '@/lib/simclicSync';
 import { simclicCircuitBreaker } from '@/lib/circuitBreaker';
 import { db } from '@/db';
 import { sesionesProgramadas } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { getSession } from '@/lib/auth';
+import { isAdminRole, hasValidCronSecret } from '@/lib/apiSecurity';
+import { simclicSyncRateLimiter, getClientIp, createRateLimitResponse } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,16 +51,19 @@ export async function GET(request: Request) {
 // POST: Ejecutar sincronización manual o programada con SimClic (Día o Semana Completa)
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+    const isPrivileged = isAdminRole(session?.rolSistema) || hasValidCronSecret(request);
+
     let targetDate = new Date();
     let modo: 'dia' | 'semana' = 'dia';
+    let forzar = false;
 
     try {
       const body = await request.json();
       if (body.forzar) {
-        simclicCircuitBreaker.reset();
+        forzar = true;
       }
       if (body.fecha) {
-        // e.g. "2026-10-14"
         const [y, m, d] = body.fecha.split('-').map(Number);
         targetDate = new Date(y, m - 1, d, 12, 0, 0);
       }
@@ -66,6 +72,25 @@ export async function POST(request: Request) {
       }
     } catch {
       // Body vacío o no parseable, usa fecha actual y modo día
+    }
+
+    // Operaciones pesadas (semana / forzar) requieren sesión administrativa o Cron Secret
+    if (!isPrivileged) {
+      if (modo === 'semana' || forzar) {
+        return NextResponse.json(
+          { success: false, error: 'Se requiere sesión administrativa para sincronización semanal o forzada.' },
+          { status: 401 }
+        );
+      }
+      const clientIp = getClientIp(request);
+      const rateCheck = simclicSyncRateLimiter.check(`simclic_public_${clientIp}`);
+      if (!rateCheck.success) {
+        return createRateLimitResponse(rateCheck);
+      }
+    }
+
+    if (forzar) {
+      simclicCircuitBreaker.reset();
     }
 
     const result = await syncSimclicSessions({ targetDate, modo });
@@ -81,7 +106,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error en POST /api/simclic/sync:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Error inesperado al sincronizar' },
+      { success: false, error: error.message || 'Error interno del servidor' },
       { status: 500 }
     );
   }

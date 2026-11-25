@@ -1,0 +1,12 @@
+{
+  "name": "UCS - Clínica de Simulación",
+  "short_name": "UCS Simulación",
+  "description": "Sistema de marcación biométrica, gestión de salas y soporte SOS de la Clínica de Simulación UCS",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#020617",
+  "theme_color": "#091322",
+  "lang": "es-PE",
+  "categories": ["education", "medical", "productivity"]
+}

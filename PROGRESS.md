@@ -3,6 +3,21 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 144: Blindaje de Seguridad de APIs, Caché Inmutable IA, PWA Manifest, Suite Vitest y GitHub Actions CI (`apiSecurity.ts`, `api/biometria/*`, `api/foto`, `api/simclic/sync`, `api/health`, `next.config.ts`, `public/manifest.webmanifest`, `vitest.config.ts`, `.github/workflows/ci.yml`)**:
+      - **Seguridad y Autorización Centralizada (`src/lib/apiSecurity.ts`)**:
+        - Implementados `requireAdminSession()`, `verifyKioskTerminalRequest()`, `requireAdminOrTerminalAuth()` y `hasValidCronSecret()`.
+        - `/api/biometria/enrolar`: `POST` restringido a sesión administrativa o terminal Kiosco activa (`ucs_terminal_token` HttpOnly / `x-terminal-token`); `DELETE` restringido estrictamente a administradores.
+        - `/api/biometria/descriptores`: `GET` protegido con `requireAdminOrTerminalAuth` (y `faceBiometricService.ts` envía automáticamente `x-terminal-token`).
+        - `/api/foto`: protegido con `requireAdminSession()` (cumplimiento Ley 29733 sobre fotos testigo) y cambiado a `Cache-Control: private, max-age=3600`.
+        - `/api/simclic/sync`: `POST` con `modo: 'semana'` o `forzar: true` restringido a administradores/Cron; refresco diario público protegido con `simclicSyncRateLimiter` (máx. 2 req / 5 min por IP).
+        - `/api/health`: respuesta sanitizada con latencia de BD (`latencyMs`) y `Cache-Control: no-store`.
+      - **Rendimiento y PWA**:
+        - `next.config.ts`: cabecera `Cache-Control: public, max-age=31536000, immutable` para `/models/face-api/:path*` (los 12 MB de modelos se descargan una sola vez por dispositivo).
+        - `public/manifest.webmanifest` + metadatos `manifest` / `appleWebApp` en `src/app/layout.tsx` para instalar Kiosco y Enrolador Móvil en modo standalone.
+      - **Pruebas Automatizadas y CI**:
+        - Configurado `Vitest` (`vitest.config.ts`, scripts `test`, `test:watch`, `typecheck`) con 4 suites unitarias cubriendo `faceBiometricService`, `peruTime`, `simclicAudit`, `apiSecurity` y `rateLimit`.
+        - Creado flujo CI en `.github/workflows/ci.yml` (`tsc --noEmit` + `npm test` + `npm run build`).
+
     - **Hito 143: Optimización de Neon Postgres Compute (CU-hrs) y Network Egress (`peruTime.ts`, `api/sala/ping`, `asistencia-ambiente`, `central-soporte`, `AlertasSosTab`, `AsistenciasTab`, `AdminDashboard`, `consulta`, `PersonalTab`, `KioscoTerminal`)**:
       - **Diagnóstico**: El consumo de 92.61 CU-hrs y 3.34 GB de transferencia en Neon se debía a múltiples pollings agresivos (`3.5s`, `5s`, `15s`, `25s`, `3 min`) sin pausa nocturna ni en pestañas ocultas, impidiendo que Neon entrara en suspensión (*scale-to-zero* de 5 minutos).
       - **Optimizaciones Implementadas**:

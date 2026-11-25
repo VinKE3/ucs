@@ -224,3 +224,13 @@ export const terminalAuthRateLimiter = new MemoryRateLimiter({
   max: 5,
   message: 'Demasiados intentos de autorización de terminal.',
 });
+
+/**
+ * 5. Rate Limiter para sincronización pública de SimClic (/consulta):
+ * Máximo 2 sincronizaciones diarias cada 5 minutos por IP para proteger cuota Neon y SimClic.
+ */
+export const simclicSyncRateLimiter = new MemoryRateLimiter({
+  windowMs: 5 * 60 * 1000, // 5 minutos
+  max: 2,
+  message: 'Sincronización reciente en curso. Espere unos minutos antes de volver a sincronizar.',
+});

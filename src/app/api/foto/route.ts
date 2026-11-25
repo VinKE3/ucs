@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/blob';
+import { requireAdminSession } from '@/lib/apiSecurity';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  // Privacidad (Ley 29733): Las fotos testigo de asistencia solo son accesibles para personal administrativo autenticado
+  const auth = await requireAdminSession();
+  if (!auth.authorized && auth.response) {
+    return auth.response;
+  }
+
   const { searchParams } = new URL(request.url);
   const targetUrl = searchParams.get('url');
 
@@ -36,7 +43,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': result.headers.get('content-type') || 'image/webp',
-        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        'Cache-Control': 'private, max-age=3600',
       },
     });
   } catch (error: any) {

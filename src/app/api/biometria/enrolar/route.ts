@@ -2,11 +2,18 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { usuarios } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { requireAdminSession, requireAdminOrTerminalAuth } from '@/lib/apiSecurity';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    // Seguridad: Solo administradores autenticados o terminales Kiosco autorizadas pueden enrolar rostros
+    const auth = await requireAdminOrTerminalAuth(request);
+    if (!auth.authorized && auth.response) {
+      return auth.response;
+    }
+
     const body = await request.json();
     const { dni, descriptor, fotoPreview } = body;
 
@@ -117,6 +124,12 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    // Seguridad estricta: Solo administradores pueden desvincular/eliminar plantillas biométricas
+    const auth = await requireAdminSession();
+    if (!auth.authorized && auth.response) {
+      return auth.response;
+    }
+
     const { searchParams } = new URL(request.url);
     const dni = searchParams.get('dni')?.trim();
 

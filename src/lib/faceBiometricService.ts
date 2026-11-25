@@ -807,6 +807,21 @@ export function removeEnrolledFace(dni: string): void {
   persistFacesToLocalStorage(filtered);
 }
 
+function getBiometricAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...(extra || {}) };
+  if (typeof window !== 'undefined') {
+    try {
+      const token = localStorage.getItem('ucs_terminal_token');
+      if (token) {
+        headers['x-terminal-token'] = token;
+      }
+    } catch {
+      // Silenciar si localStorage no está disponible
+    }
+  }
+  return headers;
+}
+
 /**
  * Sincroniza los descriptores biométricos desde Neon Postgres a la memoria del navegador.
  * Usa modo ligero (?lite=true, sin Base64) y cache: 'no-store' para garantizar datos frescos siempre.
@@ -824,7 +839,7 @@ export async function syncEnrolledFacesFromDB(): Promise<{
     const response = await fetch(`/api/biometria/descriptores?lite=true&_t=${Date.now()}`, {
       method: 'GET',
       cache: 'no-store',
-      headers: { 'Cache-Control': 'no-cache' },
+      headers: getBiometricAuthHeaders({ 'Cache-Control': 'no-cache' }),
     });
 
     if (!response.ok) {
@@ -858,7 +873,7 @@ export async function saveEnrolledFaceToDB(face: EnrolledFace): Promise<{
   try {
     const response = await fetch('/api/biometria/enrolar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getBiometricAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         dni: face.dni,
         descriptor: face.descriptor,

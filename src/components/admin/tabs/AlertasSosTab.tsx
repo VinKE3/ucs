@@ -16,6 +16,7 @@ import type {
 import { GraficoDonaMotivos } from './sos/GraficoDonaMotivos';
 import { GraficoHorasPunta } from './sos/GraficoHorasPunta';
 import { exportarExcelSosConGraficos } from '@/lib/excelSosExporter';
+import { shouldRunBackgroundPoll } from '@/lib/peruTime';
 
 interface AlertasSosTabProps {
   session?: SessionPayload;
@@ -152,12 +153,17 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     []
   );
 
-  // 🔄 Sincronización reactiva en tiempo real (Zero-Egress via memoria RAM)
+  // 🔄 Sincronización reactiva adaptativa (pausa en pestañas ocultas / madrugada para ahorrar Compute en Neon)
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let hasActiveAlerts = false;
+    let lastFocusCheck = Date.now();
+
     // 1. Carga inicial
     fetchData();
 
-    // 2. Sondeo ultra-ligero cada 3.5 segundos contra la caché en memoria RAM
+    // 2. Sondeo ligero adaptativo: 5s con alerta activa, 15s en reposo
     const checkPoll = async () => {
       try {
         const url = cacheVersionRef.current
@@ -168,9 +174,9 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
         const data = await res.json();
 
         if (data.success) {
+          hasActiveAlerts = Number(data.activeCount || 0) > 0;
           if (data.changed) {
             cacheVersionRef.current = data.version;
-            // Refrescar métricas e historial de forma silenciosa (sin pantalla de carga)
             fetchData(undefined, undefined, undefined, true);
           } else {
             cacheVersionRef.current = data.version;
@@ -181,11 +187,26 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
       }
     };
 
-    const interval = setInterval(checkPoll, 3500);
+    const scheduleNext = () => {
+      if (!isMounted) return;
+      const delay = hasActiveAlerts ? 5000 : 15000;
+      timeoutId = setTimeout(async () => {
+        if (!isMounted) return;
+        if (shouldRunBackgroundPoll() || hasActiveAlerts) {
+          await checkPoll();
+        }
+        scheduleNext();
+      }, delay);
+    };
 
-    // 3. Re-sincronización instantánea al volver a enfocar la ventana o pestaña
+    scheduleNext();
+
+    // 3. Re-sincronización instantánea al volver a enfocar la ventana (con cooldown de 5s)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        if (now - lastFocusCheck < 5000) return;
+        lastFocusCheck = now;
         checkPoll();
       }
     };
@@ -193,7 +214,8 @@ export const AlertasSosTab: React.FC<AlertasSosTabProps> = ({
     window.addEventListener('focus', onVisibilityChange);
 
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onVisibilityChange);
     };

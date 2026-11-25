@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './central-soporte.module.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { getPeruDateString } from '@/lib/peruTime';
+import { getPeruDateString, shouldRunBackgroundPoll } from '@/lib/peruTime';
 
 interface IncidenciaItem {
   id: number;
@@ -354,14 +354,40 @@ export default function CentralSoportePage() {
     }
   }, []);
 
-  useEffect(() => {
-    pollIncidencias();
-    fetchResueltasHoy();
-    const interval = setInterval(pollIncidencias, 3500); // Sondeo cada 3.5 segundos
+  const hasActiveIncidenciasRef = useRef<boolean>(false);
 
-    // Re-sondeo inmediato al volver al foco de la pestaña
+  useEffect(() => {
+    hasActiveIncidenciasRef.current = incidenciasActivas.length > 0;
+  }, [incidenciasActivas.length]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let lastFocusSync = Date.now();
+
+    const scheduleNextPoll = () => {
+      if (!isMounted) return;
+      // Polling adaptativo: 4s si hay alertas activas; 12s en reposo para reducir Compute en Neon
+      const delay = hasActiveIncidenciasRef.current ? 4000 : 12000;
+      timeoutId = setTimeout(async () => {
+        if (!isMounted) return;
+        // Pausar en pestañas ocultas o fuera de horario operativo (22:30–06:30 Lima), salvo que haya alerta activa
+        if (shouldRunBackgroundPoll() || hasActiveIncidenciasRef.current) {
+          await pollIncidencias();
+        }
+        scheduleNextPoll();
+      }, delay);
+    };
+
+    pollIncidencias().then(() => scheduleNextPoll());
+    fetchResueltasHoy();
+
+    // Re-sondeo inmediato al volver al foco de la pestaña (con cooldown de 5s)
     const onVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        if (now - lastFocusSync < 5000) return;
+        lastFocusSync = now;
         pollIncidencias();
         fetchResueltasHoy();
       }
@@ -385,7 +411,8 @@ export default function CentralSoportePage() {
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('visibilitychange', onVisibilityOrFocus);
       window.removeEventListener('focus', onVisibilityOrFocus);
       window.removeEventListener('online', handleOnline);

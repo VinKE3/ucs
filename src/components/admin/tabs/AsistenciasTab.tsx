@@ -10,6 +10,7 @@ import { ModalFotoEvidencia } from '@/components/admin/modals/ModalFotoEvidencia
 import { exportarExcelAsistenciasConGraficos } from '@/lib/excelAsistenciasExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
 import { normalizarTextoBusqueda } from '@/lib/stringUtils';
+import { shouldRunBackgroundPoll } from '@/lib/peruTime';
 
 import { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion, coincidenSedesSimclic } from '@/lib/simclicAudit';
 export { evaluarCumplimientoSimclic, getMinutosLima, formatMinutosADuracion, coincidenSedesSimclic };
@@ -103,21 +104,27 @@ export const AsistenciasTab: React.FC<AsistenciasTabProps> = (props) => {
     asistSearch,
   ]);
 
-  // Auto-refresco en vivo silencioso cada 15 segundos y al reenfocar la ventana
+  // Auto-refresco en vivo silencioso cada 60 segundos y al reenfocar la ventana (con cooldown para ahorro Neon)
   useEffect(() => {
-    // Sondeo periódico cada 15 segundos (Zero-Waste: se pausa si la pestaña está minimizada u oculta)
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-      store.loadAsistencias(true);
-    }, 15000);
+    let lastFocusRefresh = Date.now();
 
-    const handleFocus = () => {
+    const interval = setInterval(() => {
+      if (!shouldRunBackgroundPoll()) return;
+      store.loadAsistencias(true);
+    }, 60000); // 60s (antes 15s) para reducir transferencia y compute en Neon
+
+    const triggerFocusRefresh = () => {
+      const now = Date.now();
+      if (now - lastFocusRefresh < 15000) return;
+      lastFocusRefresh = now;
       store.loadAsistencias(true);
     };
 
+    const handleFocus = () => triggerFocusRefresh();
+
     const handleVisibilityChange = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        store.loadAsistencias(true);
+      if (document.visibilityState === 'visible') {
+        triggerFocusRefresh();
       }
     };
 

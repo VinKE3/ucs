@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { getPeruDateString } from '@/lib/peruTime';
+import { getPeruDateString, shouldRunBackgroundPoll } from '@/lib/peruTime';
 import styles from './consulta.module.css';
 
 interface EspejoDocente {
@@ -820,10 +820,10 @@ export default function ConsultaPublicaPage() {
     let lastFocusSync = Date.now();
 
     const interval = setInterval(() => {
-      // Si la pestaña está oculta, no hacer nada
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      // Pausar en pestañas ocultas o fuera de horario operativo (22:30–06:30 Lima)
+      if (!shouldRunBackgroundPoll()) return;
       loadData(true);
-    }, 180000); // 3 minutos (solo lectura ligera de BD)
+    }, 420000); // 7 minutos (> 5 min scale-to-zero de Neon para permitir suspensión)
 
     const handleFocus = () => {
       const now = Date.now();

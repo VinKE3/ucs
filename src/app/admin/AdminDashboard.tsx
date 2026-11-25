@@ -23,6 +23,7 @@ import type {
 
 import dynamic from 'next/dynamic';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
+import { shouldRunBackgroundPoll } from '@/lib/peruTime';
 
 // Tipos de formularios
 import type { PersonalFormData } from '@/components/admin/modals/ModalCrearPersonal';
@@ -396,9 +397,9 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
   useEffect(() => {
     if (activeTab !== 'personal') return;
     const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (!shouldRunBackgroundPoll()) return;
       loadData();
-    }, 25000); // Cada 25s actualiza quién está en clínica en la pestaña Personal
+    }, 90000); // Cada 90s (antes 25s) para ahorrar cuota Compute y transferencia en Neon
     return () => clearInterval(interval);
   }, [activeTab, loadData]);
 
@@ -470,12 +471,12 @@ export default function AdminDashboard({ session }: { session: SessionPayload })
     }, 2500);
 
     const interval = setInterval(() => {
-      // Zero-Waste Egress: Si la pestaña está minimizada o en segundo plano, NO consumir ancho de banda de Neon
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      // Zero-Waste Egress & Compute: pausar en pestañas ocultas o fuera de horario operativo
+      if (!shouldRunBackgroundPoll()) {
         return;
       }
       triggerGlobalSyncSimclic(true);
-    }, 900000); // 15 minutos (antes 3 min) para proteger cuota de red en Neon
+    }, 900000); // 15 minutos para proteger cuota de red y compute en Neon
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {

@@ -16,6 +16,7 @@ import { ModalCronogramaTecnico } from '@/components/admin/modals/ModalCronogram
 import { exportarExcelCastingConGraficos } from '@/lib/excelCastingExporter';
 import { useAdminStore } from '@/lib/stores/useAdminStore';
 import { normalizarTextoBusqueda } from '@/lib/stringUtils';
+import { shouldRunBackgroundPoll } from '@/lib/peruTime';
 
 interface PersonalTabProps {
   usuariosList?: UsuarioItem[];
@@ -93,9 +94,9 @@ export const PersonalTab: React.FC<PersonalTabProps> = (props) => {
 
     fetchSimclicHoy();
     const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (!shouldRunBackgroundPoll()) return;
       fetchSimclicHoy();
-    }, 3 * 60 * 1000);
+    }, 8 * 60 * 1000); // 8 min (> 5 min scale-to-zero de Neon)
     return () => {
       isMounted = false;
       clearInterval(interval);

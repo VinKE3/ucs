@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token } = body;
+    const { token, includeSchedule = true, includeCatalog = true } = body;
 
     if (!token) {
       return NextResponse.json({ success: false, error: 'Token no proporcionado' }, { status: 400 });
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
         nombre: terminalesSala.nombre,
         tipoDispositivo: terminalesSala.tipoDispositivo,
         activo: terminalesSala.activo,
+        ultimoAcceso: terminalesSala.ultimoAcceso,
       })
       .from(terminalesSala)
       .innerJoin(sedes, eq(terminalesSala.sedeId, sedes.id))
@@ -48,68 +49,79 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Actualizar último acceso de forma asíncrona
-    db.update(terminalesSala)
-      .set({ ultimoAcceso: new Date() })
-      .where(eq(terminalesSala.id, terminal.id))
-      .catch((e) => console.error('Error al actualizar ultimoAcceso:', e));
-
-    // 2. Verificar si hay una alerta en curso en la sala (desde RAM)
-    const incidenciaActiva = await getActiveIncidentForAmbiente(terminal.ambienteId);
-
-    // 3. Obtener la sesión/clase en curso en esta sala
-    const hoyLima = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-    const horaActual = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour12: false }); // "HH:MM:SS"
-
-    // Buscar sesiones de hoy para este ambiente
-    const sesionesHoy = await db
-      .select()
-      .from(sesionesProgramadas)
-      .where(
-        and(
-          eq(sesionesProgramadas.ambienteId, terminal.ambienteId),
-          eq(sesionesProgramadas.fecha, hoyLima),
-          inArray(sesionesProgramadas.estadoUcs, ['programada', 'en_curso', 'finalizada'])
-        )
-      )
-      .orderBy(asc(sesionesProgramadas.horaInicio));
-
-    // Encontrar la sesión actual o más próxima
-    let sesionActual = sesionesHoy.find((s) => {
-      return s.horaInicio <= horaActual && s.horaFin >= horaActual;
-    });
-
-    if (!sesionActual && sesionesHoy.length > 0) {
-      // Si no hay una activa en este segundo exacto, buscar la siguiente clase hoy
-      sesionActual = sesionesHoy.find((s) => s.horaInicio > horaActual) || sesionesHoy[sesionesHoy.length - 1];
+    // Actualizar último acceso solo si han pasado > 5 minutos (evita escrituras innecesarias en Neon)
+    const lastSeenMs = terminal.ultimoAcceso ? new Date(terminal.ultimoAcceso).getTime() : 0;
+    if (!lastSeenMs || Date.now() - lastSeenMs > 5 * 60 * 1000) {
+      db.update(terminalesSala)
+        .set({ ultimoAcceso: new Date() })
+        .where(eq(terminalesSala.id, terminal.id))
+        .catch((e) => console.error('Error al actualizar ultimoAcceso:', e));
     }
 
-    // 4. Categorías de asistencia activas
-    const categorias = await db
-      .select()
-      .from(categoriasIncidencia)
-      .where(eq(categoriasIncidencia.activo, true))
-      .orderBy(asc(categoriasIncidencia.orden));
+    // 2. Verificar si hay una alerta en curso en la sala
+    const incidenciaActiva = await getActiveIncidentForAmbiente(terminal.ambienteId);
 
-    return NextResponse.json({
-      success: true,
-      terminal,
-      incidenciaActiva,
-      sesionActual: sesionActual
+    // 3. Obtener la sesión/clase en curso solo cuando el cliente solicite refrescar horario
+    let sesionActualPayload: Record<string, any> | null | undefined = undefined;
+    if (includeSchedule !== false) {
+      const hoyLima = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+      const horaActual = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour12: false });
+
+      const sesionesHoy = await db
+        .select()
+        .from(sesionesProgramadas)
+        .where(
+          and(
+            eq(sesionesProgramadas.ambienteId, terminal.ambienteId),
+            eq(sesionesProgramadas.fecha, hoyLima),
+            inArray(sesionesProgramadas.estadoUcs, ['programada', 'en_curso', 'finalizada'])
+          )
+        )
+        .orderBy(asc(sesionesProgramadas.horaInicio));
+
+      let sesionActual = sesionesHoy.find((s) => {
+        return s.horaInicio <= horaActual && s.horaFin >= horaActual;
+      });
+
+      if (!sesionActual && sesionesHoy.length > 0) {
+        sesionActual = sesionesHoy.find((s) => s.horaInicio > horaActual) || sesionesHoy[sesionesHoy.length - 1];
+      }
+
+      sesionActualPayload = sesionActual
         ? {
             id: sesionActual.id,
             titulo: sesionActual.titulo,
             cursoNombre: sesionActual.cursoNombreSimclic,
             docenteNombre: sesionActual.docenteNombreSimclic,
             escenarioNombre: sesionActual.escenarioNombre || sesionActual.titulo || null,
-            pacienteSimuladoNombre: sesionActual.pacienteSimuladoNombre || (sesionActual.pacientesSimuladosJson?.[0]?.nombre) || null,
+            pacienteSimuladoNombre:
+              sesionActual.pacienteSimuladoNombre || sesionActual.pacientesSimuladosJson?.[0]?.nombre || null,
             horaInicio: sesionActual.horaInicio,
             horaFin: sesionActual.horaFin,
             carrera: sesionActual.carrera,
             carreraColor: sesionActual.carreraColor,
           }
-        : null,
-      categorias,
+        : null;
+    }
+
+    // 4. Categorías de asistencia activas (solo cuando se solicite catálogo)
+    const categorias =
+      includeCatalog !== false
+        ? await db
+            .select()
+            .from(categoriasIncidencia)
+            .where(eq(categoriasIncidencia.activo, true))
+            .orderBy(asc(categoriasIncidencia.orden))
+        : undefined;
+
+    const { ultimoAcceso: _omitLastSeen, ...terminalSafe } = terminal;
+
+    return NextResponse.json({
+      success: true,
+      terminal: terminalSafe,
+      incidenciaActiva,
+      ...(sesionActualPayload !== undefined ? { sesionActual: sesionActualPayload } : {}),
+      ...(categorias !== undefined ? { categorias } : {}),
     });
   } catch (error: any) {
     console.error('Error en /api/sala/ping:', error);

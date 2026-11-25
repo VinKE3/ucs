@@ -7,6 +7,7 @@ import {
   initSsdMobilenet,
   extractFaceDescriptor,
   findMatchingUser,
+  findDuplicateEnrolledFace,
   getEnrolledFaces,
   syncEnrolledFacesFromDB,
   saveEnrolledFaceToDB,
@@ -23,6 +24,7 @@ interface ModalEscaneoFacialBetaProps {
   currentUserName?: string;
   currentUserDni?: string;
   requireLiveness?: boolean;
+  initialMode?: 'escanear' | 'enrolar';
 }
 
 export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
@@ -32,12 +34,13 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
   currentUserName,
   currentUserDni,
   requireLiveness,
+  initialMode = 'escanear',
 }) => {
-  const [modo, setModo] = useState<'escanear' | 'enrolar'>('escanear');
+  const [modo, setModo] = useState<'escanear' | 'enrolar'>(initialMode);
   const [modelLoading, setModelLoading] = useState(true);
   const [dbSyncing, setDbSyncing] = useState(false);
   const [statusText, setStatusText] = useState('Inicializando modelos de visión artificial...');
-  const [detectedBox, setDetectedBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [, setDetectedBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [faceQuality, setFaceQuality] = useState<FaceQualityResult | null>(null);
   const [matchedUser, setMatchedUser] = useState<{ nombre: string; dni: string; confidence: number } | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -46,7 +49,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
   // Prueba de Vida Anti-Spoofing (Detección de Parpadeo - EAR)
   const isLivenessRequired = Boolean(
     requireLiveness ??
-    (typeof window !== 'undefined' && localStorage.getItem('kiosco_cfg_liveness_parpadeo') === 'true')
+      (typeof window !== 'undefined' && localStorage.getItem('kiosco_cfg_liveness_parpadeo') === 'true')
   );
   const [livenessPassed, setLivenessPassed] = useState(false);
   const [, setCurrentEar] = useState<number | null>(null);
@@ -83,53 +86,91 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
     confidences: [],
   });
 
+  // Refs de ciclo de vida y prevención de closures obsoletos / frames huérfanos
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isLoopRunningRef = useRef(false);
-  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dniLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modoRef = useRef<'escanear' | 'enrolar'>(initialMode);
+  const isLivenessRequiredRef = useRef<boolean>(isLivenessRequired);
+  const sessionIdRef = useRef<number>(0);
 
-  // Sincronizar desde Neon Postgres al abrir el modal
   useEffect(() => {
-    if (isOpen) {
-      // 1. Mostrar caché local de inmediato
-      setEnrolados(getEnrolledFaces());
-      if (currentUserDni) {
-        setDniParaEnrolar(currentUserDni);
-        setNombreParaEnrolar(currentUserName || '');
-      }
+    isLivenessRequiredRef.current = isLivenessRequired;
+  }, [isLivenessRequired]);
 
-      // 2. Sincronizar plantilla biométrica fresca desde Neon Postgres
-      setDbSyncing(true);
-      syncEnrolledFacesFromDB().then((res) => {
-        setDbSyncing(false);
-        if (res.success && res.faces) {
-          setEnrolados(res.faces);
-        }
-      });
+  const clearTimers = useCallback(() => {
+    if (loopTimeoutRef.current) {
+      clearTimeout(loopTimeoutRef.current);
+      loopTimeoutRef.current = null;
     }
-  }, [isOpen, currentUserDni, currentUserName]);
-
-  // Autocompletar nombre al escribir 8 dígitos de DNI en enrolamiento
-  const handleDniInputChange = async (value: string) => {
-    const cleanDni = value.replace(/\D/g, '');
-    setDniParaEnrolar(cleanDni);
-    setEnrolError(null);
-
-    if (cleanDni.length === 8 && !nombreParaEnrolar) {
-      setBuscandoNombreDni(true);
-      try {
-        const res = await fetch(`/api/kiosco/lookup?dni=${cleanDni}`);
-        const data = await res.json();
-        if (res.ok && data.usuario) {
-          setNombreParaEnrolar(`${data.usuario.nombres} ${data.usuario.apellidos}`.trim());
-        }
-      } catch {
-        // Silenciar si no existe o no hay red
-      } finally {
-        setBuscandoNombreDni(false);
-      }
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
     }
-  };
+    if (dniLookupTimerRef.current) {
+      clearTimeout(dniLookupTimerRef.current);
+      dniLookupTimerRef.current = null;
+    }
+  }, []);
+
+  // Limpieza total de la sesión biométrica para que nunca quede pegado un usuario anterior
+  const resetScannerState = useCallback(
+    (targetMode: 'escanear' | 'enrolar' = 'escanear') => {
+      sessionIdRef.current += 1;
+      isLoopRunningRef.current = false;
+      clearTimers();
+
+      modoRef.current = targetMode;
+      setModo(targetMode);
+
+      consensusTrackerRef.current = {
+        candidateDni: null,
+        candidateUser: null,
+        hits: 0,
+        confidences: [],
+      };
+      blinkTrackerRef.current = {
+        hasClosed: false,
+        closedAt: 0,
+        blinkConfirmed: false,
+      };
+
+      setConsensusHits(0);
+      setLivenessPassed(false);
+      setCurrentEar(null);
+      setDetectedBox(null);
+      setFaceQuality(null);
+      setMatchedUser(null);
+      setAutoRedirectCountdown(null);
+      setCameraError(null);
+      setEnrolError(null);
+      setEnrolandoActivo(false);
+      setStatusText(
+        targetMode === 'escanear'
+          ? '👁️ Buscando rostro en el visor...'
+          : '📸 Encuadra tu rostro dentro del óvalo para enrolar'
+      );
+    },
+    [clearTimers]
+  );
+
+  // Detener cámara y cancelar todos los timers e inferencias en vuelo
+  const stopCamera = useCallback(() => {
+    sessionIdRef.current += 1;
+    isLoopRunningRef.current = false;
+    clearTimers();
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, [clearTimers]);
 
   // Iniciar cámara
   const startCamera = useCallback(async () => {
@@ -151,44 +192,295 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         await videoRef.current.play().catch(() => {});
       }
       setCameraError(null);
+      return true;
     } catch (err: any) {
       console.error('Error al iniciar cámara en modal facial:', err);
       setCameraError('No se pudo acceder a la cámara web. Concede los permisos en el navegador.');
+      return false;
     }
   }, []);
 
-  // Detener cámara
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    isLoopRunningRef.current = false;
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-  }, []);
+  // Manejador para confirmar ingreso automático o manual
+  const confirmarIngreso = useCallback(
+    (dni: string) => {
+      stopCamera();
+      setMatchedUser(null);
+      setAutoRedirectCountdown(null);
+      setConsensusHits(0);
+      setLivenessPassed(false);
+      onUserIdentified(dni);
+      onClose();
+    },
+    [stopCamera, onUserIdentified, onClose]
+  );
 
-  // Inicializar face-api y arrancar visor
+  // Bucle de detección facial en vivo (protegido contra closures obsoletos y sesiones cruzadas)
+  const runDetectionLoop = useCallback(
+    async (expectedSessionId: number) => {
+      if (
+        sessionIdRef.current !== expectedSessionId ||
+        !isLoopRunningRef.current ||
+        !videoRef.current ||
+        modoRef.current !== 'escanear'
+      ) {
+        return;
+      }
+
+      if (videoRef.current.readyState === 4 && !videoRef.current.paused) {
+        try {
+          const { descriptor, box, ear, isBlinking, brightness } = await extractFaceDescriptor(
+            videoRef.current
+          );
+
+          // Descartar resultado si el modal se cerró, cambió de modo o reinició durante la inferencia
+          if (
+            sessionIdRef.current !== expectedSessionId ||
+            !isLoopRunningRef.current ||
+            modoRef.current !== 'escanear' ||
+            !videoRef.current
+          ) {
+            return;
+          }
+
+          setDetectedBox(box);
+          if (typeof ear === 'number') setCurrentEar(ear);
+
+          const frameW = videoRef.current.videoWidth || 640;
+          const frameH = videoRef.current.videoHeight || 480;
+          const quality = evaluateFaceQuality(box, frameW, frameH, { brightness });
+          setFaceQuality(quality);
+
+          if (!descriptor || !box || quality.status === 'no_face') {
+            consensusTrackerRef.current = {
+              candidateDni: null,
+              candidateUser: null,
+              hits: 0,
+              confidences: [],
+            };
+            blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
+            setConsensusHits(0);
+            setLivenessPassed(false);
+            setDetectedBox(null);
+            setStatusText('Colócate frente a la cámara web...');
+          } else if (!quality.isOptimal) {
+            consensusTrackerRef.current = {
+              candidateDni: null,
+              candidateUser: null,
+              hits: 0,
+              confidences: [],
+            };
+            setConsensusHits(0);
+            setStatusText(quality.message);
+          } else {
+            const requireBlink = isLivenessRequiredRef.current;
+
+            // Evaluar Liveness (Anti-Spoofing por Parpadeo) si está activo
+            if (requireBlink && ear !== null && ear !== undefined) {
+              const EAR_CLOSED = 0.20;
+              const EAR_OPEN = 0.26;
+
+              if (ear < EAR_CLOSED || isBlinking) {
+                blinkTrackerRef.current.hasClosed = true;
+                blinkTrackerRef.current.closedAt = Date.now();
+              } else if (blinkTrackerRef.current.hasClosed && ear >= EAR_OPEN) {
+                const elapsed = Date.now() - blinkTrackerRef.current.closedAt;
+                if (elapsed >= 80 && elapsed <= 1800) {
+                  blinkTrackerRef.current.blinkConfirmed = true;
+                  setLivenessPassed(true);
+                }
+              }
+            }
+
+            const matchResult = findMatchingUser(descriptor);
+            if (matchResult.matched && matchResult.user) {
+              const REQUIRED_CONSENSUS_HITS = 3;
+              const tracker = consensusTrackerRef.current;
+
+              if (tracker.candidateDni === matchResult.user.dni) {
+                tracker.hits += 1;
+                tracker.confidences.push(matchResult.confidence);
+              } else {
+                tracker.candidateDni = matchResult.user.dni;
+                tracker.candidateUser = matchResult.user;
+                tracker.hits = 1;
+                tracker.confidences = [matchResult.confidence];
+                blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
+                setLivenessPassed(false);
+              }
+
+              const currentHits = tracker.hits;
+              setConsensusHits(currentHits);
+
+              const isLivenessOk = !requireBlink || blinkTrackerRef.current.blinkConfirmed;
+              const primerNombre = matchResult.user.nombre.split(' ')[0];
+
+              if (currentHits < REQUIRED_CONSENSUS_HITS) {
+                if (requireBlink && !isLivenessOk) {
+                  setStatusText(
+                    `🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS}) • 😉 Parpadea`
+                  );
+                } else {
+                  setStatusText(
+                    `🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS})`
+                  );
+                }
+              } else if (!isLivenessOk) {
+                setStatusText(
+                  `😉 ¡Hola ${primerNombre}! Por favor, parpadea frente al visor para confirmar...`
+                );
+              } else {
+                const avgConfidence = Math.round(
+                  tracker.confidences.reduce((a, b) => a + b, 0) / tracker.confidences.length
+                );
+
+                setMatchedUser({
+                  nombre: matchResult.user.nombre,
+                  dni: matchResult.user.dni,
+                  confidence: avgConfidence,
+                });
+
+                setStatusText(
+                  requireBlink
+                    ? `🎯 ¡Prueba de Vida y Rostro Confirmados: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`
+                    : `🎯 ¡Rostro Confirmado: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`
+                );
+
+                isLoopRunningRef.current = false;
+                if (loopTimeoutRef.current) {
+                  clearTimeout(loopTimeoutRef.current);
+                  loopTimeoutRef.current = null;
+                }
+
+                const dniConfirm = matchResult.user.dni;
+                setAutoRedirectCountdown(2);
+                let count = 2;
+                if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                countdownTimerRef.current = setInterval(() => {
+                  if (sessionIdRef.current !== expectedSessionId) {
+                    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                    return;
+                  }
+                  count -= 1;
+                  if (count <= 0) {
+                    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                    countdownTimerRef.current = null;
+                    confirmarIngreso(dniConfirm);
+                  } else {
+                    setAutoRedirectCountdown(count);
+                  }
+                }, 1000);
+
+                return;
+              }
+            } else if (matchResult.ambiguous) {
+              consensusTrackerRef.current = {
+                candidateDni: null,
+                candidateUser: null,
+                hits: 0,
+                confidences: [],
+              };
+              setConsensusHits(0);
+              setMatchedUser(null);
+              setStatusText('🔍 Acércate un poco más y mira de frente para precisar tu identidad...');
+            } else {
+              consensusTrackerRef.current = {
+                candidateDni: null,
+                candidateUser: null,
+                hits: 0,
+                confidences: [],
+              };
+              setConsensusHits(0);
+              setMatchedUser(null);
+              setStatusText('👁️ Rostro centrado (no enrolado en la base de datos)');
+            }
+          }
+        } catch {
+          // Silenciar errores menores de frame
+        }
+      }
+
+      if (
+        sessionIdRef.current === expectedSessionId &&
+        isLoopRunningRef.current &&
+        modoRef.current === 'escanear'
+      ) {
+        loopTimeoutRef.current = setTimeout(() => runDetectionLoop(expectedSessionId), 200);
+      }
+    },
+    [confirmarIngreso]
+  );
+
+  // Arrancar el modo escaneo de forma determinista y sin stale closures
+  const startScanMode = useCallback(() => {
+    resetScannerState('escanear');
+    const activeSessionId = sessionIdRef.current;
+    isLoopRunningRef.current = true;
+    runDetectionLoop(activeSessionId);
+  }, [resetScannerState, runDetectionLoop]);
+
+  // Arrancar el modo enrolar
+  const startEnrolMode = useCallback(() => {
+    resetScannerState('enrolar');
+    initSsdMobilenet(); // Precalentar SSD MobileNet v1 para captura de alta precisión
+  }, [resetScannerState]);
+
+  // Ciclo de vida principal al abrir / cerrar el modal
   useEffect(() => {
     if (!isOpen) {
       stopCamera();
+      // Resetear estados visuales para la próxima apertura
+      setMatchedUser(null);
+      setAutoRedirectCountdown(null);
+      setConsensusHits(0);
+      setLivenessPassed(false);
+      setFaceQuality(null);
+      setDetectedBox(null);
+      setEnrolError(null);
       return;
     }
 
     let isMounted = true;
-    setModelLoading(true);
-    setStatusText('Cargando modelos de visión artificial (WebGL)...');
+    const targetMode = initialMode || 'escanear';
 
-    initFaceApi().then(async (ok) => {
+    // 1. Limpiar inmediatamente cualquier rastro del paciente anterior
+    resetScannerState(targetMode);
+    setDniParaEnrolar(currentUserDni || '');
+    setNombreParaEnrolar(currentUserName || '');
+    setModelLoading(true);
+    setStatusText('Cargando modelos de visión artificial...');
+
+    // 2. Cargar caché local + sincronizar plantilla fresca sin fotos Base64 desde BD
+    setEnrolados(getEnrolledFaces());
+    setDbSyncing(true);
+    const syncPromise = syncEnrolledFacesFromDB().then((res) => {
       if (!isMounted) return;
+      setDbSyncing(false);
+      if (res.faces) {
+        setEnrolados(res.faces);
+      }
+    });
+
+    const openSessionId = sessionIdRef.current;
+
+    // 3. Inicializar IA + cámara
+    initFaceApi().then(async (ok) => {
+      if (!isMounted || sessionIdRef.current !== openSessionId) return;
       if (ok) {
+        const camOk = await startCamera();
+        if (!isMounted || sessionIdRef.current !== openSessionId) return;
         setModelLoading(false);
-        setStatusText('👁️ Buscando rostro en el visor...');
-        await startCamera();
-        isLoopRunningRef.current = true;
-        runDetectionLoop();
+
+        if (targetMode === 'enrolar') {
+          initSsdMobilenet();
+          setStatusText('📸 Encuadra tu rostro dentro del óvalo para enrolar');
+        } else if (camOk) {
+          // Esperar un máximo breve a la sincronización fresca para no mostrar falsos "no enrolado"
+          await Promise.race([syncPromise, new Promise((r) => setTimeout(r, 800))]);
+          if (!isMounted || sessionIdRef.current !== openSessionId) return;
+          setStatusText('👁️ Buscando rostro en el visor...');
+          isLoopRunningRef.current = true;
+          runDetectionLoop(openSessionId);
+        }
       } else {
         setModelLoading(false);
         setStatusText('⚠️ No se pudieron cargar los modelos de visión.');
@@ -199,169 +491,52 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
       isMounted = false;
       stopCamera();
     };
-  }, [isOpen, startCamera, stopCamera]);
+  }, [
+    isOpen,
+    initialMode,
+    currentUserDni,
+    currentUserName,
+    resetScannerState,
+    startCamera,
+    stopCamera,
+    runDetectionLoop,
+  ]);
 
-  // Manejador para confirmar ingreso automático o manual
-  const confirmarIngreso = useCallback((dni: string) => {
-    stopCamera();
-    onUserIdentified(dni);
-    onClose();
-  }, [stopCamera, onUserIdentified, onClose]);
+  // Autocompletar nombre al escribir DNI (8 dígitos) o Carnet de Extranjería (9-12 dígitos)
+  const handleDniInputChange = (value: string) => {
+    const cleanDni = value.replace(/\D/g, '');
+    setDniParaEnrolar(cleanDni);
+    setNombreParaEnrolar('');
+    setEnrolError(null);
 
-  // Bucle de detección facial en vivo con Filtro de Consenso Temporal, Guiado y Anti-Spoofing (Parpadeo)
-  const runDetectionLoop = async () => {
-    if (!isLoopRunningRef.current || !videoRef.current || modo !== 'escanear') return;
-
-    if (videoRef.current.readyState === 4 && !videoRef.current.paused) {
-      try {
-        const { descriptor, box, ear, isBlinking } = await extractFaceDescriptor(videoRef.current);
-        setDetectedBox(box);
-        if (typeof ear === 'number') setCurrentEar(ear);
-
-        const frameW = videoRef.current.videoWidth || 640;
-        const frameH = videoRef.current.videoHeight || 480;
-        const quality = evaluateFaceQuality(box, frameW, frameH);
-        setFaceQuality(quality);
-
-        if (!descriptor || !box || quality.status === 'no_face') {
-          // Sin rostro en el visor: limpiar consenso y resetear estado de liveness
-          consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
-          blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
-          setConsensusHits(0);
-          setLivenessPassed(false);
-          setDetectedBox(null);
-          setStatusText('Colócate frente a la cámara web...');
-        } else if (!quality.isOptimal) {
-          // Rostro detectado pero distancia o encuadre subóptimo (ej. transeúnte de fondo o muy cerca)
-          // Bloqueamos el avance del consenso para evitar falsos positivos
-          consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
-          setConsensusHits(0);
-          setStatusText(quality.message);
-        } else {
-          // Evaluar Liveness (Anti-Spoofing por Parpadeo) si está activo en la configuración
-          if (isLivenessRequired && ear !== null && ear !== undefined) {
-            const EAR_CLOSED = 0.20;
-            const EAR_OPEN = 0.26;
-
-            if (ear < EAR_CLOSED || isBlinking) {
-              blinkTrackerRef.current.hasClosed = true;
-              blinkTrackerRef.current.closedAt = Date.now();
-            } else if (blinkTrackerRef.current.hasClosed && ear >= EAR_OPEN) {
-              const elapsed = Date.now() - blinkTrackerRef.current.closedAt;
-              // Si el parpadeo ocurrió en un intervalo biológico natural (80ms a 1800ms)
-              if (elapsed >= 80 && elapsed <= 1800) {
-                blinkTrackerRef.current.blinkConfirmed = true;
-                setLivenessPassed(true);
-              }
-            }
-          }
-
-          // Posición biométrica óptima: Proceder con matching y filtro de consenso
-          const matchResult = findMatchingUser(descriptor);
-          if (matchResult.matched && matchResult.user) {
-            const REQUIRED_CONSENSUS_HITS = 3;
-            const tracker = consensusTrackerRef.current;
-
-            // Verificar si es el mismo colaborador acumulando consenso consecutivo
-            if (tracker.candidateDni === matchResult.user.dni) {
-              tracker.hits += 1;
-              tracker.confidences.push(matchResult.confidence);
-            } else {
-              tracker.candidateDni = matchResult.user.dni;
-              tracker.candidateUser = matchResult.user;
-              tracker.hits = 1;
-              tracker.confidences = [matchResult.confidence];
-              // Al cambiar de persona, resetear la prueba de vida para el nuevo candidato
-              blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
-              setLivenessPassed(false);
-            }
-
-            const currentHits = tracker.hits;
-            setConsensusHits(currentHits);
-
-            const isLivenessOk = !isLivenessRequired || blinkTrackerRef.current.blinkConfirmed;
-            const primerNombre = matchResult.user.nombre.split(' ')[0];
-
-            if (currentHits < REQUIRED_CONSENSUS_HITS) {
-              // Estabilizando match (consenso en progreso)
-              if (isLivenessRequired && !isLivenessOk) {
-                setStatusText(`🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS}) • 😉 Parpadea`);
-              } else {
-                setStatusText(`🔍 Identificando a ${primerNombre}... (${currentHits}/${REQUIRED_CONSENSUS_HITS})`);
-              }
-            } else if (!isLivenessOk) {
-              // Consenso alcanzado pero esperando parpadeo para evitar foto estática
-              setStatusText(`😉 ¡Hola ${primerNombre}! Por favor, parpadea frente al visor para confirmar...`);
-            } else {
-              // Consenso confirmado y prueba de vida superada
-              const avgConfidence = Math.round(
-                tracker.confidences.reduce((a, b) => a + b, 0) / tracker.confidences.length
-              );
-
-              setMatchedUser({
-                nombre: matchResult.user.nombre,
-                dni: matchResult.user.dni,
-                confidence: avgConfidence,
-              });
-
-              setStatusText(
-                isLivenessRequired
-                  ? `🎯 ¡Prueba de Vida y Rostro Confirmados: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`
-                  : `🎯 ¡Rostro Confirmado: ${matchResult.user.nombre}! (${avgConfidence}% Coincidencia)`
-              );
-
-              // Detener bucle y arrancar cuenta regresiva de 2 segundos para marcar
-              isLoopRunningRef.current = false;
-
-              const dniConfirm = matchResult.user.dni;
-              setAutoRedirectCountdown(2);
-              let count = 2;
-              countdownTimerRef.current = setInterval(() => {
-                count -= 1;
-                if (count <= 0) {
-                  if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-                  confirmarIngreso(dniConfirm);
-                } else {
-                  setAutoRedirectCountdown(count);
-                }
-              }, 1000);
-
-              return;
-            }
-          } else {
-            // Rostro centrado pero no reconocido: limpiar acumulador de consenso
-            consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
-            setConsensusHits(0);
-            setMatchedUser(null);
-            setStatusText('👁️ Rostro centrado (no enrolado en la base de datos)');
-          }
-        }
-      } catch (err) {
-        // Silenciar errores menores de frame
-      }
+    if (dniLookupTimerRef.current) {
+      clearTimeout(dniLookupTimerRef.current);
+      dniLookupTimerRef.current = null;
     }
 
-    if (isLoopRunningRef.current && modo === 'escanear') {
-      setTimeout(runDetectionLoop, 200);
+    if (cleanDni.length >= 8) {
+      dniLookupTimerRef.current = setTimeout(async () => {
+        setBuscandoNombreDni(true);
+        try {
+          const res = await fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(cleanDni)}`, {
+            cache: 'no-store',
+          });
+          const data = await res.json();
+          if (res.ok && data.usuario) {
+            setNombreParaEnrolar(`${data.usuario.nombres} ${data.usuario.apellidos}`.trim());
+          }
+        } catch {
+          // Silenciar si no existe o no hay red
+        } finally {
+          setBuscandoNombreDni(false);
+        }
+      }, 220);
     }
   };
 
   // Reanudar escaneo manual
   const handleReintentarEscaneo = () => {
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-    consensusTrackerRef.current = { candidateDni: null, candidateUser: null, hits: 0, confidences: [] };
-    blinkTrackerRef.current = { hasClosed: false, closedAt: 0, blinkConfirmed: false };
-    setConsensusHits(0);
-    setLivenessPassed(false);
-    setFaceQuality(null);
-    setAutoRedirectCountdown(null);
-    setMatchedUser(null);
-    isLoopRunningRef.current = true;
-    setStatusText('👁️ Buscando rostro en el visor...');
-    runDetectionLoop();
+    startScanMode();
   };
 
   // Enrolar rostro actual y persistirlo en Neon Postgres
@@ -381,12 +556,16 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
 
     setEnrolError(null);
     setEnrolandoActivo(true);
-    setStatusText('📸 Analizando biometría y vector de 128 flotantes...');
+    setStatusText('📸 Analizando biometría de alta precisión (SSD MobileNet)...');
 
     try {
-      const { descriptor, box, detectorUsed } = await extractFaceDescriptor(videoRef.current, { useSsd: true });
+      const { descriptor, box, brightness } = await extractFaceDescriptor(videoRef.current, {
+        useSsd: true,
+      });
       if (!descriptor || !box) {
-        setEnrolError('No se detectó ningún rostro con claridad. Mira fijamente a la cámara con buena iluminación.');
+        setEnrolError(
+          'No se detectó ningún rostro con claridad. Mira fijamente a la cámara con buena iluminación.'
+        );
         Swal.fire({
           icon: 'info',
           title: 'Rostro No Detectado',
@@ -395,25 +574,51 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
         });
-        setEnrolandoActivo(false);
         return;
       }
 
       const frameW = videoRef.current.videoWidth || 640;
       const frameH = videoRef.current.videoHeight || 480;
-      const quality = evaluateFaceQuality(box, frameW, frameH);
+      const quality = evaluateFaceQuality(box, frameW, frameH, { brightness });
       if (!quality.isOptimal) {
         setEnrolError(quality.message);
         Swal.fire({
           icon: 'warning',
-          title: 'Posicionamiento Subóptimo',
-          text: `${quality.message}. Ajusta la posición de tu rostro frente a la cámara antes de enrolar.`,
+          title: 'Posicionamiento o Luz Subóptimos',
+          text: `${quality.message}. Ajusta tu posición frente a la cámara antes de enrolar.`,
           background: '#091322',
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
         });
-        setEnrolandoActivo(false);
         return;
+      }
+
+      // Control anti-duplicados: verificar si este rostro ya pertenece a otro DNI
+      const duplicateCheck = findDuplicateEnrolledFace(descriptor, dniParaEnrolar.trim());
+      if (duplicateCheck.isDuplicate && duplicateCheck.existingUser) {
+        const confirmDup = await Swal.fire({
+          icon: 'warning',
+          title: 'Rostro Similar Ya Registrado',
+          html: `
+            <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.5;">
+              Este rostro coincide en un <strong>${duplicateCheck.confidence}%</strong> con un colaborador ya enrolado bajo otro documento:<br/>
+              <div style="margin: 0.65rem 0; padding: 0.6rem; border-radius: 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a; font-weight: 700;">
+                👤 ${duplicateCheck.existingUser.nombre} (DNI: ${duplicateCheck.existingUser.dni})
+              </div>
+              Verifica que el DNI ingresado (<strong>${dniParaEnrolar.trim()}</strong>) sea el correcto antes de continuar.
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonText: 'Guardar de todos modos',
+          cancelButtonText: 'Cancelar y revisar DNI',
+          background: '#091322',
+          color: '#f8fafc',
+          confirmButtonColor: '#f59e0b',
+          cancelButtonColor: '#475569',
+        });
+        if (!confirmDup.isConfirmed) {
+          return;
+        }
       }
 
       // Snapshot miniatura en base64 para preview
@@ -429,7 +634,6 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         }
       } catch {}
 
-      // Persistir en Neon Postgres vía API route
       const result = await saveEnrolledFaceToDB({
         dni: dniParaEnrolar.trim(),
         nombre: nombreParaEnrolar.trim(),
@@ -451,7 +655,6 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         return;
       }
 
-      // Refrescar lista de enrolados
       const syncRes = await syncEnrolledFacesFromDB();
       setEnrolados(syncRes.faces);
 
@@ -478,9 +681,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         confirmButtonText: '⚡ Probar Escaneo Facial Ahora',
       });
 
-      setModo('escanear');
-      isLoopRunningRef.current = true;
-      runDetectionLoop();
+      startScanMode();
     } catch (err: any) {
       setEnrolError(`Error al enrolar rostro: ${err.message}`);
       Swal.fire({
@@ -615,11 +816,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
         >
           <button
             type="button"
-            onClick={() => {
-              setModo('escanear');
-              isLoopRunningRef.current = true;
-              runDetectionLoop();
-            }}
+            onClick={startScanMode}
             style={{
               flex: 1,
               padding: '0.55rem',
@@ -637,11 +834,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => {
-              setModo('enrolar');
-              isLoopRunningRef.current = false;
-              initSsdMobilenet(); // Precalentar SSD MobileNet v1 para captura de alta precisión
-            }}
+            onClick={startEnrolMode}
             style={{
               flex: 1,
               padding: '0.55rem',
@@ -661,7 +854,6 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
 
         {/* CONTENEDOR PRINCIPAL */}
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-          
           {/* VISOR DE CÁMARA CON HUD CYBER-MÉDICO */}
           <div
             style={{
@@ -687,7 +879,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                transform: 'scaleX(-1)', // Espejo natural
+                transform: 'scaleX(-1)',
               }}
             />
 
@@ -728,7 +920,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               </div>
             )}
 
-            {/* PILL DE FEEDBACK DE CALIDAD Y POSICIONAMIENTO EN VIVO */}
+            {/* PILL DE FEEDBACK DE CALIDAD, POSICIONAMIENTO E ILUMINACIÓN */}
             {faceQuality && faceQuality.status !== 'no_face' && !matchedUser && (
               <div
                 style={{
@@ -785,7 +977,11 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   backdropFilter: 'blur(6px)',
                   zIndex: 6,
                 }}
-                title={livenessPassed ? 'Prueba de vida confirmada por parpadeo' : 'Modo Anti-Spoofing: requiere parpadeo'}
+                title={
+                  livenessPassed
+                    ? 'Prueba de vida confirmada por parpadeo'
+                    : 'Modo Anti-Spoofing: requiere parpadeo'
+                }
               >
                 <span>{livenessPassed ? '✓' : '🛡️'}</span>
                 <span>{livenessPassed ? 'Vida OK' : 'Anti-Spoofing'}</span>
@@ -821,7 +1017,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               </div>
             )}
 
-            {/* MÁSCARA HUD FACIAL (RETÍCULA OVALADA CON ADAPTACIÓN DE COLOR POR CALIDAD) */}
+            {/* MÁSCARA HUD FACIAL (RETÍCULA OVALADA) */}
             <div
               style={{
                 position: 'absolute',
@@ -838,10 +1034,10 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                     ? '#38bdf8'
                     : faceQuality?.status === 'optimal'
                     ? '#00e699'
-                    : faceQuality?.status === 'too_far' || faceQuality?.status === 'off_center'
-                    ? '#f59e0b'
                     : faceQuality?.status === 'too_close'
                     ? '#ef4444'
+                    : faceQuality && !faceQuality.isOptimal && faceQuality.status !== 'no_face'
+                    ? '#f59e0b'
                     : 'rgba(0, 230, 153, 0.4)'),
                 borderRadius: '50%',
                 pointerEvents: 'none',
@@ -851,10 +1047,10 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   ? '0 0 15px rgba(56, 189, 248, 0.4)'
                   : faceQuality?.status === 'optimal'
                   ? '0 0 15px rgba(0, 230, 153, 0.35)'
-                  : faceQuality?.status === 'too_far' || faceQuality?.status === 'off_center'
-                  ? '0 0 15px rgba(245, 158, 11, 0.35)'
                   : faceQuality?.status === 'too_close'
                   ? '0 0 15px rgba(239, 68, 68, 0.35)'
+                  : faceQuality && !faceQuality.isOptimal && faceQuality.status !== 'no_face'
+                  ? '0 0 15px rgba(245, 158, 11, 0.35)'
                   : 'none',
                 transition: 'all 0.2s ease',
               }}
@@ -899,33 +1095,18 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   Estabilidad:
                 </span>
                 <div style={{ display: 'flex', gap: '3px' }}>
-                  <div
-                    style={{
-                      width: '14px',
-                      height: '4px',
-                      borderRadius: '2px',
-                      background: consensusHits >= 1 ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: '14px',
-                      height: '4px',
-                      borderRadius: '2px',
-                      background: consensusHits >= 2 ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: '14px',
-                      height: '4px',
-                      borderRadius: '2px',
-                      background: consensusHits >= 3 ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  />
+                  {[1, 2, 3].map((step) => (
+                    <div
+                      key={step}
+                      style={{
+                        width: '14px',
+                        height: '4px',
+                        borderRadius: '2px',
+                        background: consensusHits >= step ? '#00e699' : 'rgba(255, 255, 255, 0.2)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -964,8 +1145,19 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   gap: '0.75rem',
                 }}
               >
-                <div style={{ width: 36, height: 36, border: '3px solid #00e699', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Descargando modelos neuronales...</span>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    border: '3px solid #00e699',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                  }}
+                />
+                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                  Cargando modelos neuronales...
+                </span>
               </div>
             )}
           </div>
@@ -1028,12 +1220,36 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#94a3b8' }}>
-                  {enrolados.length === 0 ? (
-                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '0.75rem', borderRadius: '10px', color: '#fbbf24' }}>
-                      ⚠️ No hay rostros enrolados en la base de datos todavía. Pasa a la pestaña <strong>"Enrolar Rostros"</strong> para vincular tu cara en 1 segundo y probar la demo.
+                  {dbSyncing && enrolados.length === 0 ? (
+                    <div
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        padding: '0.65rem',
+                        borderRadius: '10px',
+                        color: '#38bdf8',
+                      }}
+                    >
+                      ☁️ Sincronizando padrón biométrico actualizado...
+                    </div>
+                  ) : enrolados.length === 0 ? (
+                    <div
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        padding: '0.75rem',
+                        borderRadius: '10px',
+                        color: '#fbbf24',
+                      }}
+                    >
+                      ⚠️ No hay rostros enrolados en la base de datos todavía. Pasa a la pestaña{' '}
+                      <strong>"Enrolar mi Rostro"</strong> para vincular tu cara en 1 segundo.
                     </div>
                   ) : (
-                    <span>💡 Mantén la mirada fija en el visor. Al identificarte se completará tu DNI de forma automática.</span>
+                    <span>
+                      💡 Mantén la mirada fija en el visor.{' '}
+                      {dbSyncing ? '(Actualizando padrón...)' : `(${enrolados.length} rostros activos)`}
+                    </span>
                   )}
                 </div>
               )}
@@ -1046,14 +1262,14 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.5rem' }}>
                 <div>
                   <label style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block', marginBottom: '0.2rem' }}>
-                    DNI {buscandoNombreDni && '🔍'}
+                    DNI / CE {buscandoNombreDni && '🔍'}
                   </label>
                   <input
                     type="text"
                     value={dniParaEnrolar}
                     onChange={(e) => handleDniInputChange(e.target.value)}
                     placeholder="72481923"
-                    maxLength={10}
+                    maxLength={12}
                     style={{
                       width: '100%',
                       padding: '0.5rem 0.65rem',
@@ -1089,7 +1305,16 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
               </div>
 
               {enrolError && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', padding: '0.5rem 0.75rem', borderRadius: '8px', fontSize: '0.78rem' }}>
+                <div
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid #ef4444',
+                    color: '#fca5a5',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                  }}
+                >
                   ⚠️ {enrolError}
                 </div>
               )}
@@ -1107,7 +1332,7 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   color: '#ffffff',
                   fontWeight: 800,
                   fontSize: '0.9rem',
-                  cursor: 'pointer',
+                  cursor: enrolandoActivo || modelLoading ? 'wait' : 'pointer',
                   boxShadow: '0 4px 14px rgba(56, 189, 248, 0.3)',
                 }}
               >
@@ -1127,13 +1352,13 @@ export const ModalEscaneoFacialBeta: React.FC<ModalEscaneoFacialBetaProps> = ({
                   marginTop: '0.25rem',
                 }}
               >
-                🔒 <strong style={{ color: '#38bdf8' }}>Privacidad y Seguridad</strong>: Tus datos biométricos se procesan y almacenan de forma segura y cifrada en el sistema. La gestión y desvinculación se administra exclusivamente desde el Panel de Control.
+                🔒 <strong style={{ color: '#38bdf8' }}>Privacidad y Seguridad</strong>: Tus datos biométricos se
+                procesan y almacenan de forma segura y cifrada en el sistema. La gestión y desvinculación se
+                administra exclusivamente desde el Panel de Control.
               </div>
             </div>
           )}
-
         </div>
-
       </div>
 
       <style jsx global>{`

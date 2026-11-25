@@ -3,6 +3,15 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 143: Optimización de Neon Postgres Compute (CU-hrs) y Network Egress (`peruTime.ts`, `api/sala/ping`, `asistencia-ambiente`, `central-soporte`, `AlertasSosTab`, `AsistenciasTab`, `AdminDashboard`, `consulta`, `PersonalTab`, `KioscoTerminal`)**:
+      - **Diagnóstico**: El consumo de 92.61 CU-hrs y 3.34 GB de transferencia en Neon se debía a múltiples pollings agresivos (`3.5s`, `5s`, `15s`, `25s`, `3 min`) sin pausa nocturna ni en pestañas ocultas, impidiendo que Neon entrara en suspensión (*scale-to-zero* de 5 minutos).
+      - **Optimizaciones Implementadas**:
+        1. **Pausa Nocturna y Visibilidad Unificada (`peruTime.ts`)**: `isClinicOperatingHours()` (06:30–22:30 Lima) y `shouldRunBackgroundPoll()` pausan automáticamente todo polling desatendido durante la madrugada y en pestañas ocultas/minimizadas (las acciones manuales siguen operando 24/7).
+        2. **Sala Ping Ligero y Adaptativo (`api/sala/ping/route.ts`, `asistencia-ambiente/page.tsx`)**: Throttle de escritura `ultimoAcceso` (máximo 1 vez cada 5 min), omisión de consultas redundantes de `categoriasIncidencia` y `sesionesProgramadas` en pings rutinarios, e intervalo adaptativo (`30s` en reposo / `6s` con alerta SOS activa).
+        3. **Monitores SOS Adaptativos (`central-soporte/page.tsx`, `AlertasSosTab.tsx`)**: Intervalos adaptativos (`12s`/`15s` en reposo y `4s`/`5s` solo durante alertas activas), pausa nocturna/oculto y cooldown de `5s` en eventos `focus`/`visibilitychange`.
+        4. **Espaciado en Admin, Consulta y Kiosco**: `AsistenciasTab` (`15s` -> `60s` + cooldown `15s`), `AdminDashboard` Personal (`25s` -> `90s`), `/consulta` (`3 min` -> `7 min`), `PersonalTab` (`3 min` -> `8 min`, permitiendo scale-to-zero > 5 min), y `KioscoTerminal` snapshot (`25 min` -> `30 min` solo en horario operativo).
+      - **Verificación Técnica**: TypeScript estricto (`npx tsc --noEmit`): **0 errores**.
+
     - **Hito 142: Sistema de Reconocimiento Facial Edge AI en Kiosco con Persistencia en Postgres (`ModalEscaneoFacialBeta.tsx`, `faceBiometricService.ts`, `api/biometria/enrolar`, `api/biometria/descriptores`, `schema.ts`)**:
       - **Petición del Usuario**:
         - Implementar reconocimiento facial en el Kiosco terminal para Pacientes Simulados (PS) y Técnicos bajo la Opción 1 (Edge AI en cliente / 100% gratuito sin costes de APIs externas).
@@ -88,7 +97,17 @@
               - Switch en `ModalConfiguracionKiosco.tsx` persistido en `configuracion_sistema` bajo la clave `kiosco_liveness_parpadeo_activo`.
               - **OFF (Por defecto / Modo Rápido)**: Reconocimiento instantáneo en ~0.6s con consenso temporal de 3 fotogramas para máxima fluidez en horas pico.
               - **ON (Modo Auditoría / Alta Seguridad)**: Requiere explícitamente parpadeo activo antes de confirmar la identidad.
-            - **Cyber HUD Feedback en Visor**: Badge superior `🛡️ Anti-Spoofing` -> `✓ Vida OK`, y callout animado `😉 ¡Por favor, parpadea para confirmar!` cuando el consenso de 3 fotogramas ya identificó al colaborador pero aguarda la prueba de vida.
+            - **HUD Feedback en Visor**: Badge superior `🛡️ Anti-Spoofing` -> `✓ Vida OK`, y callout animado `😉 ¡Por favor, parpadea para confirmar!` cuando el consenso de 3 fotogramas ya identificó al colaborador pero aguarda la prueba de vida.
+        15. **Estabilización Integral, Modelos Locales, Anti-Duplicados y Margen Top-1/Top-2 (`faceBiometricService.ts`, `ModalEscaneoFacialBeta.tsx`, `enrolar-personal/page.tsx`, `KioscoTerminal.tsx`, `api/biometria/descriptores`, `public/models/face-api/`)**:
+            - **Eliminación de "Nombre Pegado" entre Pacientes Simulados**: `ModalEscaneoFacialBeta.tsx` ahora ejecuta `resetScannerState()` al abrir/cerrar, implementa `sessionIdRef` para descartar frames asíncronos de sesiones previas, guarda y limpia `loopTimeoutRef`/`countdownTimerRef`, y usa `modoRef` para eliminar *stale closures* al alternar pestañas o probar el escaneo justo tras enrolar.
+            - **Sincronización Ligera y Confiable (`?lite=true` + `no-store`)**: `/api/biometria/descriptores?lite=true` omite `fotoPerfilUrl` Base64 y responde con `Cache-Control: no-store`. `persistFacesToLocalStorage` guarda únicamente vectores ligeros dentro de un `try/catch` aislado para que `QuotaExceededError` jamás rompa la carga en RAM (`memoryCache`).
+            - **Auto-Host Local de Modelos IA**: `face-api.js` y los pesos (`tiny_face_detector`, `face_landmark_68_tiny`, `face_recognition`, `ssd_mobilenetv1`) alojados en `public/models/face-api/` con fallback automático a CDN y limpieza de promesas fallidas para permitir reintentos ante microcortes de red.
+            - **Precisión y Prevención de Errores Humanos**:
+              - **Margen de Separación Top-1 vs Top-2** en `findMatchingUser`: umbral `0.52` y separación mínima frente al segundo candidato único (DNI) para evitar confusiones cuando crezca el padrón.
+              - **Centroide Geométrico Exacto**: `computeCentroid` conserva la escala nativa de `faceRecognitionNet`.
+              - **Control Anti-Duplicados (`findDuplicateEnrolledFace`)**: Alerta con SweetAlert2 antes de guardar si un rostro coincide (`< 0.45`) con otro DNI ya registrado.
+              - **Control de Iluminación (`evaluateFaceIllumination`) y Tolerancia Lateral**: Detecta poca luz/contraluz y relaja el margen lateral para ángulos Izquierda/Derecha en el enrolador 3D.
+            - **Estabilidad Móvil y Soporte DNI/CE**: En `/enrolar-personal` se pausa `checkQualityLoop` durante la inferencia SSD MobileNet v1 (evita colisiones WebGL), se elimina el doble reinicio de cámara al alternar frontal/trasera, y `KioscoTerminal.tsx` dispara `handleBuscarDni(undefined, dni)` directo para soportar DNI (8 dígitos) y CE (9–12 dígitos) e inicia el modal en el modo correspondiente (`escanear` o `enrolar`).
       - **Verificación Técnica**:
         - Base de datos Neon: columnas aplicadas y ciclo de enrolamiento/desenrolamiento verificado vía script.
         - TypeScript estricto (`npx tsc --noEmit`): **0 errores**.

@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const dniFilter = searchParams.get('dni')?.trim();
+    const isLite = searchParams.get('lite') === 'true';
 
     const conditions = [
       eq(usuarios.activo, true),
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
         apellidos: usuarios.apellidos,
         tipoPersonal: usuarios.tipoPersonal,
         descriptorFacial: usuarios.descriptorFacial,
-        fotoPerfilUrl: usuarios.fotoPerfilUrl,
+        fotoPerfilUrl: isLite && !dniFilter ? usuarios.dni : usuarios.fotoPerfilUrl,
         enroladoFacialAt: usuarios.enroladoFacialAt,
       })
       .from(usuarios)
@@ -39,15 +40,23 @@ export async function GET(request: Request) {
       nombre: `${u.nombres} ${u.apellidos}`.trim(),
       tipoPersonal: u.tipoPersonal,
       descriptor: u.descriptorFacial as number[],
-      fotoPreview: u.fotoPerfilUrl || undefined,
+      ...(!isLite || dniFilter ? { fotoPreview: u.fotoPerfilUrl || undefined } : {}),
       enrolledAt: u.enroladoFacialAt?.toISOString() || new Date().toISOString(),
     }));
 
-    return NextResponse.json({
-      success: true,
-      total: formatted.length,
-      descriptores: formatted,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        total: formatted.length,
+        descriptores: formatted,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Error en GET /api/biometria/descriptores:', error);
     return NextResponse.json(

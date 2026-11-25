@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './asistencia-ambiente.module.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { shouldRunBackgroundPoll } from '@/lib/peruTime';
 
 interface TerminalInfo {
   id: number;
@@ -152,38 +153,95 @@ export default function AsistenciaAmbientePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 2. Ping periódico al ambiente para actualizar clase e incidencias activas
-  const pingAmbiente = useCallback(async () => {
-    if (!token) return;
+  const lastScheduleFetchRef = useRef<number>(0);
+  const hasActiveIncidentRef = useRef<boolean>(false);
 
-    try {
-      const res = await fetch('/api/sala/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
+  useEffect(() => {
+    hasActiveIncidentRef.current = Boolean(incidenciaActiva && incidenciaActiva.estado !== 'resuelto');
+  }, [incidenciaActiva]);
 
-      const data = await res.json();
-      if (data.success) {
-        setOnline(true);
-        setTerminal(data.terminal);
-        setSesionActual(data.sesionActual);
-        setIncidenciaActiva(data.incidenciaActiva);
-        if (data.categorias?.length) setCategorias(data.categorias);
-      } else if (res.status === 403 || res.status === 404) {
+  // 2. Ping periódico optimizado al ambiente (pide horario cada 5 min y omite catálogo redundante)
+  const pingAmbiente = useCallback(
+    async (forceFull = false) => {
+      if (!token) return;
+
+      const now = Date.now();
+      const shouldFetchSchedule = forceFull || now - lastScheduleFetchRef.current > 5 * 60 * 1000;
+
+      try {
+        const res = await fetch('/api/sala/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token,
+            includeSchedule: shouldFetchSchedule,
+            includeCatalog: forceFull,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setOnline(true);
+          setTerminal(data.terminal);
+          if (data.sesionActual !== undefined) {
+            setSesionActual(data.sesionActual);
+            lastScheduleFetchRef.current = now;
+          }
+          setIncidenciaActiva(data.incidenciaActiva);
+          hasActiveIncidentRef.current = Boolean(
+            data.incidenciaActiva && data.incidenciaActiva.estado !== 'resuelto'
+          );
+          if (data.categorias?.length) setCategorias(data.categorias);
+        } else if (res.status === 403 || res.status === 404) {
+          setOnline(false);
+        }
+      } catch {
         setOnline(false);
       }
-    } catch {
-      setOnline(false);
-    }
-  }, [token]);
+    },
+    [token]
+  );
 
   useEffect(() => {
     if (!token || showPairingModal) return;
 
-    pingAmbiente();
-    const pollInterval = setInterval(pingAmbiente, 5000); // Cada 5 segundos
-    return () => clearInterval(pollInterval);
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let lastFocusPing = Date.now();
+
+    const scheduleNext = () => {
+      if (!isMounted) return;
+      // Polling adaptativo: 6s si hay una alerta SOS activa; 30s en reposo para ahorrar Compute en Neon
+      const delay = hasActiveIncidentRef.current ? 6000 : 30000;
+      timeoutId = setTimeout(async () => {
+        if (!isMounted) return;
+        if (shouldRunBackgroundPoll() || hasActiveIncidentRef.current) {
+          await pingAmbiente(false);
+        }
+        scheduleNext();
+      }, delay);
+    };
+
+    pingAmbiente(true).then(() => scheduleNext());
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        if (now - lastFocusPing < 5000) return;
+        lastFocusPing = now;
+        pingAmbiente(false);
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
   }, [token, showPairingModal, pingAmbiente]);
 
   // 3. Vincular terminal con PIN

@@ -6,6 +6,7 @@ import {
   initFaceApi,
   initSsdMobilenet,
   extractFaceDescriptor,
+  findDuplicateEnrolledFace,
   saveEnrolledFaceToDB,
   syncEnrolledFacesFromDB,
   computeCentroid,
@@ -111,6 +112,14 @@ export default function EnrolarPersonalPage() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isCapturingRef = useRef(false);
+  const currentAngleRef = useRef<AngleKey>('frente');
+  const qualityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dniLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    currentAngleRef.current = currentAngleKey;
+  }, [currentAngleKey]);
 
   // 1. Verificar sesión de administrador al montar
   useEffect(() => {
@@ -219,19 +228,20 @@ export default function EnrolarPersonalPage() {
     setCameraActive(false);
   }, []);
 
-  // 4. Cargar modelos de face-api y encender cámara una vez autenticado
+  // 4. Cargar modelos de face-api y sincronizar padrón biométrico una sola vez al autenticarse
   useEffect(() => {
     if (!adminUser) return;
 
     let isMounted = true;
     setModelLoading(true);
 
+    // Sincronizar padrón ligero en segundo plano para control anti-duplicados
+    syncEnrolledFacesFromDB();
+
     initFaceApi().then((ok) => {
       if (!isMounted) return;
       setModelLoading(false);
       if (ok) {
-        startCamera(facingMode);
-        // Pre-cargar en segundo plano el modelo de alta precisión SSD MobileNet v1 para enrolamiento
         initSsdMobilenet().then((ssdOk) => {
           if (isMounted && ssdOk) {
             setSsdReady(true);
@@ -244,11 +254,19 @@ export default function EnrolarPersonalPage() {
 
     return () => {
       isMounted = false;
+    };
+  }, [adminUser]);
+
+  // 4a. Gestionar cámara de forma independiente (evita doble reinicio al alternar frontal/trasera)
+  useEffect(() => {
+    if (!adminUser || modelLoading) return;
+    startCamera(facingMode);
+    return () => {
       stopCamera();
     };
-  }, [adminUser, startCamera, stopCamera, facingMode]);
+  }, [adminUser, modelLoading, facingMode, startCamera, stopCamera]);
 
-  // 4b. Monitor en tiempo real de encuadre y calidad para guiado visual en el visor móvil
+  // 4b. Monitor en tiempo real de encuadre, ángulo e iluminación (pausado durante captura SSD)
   useEffect(() => {
     if (!cameraActive || modelLoading) {
       setLiveFaceQuality(null);
@@ -257,17 +275,30 @@ export default function EnrolarPersonalPage() {
     let isRunning = true;
 
     const checkQualityLoop = async () => {
-      if (!isRunning || !videoRef.current || videoRef.current.readyState !== 4 || videoRef.current.paused) {
-        if (isRunning) setTimeout(checkQualityLoop, 350);
+      if (!isRunning) return;
+
+      // Pausar inferencia TinyFace mientras corre la captura pesada SSD para no colisionar en WebGL
+      if (
+        isCapturingRef.current ||
+        !videoRef.current ||
+        videoRef.current.readyState !== 4 ||
+        videoRef.current.paused
+      ) {
+        if (isRunning) {
+          qualityTimeoutRef.current = setTimeout(checkQualityLoop, 300);
+        }
         return;
       }
 
       try {
-        const { box } = await extractFaceDescriptor(videoRef.current);
-        if (isRunning) {
+        const { box, brightness } = await extractFaceDescriptor(videoRef.current);
+        if (isRunning && !isCapturingRef.current && videoRef.current) {
           const frameW = videoRef.current.videoWidth || 640;
           const frameH = videoRef.current.videoHeight || 480;
-          const quality = evaluateFaceQuality(box, frameW, frameH);
+          const quality = evaluateFaceQuality(box, frameW, frameH, {
+            angle: currentAngleRef.current,
+            brightness,
+          });
           setLiveFaceQuality(quality);
         }
       } catch {
@@ -275,7 +306,7 @@ export default function EnrolarPersonalPage() {
       }
 
       if (isRunning) {
-        setTimeout(checkQualityLoop, 300);
+        qualityTimeoutRef.current = setTimeout(checkQualityLoop, 300);
       }
     };
 
@@ -283,59 +314,72 @@ export default function EnrolarPersonalPage() {
 
     return () => {
       isRunning = false;
+      if (qualityTimeoutRef.current) {
+        clearTimeout(qualityTimeoutRef.current);
+        qualityTimeoutRef.current = null;
+      }
     };
   }, [cameraActive, modelLoading]);
 
-  // Cambiar entre cámara trasera y delantera
+  // Cambiar entre cámara trasera y delantera (el useEffect gestiona el reinicio limpio)
   const toggleCameraFacing = () => {
-    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
-    setFacingMode(nextMode);
-    startCamera(nextMode);
+    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
 
-  // 5. Buscar colaborador al escribir DNI
-  const handleDniChange = async (val: string) => {
+  // 5. Buscar colaborador al escribir DNI (8 dígitos) o Carnet de Extranjería (9-12 dígitos)
+  const handleDniChange = (val: string) => {
     const cleanDni = val.replace(/\D/g, '');
     setDniInput(cleanDni);
     setLookupError(null);
+
+    if (dniLookupTimerRef.current) {
+      clearTimeout(dniLookupTimerRef.current);
+      dniLookupTimerRef.current = null;
+    }
 
     // Resetear estados del wizard multi-ángulo al cambiar de DNI
     setCapturedAngles({ frente: null, izquierda: null, derecha: null });
     setCurrentAngleKey('frente');
 
-    if (cleanDni.length === 8) {
-      setSearchingDni(true);
-      try {
-        const res = await fetch(`/api/kiosco/lookup?dni=${cleanDni}`);
-        const data = await res.json();
-
-        if (res.ok && data.usuario) {
-          // Verificar si ya tiene biometría
-          const bioRes = await fetch(`/api/biometria/descriptores?dni=${cleanDni}`);
-          const bioData = await bioRes.json();
-          const hasBio = bioData.success && bioData.descriptores && bioData.descriptores.length > 0;
-          const bioItem = hasBio ? bioData.descriptores[0] : null;
-
-          setColaborador({
-            id: data.usuario.id,
-            dni: data.usuario.dni,
-            nombres: data.usuario.nombres,
-            apellidos: data.usuario.apellidos,
-            tipoPersonal: data.usuario.tipoPersonal,
-            activo: data.usuario.activo,
-            tieneDescriptorFacial: hasBio,
-            enroladoFacialAt: bioItem?.enrolledAt || null,
-            fotoPerfilUrl: bioItem?.fotoPreview || null,
+    if (cleanDni.length >= 8) {
+      dniLookupTimerRef.current = setTimeout(async () => {
+        setSearchingDni(true);
+        try {
+          const res = await fetch(`/api/kiosco/lookup?dni=${encodeURIComponent(cleanDni)}`, {
+            cache: 'no-store',
           });
-        } else {
-          setColaborador(null);
-          setLookupError(data.error || 'Colaborador no encontrado en el sistema');
+          const data = await res.json();
+
+          if (res.ok && data.usuario) {
+            const bioRes = await fetch(
+              `/api/biometria/descriptores?dni=${encodeURIComponent(cleanDni)}&_t=${Date.now()}`,
+              { cache: 'no-store' }
+            );
+            const bioData = await bioRes.json();
+            const hasBio = bioData.success && bioData.descriptores && bioData.descriptores.length > 0;
+            const bioItem = hasBio ? bioData.descriptores[0] : null;
+
+            setColaborador({
+              id: data.usuario.id,
+              dni: data.usuario.dni,
+              nombres: data.usuario.nombres,
+              apellidos: data.usuario.apellidos,
+              tipoPersonal: data.usuario.tipoPersonal,
+              activo: data.usuario.activo,
+              tieneDescriptorFacial: hasBio,
+              enroladoFacialAt: bioItem?.enrolledAt || null,
+              fotoPerfilUrl: bioItem?.fotoPreview || null,
+            });
+          } else {
+            setColaborador(null);
+            setLookupError(data.error || 'Colaborador no encontrado en el sistema');
+          }
+        } catch {
+          setLookupError('Error al conectar con el servidor.');
+        } finally {
+          setSearchingDni(false);
         }
-      } catch (err: any) {
-        setLookupError('Error al conectar con el servidor.');
-      } finally {
-        setSearchingDni(false);
-      }
+      }, 220);
     } else {
       setColaborador(null);
     }
@@ -367,11 +411,14 @@ export default function EnrolarPersonalPage() {
       return;
     }
 
+    isCapturingRef.current = true;
     setCapturandoAngulo(true);
 
     try {
       // Capturar usando SSD MobileNet v1 (5.4MB) para máxima fidelidad geométrica y resolución sub-píxel
-      const { descriptor, box, detectorUsed, error } = await extractFaceDescriptor(videoRef.current, { useSsd: true });
+      const { descriptor, box, brightness, error } = await extractFaceDescriptor(videoRef.current, {
+        useSsd: true,
+      });
 
       if (error || !descriptor || !box) {
         const angConfig = ANGLES_CONFIG.find((a) => a.key === currentAngleKey);
@@ -383,25 +430,26 @@ export default function EnrolarPersonalPage() {
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
         });
-        setCapturandoAngulo(false);
         return;
       }
 
-      // Validar posicionamiento y calidad biométrica antes de registrar el ángulo
+      // Validar posicionamiento, ángulo e iluminación antes de registrar el vector
       const frameW = videoRef.current.videoWidth || 640;
       const frameH = videoRef.current.videoHeight || 480;
-      const quality = evaluateFaceQuality(box, frameW, frameH);
+      const quality = evaluateFaceQuality(box, frameW, frameH, {
+        angle: currentAngleKey,
+        brightness,
+      });
 
       if (!quality.isOptimal) {
         Swal.fire({
           icon: 'warning',
-          title: 'Ajusta la Posición',
+          title: 'Ajusta la Posición o Iluminación',
           text: `${quality.message}. Centra adecuadamente el rostro del colaborador antes de capturar el ángulo.`,
           background: '#091322',
           color: '#f8fafc',
           confirmButtonColor: '#38bdf8',
         });
-        setCapturandoAngulo(false);
         return;
       }
 
@@ -449,6 +497,7 @@ export default function EnrolarPersonalPage() {
         confirmButtonColor: '#ef4444',
       });
     } finally {
+      isCapturingRef.current = false;
       setCapturandoAngulo(false);
     }
   };
@@ -492,6 +541,34 @@ export default function EnrolarPersonalPage() {
       }
 
       const centroid = computeCentroid(descriptorsList);
+
+      // Control anti-duplicados: verificar si este rostro ya está enrolado bajo otro DNI
+      const dupCheck = findDuplicateEnrolledFace(centroid, colaborador.dni);
+      if (dupCheck.isDuplicate && dupCheck.existingUser) {
+        const confirmDup = await Swal.fire({
+          icon: 'warning',
+          title: 'Rostro Ya Enrolado en Otro DNI',
+          html: `
+            <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.5;">
+              Este rostro coincide en un <strong>${dupCheck.confidence}%</strong> con otro colaborador ya registrado:<br/>
+              <div style="margin: 0.65rem 0; padding: 0.6rem; border-radius: 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a; font-weight: 700;">
+                👤 ${dupCheck.existingUser.nombre} (DNI: ${dupCheck.existingUser.dni})
+              </div>
+              Revisa si digitaste el DNI correcto (<strong>${colaborador.dni}</strong>) antes de continuar.
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonText: 'Guardar de todos modos',
+          cancelButtonText: 'Cancelar y revisar DNI',
+          background: '#091322',
+          color: '#f8fafc',
+          confirmButtonColor: '#f59e0b',
+          cancelButtonColor: '#475569',
+        });
+        if (!confirmDup.isConfirmed) {
+          return;
+        }
+      }
 
       const multiDescriptorPayload = {
         version: 2,
@@ -1048,20 +1125,20 @@ export default function EnrolarPersonalPage() {
                 '2px dashed ' +
                 (liveFaceQuality?.status === 'optimal'
                   ? '#00e699'
-                  : liveFaceQuality?.status === 'too_far' || liveFaceQuality?.status === 'off_center'
-                  ? '#f59e0b'
                   : liveFaceQuality?.status === 'too_close'
                   ? '#ef4444'
+                  : liveFaceQuality && !liveFaceQuality.isOptimal && liveFaceQuality.status !== 'no_face'
+                  ? '#f59e0b'
                   : 'rgba(0, 230, 153, 0.4)'),
               borderRadius: '50%',
               pointerEvents: 'none',
               boxShadow:
                 liveFaceQuality?.status === 'optimal'
                   ? '0 0 20px rgba(0, 230, 153, 0.4)'
-                  : liveFaceQuality?.status === 'too_far' || liveFaceQuality?.status === 'off_center'
-                  ? '0 0 15px rgba(245, 158, 11, 0.35)'
                   : liveFaceQuality?.status === 'too_close'
                   ? '0 0 15px rgba(239, 68, 68, 0.35)'
+                  : liveFaceQuality && !liveFaceQuality.isOptimal && liveFaceQuality.status !== 'no_face'
+                  ? '0 0 15px rgba(245, 158, 11, 0.35)'
                   : 'none',
               transition: 'all 0.2s ease',
             }}

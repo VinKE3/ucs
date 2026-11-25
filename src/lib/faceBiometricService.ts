@@ -3,9 +3,8 @@
 /**
  * Servicio de Reconocimiento Facial en el Cliente (Edge AI / 100% Gratis)
  * Sincronizado permanentemente con Neon Postgres (descriptores de 128 floats en jsonb).
- * Utiliza @vladmandic/face-api cargado dinámicamente vía CDN.
+ * Carga prioritaria desde modelos locales en /models/face-api/ con fallback automático a CDN.
  * Calcula vectores de características faciales (embeddings de 128 dimensiones).
- * Costo de servidor / APIs externas: $0.00 USD.
  */
 
 declare global {
@@ -27,17 +26,64 @@ export interface EnrolledFace {
 }
 
 const STORAGE_KEY = 'ucs_kiosk_enrolled_faces_beta';
+const LOCAL_SCRIPT = '/models/face-api/face-api.js';
 const CDN_SCRIPT = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js';
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+const LOCAL_MODEL_URL = '/models/face-api/';
+const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
 
 let isModelsLoaded = false;
 let isSsdLoaded = false;
+let activeModelBaseUrl = LOCAL_MODEL_URL;
 let scriptLoadPromise: Promise<boolean> | null = null;
+let initModelsPromise: Promise<boolean> | null = null;
 let ssdLoadPromise: Promise<boolean> | null = null;
 let memoryCache: EnrolledFace[] | null = null;
+let illuminationCanvas: HTMLCanvasElement | null = null;
 
 /**
- * Inyecta dinámicamente el script de face-api en el documento
+ * Carga un script externo/local como promesa limpia (limpia el DOM si falla para permitir reintentos)
+ */
+function injectScript(src: string, id: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const existing = document.getElementById(id) as HTMLScriptElement | null;
+    if (existing) {
+      if (window.faceapi) {
+        resolve(true);
+        return;
+      }
+      // Si existía un script previo que pudo quedar colgado o roto, removerlo antes de reintentar
+      existing.remove();
+    }
+
+    const script = document.createElement('script');
+    script.id = id;
+    script.src = src;
+    script.async = true;
+    if (src.startsWith('http')) {
+      script.crossOrigin = 'anonymous';
+    }
+
+    script.onload = () => {
+      if (window.faceapi) {
+        resolve(true);
+      } else {
+        script.remove();
+        resolve(false);
+      }
+    };
+
+    script.onerror = () => {
+      script.remove();
+      resolve(false);
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Inyecta dinámicamente face-api.js (primero desde /models/face-api/ local, con fallback a CDN).
+ * Si falla por red, resetea la promesa para permitir reintentos posteriores sin recargar la página.
  */
 function loadFaceApiScript(): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
@@ -45,94 +91,105 @@ function loadFaceApiScript(): Promise<boolean> {
 
   if (scriptLoadPromise) return scriptLoadPromise;
 
-  scriptLoadPromise = new Promise((resolve) => {
-    if (document.getElementById('face-api-cdn-script')) {
-      const checkInterval = setInterval(() => {
-        if (window.faceapi) {
-          clearInterval(checkInterval);
-          resolve(true);
-        }
-      }, 100);
-      return;
+  scriptLoadPromise = (async () => {
+    // 1. Intentar carga local (cero dependencia de internet/firewall)
+    const localOk = await injectScript(LOCAL_SCRIPT, 'face-api-runtime-script');
+    if (localOk && window.faceapi) {
+      console.log('✅ face-api.js cargado localmente desde /models/face-api/.');
+      return true;
     }
 
-    const script = document.createElement('script');
-    script.id = 'face-api-cdn-script';
-    script.src = CDN_SCRIPT;
-    script.async = true;
-    script.crossOrigin = 'anonymous';
+    // 2. Fallback seguro a CDN
+    console.warn('⚠️ No se pudo cargar face-api.js local, intentando CDN...');
+    const cdnOk = await injectScript(CDN_SCRIPT, 'face-api-runtime-script');
+    if (cdnOk && window.faceapi) {
+      console.log('✅ face-api.js cargado desde CDN (fallback).');
+      return true;
+    }
 
-    script.onload = () => {
-      console.log('✅ face-api.js cargado exitosamente desde CDN.');
-      resolve(true);
-    };
-
-    script.onerror = (err) => {
-      console.error('❌ Error al cargar face-api.js desde CDN:', err);
-      resolve(false);
-    };
-
-    document.head.appendChild(script);
-  });
+    // Limpiar promesa para permitir reintento posterior
+    scriptLoadPromise = null;
+    console.error('❌ Error al cargar face-api.js tanto local como desde CDN.');
+    return false;
+  })();
 
   return scriptLoadPromise;
 }
 
 /**
- * Inicializa y carga en memoria los 3 modelos ligeros de visión artificial
+ * Inicializa y carga en memoria los 3 modelos ligeros de visión artificial.
+ * Protegido contra llamadas concurrentes y con reintento limpio si falla la red.
  */
 export async function initFaceApi(): Promise<boolean> {
-  try {
-    if (isModelsLoaded && window.faceapi) return true;
+  if (typeof window === 'undefined') return false;
+  if (isModelsLoaded && window.faceapi) return true;
+  if (initModelsPromise) return initModelsPromise;
 
-    const scriptOk = await loadFaceApiScript();
-    if (!scriptOk || !window.faceapi) {
-      console.warn('⚠️ No se pudo inicializar window.faceapi.');
-      return false;
-    }
+  initModelsPromise = (async () => {
+    try {
+      const scriptOk = await loadFaceApiScript();
+      if (!scriptOk || !window.faceapi) {
+        console.warn('⚠️ No se pudo inicializar window.faceapi.');
+        initModelsPromise = null;
+        return false;
+      }
 
-    const faceapi = window.faceapi;
+      const faceapi = window.faceapi;
 
-    // Inicializar y sincronizar el backend de cómputo de TensorFlow.js antes de cargar los modelos
-    if (faceapi.tf) {
-      try {
-        // 1. Intentar primero aceleración por GPU con WebGL
-        await faceapi.tf.setBackend('webgl');
-        await faceapi.tf.ready();
-        console.log('⚡ Backend WebGL (GPU) inicializado para visión artificial.');
-      } catch (errWebGL) {
-        console.warn('⚠️ WebGL no soportado o aceleración por hardware desactivada. Activando fallback a CPU:', errWebGL);
+      // Inicializar y sincronizar el backend de cómputo de TensorFlow.js antes de cargar los modelos
+      if (faceapi.tf) {
         try {
-          // 2. Si falla WebGL, forzar backend CPU (100% universal, sin requerir binarios .wasm externos)
-          await faceapi.tf.setBackend('cpu');
+          await faceapi.tf.setBackend('webgl');
           await faceapi.tf.ready();
-          console.log('🛡️ Backend CPU activo como fallback universal.');
-        } catch (errCpu) {
-          console.warn('⚠️ Fallback final tf.ready():', errCpu);
-          await faceapi.tf.ready().catch(() => {});
+          console.log('⚡ Backend WebGL (GPU) inicializado para visión artificial.');
+        } catch (errWebGL) {
+          console.warn('⚠️ WebGL no disponible. Activando fallback a CPU:', errWebGL);
+          try {
+            await faceapi.tf.setBackend('cpu');
+            await faceapi.tf.ready();
+            console.log('🛡️ Backend CPU activo como fallback universal.');
+          } catch (errCpu) {
+            console.warn('⚠️ Fallback final tf.ready():', errCpu);
+            await faceapi.tf.ready().catch(() => {});
+          }
         }
       }
+
+      // Cargar modelos: primero desde /models/face-api/ local, con fallback automático a CDN
+      const loadBaseNets = async (baseUrl: string) => {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri(baseUrl),
+          faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl),
+        ]);
+      };
+
+      try {
+        await loadBaseNets(LOCAL_MODEL_URL);
+        activeModelBaseUrl = LOCAL_MODEL_URL;
+        console.log('🧠 Modelos base de Reconocimiento Facial cargados localmente.');
+      } catch (localErr) {
+        console.warn('⚠️ Fallo al cargar modelos locales, recurriendo a CDN:', localErr);
+        await loadBaseNets(CDN_MODEL_URL);
+        activeModelBaseUrl = CDN_MODEL_URL;
+        console.log('🧠 Modelos base de Reconocimiento Facial cargados desde CDN.');
+      }
+
+      isModelsLoaded = true;
+      return true;
+    } catch (error) {
+      console.error('Error al inicializar modelos de face-api:', error);
+      initModelsPromise = null;
+      return false;
     }
+  })();
 
-    // Cargar modelos requeridos para detección, landmarks y embedding de 128 floats
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-    ]);
-
-    isModelsLoaded = true;
-    console.log('🧠 Modelos de Reconocimiento Facial cargados en memoria.');
-    return true;
-  } catch (error) {
-    console.error('Error al inicializar modelos de face-api:', error);
-    return false;
-  }
+  return initModelsPromise;
 }
 
 /**
  * Inicializa y descarga bajo demanda el modelo de alta precisión SSD MobileNet v1.
- * Se utiliza primordialmente para el Enrolamiento de colaboradores (máxima resolución y landmarks exactos).
+ * Si falla por un microcorte de red, limpia ssdLoadPromise para permitir reintentos.
  */
 export async function initSsdMobilenet(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
@@ -144,19 +201,33 @@ export async function initSsdMobilenet(): Promise<boolean> {
     if (ssdLoadPromise) return ssdLoadPromise;
 
     ssdLoadPromise = (async () => {
-      const faceapi = window.faceapi;
-      if (!faceapi.nets?.ssdMobilenetv1?.isLoaded) {
-        console.log('📦 Cargando modelo de alta precisión SSD MobileNet v1 para Enrolamiento...');
-        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+      try {
+        const faceapi = window.faceapi;
+        if (!faceapi.nets?.ssdMobilenetv1?.isLoaded) {
+          try {
+            console.log('📦 Cargando modelo SSD MobileNet v1 localmente...');
+            await faceapi.nets.ssdMobilenetv1.loadFromUri(activeModelBaseUrl);
+          } catch {
+            const fallbackUrl = activeModelBaseUrl === LOCAL_MODEL_URL ? CDN_MODEL_URL : LOCAL_MODEL_URL;
+            console.warn(`⚠️ Reintentando carga de SSD MobileNet v1 desde ${fallbackUrl}...`);
+            await faceapi.nets.ssdMobilenetv1.loadFromUri(fallbackUrl);
+          }
+        }
+        isSsdLoaded = true;
+        console.log('🎯 Modelo SSD MobileNet v1 listo para enrolamiento de alta precisión.');
+        return true;
+      } catch (innerErr: any) {
+        // Limpiar promesa fallida para permitir reintento futuro
+        ssdLoadPromise = null;
+        console.warn('⚠️ No se pudo cargar SSD MobileNet v1, usando TinyFace como fallback:', innerErr?.message);
+        return false;
       }
-      isSsdLoaded = true;
-      console.log('🎯 Modelo SSD MobileNet v1 cargado exitosamente en memoria WebGL.');
-      return true;
     })();
 
     return await ssdLoadPromise;
   } catch (err: any) {
-    console.warn('⚠️ No se pudo cargar SSD MobileNet v1, usando TinyFace como fallback seguro:', err.message);
+    ssdLoadPromise = null;
+    console.warn('⚠️ Error al inicializar SSD MobileNet v1:', err?.message);
     return false;
   }
 }
@@ -181,6 +252,53 @@ export function calculateEAR(eyePoints: { x: number; y: number }[]): number {
   return (v1 + v2) / (2.0 * h);
 }
 
+/**
+ * Evalúa el brillo promedio (0–255) dentro de la región del rostro para detectar
+ * ambientes demasiado oscuros o contraluz severo antes de enrolar o validar.
+ */
+export function evaluateFaceIllumination(
+  videoOrCanvas: HTMLVideoElement | HTMLCanvasElement,
+  box: { x: number; y: number; width: number; height: number } | null
+): number | null {
+  if (typeof document === 'undefined' || !box || box.width <= 10 || box.height <= 10) return null;
+
+  try {
+    if (!illuminationCanvas) {
+      illuminationCanvas = document.createElement('canvas');
+      illuminationCanvas.width = 32;
+      illuminationCanvas.height = 32;
+    }
+
+    const ctx = illuminationCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    const srcW =
+      videoOrCanvas instanceof HTMLVideoElement ? videoOrCanvas.videoWidth : videoOrCanvas.width;
+    const srcH =
+      videoOrCanvas instanceof HTMLVideoElement ? videoOrCanvas.videoHeight : videoOrCanvas.height;
+    if (!srcW || !srcH) return null;
+
+    const sx = Math.max(0, Math.min(srcW - 1, box.x));
+    const sy = Math.max(0, Math.min(srcH - 1, box.y));
+    const sw = Math.max(1, Math.min(srcW - sx, box.width));
+    const sh = Math.max(1, Math.min(srcH - sy, box.height));
+
+    ctx.drawImage(videoOrCanvas, sx, sy, sw, sh, 0, 0, 32, 32);
+    const { data } = ctx.getImageData(0, 0, 32, 32);
+
+    let lumSum = 0;
+    const pixelCount = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) {
+      // Luminancia perceptual Rec. 601
+      lumSum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    }
+
+    return Math.round(lumSum / pixelCount);
+  } catch {
+    return null;
+  }
+}
+
 export interface ExtractFaceOptions {
   useSsd?: boolean;
   minConfidence?: number;
@@ -189,9 +307,9 @@ export interface ExtractFaceOptions {
 /**
  * Extrae el descriptor de 128 dimensiones de un fotograma en vivo.
  * Soporta modo híbrido:
- * - TinyFaceDetector: por defecto para escaneo en tiempo real a 30+ FPS en el Kiosco.
- * - SSD MobileNet v1 (con `useSsd: true`): para enrolamiento de máxima precisión y fidelidad geométrica.
- * Incluye cálculo en tiempo real de EAR (Eye Aspect Ratio) para prueba de vida pasiva/activa (anti-spoofing).
+ * - TinyFaceDetector: por defecto para escaneo en tiempo real en el Kiosco.
+ * - SSD MobileNet v1 (con `useSsd: true`): para enrolamiento de máxima precisión.
+ * Incluye cálculo de EAR (Eye Aspect Ratio) y brillo facial.
  */
 export async function extractFaceDescriptor(
   videoOrCanvas: HTMLVideoElement | HTMLCanvasElement,
@@ -202,6 +320,7 @@ export async function extractFaceDescriptor(
   detectorUsed?: 'ssd' | 'tiny';
   ear?: number | null;
   isBlinking?: boolean;
+  brightness?: number | null;
   error?: string;
 }> {
   if (!window.faceapi || !isModelsLoaded) {
@@ -215,7 +334,6 @@ export async function extractFaceDescriptor(
   try {
     let detection: any = null;
 
-    // Si se requiere alta precisión (SSD MobileNet v1)
     if (options?.useSsd) {
       if (!isSsdLoaded) {
         await initSsdMobilenet();
@@ -233,11 +351,10 @@ export async function extractFaceDescriptor(
       }
     }
 
-    // Fallback seguro o modo continuo en tiempo real: TinyFaceDetector
     if (!detection) {
       detectorUsed = 'tiny';
       const tinyOpts = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224, // 160 o 224 para ultra-velocidad en tiempo real
+        inputSize: 224,
         scoreThreshold: options?.minConfidence ?? 0.5,
       });
       detection = await faceapi
@@ -249,6 +366,13 @@ export async function extractFaceDescriptor(
     if (!detection) {
       return { descriptor: null, box: null, detectorUsed };
     }
+
+    const box = {
+      x: Math.round(detection.detection.box.x),
+      y: Math.round(detection.detection.box.y),
+      width: Math.round(detection.detection.box.width),
+      height: Math.round(detection.detection.box.height),
+    };
 
     // Cálculo de Eye Aspect Ratio (EAR) para Liveness Detection / Anti-Spoofing
     let ear: number | null = null;
@@ -263,24 +387,29 @@ export async function extractFaceDescriptor(
       isBlinking = ear < 0.20;
     }
 
+    const brightness = evaluateFaceIllumination(videoOrCanvas, box);
+
     return {
       descriptor: detection.descriptor,
-      box: {
-        x: Math.round(detection.detection.box.x),
-        y: Math.round(detection.detection.box.y),
-        width: Math.round(detection.detection.box.width),
-        height: Math.round(detection.detection.box.height),
-      },
+      box,
       detectorUsed,
       ear,
       isBlinking,
+      brightness,
     };
   } catch (err: any) {
     return { descriptor: null, box: null, detectorUsed, error: err.message };
   }
 }
 
-export type FaceQualityStatus = 'optimal' | 'too_far' | 'too_close' | 'off_center' | 'no_face';
+export type FaceQualityStatus =
+  | 'optimal'
+  | 'too_far'
+  | 'too_close'
+  | 'off_center'
+  | 'too_dark'
+  | 'too_bright'
+  | 'no_face';
 
 export interface FaceQualityResult {
   status: FaceQualityStatus;
@@ -290,16 +419,23 @@ export interface FaceQualityResult {
   boxRatio: number;
   offsetNormX: number;
   offsetNormY: number;
+  brightness?: number | null;
+}
+
+export interface FaceQualityOptions {
+  angle?: 'frente' | 'izquierda' | 'derecha';
+  brightness?: number | null;
 }
 
 /**
- * Evalúa en tiempo real el encuadre, distancia y centrado del rostro dentro del visor.
- * Evita procesar transeúntes de fondo a 3 metros (demasiado lejos) o capturas degradadas.
+ * Evalúa en tiempo real el encuadre, distancia, centrado e iluminación del rostro dentro del visor.
+ * Relaja ligeramente el margen horizontal para los ángulos laterales (izquierda/derecha) en el enrolador 3D.
  */
 export function evaluateFaceQuality(
   box: { x: number; y: number; width: number; height: number } | null,
   frameWidth: number,
-  frameHeight: number
+  frameHeight: number,
+  options?: FaceQualityOptions
 ): FaceQualityResult {
   if (!box || frameWidth <= 0 || frameHeight <= 0) {
     return {
@@ -310,23 +446,25 @@ export function evaluateFaceQuality(
       boxRatio: 0,
       offsetNormX: 0,
       offsetNormY: 0,
+      brightness: null,
     };
   }
 
-  // Proporción de la altura del rostro respecto a la altura total de la cámara
-  const boxRatio = box.height / frameHeight;
+  const isSideAngle = options?.angle === 'izquierda' || options?.angle === 'derecha';
+  const minBoxRatio = isSideAngle ? 0.24 : 0.28;
+  const maxBoxRatio = 0.84;
+  const maxOffsetX = isSideAngle ? 0.30 : 0.23;
+  const maxOffsetY = 0.27;
 
-  // Centroide del rostro relativo al centro del encuadre
+  const boxRatio = box.height / frameHeight;
   const faceCenterX = box.x + box.width / 2;
   const faceCenterY = box.y + box.height / 2;
-  const frameCenterX = frameWidth / 2;
-  const frameCenterY = frameHeight / 2;
+  const offsetNormX = (faceCenterX - frameWidth / 2) / frameWidth;
+  const offsetNormY = (faceCenterY - frameHeight / 2) / frameHeight;
+  const brightness = options?.brightness ?? null;
 
-  const offsetNormX = (faceCenterX - frameCenterX) / frameWidth;
-  const offsetNormY = (faceCenterY - frameCenterY) / frameHeight;
-
-  // 1. Demasiado lejos (por ejemplo, personas caminando en el pasillo a 3 metros)
-  if (boxRatio < 0.28) {
+  // 1. Demasiado lejos (descarta personas caminando en el pasillo)
+  if (boxRatio < minBoxRatio) {
     return {
       status: 'too_far',
       isOptimal: false,
@@ -335,11 +473,12 @@ export function evaluateFaceQuality(
       boxRatio: Number(boxRatio.toFixed(3)),
       offsetNormX: Number(offsetNormX.toFixed(3)),
       offsetNormY: Number(offsetNormY.toFixed(3)),
+      brightness,
     };
   }
 
-  // 2. Demasiado cerca (se sale del margen de captura)
-  if (boxRatio > 0.82) {
+  // 2. Demasiado cerca
+  if (boxRatio > maxBoxRatio) {
     return {
       status: 'too_close',
       isOptimal: false,
@@ -348,11 +487,12 @@ export function evaluateFaceQuality(
       boxRatio: Number(boxRatio.toFixed(3)),
       offsetNormX: Number(offsetNormX.toFixed(3)),
       offsetNormY: Number(offsetNormY.toFixed(3)),
+      brightness,
     };
   }
 
-  // 3. Fuera de centro (desviación lateral o vertical excesiva)
-  if (Math.abs(offsetNormX) > 0.22 || Math.abs(offsetNormY) > 0.26) {
+  // 3. Fuera de centro
+  if (Math.abs(offsetNormX) > maxOffsetX || Math.abs(offsetNormY) > maxOffsetY) {
     return {
       status: 'off_center',
       isOptimal: false,
@@ -361,10 +501,38 @@ export function evaluateFaceQuality(
       boxRatio: Number(boxRatio.toFixed(3)),
       offsetNormX: Number(offsetNormX.toFixed(3)),
       offsetNormY: Number(offsetNormY.toFixed(3)),
+      brightness,
     };
   }
 
-  // 4. Posición biométrica óptima
+  // 4. Iluminación insuficiente o contraluz extremo
+  if (typeof brightness === 'number' && brightness < 42) {
+    return {
+      status: 'too_dark',
+      isOptimal: false,
+      message: '💡 Muy poca luz: busca un lugar más iluminado',
+      icon: '💡',
+      boxRatio: Number(boxRatio.toFixed(3)),
+      offsetNormX: Number(offsetNormX.toFixed(3)),
+      offsetNormY: Number(offsetNormY.toFixed(3)),
+      brightness,
+    };
+  }
+
+  if (typeof brightness === 'number' && brightness > 238) {
+    return {
+      status: 'too_bright',
+      isOptimal: false,
+      message: '☀️ Demasiado brillo/contraluz en el rostro',
+      icon: '☀️',
+      boxRatio: Number(boxRatio.toFixed(3)),
+      offsetNormX: Number(offsetNormX.toFixed(3)),
+      offsetNormY: Number(offsetNormY.toFixed(3)),
+      brightness,
+    };
+  }
+
+  // 5. Posición biométrica óptima
   return {
     status: 'optimal',
     isOptimal: true,
@@ -373,6 +541,7 @@ export function evaluateFaceQuality(
     boxRatio: Number(boxRatio.toFixed(3)),
     offsetNormX: Number(offsetNormX.toFixed(3)),
     offsetNormY: Number(offsetNormY.toFixed(3)),
+    brightness,
   };
 }
 
@@ -401,7 +570,8 @@ export function normalizeVector(vec: number[]): number[] {
 }
 
 /**
- * Calcula el centroide normalizado a partir de múltiples descriptores faciales (ej. multi-ángulo)
+ * Calcula el centroide geométrico exacto (media aritmética) de múltiples descriptores faciales.
+ * Mantiene la misma escala nativa de faceRecognitionNet para comparaciones euclidianas sin sesgo.
  */
 export function computeCentroid(descriptors: (number[] | Float32Array)[]): number[] {
   if (!descriptors || descriptors.length === 0) return [];
@@ -417,7 +587,7 @@ export function computeCentroid(descriptors: (number[] | Float32Array)[]): numbe
   for (let i = 0; i < dim; i++) {
     centroid[i] /= descriptors.length;
   }
-  return normalizeVector(centroid);
+  return centroid;
 }
 
 /**
@@ -427,14 +597,12 @@ export function computeCentroid(descriptors: (number[] | Float32Array)[]): numbe
 export function extractAllDescriptors(item: EnrolledFace): number[][] {
   const result: number[][] = [];
 
-  // 1. Array explícito de descriptores
   if (Array.isArray(item.descriptors) && item.descriptors.length > 0) {
     for (const d of item.descriptors) {
       if (Array.isArray(d) && d.length === 128) result.push(d);
     }
   }
 
-  // 2. Objeto con propiedad descriptors: { version: 2, descriptors: [...] }
   if (typeof item.descriptor === 'object' && item.descriptor !== null) {
     const obj = item.descriptor as any;
     if (Array.isArray(obj.descriptors)) {
@@ -442,20 +610,17 @@ export function extractAllDescriptors(item: EnrolledFace): number[][] {
         if (Array.isArray(d) && d.length === 128) result.push(d);
       }
     }
-    // Si tiene centroide almacenado y no está ya incluido
     if (Array.isArray(obj.centroid) && obj.centroid.length === 128) {
       result.push(obj.centroid);
     }
   }
 
-  // 3. Array directo (array de arrays o array simple de 128)
   if (Array.isArray(item.descriptor) && item.descriptor.length > 0) {
     if (Array.isArray(item.descriptor[0])) {
       for (const d of item.descriptor as unknown as number[][]) {
         if (Array.isArray(d) && d.length === 128) result.push(d);
       }
     } else if (typeof item.descriptor[0] === 'number' && item.descriptor.length === 128) {
-      // Vector plano legacy v1 (128 floats)
       result.push(item.descriptor as number[]);
     }
   }
@@ -465,16 +630,19 @@ export function extractAllDescriptors(item: EnrolledFace): number[][] {
 
 /**
  * Compara un descriptor en vivo contra los rostros enrolados.
- * En perfiles multi-ángulo (v2), evalúa la distancia mínima frente a todos los ángulos registrados.
- * Umbral de reconocimiento: distancia < 0.55 (estándar internacional de face-api)
+ * Evalúa por usuario único (DNI) y aplica:
+ * - Umbral estricto: mejor distancia < 0.52
+ * - Margen de separación Top-1 vs Top-2 (evita confusiones entre personas muy parecidas)
  */
 export function findMatchingUser(
   currentDescriptor: Float32Array | number[]
 ): {
   matched: boolean;
+  ambiguous?: boolean;
   user?: EnrolledFace;
   confidence: number;
   distance: number;
+  margin?: number;
 } {
   const enrolled = getEnrolledFaces();
   if (enrolled.length === 0) {
@@ -482,14 +650,87 @@ export function findMatchingUser(
   }
 
   let bestMatch: EnrolledFace | undefined = undefined;
-  let minDistance = 1.0;
+  let bestDist = 1.0;
+  let secondBestDist = 1.0;
 
   for (const item of enrolled) {
     const vectors = extractAllDescriptors(item);
     if (vectors.length === 0) continue;
 
+    let userMinDist = 1.0;
     for (const vec of vectors) {
       const dist = euclideanDistance(currentDescriptor, vec);
+      if (dist < userMinDist) {
+        userMinDist = dist;
+      }
+    }
+
+    if (userMinDist < bestDist) {
+      secondBestDist = bestDist;
+      bestDist = userMinDist;
+      bestMatch = item;
+    } else if (userMinDist < secondBestDist) {
+      secondBestDist = userMinDist;
+    }
+  }
+
+  const MATCH_THRESHOLD = 0.52;
+  const margin = Number((secondBestDist - bestDist).toFixed(3));
+
+  if (bestDist < MATCH_THRESHOLD && bestMatch) {
+    // Si hay 2 o más usuarios enrolados y el 2.° candidato está demasiado cerca, rechazar por ambigüedad
+    const requiredMargin = bestDist <= 0.38 ? 0.03 : 0.055;
+    if (enrolled.length >= 2 && margin < requiredMargin) {
+      return {
+        matched: false,
+        ambiguous: true,
+        confidence: Math.max(0, Math.round((1 - bestDist / 0.8) * 100)),
+        distance: Number(bestDist.toFixed(3)),
+        margin,
+      };
+    }
+
+    const confidence = Math.max(55, Math.min(99, Math.round((1 - bestDist / 0.8) * 100)));
+    return {
+      matched: true,
+      user: bestMatch,
+      confidence,
+      distance: Number(bestDist.toFixed(3)),
+      margin,
+    };
+  }
+
+  return {
+    matched: false,
+    confidence: Math.max(0, Math.round((1 - bestDist) * 100)),
+    distance: Number(bestDist.toFixed(3)),
+    margin,
+  };
+}
+
+/**
+ * Verifica antes de enrolar si el rostro capturado ya pertenece a otro colaborador registrado bajo un DNI distinto.
+ * Previene errores humanos al enrolar rápidamente en campo.
+ */
+export function findDuplicateEnrolledFace(
+  candidateDescriptor: Float32Array | number[],
+  excludeDni: string
+): {
+  isDuplicate: boolean;
+  existingUser?: EnrolledFace;
+  distance: number;
+  confidence: number;
+} {
+  const enrolled = getEnrolledFaces();
+  const cleanExclude = excludeDni.trim();
+  let bestMatch: EnrolledFace | undefined = undefined;
+  let minDistance = 1.0;
+
+  for (const item of enrolled) {
+    if (item.dni.trim() === cleanExclude) continue;
+    const vectors = extractAllDescriptors(item);
+    for (const vec of vectors) {
+      const dist = euclideanDistance(candidateDescriptor, vec);
       if (dist < minDistance) {
         minDistance = dist;
         bestMatch = item;
@@ -497,58 +738,62 @@ export function findMatchingUser(
     }
   }
 
-  // Umbral de coincidencia: < 0.55 es match confirmado
-  const MATCH_THRESHOLD = 0.55;
-  if (minDistance < MATCH_THRESHOLD && bestMatch) {
-    // Confianza estimada: 0.0 -> 100%, 0.55 -> ~50%
-    const confidence = Math.max(50, Math.min(99, Math.round((1 - minDistance / 0.8) * 100)));
+  const DUPLICATE_THRESHOLD = 0.45;
+  if (minDistance < DUPLICATE_THRESHOLD && bestMatch) {
+    const confidence = Math.max(60, Math.min(99, Math.round((1 - minDistance / 0.8) * 100)));
     return {
-      matched: true,
-      user: bestMatch,
-      confidence,
+      isDuplicate: true,
+      existingUser: bestMatch,
       distance: Number(minDistance.toFixed(3)),
+      confidence,
     };
   }
 
-  return {
-    matched: false,
-    confidence: Math.max(0, Math.round((1 - minDistance) * 100)),
-    distance: Number(minDistance.toFixed(3)),
-  };
+  return { isDuplicate: false, distance: Number(minDistance.toFixed(3)), confidence: 0 };
 }
 
 /**
- * Obtener la lista de rostros enrolados (desde memoria o localStorage)
+ * Persiste únicamente los vectores ligeros (sin fotos Base64) en localStorage para evitar QuotaExceededError.
+ */
+function persistFacesToLocalStorage(faces: EnrolledFace[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const liteFaces = faces.map(({ fotoPreview: _omit, ...rest }) => rest);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(liteFaces));
+  } catch (err) {
+    console.warn('⚠️ No se pudo actualizar caché localStorage (se mantiene en RAM):', err);
+  }
+}
+
+/**
+ * Obtener la lista de rostros enrolados (desde memoria RAM o localStorage)
  */
 export function getEnrolledFaces(): EnrolledFace[] {
-  if (memoryCache && memoryCache.length > 0) {
+  if (memoryCache !== null) {
     return memoryCache;
   }
   if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     const parsed = data ? JSON.parse(data) : [];
-    memoryCache = parsed;
-    return parsed;
+    memoryCache = Array.isArray(parsed) ? parsed : [];
+    return memoryCache;
   } catch {
     return [];
   }
 }
 
 /**
- * Guardar localmente un rostro enrolado
+ * Guardar localmente un rostro enrolado (en RAM y caché ligero)
  */
 export function saveEnrolledFace(newFace: EnrolledFace): void {
   if (typeof window === 'undefined') return;
-  try {
-    const current = getEnrolledFaces();
-    const filtered = current.filter((f) => f.dni !== newFace.dni);
-    filtered.push(newFace);
-    memoryCache = filtered;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-  } catch (err) {
-    console.error('Error al guardar rostro enrolado localmente:', err);
-  }
+  const current = getEnrolledFaces();
+  const { fotoPreview: _omit, ...liteFace } = newFace;
+  const filtered = current.filter((f) => f.dni !== liteFace.dni);
+  filtered.push(liteFace);
+  memoryCache = filtered;
+  persistFacesToLocalStorage(filtered);
 }
 
 /**
@@ -556,19 +801,15 @@ export function saveEnrolledFace(newFace: EnrolledFace): void {
  */
 export function removeEnrolledFace(dni: string): void {
   if (typeof window === 'undefined') return;
-  try {
-    const current = getEnrolledFaces();
-    const filtered = current.filter((f) => f.dni !== dni);
-    memoryCache = filtered;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-  } catch (err) {
-    console.error('Error al eliminar rostro enrolado localmente:', err);
-  }
+  const current = getEnrolledFaces();
+  const filtered = current.filter((f) => f.dni !== dni);
+  memoryCache = filtered;
+  persistFacesToLocalStorage(filtered);
 }
 
 /**
  * Sincroniza los descriptores biométricos desde Neon Postgres a la memoria del navegador.
- * Permite que cualquier terminal Kiosco conozca a todos los colaboradores enrolados.
+ * Usa modo ligero (?lite=true, sin Base64) y cache: 'no-store' para garantizar datos frescos siempre.
  */
 export async function syncEnrolledFacesFromDB(): Promise<{
   success: boolean;
@@ -580,8 +821,9 @@ export async function syncEnrolledFacesFromDB(): Promise<{
   }
 
   try {
-    const response = await fetch('/api/biometria/descriptores', {
+    const response = await fetch(`/api/biometria/descriptores?lite=true&_t=${Date.now()}`, {
       method: 'GET',
+      cache: 'no-store',
       headers: { 'Cache-Control': 'no-cache' },
     });
 
@@ -593,8 +835,8 @@ export async function syncEnrolledFacesFromDB(): Promise<{
     if (data.success && Array.isArray(data.descriptores)) {
       const faces: EnrolledFace[] = data.descriptores;
       memoryCache = faces;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(faces));
-      console.log(`☁️ Sincronizados ${faces.length} rostros desde Neon Postgres.`);
+      persistFacesToLocalStorage(faces);
+      console.log(`☁️ Sincronizados ${faces.length} rostros (modo ligero) desde la base de datos.`);
       return { success: true, faces };
     }
 
@@ -632,7 +874,7 @@ export async function saveEnrolledFaceToDB(face: EnrolledFace): Promise<{
       };
     }
 
-    // Actualizar caché local
+    // Actualizar caché local inmediatamente
     saveEnrolledFace({
       ...face,
       nombre: data.usuario?.nombreCompleto || face.nombre,
@@ -679,7 +921,6 @@ export async function deleteEnrolledFaceFromDB(dni: string): Promise<{
       message: data.message || 'Enrolamiento eliminado correctamente.',
     };
   } catch (err: any) {
-    // Si falla el servidor, igual removemos de local
     removeEnrolledFace(dni);
     return {
       success: false,

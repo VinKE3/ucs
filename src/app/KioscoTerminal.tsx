@@ -18,6 +18,7 @@ import {
   sincronizarColaOffline,
 } from '@/lib/kioskOfflineStorage';
 import { ModalEscaneoFacialBeta } from '@/components/kiosco/ModalEscaneoFacialBeta';
+import { isClinicOperatingHours } from '@/lib/peruTime';
 
 interface TerminalData {
   id: number;
@@ -138,6 +139,7 @@ export default function KioscoTerminal() {
   const [isOnline, setIsOnline] = useState(true);
   const [offlineQueueCount, setOfflineQueueCount] = useState<number>(0);
   const [modalFacialAbierto, setModalFacialAbierto] = useState(false);
+  const [modalFacialInitialMode, setModalFacialInitialMode] = useState<'escanear' | 'enrolar'>('escanear');
   const [isModoOfflineActivo, setIsModoOfflineActivo] = useState<boolean>(false);
 
   // Filtros de ambiente en el kiosco
@@ -524,13 +526,13 @@ export default function KioscoTerminal() {
     };
     window.addEventListener('focus', handleWindowFocus);
 
-    // Ciclo periódico cada 25 minutos para refrescar el snapshot de SimClic del día
+    // Ciclo periódico cada 30 minutos solo en horario operativo para no despertar a Neon de madrugada
     const intervalSnapshot = setInterval(() => {
-      if (navigator.onLine) {
+      if (navigator.onLine && isClinicOperatingHours()) {
         precargarSnapshotOffline();
         procesarColaOffline();
       }
-    }, 25 * 60 * 1000);
+    }, 30 * 60 * 1000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -1745,7 +1747,10 @@ export default function KioscoTerminal() {
                     {reconocimientoFacialHabilitado && (
                       <button
                         type="button"
-                        onClick={() => setModalFacialAbierto(true)}
+                        onClick={() => {
+                          setModalFacialInitialMode('escanear');
+                          setModalFacialAbierto(true);
+                        }}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -1964,7 +1969,10 @@ export default function KioscoTerminal() {
                           {reconocimientoFacialHabilitado && (
                             <button
                               type="button"
-                              onClick={() => setModalFacialAbierto(true)}
+                              onClick={() => {
+                                setModalFacialInitialMode('enrolar');
+                                setModalFacialAbierto(true);
+                              }}
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -2844,10 +2852,11 @@ export default function KioscoTerminal() {
       {/* MODAL RECONOCIMIENTO FACIAL (FASE BETA) */}
       <ModalEscaneoFacialBeta
         isOpen={modalFacialAbierto}
+        initialMode={modalFacialInitialMode}
         onClose={() => setModalFacialAbierto(false)}
         onUserIdentified={(dni) => {
           setDniInput(dni);
-          triggerAutoSearch(dni);
+          handleBuscarDni(undefined, dni);
         }}
         currentUserName={usuarioActual ? `${usuarioActual.nombres} ${usuarioActual.apellidos}` : undefined}
         currentUserDni={usuarioActual ? usuarioActual.dni : undefined}

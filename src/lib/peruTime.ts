@@ -46,3 +46,36 @@ export function formatDisplayPeruDate(dateOrStr: Date | string): string {
     year: 'numeric',
   }).format(d);
 }
+
+/**
+ * Retorna true si la hora actual en Lima (Perú) está dentro del horario operativo (06:30 a 22:30).
+ * Fuera de ese rango, los pollings automáticos en segundo plano se pausan para permitir
+ * que Neon Postgres entre en scale-to-zero durante toda la madrugada y ahorrar cuota Compute.
+ * Las acciones manuales (clics, SOS, marcaciones) siguen funcionando 24/7.
+ */
+export function isClinicOperatingHours(date: Date = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PERU_TIMEZONE,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(date);
+
+  const hour = parseInt(parts.find((p) => p.type === 'hour')?.value || '12', 10);
+  const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+  const totalMinutes = (hour === 24 ? 0 : hour) * 60 + minute;
+
+  // 06:30 (390) a 22:30 (1350) hora Lima
+  return totalMinutes >= 390 && totalMinutes <= 1350;
+}
+
+/**
+ * Helper unificado para pollings automáticos en cliente:
+ * Evita consultas a Neon si la pestaña está oculta/minimizada o fuera de horario operativo.
+ */
+export function shouldRunBackgroundPoll(): boolean {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return false;
+  }
+  return isClinicOperatingHours();
+}

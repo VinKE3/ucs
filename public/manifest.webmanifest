@@ -8,5 +8,19 @@
   "background_color": "#020617",
   "theme_color": "#091322",
   "lang": "es-PE",
-  "categories": ["education", "medical", "productivity"]
+  "categories": ["education", "medical", "productivity"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logoucs.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }

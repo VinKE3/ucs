@@ -1,4 +1,4 @@
-name: CI - Typecheck, Tests & Build
+name: CI - Typecheck, Tests, Build & E2E
 
 on:
   push:
@@ -34,3 +34,28 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+
+      - name: Install Playwright Chromium
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        if: env.DATABASE_URL != ''
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E smoke & security tests (Playwright)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          E2E_ADMIN_USER: ${{ secrets.E2E_ADMIN_USER }}
+          E2E_ADMIN_PASS: ${{ secrets.E2E_ADMIN_PASS }}
+        if: env.DATABASE_URL != ''
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        if: failure() && env.DATABASE_URL != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

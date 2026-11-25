@@ -3,6 +3,17 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 147: Pruebas E2E Automatizadas con Playwright y Pipeline CI Completo (`playwright.config.ts`, `e2e/smoke-routes.spec.ts`, `e2e/security-guards.spec.ts`, `.github/workflows/ci.yml`, `package.json`, `.gitignore`)**:
+      - **Infraestructura Playwright (`playwright.config.ts`, `package.json`)**:
+        - Instalado `@playwright/test` + navegador Chromium y agregados scripts `npm run test:e2e` y `npm run test:e2e:ui`.
+        - Configurado `webServer` automático contra la compilación de producción (`next start`) con zona horaria `America/Lima`, idioma `es-PE`, capturas de error y trazas en primer reintento.
+      - **Suite de Smoke y Rutas Críticas (`e2e/smoke-routes.spec.ts`)**:
+        - Verifica `/api/health` (`200`, `database: connected`, `Cache-Control: no-store`), validez de `/manifest.webmanifest`, carga sin errores de consola en `/`, `/consulta`, `/enrolar-personal` (gate administrativo), validación y rechazo de credenciales inválidas en `/login`, y pantalla institucional `404` en rutas inexistentes.
+      - **Suite de Seguridad, Redirecciones y Caché (`e2e/security-guards.spec.ts`)**:
+        - Verifica redirección de `/admin` -> `/login` sin sesión, bloqueo `401` anónimo en todos los endpoints sensibles (`audit-logs`, `audit-logs?export=xlsx`, `biometria/*`, `foto`, `usuarios`, `terminales`, `codigos`, `sedes`, `simclic/sync` forzado), verificación de cabecera `Cache-Control: immutable` (1 año) en `/models/face-api/face-api.js`, y prueba autenticada opcional de panel Admin + visor de Auditoría mediante `E2E_ADMIN_USER` / `E2E_ADMIN_PASS`.
+      - **CI en GitHub Actions (`.github/workflows/ci.yml`)**:
+        - Integrada ejecución de Playwright Chromium tras `npm run build` cuando `DATABASE_URL` está configurado en Secrets, con carga automática del reporte HTML (`playwright-report/`) en caso de fallo.
+
     - **Hito 146: Observabilidad Institucional (Error Boundaries + Telemetría Crítica), Auditoría 100% de Mutaciones Admin y Exportación Excel de Auditoría (`error.tsx`, `global-error.tsx`, `not-found.tsx`, `errorTelemetry.ts`, `api/system/client-error`, `api/usuarios/*`, `api/admin/terminales/*`, `api/kiosco/terminal/autorizar`, `api/sedes`, `api/ambientes`, `api/admin/audit-logs`, `ModalAuditLogs.tsx`)**:
       - **Bloque D — Error Boundaries Institucionales y Telemetría de Fallos**:
         - Creados `src/app/error.tsx`, `src/app/global-error.tsx` y `src/app/not-found.tsx` con UI institucional de recuperación (botón de reintento, navegación segura y código `digest`).

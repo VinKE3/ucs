@@ -23,6 +23,24 @@ test.describe('UCS Smoke E2E — Rutas Públicas, Salud, PWA y 404', () => {
     expect(manifest.icons.length).toBeGreaterThan(0);
   });
 
+  test('Service Worker (/sw.js) se sirve sin caché obsoleta y se registra en el navegador', async ({ request, page }) => {
+    const res = await request.get('/sw.js');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['cache-control'] || '').toContain('no-cache');
+    const swBody = await res.text();
+    expect(swBody).toContain('ucs-ai-models-v1');
+    expect(swBody).toContain('ucs-kiosk-offline-sync');
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const swRegistered = await page.evaluate(async () => {
+      if (!('serviceWorker' in navigator)) return false;
+      const reg = await navigator.serviceWorker.ready;
+      return Boolean(reg && reg.active && reg.active.scriptURL.endsWith('/sw.js'));
+    });
+    expect(swRegistered).toBe(true);
+  });
+
   test('Kiosco (/) renderiza sin errores de consola críticos', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));

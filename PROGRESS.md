@@ -3,6 +3,30 @@
 > **Propósito**: Este archivo sirve como memoria viva y punto de sincronización de contexto entre computadoras (Oficina 🏢 <-> Casa 🏠) para los asistentes de Antigravity IDE / Gemini.
 > **Regla para el Asistente**: Al iniciar una nueva conversación o continuar el trabajo, lee este archivo para comprender el estado actual, las decisiones arquitectónicas y los pendientes inmediatos.
 
+    - **Hito 149: Refactorización Modular de Archivos Monolíticos (`KioscoTerminal.tsx` y `HubLogisticaSimulacion.tsx` — Bloque G)**:
+      - **Modularización de `src/app/KioscoTerminal.tsx` (~2,867 → ~2,200 líneas, -665 líneas)**:
+        - Extraídos tipos y constantes de dominio a `src/types/kiosco.ts`.
+        - Extraídos subcomponentes desacoplados y tipados en `src/components/kiosco/`:
+          - `KioscoCameraWidget.tsx` (widget reutilizable de cámara testigo biométrica).
+          - `KioscoTicketSalidaCard.tsx` (constancia electrónica digital y métricas por rol con contador de reinicio).
+          - `KioscoAutorizarModal.tsx` (modal OTP / credenciales para vinculación oficial de tablets Kiosco).
+      - **Modularización de `src/components/admin/tabs/HubLogisticaSimulacion.tsx` (~3,723 → ~2,920 líneas, -800 líneas)**:
+        - Extraída lógica pura de horarios, colores deterministas y generación de reportes WhatsApp/SimClic a `src/lib/hubLogisticaHelpers.ts`.
+        - Extraída toda la vista Gantt de Transiciones Intra-Día a `src/components/admin/hub-logistica/HubTransicionesIntraDiaView.tsx`.
+      - **Pruebas y Verificación**: Añadida suite `src/lib/__tests__/hubLogisticaHelpers.test.ts` (5 pruebas); validado con `npx tsc --noEmit`, `npm test`, `npm run build` y `npm run test:e2e`.
+
+    - **Hito 148: PWA Offline Real con Service Worker, Caché IA Persistente y Background Sync (`public/sw.js`, `PwaServiceWorkerRegistrar.tsx`, `layout.tsx`, `next.config.ts`, `kioskOfflineStorage.ts`, `e2e/smoke-routes.spec.ts`)**:
+      - **Service Worker Institucional (`public/sw.js`)**:
+        - **Cache-First** (`ucs-ai-models-v1`) para `/models/face-api/*` (los ~13.7 MB de modelos de reconocimiento facial operan 100% offline tras la primera carga).
+        - **Stale-While-Revalidate** (`ucs-static-v1`) para `/_next/static/*`, `/manifest.webmanifest`, `/logo.png` y `/logoucs.png`.
+        - **Network-First con fallback offline** (`ucs-pages-v1`) para navegaciones HTML (evita pantallas de error ante caídas de Wi-Fi en tablets Kiosco), excluyendo estrictamente `/api/*` para proteger privacidad y frescura de datos.
+        - **Background Sync (`ucs-kiosk-offline-sync`)**: drena automáticamente la cola `cola_marcaciones` de IndexedDB hacia `POST /api/kiosco/offline` cuando retorna la conectividad.
+      - **Registro y Cabeceras**:
+        - Creado `src/components/PwaServiceWorkerRegistrar.tsx` montado en `src/app/layout.tsx` con `updateViaCache: 'none'`.
+        - Configurada cabecera `Cache-Control: no-cache, no-store, must-revalidate` + `Service-Worker-Allowed: /` para `/sw.js` en `next.config.ts`.
+        - `encolarMarcacionOffline` en `src/lib/kioskOfflineStorage.ts` registra automáticamente el evento `sync` (`ucs-kiosk-offline-sync`) al encolar una marcación offline.
+      - **Verificación E2E**: Añadida prueba en `e2e/smoke-routes.spec.ts` que valida headers, contenido y registro activo de `/sw.js` en Chromium real.
+
     - **Hito 147: Pruebas E2E Automatizadas con Playwright y Pipeline CI Completo (`playwright.config.ts`, `e2e/smoke-routes.spec.ts`, `e2e/security-guards.spec.ts`, `.github/workflows/ci.yml`, `package.json`, `.gitignore`)**:
       - **Infraestructura Playwright (`playwright.config.ts`, `package.json`)**:
         - Instalado `@playwright/test` + navegador Chromium y agregados scripts `npm run test:e2e` y `npm run test:e2e:ui`.

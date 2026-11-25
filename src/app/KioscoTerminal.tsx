@@ -18,114 +18,20 @@ import {
   sincronizarColaOffline,
 } from '@/lib/kioskOfflineStorage';
 import { ModalEscaneoFacialBeta } from '@/components/kiosco/ModalEscaneoFacialBeta';
+import { KioscoCameraWidget } from '@/components/kiosco/KioscoCameraWidget';
+import { KioscoTicketSalidaCard } from '@/components/kiosco/KioscoTicketSalidaCard';
+import { KioscoAutorizarModal } from '@/components/kiosco/KioscoAutorizarModal';
 import { isClinicOperatingHours } from '@/lib/peruTime';
-
-interface TerminalData {
-  id: number;
-  nombre: string;
-  sedeId: number | null;
-  sedeNombre: string | null;
-  sedeCodigo: string | null;
-  camaraActiva?: boolean;
-}
-
-interface AmbienteItem {
-  id: number;
-  nombre: string;
-  codigo: string | null;
-  tipo: string;
-  capacidad: number | null;
-  ocupada?: boolean;
-  docenteActivo?: string | null;
-  horaIngresoDocente?: string | null;
-  cursoActivo?: string | null;
-  cursoActivoId?: number | null;
-  docentesActivos?: Array<{ usuarioId: number; nombres: string; apellidos: string; horaIngreso: string }>;
-  pacientesActivos?: Array<{ usuarioId: number; nombres: string; apellidos: string; horaIngreso: string }>;
-  totalOcupantes?: number;
-}
-
-interface SedeItem {
-  id: number;
-  nombre: string;
-  codigo: string | null;
-  ambientes: AmbienteItem[];
-}
-
-interface UsuarioData {
-  id: number;
-  dni: string;
-  nombres: string;
-  apellidos: string;
-  tipoPersonal: 'docente' | 'tecnico' | 'paciente_simulado' | 'administrativo';
-  horaEntradaEsperada?: string | null;
-  horaSalidaEsperada?: string | null;
-  esHorarioRotativo?: boolean;
-  horasJornadaObjetivo?: number | string | null;
-  turnoHoy?: {
-    id: number;
-    fecha: string;
-    tipoDia: string;
-    horaEntradaEsperada: string;
-    horaSalidaEsperada: string;
-    esPersonalizado: boolean;
-    nota?: string | null;
-  } | null;
-  saldoDiasCompensatorios?: number | null;
-  turnoCompletadoHoy?: {
-    id: number;
-    horaIngreso: string;
-    horaSalida: string;
-    minutosTotales: number;
-    sedeId: number;
-    sedeNombre: string | null;
-    observaciones?: string | null;
-  } | null;
-}
-
-interface AsistenciaActiva {
-  id: number;
-  sedeId: number;
-  ambienteId: number | null;
-  cursoId?: number | null;
-  cursoNombre?: string | null;
-  horaIngreso: string;
-  sedeNombre: string | null;
-  ambienteNombre: string | null;
-  ambienteCodigo: string | null;
-}
-
-interface CursoItem {
-  id: number;
-  nombre: string;
-  codigo: string | null;
-}
-
-interface SesionSugeridaItem {
-  id: number;
-  simclicId: string;
-  titulo: string;
-  cursoId: number | null;
-  cursoNombre: string | null;
-  ambienteId: number | null;
-  ambienteNombre: string | null;
-  ambienteCodigo: string | null;
-  horaInicio: string;
-  horaFin: string;
-  rol: 'docente_titular' | 'co_docente' | 'paciente_simulado';
-  esProxima: boolean;
-  minutosParaInicio: number;
-  sedeId: number | null;
-  sedeNombre: string | null;
-  totalBloquesHoy?: number;
-  numeroBloque?: number;
-  proximoBloque?: {
-    cursoNombre: string;
-    ambienteNombre: string | null;
-    horaInicio: string;
-    horaFin: string;
-  } | null;
-}
+import {
+  DEFAULT_KIOSCO_ROOM_CATEGORIES,
+  type TerminalData,
+  type AmbienteItem,
+  type SedeItem,
+  type UsuarioData,
+  type AsistenciaActiva,
+  type CursoItem,
+  type SesionSugeridaItem,
+} from '@/types/kiosco';
 
 export default function KioscoTerminal() {
   const [sedesList, setSedesList] = useState<SedeItem[]>([]);
@@ -145,14 +51,9 @@ export default function KioscoTerminal() {
   // Filtros de ambiente en el kiosco
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('todos');
   const [roomSearch, setRoomSearch] = useState<string>('');
-  const [roomCategories, setRoomCategories] = useState<Array<{ id: string; label: string; icono?: string | null }>>([
-    { id: 'todos', label: 'Todas' },
-    { id: 'alta_fidelidad', label: 'Alta Fidelidad', icono: '🫀' },
-    { id: 'habilidades', label: 'Habilidades', icono: '🧤' },
-    { id: 'consultorio', label: 'Consultorios / OSCE', icono: '🩺' },
-    { id: 'hospitalizacion', label: 'Hospitalización', icono: '🛏️' },
-    { id: 'debriefing', label: 'Debriefing', icono: '💡' },
-  ]);
+  const [roomCategories, setRoomCategories] = useState<Array<{ id: string; label: string; icono?: string | null }>>(
+    DEFAULT_KIOSCO_ROOM_CATEGORIES
+  );
 
   // Estado del usuario consultado
   const [usuarioActual, setUsuarioActual] = useState<UsuarioData | null>(null);
@@ -1071,182 +972,6 @@ export default function KioscoTerminal() {
     };
   }, [requiereFotoBiometrica, initCamera]);
 
-  const renderCameraVerificationWidget = () => {
-    if (!requiereFotoBiometrica) return null;
-    const currentHost = typeof window !== 'undefined' ? window.location.host : 'este sitio';
-
-    return (
-      <div
-        style={{
-          marginBottom: '1rem',
-          padding: '0.85rem 1rem',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
-          border: '1.5px solid rgba(56, 189, 248, 0.35)',
-          borderRadius: '14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-        }}
-      >
-        <div
-          style={{
-            position: 'relative',
-            width: '94px',
-            height: '76px',
-            borderRadius: '10px',
-            overflow: 'hidden',
-            backgroundColor: '#020617',
-            border: cameraActive ? '2px solid #10b981' : '1.5px dashed #64748b',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <video
-            ref={(el) => {
-              videoRef.current = el;
-              if (el) {
-                el.muted = true;
-                if (mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
-                  el.srcObject = mediaStreamRef.current;
-                  el.play().catch(() => {});
-                }
-              }
-            }}
-            autoPlay
-            playsInline
-            muted
-            onLoadedMetadata={() => {
-              if (videoRef.current) {
-                videoRef.current.play().catch(() => {});
-              }
-            }}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transform: 'scaleX(-1)',
-              display: cameraActive ? 'block' : 'none',
-            }}
-          />
-          {!cameraActive && (
-            <span style={{ fontSize: '1.5rem', color: '#64748b' }}>📷</span>
-          )}
-          {cameraActive && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '5px',
-                right: '5px',
-                width: '9px',
-                height: '9px',
-                borderRadius: '50%',
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 8px #10b981',
-              }}
-              title="Cámara web activa en vivo"
-            />
-          )}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc' }}>
-              🛡️ Biometría Visual de Seguridad
-            </span>
-            {cameraActive ? (
-              <span
-                style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  padding: '0.1rem 0.45rem',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34d399',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                }}
-              >
-                ● En vivo
-              </span>
-            ) : (
-              <span
-                style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  padding: '0.1rem 0.45rem',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(234, 179, 8, 0.15)',
-                  color: '#facc15',
-                  border: '1px solid rgba(234, 179, 8, 0.35)',
-                }}
-              >
-                {cameraLoading ? 'Conectando...' : 'Requiere activación'}
-              </span>
-            )}
-          </div>
-
-          <p style={{ margin: '0.2rem 0 0', fontSize: '0.74rem', color: cameraActive ? '#94a3b8' : '#cbd5e1', lineHeight: 1.35 }}>
-            {cameraActive
-              ? (asistenciaActiva
-                  ? '✅ Cámara lista. Al pulsar registrar salida se capturará una fotografía testigo de auditoría.'
-                  : '✅ Cámara lista. Al pulsar registrar ingreso se capturará una fotografía testigo de baja resolución.')
-              : (cameraError || 'Haz clic en el botón para activar la cámara web y autorizar el permiso en tu navegador.')}
-          </p>
-
-          {!cameraActive && (
-            <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <button
-                type="button"
-                disabled={cameraLoading}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  initCamera(true);
-                }}
-                style={{
-                  padding: '0.45rem 1rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  background: cameraLoading
-                    ? 'rgba(51, 65, 85, 0.6)'
-                    : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
-                  borderRadius: '8px',
-                  cursor: cameraLoading ? 'wait' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  width: 'fit-content',
-                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
-                }}
-              >
-                <span>{cameraLoading ? '🌀' : '📸'}</span>
-                <span>{cameraLoading ? 'Solicitando permiso...' : 'Activar Cámara Web'}</span>
-              </button>
-
-              {cameraError && (
-                <div style={{
-                  fontSize: '0.71rem',
-                  color: '#fca5a5',
-                  background: 'rgba(153, 27, 27, 0.25)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: '6px',
-                  padding: '0.35rem 0.55rem',
-                  lineHeight: 1.35,
-                }}>
-                  💡 <strong>¿No viste el cartel?</strong> Haz clic en el ícono a la izquierda de <code>{currentHost}</code> en la barra de URL y enciende el interruptor de <strong>Cámara</strong>.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const resetearTerminal = () => {
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
@@ -1469,275 +1194,12 @@ export default function KioscoTerminal() {
 
             {/* MENSAJE DE ÉXITO TRAS MARCAR */}
             {feedback ? (
-              <div className={`${styles.feedbackAlert} ${styles.feedbackSuccess}`}>
-                <div className={styles.feedbackIconWrap}>
-                  {feedback.tipo === 'ingreso' ? (
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00e699" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                  ) : (
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                  )}
-                </div>
-                <div className={styles.feedbackSuccessTitle}>
-                  {feedback.tipo === 'ingreso' ? '¡Ingreso Registrado con Éxito!' : '¡Salida Registrada con Éxito!'}
-                </div>
-                <p className={styles.feedbackSuccessDesc}>{feedback.mensaje}</p>
-
-                {/* TICKET DIGITAL DE SESIÓN */}
-                {ticketSalida && (
-                  <div style={{
-                    background: 'var(--bg-elevated, rgba(13, 52, 108, 0.25))',
-                    border: '1px solid var(--border-color, rgba(56, 189, 248, 0.25))',
-                    borderRadius: '12px',
-                    padding: '1.25rem',
-                    marginTop: '1rem',
-                    width: '100%',
-                    maxWidth: '560px',
-                    textAlign: 'left',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      borderBottom: '1px dashed var(--border-color, rgba(255, 255, 255, 0.15))',
-                      paddingBottom: '0.75rem',
-                      marginBottom: '0.85rem',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1.3rem' }}>🧾</span>
-                        <div>
-                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                            Resumen Digital de Sesión
-                          </strong>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            Clínica de Simulación UCS • Constancia Electrónica
-                          </div>
-                        </div>
-                      </div>
-
-                      <span style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '6px',
-                        background: ticketSalida.tipoPersonal === 'docente'
-                          ? 'rgba(56, 189, 248, 0.15)'
-                          : ticketSalida.tipoPersonal === 'paciente_simulado'
-                            ? 'rgba(168, 85, 247, 0.15)'
-                            : 'rgba(0, 230, 153, 0.15)',
-                        color: ticketSalida.tipoPersonal === 'docente'
-                          ? '#38bdf8'
-                          : ticketSalida.tipoPersonal === 'paciente_simulado'
-                            ? '#c084fc'
-                            : '#00e699',
-                        border: '1px solid currentColor',
-                      }}>
-                        {ticketSalida.tipoPersonal === 'docente' ? 'Docente' : ticketSalida.tipoPersonal === 'paciente_simulado' ? 'Paciente Simulado' : 'Técnico'}
-                      </span>
-                    </div>
-
-                    {/* DATOS DE LA SESIÓN */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                      gap: '0.65rem',
-                      fontSize: '0.84rem',
-                      marginBottom: '0.85rem',
-                    }}>
-                      <div>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Colaborador:</span>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{ticketSalida.colaborador}</div>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Campus y Sala:</span>
-                        <div style={{ fontWeight: 600, color: 'var(--ucs-blue-sky, #38bdf8)' }}>
-                          {ticketSalida.sedeSalidaNombre && ticketSalida.sedeSalidaNombre !== ticketSalida.sedeNombre ? (
-                            <span>
-                              {ticketSalida.sedeNombre}{' '}
-                              <span style={{ color: 'var(--ucs-orange, #ff5a00)', margin: '0 0.25rem' }}>➡️</span>{' '}
-                              {ticketSalida.sedeSalidaNombre}{' '}
-                              <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>(Traslado Inter-Sedes)</span>
-                            </span>
-                          ) : (
-                            `${ticketSalida.sedeNombre} • ${ticketSalida.ambienteNombre}`
-                          )}
-                        </div>
-                      </div>
-                      {ticketSalida.cursoNombre && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>Curso / Escenario:</span>
-                          <div style={{ fontWeight: 600, color: 'var(--ucs-orange, #ff5a00)' }}>
-                            📚 {ticketSalida.cursoNombre}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* DESTACADO DE LA JORNADA DE HOY */}
-                    <div style={{
-                      background: 'rgba(0, 0, 0, 0.2)',
-                      borderRadius: '8px',
-                      padding: '0.75rem 1rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '0.85rem',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                    }}>
-                      <div>
-                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Jornada de Hoy:</span>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
-                          ⏱️ {ticketSalida.tiempoSesionTexto}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                        <div>Ingreso: {new Date(ticketSalida.horaIngreso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div>Salida: {new Date(ticketSalida.horaSalida).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</div>
-                      </div>
-                    </div>
-
-                    {/* MÉTRICAS ESPECÍFICAS SEGÚN ROL */}
-                    {ticketSalida.tipoPersonal === 'docente' && (
-                      <div style={{
-                        background: 'rgba(56, 189, 248, 0.08)',
-                        borderRadius: '8px',
-                        padding: '0.75rem 1rem',
-                        border: '1px solid rgba(56, 189, 248, 0.2)',
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                            📊 Acumulado Semanal (Lunes a Domingo):
-                          </span>
-                          <strong style={{ fontSize: '0.88rem', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
-                            {ticketSalida.horasSemanaTexto}
-                            {ticketSalida.horasSemanaMax ? ` / ${ticketSalida.horasSemanaMax}h tope` : ''}
-                          </strong>
-                        </div>
-                        {ticketSalida.horasSemanaMax && (
-                          <div style={{ width: '100%', height: '5px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${Math.min(100, Math.round(((ticketSalida.minutosSemanaTotal / 60) / ticketSalida.horasSemanaMax) * 100))}%`,
-                              height: '100%',
-                              background: ((ticketSalida.minutosSemanaTotal / 60) > ticketSalida.horasSemanaMax) ? '#ef4444' : '#38bdf8',
-                            }} />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {ticketSalida.tipoPersonal === 'paciente_simulado' && (
-                      <div style={{
-                        background: 'rgba(168, 85, 247, 0.08)',
-                        borderRadius: '8px',
-                        padding: '0.75rem 1rem',
-                        border: '1px solid rgba(168, 85, 247, 0.25)',
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                            🎭 Total Acumulado en el Mes:
-                          </span>
-                          <strong style={{ fontSize: '0.9rem', color: '#c084fc', fontFamily: 'var(--font-mono)' }}>
-                            {ticketSalida.horasMesTexto}
-                          </strong>
-                        </div>
-                      </div>
-                    )}
-
-                    {(ticketSalida.tipoPersonal === 'tecnico' || ticketSalida.tipoPersonal === 'administrativo') && (
-                      <div style={{
-                        background: 'rgba(0, 230, 153, 0.08)',
-                        borderRadius: '8px',
-                        padding: '0.65rem 0.85rem',
-                        border: '1px solid rgba(0, 230, 153, 0.2)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.45rem',
-                        fontSize: '0.78rem',
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Acumulado Semana: <strong>{ticketSalida.horasSemanaTexto}</strong></span>
-                          <span>Acumulado Mes: <strong>{ticketSalida.horasMesTexto}</strong></span>
-                        </div>
-                        {ticketSalida.tipoPersonal === 'tecnico' && ticketSalida.diasCompensatoriosSaldo !== undefined && ticketSalida.diasCompensatoriosSaldo !== null && (
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            paddingTop: '0.35rem',
-                            borderTop: '1px dashed rgba(0, 230, 153, 0.25)',
-                            color: '#34d399',
-                            fontWeight: 600,
-                          }}>
-                            <span>⭐ Días Compensatorios a Favor:</span>
-                            <span style={{
-                              background: 'rgba(16, 185, 129, 0.2)',
-                              padding: '0.1rem 0.5rem',
-                              borderRadius: '4px',
-                              fontFamily: 'var(--font-mono)',
-                            }}>
-                              {ticketSalida.diasCompensatoriosSaldo} {ticketSalida.diasCompensatoriosSaldo === 1 ? 'día' : 'días'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.65rem',
-                  width: '100%',
-                  marginTop: '1.25rem',
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    fontSize: '0.86rem',
-                    color: 'var(--text-secondary)',
-                  }}>
-                    <span style={{ display: 'inline-block', animation: 'spin 3s linear infinite' }}>🔄</span>
-                    <span>
-                      Reinicio automático en <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{countdown ?? (ticketSalida ? 8 : 5)}s</strong>
-                    </span>
-                  </div>
-
-                  <div style={{
-                    width: '100%',
-                    maxWidth: '280px',
-                    height: '4px',
-                    background: 'rgba(255,255,255,0.08)',
-                    borderRadius: '2px',
-                    overflow: 'hidden',
-                  }}>
-                    <div style={{
-                      width: `${((countdown ?? (ticketSalida ? 8 : 5)) / (ticketSalida ? 8 : 5)) * 100}%`,
-                      height: '100%',
-                      background: feedback.tipo === 'ingreso' ? '#00e699' : '#38bdf8',
-                      transition: 'width 1s linear',
-                    }} />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={resetearTerminal}
-                    className={styles.nextPersonBtn}
-                    style={{ marginTop: '0.5rem' }}
-                  >
-                    Siguiente persona ahora →
-                  </button>
-                </div>
-              </div>
+              <KioscoTicketSalidaCard
+                feedback={feedback}
+                ticketSalida={ticketSalida}
+                countdown={countdown}
+                onReset={resetearTerminal}
+              />
             ) : (
               <>
                 {/* BUSCADOR DE DNI */}
@@ -2057,7 +1519,16 @@ export default function KioscoTerminal() {
                           </div>
                         )}
 
-                        {renderCameraVerificationWidget()}
+                        <KioscoCameraWidget
+  requiereFotoBiometrica={requiereFotoBiometrica}
+  cameraActive={cameraActive}
+  cameraLoading={cameraLoading}
+  cameraError={cameraError}
+  asistenciaActiva={asistenciaActiva}
+  videoRef={videoRef}
+  mediaStreamRef={mediaStreamRef}
+  onInitCamera={initCamera}
+/>
 
                         <button
                           onClick={() => handleMarcar('salida')}
@@ -2183,7 +1654,16 @@ export default function KioscoTerminal() {
                               </div>
                             )}
 
-                            {renderCameraVerificationWidget()}
+                            <KioscoCameraWidget
+  requiereFotoBiometrica={requiereFotoBiometrica}
+  cameraActive={cameraActive}
+  cameraLoading={cameraLoading}
+  cameraError={cameraError}
+  asistenciaActiva={asistenciaActiva}
+  videoRef={videoRef}
+  mediaStreamRef={mediaStreamRef}
+  onInitCamera={initCamera}
+/>
                             <button
                               onClick={() => handleMarcar('ingreso')}
                               disabled={marcando}
@@ -2325,7 +1805,16 @@ export default function KioscoTerminal() {
                                   </div>
                                 )}
 
-                                {renderCameraVerificationWidget()}
+                                <KioscoCameraWidget
+  requiereFotoBiometrica={requiereFotoBiometrica}
+  cameraActive={cameraActive}
+  cameraLoading={cameraLoading}
+  cameraError={cameraError}
+  asistenciaActiva={asistenciaActiva}
+  videoRef={videoRef}
+  mediaStreamRef={mediaStreamRef}
+  onInitCamera={initCamera}
+/>
                                 {/* BOTÓN 1-TAP CONFIRMAR INGRESO DIRECTO */}
                                 <button
                                   type="button"
@@ -2626,7 +2115,16 @@ export default function KioscoTerminal() {
                               );
                             })()}
 
-                                {renderCameraVerificationWidget()}
+                                <KioscoCameraWidget
+  requiereFotoBiometrica={requiereFotoBiometrica}
+  cameraActive={cameraActive}
+  cameraLoading={cameraLoading}
+  cameraError={cameraError}
+  asistenciaActiva={asistenciaActiva}
+  videoRef={videoRef}
+  mediaStreamRef={mediaStreamRef}
+  onInitCamera={initCamera}
+/>
 
                                 <button
                                   onClick={() => handleMarcar('ingreso')}
@@ -2673,182 +2171,27 @@ export default function KioscoTerminal() {
       )}
 
       {/* MODAL PARA AUTORIZAR TERMINAL (CON CÓDIGO OTP O CREDENCIALES) */}
-      {showAuthModal && (
-        <div className={styles.authModalOverlay} onClick={() => !authSubmitting && setShowAuthModal(false)}>
-          <div className={styles.authModalCard} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.authModalHeader}>
-              <h3 className={styles.authModalTitle}>
-                <span>🔐</span> Autorizar Terminal Oficial
-              </h3>
-              <button
-                type="button"
-                onClick={() => !authSubmitting && setShowAuthModal(false)}
-                className={styles.authCloseBtn}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* TABS DE MÉTODO */}
-            <div className={styles.authTabs}>
-              <button
-                type="button"
-                onClick={() => { setAuthMetodo('otp'); setAuthError(null); }}
-                className={`${styles.authTabBtn} ${authMetodo === 'otp' ? styles.authTabBtnActive : ''}`}
-              >
-                <span>🔑</span> Código de Un Solo Uso (OTP)
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMetodo('credenciales'); setAuthError(null); }}
-                className={`${styles.authTabBtn} ${authMetodo === 'credenciales' ? styles.authTabBtnActive : ''}`}
-              >
-                <span>👤</span> Administrador
-              </button>
-            </div>
-
-            <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-              {authMetodo === 'otp' ? (
-                <>
-                  Ingrese el <strong>código temporal de 6 dígitos</strong> generado desde el panel de Sedes por la administración para habilitar este equipo a distancia.
-                </>
-              ) : (
-                <>
-                  Inicie sesión con su cuenta de Administrador de la Universidad para emparejar este navegador de forma permanente como una terminal autorizada del Kiosco.
-                </>
-              )}
-            </p>
-
-            {authError && (
-              <div
-                style={{
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  color: '#ef4444',
-                  padding: '0.65rem 0.85rem',
-                  borderRadius: '8px',
-                  fontSize: '0.8rem',
-                }}
-              >
-                ⚠️ {authError}
-              </div>
-            )}
-
-            <form onSubmit={handleAuthorizeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {authMetodo === 'otp' ? (
-                <>
-                  <div className={styles.authFormGroup}>
-                    <label className={styles.authLabel}>Código de Activación Temporal (OTP) *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="145-682"
-                      maxLength={10}
-                      value={authOtpCode}
-                      onChange={(e) => setAuthOtpCode(e.target.value)}
-                      className={`${styles.authInput} ${styles.authOtpInput}`}
-                      disabled={authSubmitting}
-                      autoFocus
-                    />
-                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.2rem' }}>
-                      Código de 6 dígitos generado por la Administración
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      background: 'rgba(56, 189, 248, 0.08)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      borderRadius: '10px',
-                      padding: '0.75rem 0.9rem',
-                      fontSize: '0.78rem',
-                      color: 'var(--text-secondary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.55rem',
-                    }}
-                  >
-                    <span style={{ fontSize: '1.15rem' }}>✨</span>
-                    <span>
-                      <strong>Configuración 100% Automática:</strong> La sede y el nombre oficial de esta pantalla fueron predefinidos por la administración al generar el código.
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={styles.authFormGroup}>
-                    <label className={styles.authLabel}>Correo o DNI de Administrador *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="123456789"
-                      value={authAdminId}
-                      onChange={(e) => setAuthAdminId(e.target.value)}
-                      className={styles.authInput}
-                      disabled={authSubmitting}
-                    />
-                  </div>
-
-                  <div className={styles.authFormGroup}>
-                    <label className={styles.authLabel}>Contraseña de Administrador *</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      value={authAdminPass}
-                      onChange={(e) => setAuthAdminPass(e.target.value)}
-                      className={styles.authInput}
-                      disabled={authSubmitting}
-                    />
-                  </div>
-
-                  <div className={styles.authFormGroup}>
-                    <label className={styles.authLabel}>Nombre de esta Terminal / Pantalla *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="ej: Tablet Recepción Villa, PC Simulación Norte..."
-                      value={authTerminalName}
-                      onChange={(e) => setAuthTerminalName(e.target.value)}
-                      className={styles.authInput}
-                      disabled={authSubmitting}
-                    />
-                  </div>
-
-                  <div className={styles.authFormGroup}>
-                    <label className={styles.authLabel}>Campus / Sede Asignada (Opcional)</label>
-                    <select
-                      value={authSedeId || ''}
-                      onChange={(e) => setAuthSedeId(e.target.value ? Number(e.target.value) : null)}
-                      className={styles.authSelect}
-                      disabled={authSubmitting}
-                    >
-                      <option value="">Cualquier Sede (Multisede)</option>
-                      {sedesList.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              <button
-                type="submit"
-                disabled={authSubmitting}
-                className={styles.authSubmitBtn}
-              >
-                {authSubmitting
-                  ? 'Verificando y autorizando...'
-                  : authMetodo === 'otp'
-                  ? '🔐 Vincular y Desbloquear Terminal'
-                  : '🔐 Vincular y Autorizar Dispositivo'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <KioscoAutorizarModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        authSubmitting={authSubmitting}
+        authMetodo={authMetodo}
+        setAuthMetodo={setAuthMetodo}
+        authError={authError}
+        setAuthError={setAuthError}
+        authOtpCode={authOtpCode}
+        setAuthOtpCode={setAuthOtpCode}
+        authAdminId={authAdminId}
+        setAuthAdminId={setAuthAdminId}
+        authAdminPass={authAdminPass}
+        setAuthAdminPass={setAuthAdminPass}
+        authTerminalName={authTerminalName}
+        setAuthTerminalName={setAuthTerminalName}
+        authSedeId={authSedeId}
+        setAuthSedeId={setAuthSedeId}
+        sedesList={sedesList}
+        onSubmit={handleAuthorizeSubmit}
+      />
       {/* MODAL RECONOCIMIENTO FACIAL (FASE BETA) */}
       <ModalEscaneoFacialBeta
         isOpen={modalFacialAbierto}

@@ -406,7 +406,23 @@ export async function encolarMarcacionOffline(item: Omit<MarcacionOfflineItem, '
   store.put(record);
 
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => { db.close(); resolve(record); };
+    tx.oncomplete = () => {
+      db.close();
+      // Registrar Background Sync del Service Worker si el navegador lo soporta (best-effort)
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then((reg) => {
+            const syncManager = (reg as ServiceWorkerRegistration & {
+              sync?: { register: (tag: string) => Promise<void> };
+            }).sync;
+            if (syncManager) {
+              return syncManager.register('ucs-kiosk-offline-sync');
+            }
+          })
+          .catch(() => {});
+      }
+      resolve(record);
+    };
     tx.onerror = () => { db.close(); reject(tx.error); };
   });
 }
